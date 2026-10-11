@@ -6,7 +6,8 @@ import {
   Clock, 
   Tag, 
   FileText, 
-  Trash2
+  Trash2,
+  CheckCircle2
 } from 'lucide-react';
 
 interface ProductHeaderProps {
@@ -62,6 +63,11 @@ export const ProductHeader: React.FC<ProductHeaderProps> = ({ product }) => {
     product.functionalFoodDetail?.suggestedUseKorean ||
     `1일 ${product.dailyServings}회, 1회 ${product.amountPerServing}${product.servingUnitKorean} 복용`;
 
+  const indications =
+    product.otcDetail?.indicationsKorean ||
+    product.functionalFoodDetail?.functionalClaimsKorean ||
+    [];
+
   const regulatoryCode =
     product.otcDetail?.itemSeq
       ? `식약처 품목기준코드: ${product.otcDetail.itemSeq}`
@@ -109,6 +115,36 @@ export const ProductHeader: React.FC<ProductHeaderProps> = ({ product }) => {
             <span className="font-semibold text-amber-900">표준 복용·섭취 기준:</span>
             <span className="font-medium">{standardInstruction}</span>
           </div>
+
+          {/* 약학정보원(KPAIC) 공시 효능·효과 요약 박스 */}
+          {indications.length > 0 && (
+            <div className="bg-sky-50/70 border border-sky-200/80 rounded-lg p-2.5 text-xs">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-1.5 font-bold text-sky-950">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                  <span>
+                    {product.classification === 'OTC_DRUG'
+                      ? '약학정보원(KPAIC) 공시 효능·효과 요약'
+                      : '식품안전나라 인정 기능성 요약'}
+                  </span>
+                </div>
+                <span className="text-[10px] text-sky-600 font-medium bg-sky-100/70 border border-sky-200/60 px-2 py-0.5 rounded-full">
+                  {product.classification === 'OTC_DRUG' ? '식약처·약학정보원 표준' : '공식 인정 기능성'}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-1.5">
+                {indications.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-start gap-1.5 bg-white/90 px-2.5 py-1.5 rounded-md border border-sky-100 text-[11px] leading-relaxed font-medium text-slate-700 shadow-2xs"
+                  >
+                    <span className="text-sky-500 font-bold shrink-0 mt-0.5">•</span>
+                    <span>{item}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* 핵심 특징 태그 */}
           <div className="flex items-center gap-1.5 flex-wrap pt-0.5">

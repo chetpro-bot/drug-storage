@@ -88,10 +88,10 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-100/90 text-slate-700 text-xs font-bold uppercase tracking-wider sticky top-0 z-10 border-b border-slate-200">
-              <th className="py-2.5 px-3.5 w-[110px] text-center">기능 분류</th>
-              <th className="py-2.5 px-4 w-[280px]">성분 / 함량 (Specification)</th>
-              <th className="py-2.5 px-4">핵심 특징 및 작용 원리 요약</th>
-              <th className="py-2.5 px-3.5 w-[200px]">원료 형태 / 염 (Form)</th>
+              <th className="py-2.5 px-3.5 w-[110px] text-center shrink-0">기능 분류</th>
+              <th className="py-2.5 px-4 w-[36%] min-w-[340px]">성분 / 함량 (Specification)</th>
+              <th className="py-2.5 px-4 w-[34%] min-w-[280px]">핵심 특징 및 작용 원리 요약</th>
+              <th className="py-2.5 px-3.5 w-[220px] shrink-0">원료 형태 / 염 (Form)</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-xs">
@@ -154,7 +154,7 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
                   className="hover:bg-sky-50/50 transition-colors group align-top"
                 >
                   {/* 1. 기능 분류 (앞에 배치) */}
-                  <td className="py-3 px-3.5 whitespace-nowrap text-center">
+                  <td className="py-3 px-3.5 whitespace-nowrap text-center w-[110px] shrink-0">
                     <span
                       className={`inline-block text-[11px] font-bold px-2.5 py-1 rounded-md border ${getCategoryColor(
                         ing.functionalCategory
@@ -164,8 +164,8 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
                     </span>
                   </td>
 
-                  {/* 2. 성분 / 함량 (요청하신 영문 표준 포맷) */}
-                  <td className="py-3 px-4">
+                  {/* 2. 성분 / 함량 (요청하신 칸 너비 확대) */}
+                  <td className="py-3 px-4 w-[36%] min-w-[340px]">
                     <div className="font-bold text-slate-900 text-sm tracking-tight flex items-center gap-1.5 group-hover:text-sky-700 transition-colors">
                       <span>{displaySpec}</span>
                       {ing.isMainActive && (
@@ -177,15 +177,15 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
                     </div>
                   </td>
 
-                  {/* 3. 핵심 특징 및 작용 원리 요약 (성분/함량 뒤에 배치) */}
-                  <td className="py-3 px-4">
+                  {/* 3. 핵심 특징 및 작용 원리 요약 (요청하신 칸 너비 축소) */}
+                  <td className="py-3 px-4 w-[34%] min-w-[280px]">
                     <div className="text-slate-700 text-xs leading-relaxed whitespace-pre-line bg-slate-50/70 p-2.5 rounded-lg border border-slate-100">
                       {ing.clinicalSummary}
                     </div>
                   </td>
 
                   {/* 4. 원료 형태 / 염 (핵심 특징 뒤에 배치) */}
-                  <td className="py-3 px-3.5">
+                  <td className="py-3 px-3.5 w-[220px] shrink-0">
                     <div className="text-slate-700 font-medium text-xs leading-relaxed">
                       {ing.chemicalFormName}
                     </div>

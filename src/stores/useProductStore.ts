@@ -99,11 +99,11 @@ function getInitialProducts(): ProductItem[] {
     }
   }
 
-  // 만약 기존에 캐시된 마이타민업의 성분이 구버전(1일 환산 수치 오류)이라면 최신 정정 규격으로 자동 갱신
+  // 만약 기존에 캐시된 마이타민업이 있다면 최신 정정 규격 및 기능성 정보로 자동 동기화
   const mytaminMock = MOCK_PRODUCTS.find((p) => p.id === 'prod_mytamin_up');
   if (mytaminMock) {
     const mytaminIdx = loadedProducts.findIndex((p) => p.id === 'prod_mytamin_up');
-    if (mytaminIdx !== -1 && loadedProducts[mytaminIdx].ingredients[0].rawAmount > 30) {
+    if (mytaminIdx !== -1) {
       loadedProducts[mytaminIdx] = mytaminMock;
     }
   }

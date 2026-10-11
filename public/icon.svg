@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7" />
+      <stop offset="100%" stop-color="#0369a1" />
+    </linearGradient>
+    <linearGradient id="pillGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#ffffff" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  
+  <!-- Rounded App Icon Background -->
+  <rect width="512" height="512" rx="112" fill="url(#bg)" />
+  
+  <!-- Medical Cross / Shield / Pill Motif -->
+  <g filter="url(#shadow)">
+    <!-- Main Capsule Pill Body (Rotated 45deg) -->
+    <g transform="translate(256,256) rotate(-45) translate(-256,-256)">
+      <!-- Left half of pill -->
+      <path d="M176 160 C120 160 80 200 80 256 C80 312 120 352 176 352 L256 352 L256 160 Z" fill="#ffffff" />
+      <!-- Right half of pill -->
+      <path d="M256 160 L336 160 C392 160 432 200 432 256 C432 312 392 352 336 352 L256 352 Z" fill="#38bdf8" />
+      <!-- Pill Center Divider line -->
+      <line x1="256" y1="160" x2="256" y2="352" stroke="#0284c7" stroke-width="8" stroke-linecap="round" />
+    </g>
+    
+    <!-- Pharmacy Cross Badge Overlay -->
+    <circle cx="360" cy="360" r="72" fill="#10b981" />
+    <path d="M360 320 L360 400 M320 360 L400 360" stroke="#ffffff" stroke-width="16" stroke-linecap="round" />
+  </g>
+</svg>

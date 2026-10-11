@@ -1,0 +1,24 @@
+{
+  "name": "PharmAssist Pro - 약국 영양제 & OTC 대시보드",
+  "short_name": "PharmAssist",
+  "description": "약국 전용 영양제 및 일반의약품 복약 상담 및 성분 매트릭스 대시보드",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#0ea5e9",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

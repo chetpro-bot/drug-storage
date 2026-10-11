@@ -90,5 +90,6 @@ export interface ProductIngredientEntry {
   standardKey?: NutrientStandardKey;    // KDRIs 영양소 매핑
   clinicalSummary: string;              // 핵심 특징 및 작용 원리 요약 (명사형 개조식 1~2줄)
   noteKorean?: string;                  // 배합 특이사항 (예: "장용코팅 처리 원료")
+  formattedSpecification?: string;      // 약학정보원 표준 포맷 성분표 표기 (예: "Ascorbic Acid Coated 51.15mg (Ascorbic Acid 50mg)")
 }
 

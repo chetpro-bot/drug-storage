@@ -90,11 +90,11 @@ function getInitialProducts(): ProductItem[] {
     console.warn('로컬스토리지 로드 실패:', e);
   }
 
-  // 만약 기존에 캐시된 비맥스제트정의 성분이 21개 미만(구버전 8개)이라면 최신 규격(21개)으로 자동 갱신
+  // 비맥스제트정 최신 약학정보원 규격(영문 간결 성분표) 동기화
   const bmaxMock = MOCK_PRODUCTS.find((p) => p.id === 'prod_bmax_jet');
   if (bmaxMock) {
     const bmaxIdx = loadedProducts.findIndex((p) => p.id === 'prod_bmax_jet');
-    if (bmaxIdx !== -1 && loadedProducts[bmaxIdx].ingredients.length < 21) {
+    if (bmaxIdx !== -1) {
       loadedProducts[bmaxIdx] = bmaxMock;
     }
   }

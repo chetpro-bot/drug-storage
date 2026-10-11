@@ -364,6 +364,102 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
 };
 
 /**
+ * 약학정보원 한글/영문 혼합 원문을 영문 표준 간결 형식으로 변환
+ * 예: "Ascorbic Acid Coated  제피아스코르브산  51.15mg (아스코르브산(으)로서 50mg)"
+ *  --> "Ascorbic Acid Coated 51.15mg (Ascorbic Acid 50mg)"
+ * 예: "Cholecalciferol Concentrate Powder  콜레칼시페롤농축분말  10mg (비타민D(으)로서 1,000IU)"
+ *  --> "Cholecalciferol Concentrate Powder 10mg (Vitamin D 1,000IU)"
+ * 예: "γ-Oryzanol  γ-오리자놀  3mg"
+ *  --> "Gamma Oryzanol 3mg"
+ */
+export function formatKpaicSpecification(rawItem: string): string {
+  if (!rawItem) return '';
+  let str = rawItem.trim();
+
+  // 1. 특수 문자 치환 (γ- -> Gamma )
+  str = str.replace(/γ\s*[-－]?\s*oryzanol/gi, 'Gamma Oryzanol');
+  str = str.replace(/γ\s*[-－]?\s*오리자놀/gi, 'Gamma Oryzanol');
+
+  // 2. 괄호 환산 성분 영문화 맵
+  const elementalNameMap: Record<string, string> = {
+    '아스코르브산': 'Ascorbic Acid',
+    '티아민염산염': 'Thiamine HCl',
+    '티아민': 'Thiamine',
+    '리보플라빈': 'Riboflavin',
+    '피리독신': 'Pyridoxine',
+    '시아노코발라민': 'Cyanocobalamin',
+    '메코발라민': 'Mecobalamin',
+    '비타민D': 'Vitamin D',
+    '비타민 d': 'Vitamin D',
+    '비타민E': 'Vitamin E',
+    '비타민 e': 'Vitamin E',
+    '아연': 'Zinc',
+    '마그네슘': 'Magnesium',
+    '칼슘': 'Calcium',
+    '셀레늄': 'Selenium',
+    '크롬': 'Chromium',
+    '철': 'Iron'
+  };
+
+  // 3. 괄호 부분 "(아스코르브산(으)로서 50mg)" 처리
+  let bracketFormatted = '';
+  const bracketMatch = str.match(/\(([^)]+?)(?:\(으\))?로서\s*([0-9\.,]+)\s*([a-zA-Z가-힣㎍μµ]+)?\)/);
+  if (bracketMatch) {
+    const rawTargetName = bracketMatch[1].trim();
+    const amountVal = bracketMatch[2].trim();
+    let unitVal = (bracketMatch[3] || '').trim();
+    if (unitVal === '㎍' || unitVal === 'μg' || unitVal === 'µg') unitVal = 'ug';
+
+    let englishTargetName = elementalNameMap[rawTargetName];
+    if (!englishTargetName) {
+      for (const [k, v] of Object.entries(elementalNameMap)) {
+        if (rawTargetName.includes(k)) {
+          englishTargetName = v;
+          break;
+        }
+      }
+    }
+    englishTargetName = englishTargetName || rawTargetName;
+    bracketFormatted = ` (${englishTargetName} ${amountVal}${unitVal})`;
+
+    // 본문에서 괄호 제거
+    str = str.replace(/\([^)]*로서[^)]*\)/g, '').trim();
+  }
+
+  // 4. 본문에서 함량 분리 (예: "51.15mg", "10mg", "3mg")
+  const amountMatch = str.match(/([0-9\.,]+)\s*(mg|ug|㎍|μg|µg|IU|g|밀리그램|마이크로그램)?$/i);
+  let mainAmount = '';
+  if (amountMatch) {
+    let u = amountMatch[2] || 'mg';
+    if (u === '㎍' || u === 'μg' || u === 'µg') u = 'ug';
+    mainAmount = `${amountMatch[1]}${u}`;
+    str = str.substring(0, amountMatch.index).trim();
+  }
+
+  // 5. 한글 이름 제거하고 영문 이름만 추출
+  // 영문명이 앞에 있는 경우: "Ascorbic Acid Coated  제피아스코르브산" -> "Ascorbic Acid Coated"
+  const engPrefixMatch = str.match(/^([A-Za-z0-9\s\-\'\,\%\.\/]+?)(?:\s+[가-힣]+.*)?$/);
+  let mainEngName = '';
+  if (engPrefixMatch && engPrefixMatch[1].trim()) {
+    mainEngName = engPrefixMatch[1].trim();
+  } else {
+    // 영문이 없고 한글만 있는 경우 사전을 통해 영문 INN 매핑
+    let matchedDict: string | null = null;
+    for (const [k, meta] of Object.entries(INN_DICTIONARY)) {
+      if (str.includes(k)) {
+        matchedDict = meta.englishInn;
+        break;
+      }
+    }
+    mainEngName = matchedDict || str;
+  }
+
+  // 6. 최종 결합: "Ascorbic Acid Coated 51.15mg (Ascorbic Acid 50mg)"
+  const finalSpec = `${mainEngName}${mainAmount ? ' ' + mainAmount : ''}${bracketFormatted}`.trim();
+  return finalSpec;
+}
+
+/**
  * 식약처 의약품 및 식품안전나라 원재료 텍스트를 파싱하여 ProductIngredientEntry 배열로 정규화
  */
 export function parseRawIngredientString(rawText: string): ProductIngredientEntry[] {
@@ -378,6 +474,9 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
   const regex = /([가-힣A-Za-z0-9\s\(\)·\-\'\_]+?)\s*[:：]?\s*([0-9\.]+)\s*(mg|ug|㎍|IU|g|밀리그램|마이크로그램)?/i;
 
   rawItems.forEach((item, index) => {
+    // 영문 표준 간결 형식 성분표 규격 생성
+    const formattedSpecification = formatKpaicSpecification(item);
+
     // 1. 원소 환산량 괄호 추출 (예: "(아연(으)로서 15mg)", "(마그네슘(으)로서 60.3mg)", "(셀레늄(으)로서 25μg)")
     let elementalAmount: number | undefined = undefined;
     const elementalMatch = item.match(/\([가-힣A-Za-z0-9\s]+로서\s*([0-9\.]+)\s*(mg|ug|㎍|IU|g)?\)/i);
@@ -442,7 +541,8 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
         isMainActive: index === 0 || amount >= 30,
         standardKey: meta.standardKey,
         clinicalSummary: meta.clinicalSummary,
-        noteKorean: `약학정보원·의약품안전나라 표준 공시 (${nameRaw})`
+        noteKorean: `약학정보원·의약품안전나라 표준 공시 (${nameRaw})`,
+        formattedSpecification
       });
     } else {
       // 미등록 성분: 기본 English INN 추정 및 범용 메타데이터 생성
@@ -456,7 +556,8 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
         elementalAmount,
         isMainActive: false,
         clinicalSummary: `• ${nameRaw} 활성 성분 영양 및 생리 활성 지원`,
-        noteKorean: `약학정보원/의약품안전나라: ${item}`
+        noteKorean: `약학정보원/의약품안전나라: ${item}`,
+        formattedSpecification
       });
     }
   });

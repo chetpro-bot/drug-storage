@@ -48,10 +48,10 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
         <div className="flex items-center gap-2">
           <Layers className="w-4 h-4 text-sky-600" />
           <h3 className="text-sm font-bold text-slate-900">
-            유효 성분 매트릭스 (Active Ingredients Matrix)
+            약학정보원 성분 / 함량 정보 (Ingredient Specifications)
           </h3>
           <span className="text-xs bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-semibold">
-            총 {product.ingredients.length}종 배합
+            총 {product.ingredients.length}개 성분
           </span>
         </div>
 
@@ -83,86 +83,102 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
         </div>
       </div>
 
-      {/* 테이블 영역 */}
+      {/* 심플 성분표 영역 */}
       <div className="flex-1 overflow-y-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-slate-100/90 text-slate-600 text-[11px] font-bold uppercase tracking-wider sticky top-0 z-10 border-b border-slate-200">
-              <th className="py-2.5 px-3.5 w-[110px]">기능 분류</th>
-              <th className="py-2.5 px-3.5 w-[200px]">성분명 (English INN)</th>
-              <th className="py-2.5 px-3.5 w-[170px]">원료 형태 / 염 (Form)</th>
-              <th className="py-2.5 px-3.5 w-[140px] text-right">1회 / 1일 분량</th>
-              <th className="py-2.5 px-4">핵심 특징 및 작용 원리 요약</th>
+            <tr className="bg-slate-100/90 text-slate-700 text-xs font-bold uppercase tracking-wider sticky top-0 z-10 border-b border-slate-200">
+              <th className="py-3 px-4 w-[60px] text-center">No.</th>
+              <th className="py-3 px-5">성분 / 함량 (Specification)</th>
+              <th className="py-3 px-4 w-[140px] text-center">기능 분류</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-xs">
             {filteredIngredients.map((ing, idx) => {
-              const dailyAmount = ing.rawAmount * product.dailyServings;
-              const elementalDaily = ing.elementalAmount
-                ? (ing.elementalAmount * product.dailyServings).toFixed(1)
-                : null;
+              // 1. formattedSpecification이 이미 있으면 최우선 사용
+              let displaySpec = ing.formattedSpecification;
+
+              // 2. 만약 없으면 제품 데이터로부터 자동 생성
+              if (!displaySpec) {
+                let mainName = ing.englishInn;
+                if (mainName === 'Gamma-oryzanol') mainName = 'Gamma Oryzanol';
+
+                const mainAmountStr = `${ing.rawAmount}${ing.unit}`;
+                let bracketStr = '';
+
+                if (ing.elementalAmount !== undefined && ing.elementalAmount !== null) {
+                  let elemTarget = '';
+                  let elemUnit = ing.unit;
+
+                  if (ing.standardKey === 'VITAMIN_C' || mainName.includes('Ascorbic')) {
+                    elemTarget = 'Ascorbic Acid';
+                    elemUnit = 'mg';
+                  } else if (ing.standardKey === 'VITAMIN_B1' || mainName.includes('Thiamine') || mainName.includes('Benfo') || mainName.includes('Bisben')) {
+                    elemTarget = 'Thiamine HCl';
+                    elemUnit = 'mg';
+                  } else if (ing.standardKey === 'VITAMIN_B2' || mainName.includes('Riboflavin')) {
+                    elemTarget = 'Riboflavin';
+                    elemUnit = 'mg';
+                  } else if (ing.standardKey === 'VITAMIN_D' || mainName.includes('Cholecalciferol')) {
+                    elemTarget = 'Vitamin D';
+                    elemUnit = 'IU';
+                  } else if (ing.standardKey === 'VITAMIN_E' || mainName.includes('Tocopherol')) {
+                    elemTarget = 'Vitamin E';
+                    elemUnit = 'IU';
+                  } else if (ing.standardKey === 'MAGNESIUM' || mainName.includes('Magnesium')) {
+                    elemTarget = 'Magnesium';
+                    elemUnit = 'mg';
+                  } else if (ing.standardKey === 'ZINC' || mainName.includes('Zinc')) {
+                    elemTarget = 'Zinc';
+                    elemUnit = 'mg';
+                  } else if (ing.standardKey === 'SELENIUM' || mainName.includes('Selenium')) {
+                    elemTarget = 'Selenium';
+                    elemUnit = 'ug';
+                  } else if (ing.standardKey === 'CHROMIUM' || mainName.includes('Chromium')) {
+                    elemTarget = 'Chromium';
+                    elemUnit = 'ug';
+                  }
+
+                  if (elemTarget) {
+                    bracketStr = ` (${elemTarget} ${ing.elementalAmount.toLocaleString()}${elemUnit})`;
+                  }
+                }
+
+                displaySpec = `${mainName} ${mainAmountStr}${bracketStr}`.trim();
+              }
 
               return (
                 <tr
                   key={idx}
-                  className="hover:bg-sky-50/40 transition-colors group align-top"
+                  className="hover:bg-sky-50/50 transition-colors group"
                 >
+                  {/* 번호 */}
+                  <td className="py-3 px-4 text-center font-mono text-slate-400 font-medium">
+                    {idx + 1}
+                  </td>
+
+                  {/* 성분 / 함량 (요청하신 영문 표준 형태) */}
+                  <td className="py-3 px-5">
+                    <div className="font-semibold text-slate-900 text-sm tracking-tight flex items-center gap-2 group-hover:text-sky-700 transition-colors">
+                      <span>{displaySpec}</span>
+                      {ing.isMainActive && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-700 font-semibold bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
+                          <Sparkles className="w-2.5 h-2.5 text-amber-500" />
+                          주요 원료
+                        </span>
+                      )}
+                    </div>
+                  </td>
+
                   {/* 기능 분류 */}
-                  <td className="py-3 px-3.5 whitespace-nowrap">
+                  <td className="py-3 px-4 text-center">
                     <span
-                      className={`inline-block text-[11px] font-bold px-2 py-0.5 rounded border ${getCategoryColor(
+                      className={`inline-block text-[11px] font-bold px-2.5 py-1 rounded-md border ${getCategoryColor(
                         ing.functionalCategory
                       )}`}
                     >
                       {ing.functionalCategory}
                     </span>
-                  </td>
-
-                  {/* 성분명 (English INN) */}
-                  <td className="py-3 px-3.5">
-                    <div className="font-bold text-slate-900 group-hover:text-sky-700 transition-colors">
-                      {ing.englishInn}
-                    </div>
-                    {ing.isMainActive && (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-amber-700 font-semibold bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200 mt-1">
-                        <Sparkles className="w-2.5 h-2.5 text-amber-500" />
-                        주요 지표/활성 원료
-                      </span>
-                    )}
-                  </td>
-
-                  {/* 원료 형태 / 염 */}
-                  <td className="py-3 px-3.5">
-                    <div className="text-slate-700 font-medium text-[11px] leading-relaxed">
-                      {ing.chemicalFormName}
-                    </div>
-                    {ing.noteKorean && (
-                      <div className="text-[10px] text-slate-400 mt-0.5">
-                        {ing.noteKorean}
-                      </div>
-                    )}
-                  </td>
-
-                  {/* 1회 / 1일 분량 */}
-                  <td className="py-3 px-3.5 text-right font-mono">
-                    <div className="font-bold text-slate-900">
-                      {ing.rawAmount} {ing.unit} <span className="text-slate-400 font-normal">/회</span>
-                    </div>
-                    <div className="text-[11px] text-sky-700 font-semibold">
-                      {dailyAmount} {ing.unit} <span className="text-slate-400 font-normal">/일</span>
-                    </div>
-                    {elementalDaily && (
-                      <div className="text-[10px] text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded inline-block mt-0.5">
-                        원소: {elementalDaily}{ing.unit}/일
-                      </div>
-                    )}
-                  </td>
-
-                  {/* 핵심 특징 및 작용 원리 요약 */}
-                  <td className="py-3 px-4">
-                    <div className="text-slate-700 text-xs leading-relaxed whitespace-pre-line bg-slate-50/70 p-2 rounded border border-slate-100">
-                      {ing.clinicalSummary}
-                    </div>
                   </td>
                 </tr>
               );
@@ -172,12 +188,14 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
       </div>
 
       {/* 테이블 하단 푸터 */}
-      <div className="p-2.5 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500 flex items-center justify-between">
-        <span className="flex items-center gap-1 text-slate-500">
-          <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
-          <span>모든 성분명은 국제 표준 INN(International Nonproprietary Name) 기준에 의거하여 표기되었습니다.</span>
+      <div className="p-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-slate-500 font-medium">
+          <HelpCircle className="w-4 h-4 text-sky-500" />
+          <span>약학정보원(KPAIC) 성분/함량 표준 표기 규격 [영문 표준 명칭 + 투입량 + (순수 원소/유효 환산량)] 적용</span>
         </span>
-        <span className="text-slate-400">GC녹십자 / 네이처스팜 최신 성분 규격서 연동</span>
+        <span className="text-slate-400 font-mono text-[11px]">
+          {product.productName} ({product.manufacturer})
+        </span>
       </div>
     </div>
   );

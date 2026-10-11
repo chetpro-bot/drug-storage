@@ -1,8 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { ProductItem } from '../types/product';
 import { FunctionalCategory } from '../types/ingredient';
-import { Layers, Sparkles, HelpCircle } from 'lucide-react';
+import { Layers, Sparkles, HelpCircle, RotateCcw } from 'lucide-react';
 
+interface ColumnDef {
+  id: string;
+  label: string;
+  defaultWidth: number;
+  minWidth: number;
+}
+
+const COLUMNS: ColumnDef[] = [
+  { id: 'category', label: '기능 분류', defaultWidth: 120, minWidth: 80 },
+  { id: 'specification', label: '성분 / 함량 (Specification)', defaultWidth: 380, minWidth: 180 },
+  { id: 'summary', label: '핵심 특징 및 작용 원리 요약', defaultWidth: 400, minWidth: 180 },
+  { id: 'form', label: '원료 형태 / 염 (Form)', defaultWidth: 240, minWidth: 120 },
+];
+
+const COLUMN_STORAGE_KEY = 'pharmassist_matrix_column_widths_v2';
 
 interface IngredientMatrixProps {
   product: ProductItem;
@@ -10,6 +25,84 @@ interface IngredientMatrixProps {
 
 export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+
+  // 각 열(컬럼) 너비 수동 조절 상태 (localStorage 자동 보존)
+  const [columnWidths, setColumnWidths] = useState<number[]>(() => {
+    try {
+      const saved = localStorage.getItem(COLUMN_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length === COLUMNS.length) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('열 너비 불러오기 실패:', e);
+    }
+    return COLUMNS.map((c) => c.defaultWidth);
+  });
+
+  const isResizingRef = useRef<{
+    colIndex: number;
+    startX: number;
+    startWidth: number;
+  } | null>(null);
+
+  // 마우스 드래그를 통한 컬럼 너비 조절 핸들러
+  const handleMouseDown = (colIndex: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    isResizingRef.current = {
+      colIndex,
+      startX: e.clientX,
+      startWidth: columnWidths[colIndex],
+    };
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      if (!isResizingRef.current) return;
+      const { colIndex: idx, startX, startWidth } = isResizingRef.current;
+      const diff = moveEvent.clientX - startX;
+      const minW = COLUMNS[idx].minWidth;
+      const newWidth = Math.max(minW, startWidth + diff);
+
+      setColumnWidths((prev) => {
+        const next = [...prev];
+        next[idx] = Math.round(newWidth);
+        return next;
+      });
+    };
+
+    const handleMouseUp = () => {
+      if (isResizingRef.current) {
+        isResizingRef.current = null;
+        setColumnWidths((current) => {
+          try {
+            localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify(current));
+          } catch (e) {}
+          return current;
+        });
+      }
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  // 너비 기본값으로 초기화
+  const handleResetWidths = () => {
+    const defaults = COLUMNS.map((c) => c.defaultWidth);
+    setColumnWidths(defaults);
+    try {
+      localStorage.removeItem(COLUMN_STORAGE_KEY);
+    } catch (e) {}
+  };
 
   // 제품 내 존재하는 기능 카테고리 추출
   const availableCategories = Array.from(
@@ -53,6 +146,14 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
           <span className="text-xs bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-semibold">
             총 {product.ingredients.length}개 성분
           </span>
+          <button
+            onClick={handleResetWidths}
+            className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-sky-700 bg-white hover:bg-sky-50 border border-slate-200 hover:border-sky-300 px-2 py-0.5 rounded-md transition-colors shadow-2xs ml-1"
+            title="마우스로 조절한 열 너비를 기본값으로 초기화합니다"
+          >
+            <RotateCcw className="w-3 h-3 text-slate-400" />
+            <span>너비 초기화</span>
+          </button>
         </div>
 
         {/* 기능별 필터 칩 */}
@@ -83,15 +184,38 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
         </div>
       </div>
 
-      {/* 성분 매트릭스 테이블 영역 */}
-      <div className="flex-1 overflow-y-auto">
-        <table className="w-full text-left border-collapse">
+      {/* 성분 매트릭스 테이블 영역 (수동 열 너비 조절 지원) */}
+      <div className="flex-1 overflow-x-auto overflow-y-auto">
+        <table 
+          className="text-left border-collapse table-fixed min-w-full"
+          style={{ width: `${columnWidths.reduce((a, b) => a + b, 0)}px` }}
+        >
+          <colgroup>
+            {columnWidths.map((w, i) => (
+              <col key={i} style={{ width: `${w}px` }} />
+            ))}
+          </colgroup>
           <thead>
-            <tr className="bg-slate-100/90 text-slate-700 text-xs font-bold uppercase tracking-wider sticky top-0 z-10 border-b border-slate-200">
-              <th className="py-2.5 px-3.5 w-[110px] text-center shrink-0">기능 분류</th>
-              <th className="py-2.5 px-4 w-[36%] min-w-[340px]">성분 / 함량 (Specification)</th>
-              <th className="py-2.5 px-4 w-[34%] min-w-[280px]">핵심 특징 및 작용 원리 요약</th>
-              <th className="py-2.5 px-3.5 w-[220px] shrink-0">원료 형태 / 염 (Form)</th>
+            <tr className="bg-slate-100/90 text-slate-700 text-xs font-bold uppercase tracking-wider sticky top-0 z-10 border-b border-slate-200 select-none">
+              {COLUMNS.map((col, idx) => (
+                <th
+                  key={col.id}
+                  style={{ width: `${columnWidths[idx]}px` }}
+                  className={`relative py-2.5 px-3.5 group/th ${
+                    idx === 0 ? 'text-center' : ''
+                  }`}
+                >
+                  <span className="truncate block font-bold">{col.label}</span>
+                  {/* 드래그 리사이즈 핸들 */}
+                  <div
+                    onMouseDown={(e) => handleMouseDown(idx, e)}
+                    className="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize flex items-center justify-center group hover:bg-sky-200/60 active:bg-sky-400 z-20"
+                    title="좌우로 드래그하여 열 너비를 조절할 수 있습니다"
+                  >
+                    <div className="w-[2px] h-3.5 bg-slate-300 group-hover:h-full group-hover:bg-sky-600 transition-all" />
+                  </div>
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-xs">
@@ -153,8 +277,8 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
                   key={idx}
                   className="hover:bg-sky-50/50 transition-colors group align-top"
                 >
-                  {/* 1. 기능 분류 (앞에 배치) */}
-                  <td className="py-3 px-3.5 whitespace-nowrap text-center w-[110px] shrink-0">
+                  {/* 1. 기능 분류 */}
+                  <td className="py-3 px-3.5 whitespace-nowrap text-center">
                     <span
                       className={`inline-block text-[11px] font-bold px-2.5 py-1 rounded-md border ${getCategoryColor(
                         ing.functionalCategory
@@ -164,10 +288,10 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
                     </span>
                   </td>
 
-                  {/* 2. 성분 / 함량 (요청하신 칸 너비 확대) */}
-                  <td className="py-3 px-4 w-[36%] min-w-[340px]">
+                  {/* 2. 성분 / 함량 */}
+                  <td className="py-3 px-4">
                     <div className="font-bold text-slate-900 text-sm tracking-tight flex items-center gap-1.5 group-hover:text-sky-700 transition-colors">
-                      <span>{displaySpec}</span>
+                      <span className="break-words">{displaySpec}</span>
                       {ing.isMainActive && (
                         <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-700 font-semibold bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200 shrink-0">
                           <Sparkles className="w-2.5 h-2.5 text-amber-500" />
@@ -177,20 +301,20 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
                     </div>
                   </td>
 
-                  {/* 3. 핵심 특징 및 작용 원리 요약 (요청하신 칸 너비 축소) */}
-                  <td className="py-3 px-4 w-[34%] min-w-[280px]">
-                    <div className="text-slate-700 text-xs leading-relaxed whitespace-pre-line bg-slate-50/70 p-2.5 rounded-lg border border-slate-100">
+                  {/* 3. 핵심 특징 및 작용 원리 요약 */}
+                  <td className="py-3 px-4">
+                    <div className="text-slate-700 text-xs leading-relaxed whitespace-pre-line bg-slate-50/70 p-2.5 rounded-lg border border-slate-100 break-words">
                       {ing.clinicalSummary}
                     </div>
                   </td>
 
-                  {/* 4. 원료 형태 / 염 (핵심 특징 뒤에 배치) */}
-                  <td className="py-3 px-3.5 w-[220px] shrink-0">
-                    <div className="text-slate-700 font-medium text-xs leading-relaxed">
+                  {/* 4. 원료 형태 / 염 */}
+                  <td className="py-3 px-3.5">
+                    <div className="text-slate-700 font-medium text-xs leading-relaxed break-words">
                       {ing.chemicalFormName}
                     </div>
                     {ing.noteKorean && (
-                      <div className="text-[10px] text-slate-400 mt-1">
+                      <div className="text-[10px] text-slate-400 mt-1 break-words">
                         {ing.noteKorean}
                       </div>
                     )}
@@ -205,8 +329,8 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
       {/* 테이블 하단 푸터 */}
       <div className="p-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex items-center justify-between">
         <span className="flex items-center gap-1.5 text-slate-500 font-medium">
-          <HelpCircle className="w-4 h-4 text-sky-500" />
-          <span>약학정보원(KPAIC) 성분/함량 표준 표기 규격 [영문 표준 명칭 + 투입량 + (순수 원소/유효 환산량)] 적용</span>
+          <HelpCircle className="w-4 h-4 text-sky-500 shrink-0" />
+          <span>각 열(컬럼) 오른쪽 경계선을 마우스로 드래그하면 원하는 폭으로 자유롭게 조절할 수 있습니다 (너비 설정 자동 저장).</span>
         </span>
         <span className="text-slate-400 font-mono text-[11px]">
           {product.productName} ({product.manufacturer})

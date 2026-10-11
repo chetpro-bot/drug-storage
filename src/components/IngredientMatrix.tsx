@@ -83,14 +83,15 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
         </div>
       </div>
 
-      {/* 심플 성분표 영역 */}
+      {/* 성분 매트릭스 테이블 영역 */}
       <div className="flex-1 overflow-y-auto">
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-slate-100/90 text-slate-700 text-xs font-bold uppercase tracking-wider sticky top-0 z-10 border-b border-slate-200">
-              <th className="py-3 px-4 w-[60px] text-center">No.</th>
-              <th className="py-3 px-5">성분 / 함량 (Specification)</th>
-              <th className="py-3 px-4 w-[140px] text-center">기능 분류</th>
+              <th className="py-2.5 px-3.5 w-[110px] text-center">기능 분류</th>
+              <th className="py-2.5 px-4 w-[280px]">성분 / 함량 (Specification)</th>
+              <th className="py-2.5 px-4">핵심 특징 및 작용 원리 요약</th>
+              <th className="py-2.5 px-3.5 w-[200px]">원료 형태 / 염 (Form)</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 text-xs">
@@ -150,28 +151,10 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
               return (
                 <tr
                   key={idx}
-                  className="hover:bg-sky-50/50 transition-colors group"
+                  className="hover:bg-sky-50/50 transition-colors group align-top"
                 >
-                  {/* 번호 */}
-                  <td className="py-3 px-4 text-center font-mono text-slate-400 font-medium">
-                    {idx + 1}
-                  </td>
-
-                  {/* 성분 / 함량 (요청하신 영문 표준 형태) */}
-                  <td className="py-3 px-5">
-                    <div className="font-semibold text-slate-900 text-sm tracking-tight flex items-center gap-2 group-hover:text-sky-700 transition-colors">
-                      <span>{displaySpec}</span>
-                      {ing.isMainActive && (
-                        <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-700 font-semibold bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
-                          <Sparkles className="w-2.5 h-2.5 text-amber-500" />
-                          주요 원료
-                        </span>
-                      )}
-                    </div>
-                  </td>
-
-                  {/* 기능 분류 */}
-                  <td className="py-3 px-4 text-center">
+                  {/* 1. 기능 분류 (앞에 배치) */}
+                  <td className="py-3 px-3.5 whitespace-nowrap text-center">
                     <span
                       className={`inline-block text-[11px] font-bold px-2.5 py-1 rounded-md border ${getCategoryColor(
                         ing.functionalCategory
@@ -179,6 +162,38 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
                     >
                       {ing.functionalCategory}
                     </span>
+                  </td>
+
+                  {/* 2. 성분 / 함량 (요청하신 영문 표준 포맷) */}
+                  <td className="py-3 px-4">
+                    <div className="font-bold text-slate-900 text-sm tracking-tight flex items-center gap-1.5 group-hover:text-sky-700 transition-colors">
+                      <span>{displaySpec}</span>
+                      {ing.isMainActive && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-700 font-semibold bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200 shrink-0">
+                          <Sparkles className="w-2.5 h-2.5 text-amber-500" />
+                          주요
+                        </span>
+                      )}
+                    </div>
+                  </td>
+
+                  {/* 3. 핵심 특징 및 작용 원리 요약 (성분/함량 뒤에 배치) */}
+                  <td className="py-3 px-4">
+                    <div className="text-slate-700 text-xs leading-relaxed whitespace-pre-line bg-slate-50/70 p-2.5 rounded-lg border border-slate-100">
+                      {ing.clinicalSummary}
+                    </div>
+                  </td>
+
+                  {/* 4. 원료 형태 / 염 (핵심 특징 뒤에 배치) */}
+                  <td className="py-3 px-3.5">
+                    <div className="text-slate-700 font-medium text-xs leading-relaxed">
+                      {ing.chemicalFormName}
+                    </div>
+                    {ing.noteKorean && (
+                      <div className="text-[10px] text-slate-400 mt-1">
+                        {ing.noteKorean}
+                      </div>
+                    )}
                   </td>
                 </tr>
               );

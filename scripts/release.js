@@ -21,10 +21,19 @@ pkg.version = newVersion;
 fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n', 'utf-8');
 console.log(`\n🚀 [Release] 버전 자동 업데이트: v${newVersion}`);
 
-// 3. src/version.ts 동기화
+// 3. src/version.ts 및 public/version.json 동기화
 const versionTsPath = path.join(rootDir, 'src', 'version.ts');
 fs.writeFileSync(versionTsPath, `export const APP_VERSION = '${newVersion}';\n`, 'utf-8');
 console.log(`✅ [Release] src/version.ts 갱신 완료: v${newVersion}`);
+
+const publicVersionPath = path.join(rootDir, 'public', 'version.json');
+fs.writeFileSync(
+  publicVersionPath,
+  JSON.stringify({ version: newVersion, releasedAt: new Date().toISOString() }, null, 2) + '\n',
+  'utf-8'
+);
+console.log(`✅ [Release] public/version.json 갱신 완료: v${newVersion}`);
+
 
 // 4. 프로덕션 빌드 실행
 console.log(`\n🔨 [Build] 프로덕션 빌드 진행 중...`);

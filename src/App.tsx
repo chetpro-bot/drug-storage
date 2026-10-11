@@ -5,9 +5,11 @@ import { ProductHeader } from './components/ProductHeader';
 import { IngredientMatrix } from './components/IngredientMatrix';
 import { ClinicalSafetyPanel } from './components/ClinicalSafetyPanel';
 import { NewProductModal } from './components/NewProductModal';
+import { UpdateNotificationToast } from './components/UpdateNotificationToast';
 import { useProductStore } from './stores/useProductStore';
 import { useConsultationStore } from './stores/useConsultationStore';
 import { FileText, Stethoscope, X, Printer } from 'lucide-react';
+
 
 export const App: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -150,6 +152,10 @@ export const App: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* 배포 시 실시간 업데이트 알림 토스트 */}
+      <UpdateNotificationToast />
     </div>
   );
 };
+

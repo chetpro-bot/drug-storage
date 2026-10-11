@@ -363,10 +363,10 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900">
-                공공데이터 연동 & 신규 품목 등록 모듈
+                약학정보원(KPAIC) DB 연동 & 신규 품목 등록 모듈
               </h3>
               <p className="text-[11px] text-slate-500">
-                식약처 의약품안전나라 / 식품안전나라 API 수집 ➔ 영문 INN 표준 매핑 ➔ 약사 검수(Verification) ➔ Cloud Firestore 실시간 동기화
+                약학정보원(KPAIC) 정밀 성분 DB 조회 ➔ 영문 INN 표준 매핑 ➔ 약사 검수(Verification) ➔ 실시간 클라우드 동기화
               </p>
             </div>
           </div>
@@ -392,15 +392,15 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
 
         {/* 바디 영역 */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6 text-xs">
-          {/* STEP 1. 제약회사 / 제품명 입력 및 공공데이터 자동 조회 */}
+          {/* STEP 1. 제약회사 / 제품명 입력 및 약학정보원 DB 자동 조회 */}
           <div className="bg-sky-50/70 border border-sky-200 rounded-xl p-4.5 space-y-3.5">
             <div className="flex items-center justify-between">
               <span className="font-bold text-sky-950 flex items-center gap-1.5 text-xs">
                 <FileSearch className="w-4 h-4 text-sky-600" />
-                <span>[1단계] 공공데이터 검색 및 정규화 요청</span>
+                <span>[1단계] 약학정보원(KPAIC) 제품 조회 및 규격 확인</span>
               </span>
               <span className="text-[11px] text-sky-700 bg-sky-100/80 px-2 py-0.5 rounded font-medium">
-                CORS 우회 Cloud Function 프록시 활성
+                약학정보원(KPAIC) 표준 규격 DB 연동
               </span>
             </div>
 
@@ -440,8 +440,8 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
                   onChange={(e) => setClassification(e.target.value as ProductClassification)}
                   className="w-full p-2 bg-white border border-slate-300 rounded-lg font-semibold text-xs"
                 >
-                  <option value="OTC_DRUG">일반의약품 (식약처)</option>
-                  <option value="HEALTH_FUNCTIONAL_FOOD">건강기능식품 (식품안전)</option>
+                  <option value="OTC_DRUG">일반의약품 (약학정보원)</option>
+                  <option value="HEALTH_FUNCTIONAL_FOOD">건강기능식품</option>
                   <option value="GENERAL_FOOD">기타가공품/식품</option>
                 </select>
               </div>
@@ -452,7 +452,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
                   onClick={handleFetchPublicData}
                   disabled={isLoadingPublicData}
                   className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2 bg-sky-600 hover:bg-sky-700 disabled:bg-sky-400 text-white rounded-lg font-bold shadow-xs transition-all active:scale-[0.99] text-[11px]"
-                  title="약학정보원(KPAIC) 및 식약처 DB에서 자동 검색"
+                  title="약학정보원(KPAIC) DB에서 제품 및 전 성분 자동 조회"
                 >
                   {isLoadingPublicData ? (
                     <>
@@ -462,7 +462,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
                   ) : (
                     <>
                       <Search className="w-3.5 h-3.5" />
-                      <span>공공데이터 자동조회</span>
+                      <span>약학정보원 정보 조회</span>
                     </>
                   )}
                 </button>

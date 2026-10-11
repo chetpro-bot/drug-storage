@@ -1,5 +1,6 @@
 import { Pill, Activity, Monitor, ShieldCheck, Cloud, RefreshCw } from 'lucide-react';
 import { useProductStore } from '../stores/useProductStore';
+import { APP_VERSION } from '../version';
 
 export const Header: React.FC = () => {
   const { isLiveSyncActive, isSyncing } = useProductStore();
@@ -11,14 +12,18 @@ export const Header: React.FC = () => {
           <Pill className="w-5 h-5" />
         </div>
         <div className="flex items-baseline gap-2">
-          <h1 className="text-base font-bold tracking-tight text-white">
+          <h1 className="text-base font-bold tracking-tight text-white flex items-center gap-1.5">
             PharmAssist Pro
+            <span className="text-[10px] font-mono font-medium text-slate-400 bg-slate-800 px-1.5 py-0.2 rounded border border-slate-700">
+              v{APP_VERSION}
+            </span>
           </h1>
           <span className="text-xs font-semibold px-2 py-0.5 rounded bg-sky-950 text-sky-400 border border-sky-800">
             약국 영양제 & OTC 복약 상담 대시보드
           </span>
         </div>
       </div>
+
 
       <div className="flex items-center gap-3 text-xs">
         {/* Firebase 실시간 동기화 배지 */}

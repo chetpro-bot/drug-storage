@@ -4,6 +4,7 @@ import { ProductClassification, DosageForm } from '../types/classification';
 import { ProductItem } from '../types/product';
 import { FunctionalCategory, ProductIngredientEntry } from '../types/ingredient';
 import { fetchAndNormalizePublicDrugData, PublicDataFetchResult } from '../services/publicDataService';
+import { recognizeAndParsePackageImage, parseNutritionLabelText, OcrParseResult } from '../services/labelOcrService';
 import { 
   X, 
   Search, 
@@ -14,7 +15,10 @@ import {
   Loader2, 
   FileSearch,
   ShieldCheck,
-  RotateCcw
+  RotateCcw,
+  Camera,
+  Upload,
+  Sparkles
 } from 'lucide-react';
 
 
@@ -53,6 +57,15 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
   const [verifiedIngredients, setVerifiedIngredients] = useState<ProductIngredientEntry[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // 건기식 전용 라벨 사진 AI OCR 상태
+  const [showOcrPanel, setShowOcrPanel] = useState(false);
+  const [ocrImagePreview, setOcrImagePreview] = useState<string | null>(null);
+  const [isOcrLoading, setIsOcrLoading] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState(0);
+  const [ocrStatusMessage, setOcrStatusMessage] = useState('');
+  const [ocrRawText, setOcrRawText] = useState('');
+  const [showRawTextEditor, setShowRawTextEditor] = useState(false);
+
   // 폼 필드 전체 초기화 함수
   const resetForm = () => {
     setProductName('');
@@ -72,6 +85,13 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
     setIndicationsText('');
     setVerifiedIngredients([]);
     setIsSubmitting(false);
+    setShowOcrPanel(false);
+    setOcrImagePreview(null);
+    setIsOcrLoading(false);
+    setOcrProgress(0);
+    setOcrStatusMessage('');
+    setOcrRawText('');
+    setShowRawTextEditor(false);
   };
 
   // 모달이 열릴 때마다 항상 깨끗하게 초기화
@@ -81,9 +101,134 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
     }
   }, [isOpen]);
 
+  // 클립보드 이미지 붙여넣기(Ctrl+V) 자동 지원
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith('image/')) {
+          const file = items[i].getAsFile();
+          if (file) {
+            setShowOcrPanel(true);
+            processOcrFile(file);
+            break;
+          }
+        }
+      }
+    };
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [isOpen]);
+
   const handleClose = () => {
     resetForm();
     onClose();
+  };
+
+  const applyOcrResult = (result: OcrParseResult) => {
+    setClassification('HEALTH_FUNCTIONAL_FOOD');
+    setDailyServings(result.servingInfo.dailyServings);
+    setAmountPerServing(result.servingInfo.amountPerServing);
+    setServingUnitKorean(result.servingInfo.servingUnit);
+    const instruction = `1일 ${result.servingInfo.dailyServings}회, 1회 ${result.servingInfo.amountPerServing}${result.servingInfo.servingUnit} 섭취`;
+    setDosageInstruction(instruction);
+
+    if (result.servingInfo.servingUnit === '포') {
+      setDosageForm('LIQUID_ORAL');
+    } else if (result.servingInfo.servingUnit === '캡슐') {
+      setDosageForm('SOFT_CAPSULE');
+    } else {
+      setDosageForm('FILM_COATED_TABLET');
+    }
+
+    setVerifiedIngredients(result.parsedIngredients);
+
+    setPublicDataFetched({
+      productName: productName || '라벨 추출 건강기능식품',
+      manufacturer: manufacturer || '식품제조원',
+      classification: 'HEALTH_FUNCTIONAL_FOOD',
+      dosageForm: result.servingInfo.servingUnit === '포' ? 'LIQUID_ORAL' : 'FILM_COATED_TABLET',
+      packagingUnit: `${result.servingInfo.dailyServings * 30}${result.servingInfo.servingUnit} (1개월분)`,
+      dailyServings: result.servingInfo.dailyServings,
+      amountPerServing: result.servingInfo.amountPerServing,
+      servingUnitKorean: result.servingInfo.servingUnit,
+      regulatoryCode: '라벨 실물 인증',
+      rawIngredientsText: result.rawOcrText.slice(0, 300) + '...',
+      indicationsSummary: ['정상적인 면역기능 및 세포분열', '에너지 대사 및 활력'],
+      dosageInstruction: instruction,
+      parsedIngredients: result.parsedIngredients,
+      sourceOrigin: '패키지 라벨 AI OCR 추출'
+    });
+  };
+
+  const processOcrFile = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      alert('이미지 파일(JPG, PNG 등)을 선택해주세요.');
+      return;
+    }
+
+    setIsOcrLoading(true);
+    setOcrProgress(5);
+    setOcrStatusMessage('이미지 불러오는 중...');
+
+    const previewUrl = URL.createObjectURL(file);
+    setOcrImagePreview(previewUrl);
+
+    try {
+      const result = await recognizeAndParsePackageImage(file, (progress, status) => {
+        setOcrProgress(progress);
+        setOcrStatusMessage(status);
+      });
+
+      setOcrRawText(result.rawOcrText);
+
+      if (result.parsedIngredients.length === 0) {
+        alert('라벨에서 영양성분을 감지하지 못했습니다. 글씨가 선명한 사진을 다시 선택해주세요.');
+        return;
+      }
+
+      applyOcrResult(result);
+    } catch (err: any) {
+      console.error('OCR 파싱 실패:', err);
+      alert('라벨 인식 중 오류가 발생했습니다: ' + (err?.message || '이미지를 확인해주세요'));
+    } finally {
+      setIsOcrLoading(false);
+    }
+  };
+
+  const handleOcrFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await processOcrFile(file);
+    }
+  };
+
+  // 실물 라벨 텍스트 수동 재파싱
+  const handleReparseRawText = () => {
+    if (!ocrRawText.trim()) return;
+    const result = parseNutritionLabelText(ocrRawText);
+    applyOcrResult(result);
+    setShowRawTextEditor(false);
+  };
+
+  // 마이타민업 실물 라벨 즉시 테스트 (약사 원클릭 시뮬레이션)
+  const handleTestMytaminSample = () => {
+    const sampleText = `[영양·기능정보]
+1일 섭취량: 2포(40g)
+1일 섭취량 당 함량: 열량 35 kcal, 탄수화물 8g, 당류 7g, 단백질 1g 미만, 지방 0g, 나트륨 0mg
+비타민B1 2mg (167%)
+비타민B2 2.4mg (171%)
+나이아신 26mg NE (173%)
+비타민B6 3mg (200%)
+아연 8mg (94%)
+원재료명 및 함량: 글루콘산아연, 티아민염산염, 리보플라빈포스페이트나트륨, 피리독신염산염, 니코틴산아미드, L-아르기닌, L-라이신염산염, L-카르니틴, 글루콘산마그네슘, 젖산칼슘, 브로멜라인, 파파인, 수용성커큐민`;
+    setProductName('마이타민업');
+    setManufacturer('네이처스팜 (제조: 콜마비앤에이치)');
+    setOcrRawText(sampleText);
+    const result = parseNutritionLabelText(sampleText);
+    applyOcrResult(result);
   };
 
   if (!isOpen) return null;
@@ -306,7 +451,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
                   type="button"
                   onClick={handleFetchPublicData}
                   disabled={isLoadingPublicData}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 bg-sky-600 hover:bg-sky-700 disabled:bg-sky-400 text-white rounded-lg font-bold shadow-xs transition-all active:scale-[0.99] text-[11px]"
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2 bg-sky-600 hover:bg-sky-700 disabled:bg-sky-400 text-white rounded-lg font-bold shadow-xs transition-all active:scale-[0.99] text-[11px]"
                   title="약학정보원(KPAIC) 및 식약처 DB에서 자동 검색"
                 >
                   {isLoadingPublicData ? (
@@ -317,12 +462,155 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
                   ) : (
                     <>
                       <Search className="w-3.5 h-3.5" />
-                      <span>약학정보원·식약처 자동조회</span>
+                      <span>공공데이터 자동조회</span>
                     </>
                   )}
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowOcrPanel(!showOcrPanel)}
+                  className={`px-2.5 py-2 rounded-lg font-bold text-[11px] border transition-all flex items-center gap-1 shrink-0 ${
+                    showOcrPanel
+                      ? 'bg-purple-700 text-white border-purple-800'
+                      : 'bg-purple-50 text-purple-700 border-purple-300 hover:bg-purple-100'
+                  }`}
+                  title="건기식 패키지 뒷면 영양·기능정보표 사진 AI OCR 자동 파싱"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  <span>라벨 사진 OCR</span>
+                </button>
               </div>
             </div>
+
+            {/* 건기식 전용 패키지 영양·기능정보표 사진 AI OCR 분석기 */}
+            {showOcrPanel && (
+              <div className="p-4 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl space-y-3 animate-in fade-in">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-purple-950 flex items-center gap-1.5 text-xs">
+                    <Sparkles className="w-4 h-4 text-purple-600" />
+                    <span>건기식 전용 [제품 패키지 영양정보표 사진 AI OCR / 라벨 파서]</span>
+                  </span>
+                  <span className="text-[11px] text-purple-700 bg-purple-100 px-2 py-0.5 rounded font-medium">
+                    클립보드 붙여넣기(Ctrl+V) 지원
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-12 gap-3 items-center">
+                  {/* 파일 업로드 드롭존 */}
+                  <div className="col-span-8">
+                    <label
+                      htmlFor="ocr-file-upload"
+                      className={`flex flex-col items-center justify-center p-3.5 border-2 border-dashed rounded-xl cursor-pointer transition-all ${
+                        isOcrLoading
+                          ? 'border-purple-400 bg-purple-100/50 cursor-wait'
+                          : 'border-purple-300 bg-white hover:bg-purple-50/50 hover:border-purple-500'
+                      }`}
+                    >
+                      {isOcrLoading ? (
+                        <div className="flex flex-col items-center gap-2 py-1">
+                          <Loader2 className="w-6 h-6 text-purple-600 animate-spin" />
+                          <div className="text-center">
+                            <p className="text-xs font-bold text-purple-900">{ocrStatusMessage}</p>
+                            <div className="w-48 bg-purple-200 rounded-full h-1.5 mt-2 overflow-hidden">
+                              <div
+                                className="bg-purple-600 h-1.5 transition-all duration-300"
+                                style={{ width: `${ocrProgress}%` }}
+                              />
+                            </div>
+                            <span className="text-[10px] text-purple-600 font-mono mt-1 block">
+                              {ocrProgress}% 완료
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-lg bg-purple-100 flex items-center justify-center text-purple-700 shrink-0">
+                            <Upload className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-slate-800">
+                              영양·기능정보표 사진을 선택하거나 여기로 드래그하세요
+                            </p>
+                            <p className="text-[11px] text-slate-500">
+                              스마트폰 촬영 사진(JPG, PNG) 또는 캡처 이미지 붙여넣기(Ctrl+V)
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      <input
+                        id="ocr-file-upload"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleOcrFileSelect}
+                        disabled={isOcrLoading}
+                      />
+                    </label>
+                  </div>
+
+                  {/* 즉시 테스트 버튼 & 썸네일 미리보기 */}
+                  <div className="col-span-4 flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={handleTestMytaminSample}
+                      disabled={isOcrLoading}
+                      className="w-full py-2 px-2.5 bg-white hover:bg-purple-50 text-purple-700 border border-purple-300 rounded-lg text-xs font-bold transition-all shadow-2xs flex items-center justify-center gap-1.5 active:scale-[0.99]"
+                      title="실제 마이타민업 라벨 데이터를 1초 만에 테스트 파싱합니다"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+                      <span>🧪 마이타민업 실물 라벨 즉시 테스트</span>
+                    </button>
+
+                    {ocrImagePreview && (
+                      <div className="flex items-center gap-2 p-1.5 bg-white border border-purple-200 rounded-lg">
+                        <img
+                          src={ocrImagePreview}
+                          alt="라벨 미리보기"
+                          className="w-8 h-8 object-cover rounded border border-slate-200"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-[11px] font-bold text-slate-800 truncate block">
+                            라벨 사진 로드됨
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setShowRawTextEditor(!showRawTextEditor)}
+                            className="text-[10px] text-purple-600 hover:text-purple-800 font-medium underline"
+                          >
+                            인식된 텍스트 확인/수정
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 인식 텍스트 직접 교정 편집기 (선택 사항) */}
+                {showRawTextEditor && (
+                  <div className="p-3 bg-white border border-purple-200 rounded-lg space-y-2 animate-in fade-in">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-700">
+                        OCR 인식 원문 텍스트 (오타가 있을 경우 직접 수정 후 재파싱 가능)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleReparseRawText}
+                        className="px-2.5 py-1 bg-purple-600 hover:bg-purple-700 text-white rounded text-[11px] font-bold"
+                      >
+                        텍스트로 다시 파싱
+                      </button>
+                    </div>
+                    <textarea
+                      rows={4}
+                      value={ocrRawText}
+                      onChange={(e) => setOcrRawText(e.target.value)}
+                      className="w-full p-2 bg-slate-50 border border-slate-300 rounded font-mono text-[11px] focus:ring-1 focus:ring-purple-500 focus:outline-none"
+                    />
+                  </div>
+                )}
+              </div>
+            )}
 
             {publicDataFetched && (
               <div className="p-3 bg-white border border-emerald-300 rounded-lg flex items-start justify-between gap-3 text-slate-700 animate-in fade-in">

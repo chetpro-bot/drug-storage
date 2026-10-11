@@ -16,7 +16,7 @@ export interface PublicDataFetchResult {
   indicationsSummary: string[];
   dosageInstruction: string;
   parsedIngredients: ProductIngredientEntry[];
-  sourceOrigin: '식약처 의약품안전나라' | '식품안전나라 품목신고' | '약학정보원(KPAIC) DB';
+  sourceOrigin: '식약처 의약품안전나라' | '식품안전나라 품목신고' | '약학정보원(KPAIC) DB' | '패키지 라벨 AI OCR 추출';
 }
 
 /**

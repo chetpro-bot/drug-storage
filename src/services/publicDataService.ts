@@ -117,8 +117,44 @@ const KNOWN_PUBLIC_DRUGS: Record<string, Partial<PublicDataFetchResult>> = {
     dosageInstruction: '만 19세 이상 및 성인: 1일 1회, 1회 1정을 식후 복용',
     indicationsSummary: ['육체피로, 체력저하 시 비타민 B1, B2, B6, D 보급', '신경통, 근육통, 관절통 완화', '아연 보급'],
     sourceOrigin: '식약처 의약품안전나라'
+  },
+  '임팩타민': {
+    productName: '임팩타민시그니처정',
+    manufacturer: '대웅제약',
+    classification: 'OTC_DRUG',
+    dosageForm: 'FILM_COATED_TABLET',
+    packagingUnit: '120정 (60정 x 2병)',
+    dailyServings: 1,
+    amountPerServing: 1,
+    servingUnitKorean: '정',
+    regulatoryCode: '202204118',
+    rawIngredientsText: `Benfotiamine 벤포티아민 100mg (티아민염산염으로서 72.31mg)
+Biotin 비오틴 0.1mg
+Bisbenthiamine 비스벤티아민 30mg (티아민염산염으로서 26.25mg)
+Calcium Pantothenate 판토텐산칼슘 100mg
+Cholecalciferol Concentrated 농축콜레칼시페롤 10mg (비타민D로서 1000IU)
+Choline Bitartrate 콜린타르타르산염 50mg
+Folic Acid 폴산 0.5mg
+Inositol 이노시톨 50mg
+Magnesium Oxide 산화마그네슘 100mg (마그네슘으로서 60.3mg)
+Mecobalamin 메코발라민 0.5mg
+Nicotinamide 니코틴산아미드 50mg
+Pyridoxal Phosphate Hydrate 피리독살포스페이트수화물 10mg
+Riboflavin Butyrate 리보플라빈부티레이트 25mg
+Selenium in Dried Yeast 셀레늄함유건조효모 46.29mg (셀레늄으로서 25ug)
+Tocopherol Acetate 50% 토코페롤아세테이트 20mg (비타민E로서 10IU)
+Ursodeoxycholic Acid 우르소데옥시콜산 15mg
+Zinc Oxide 산화아연 18.7mg (아연으로서 15mg)`,
+    dosageInstruction: '만 12세 이상 및 성인: 1일 1회, 1회 1정 식후 복용',
+    indicationsSummary: [
+      '다음 경우의 비타민(B1, B2, B6, D, E)의 보급: 육체피로, 임신·수유기, 병중·병후 체력저하 시, 발육기, 노년기',
+      '다음 증상의 완화: 신경통, 근육통, 관절통(요통, 어깨결림 등), 구각염, 구순염, 구내염, 설염, 습진, 피부염',
+      '아연의 보급'
+    ],
+    sourceOrigin: '약학정보원(KPAIC) DB'
   }
 };
+
 
 
 /**

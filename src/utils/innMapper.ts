@@ -201,21 +201,51 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     clinicalSummary: '• 헤모글로빈 구성 성분으로 체내 산소 운반 및 혈액 생성'
   },
 
-  // 기타 주요 기능성 원료
-  '우르소데옥시콜산': {
-    englishInn: 'Ursodeoxycholic acid',
-    functionalCategory: '간기능/해독',
-    chemicalFormName: '친수성 담즙산 (UDCA: Ursodeoxycholic Acid)',
+  '콜린타르타르산염': {
+    englishInn: 'Choline bitartrate',
+    functionalCategory: '신경계/인지 기능',
+    chemicalFormName: '주석산염 (콜린염)',
     defaultUnit: 'mg',
-    clinicalSummary: '• 간세포 보호막 형성, 담즙 분비 촉진(이담 작용) 및 해독 대사 활성화'
+    clinicalSummary: '• 신경전달물질 아세틸콜린(Acetylcholine) 합성 전구체, 뇌 신경 신호 전달 촉진'
   },
-  '콜레칼시페롤': {
-    englishInn: 'Cholecalciferol',
+  '이노시톨': {
+    englishInn: 'Inositol',
+    functionalCategory: '신경계/인지 기능',
+    chemicalFormName: '미오-이노시톨 (Myo-inositol)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 세포막 인지질 구성 성분, 뇌세포 2차 신호전달계(IP3) 조절 및 신경 보호'
+  },
+  '리보플라빈부티레이트': {
+    englishInn: 'Riboflavin butyrate',
+    functionalCategory: '에너지 대사',
+    chemicalFormName: '지용성 부티레이트 에스테르형 활성 비타민 B2',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_B2',
+    clinicalSummary: '• 수용성 B2 대비 지질 친화성이 높아 체내 체류시간이 길고 지속적 에너지 생성 지원'
+  },
+  '피리독살포스페이트수화물': {
+    englishInn: "Pyridoxal phosphate hydrate",
+    functionalCategory: '신경계/인지 기능',
+    chemicalFormName: '활성 조효소형 비타민 B6 수화물 (PLP)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_B6',
+    clinicalSummary: '• 간 대사 불필요한 즉각적 활성 조효소형, 호모시스테인 대사 정상화 및 신경전달물질 합성'
+  },
+  '농축콜레칼시페롤': {
+    englishInn: 'Cholecalciferol concentrated',
     functionalCategory: '골격/관절/치아',
-    chemicalFormName: '천연 비타민 D3 유도체',
+    chemicalFormName: '농축 천연 비타민 D3 유도체',
     defaultUnit: 'IU',
     standardKey: 'VITAMIN_D',
-    clinicalSummary: '• 소장 내 칼슘 흡수 촉진, 뼈 건강 유지 및 선천 면역 세포 조절'
+    clinicalSummary: '• 소장 내 칼슘 흡수 촉진, 골밀도 유지 및 선천 면역 세포 조절'
+  },
+  '셀레늄함유건조효모': {
+    englishInn: 'Selenium in dried yeast',
+    functionalCategory: '항산화/혈행',
+    chemicalFormName: '유기 셀레늄 (건조효모 결합형)',
+    defaultUnit: 'ug',
+    standardKey: 'SELENIUM',
+    clinicalSummary: '• 글루타티온 과산화효소(GSH-Px) 핵심 조효소, 유해 활성산소 강력 소거'
   },
   '토코페롤아세테이트': {
     englishInn: 'Tocopherol acetate',
@@ -225,6 +255,23 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     standardKey: 'VITAMIN_E',
     clinicalSummary: '• 세포막 지질 과산화 방지, 말초 혈액순환 개선'
   },
+  '우르소데옥시콜산': {
+    englishInn: 'Ursodeoxycholic acid',
+    functionalCategory: '간기능/해독',
+    chemicalFormName: '친수성 담즙산 (UDCA: Ursodeoxycholic Acid)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 간세포 보호막 형성, 담즙 분비 촉진(이담 작용) 및 해독 대사 활성화'
+  },
+
+  '콜레칼시페롤': {
+    englishInn: 'Cholecalciferol',
+    functionalCategory: '골격/관절/치아',
+    chemicalFormName: '천연 비타민 D3 유도체',
+    defaultUnit: 'IU',
+    standardKey: 'VITAMIN_D',
+    clinicalSummary: '• 소장 내 칼슘 흡수 촉진, 뼈 건강 유지 및 선천 면역 세포 조절'
+  },
+
   '아스코르브산': {
     englishInn: 'Ascorbic acid',
     functionalCategory: '항산화/혈행',
@@ -264,8 +311,19 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
   const regex = /([가-힣A-Za-z0-9\s\(\)·\-\'\_]+?)\s*[:：]?\s*([0-9\.]+)\s*(mg|ug|㎍|IU|g|밀리그램|마이크로그램)?/i;
 
   rawItems.forEach((item, index) => {
-    const match = item.match(regex);
-    let nameRaw = item;
+    // 1. 원소 환산량 괄호 추출 (예: "(아연(으)로서 15mg)", "(마그네슘(으)로서 60.3mg)", "(셀레늄(으)로서 25μg)")
+    let elementalAmount: number | undefined = undefined;
+    const elementalMatch = item.match(/\([가-힣A-Za-z0-9\s]+로서\s*([0-9\.]+)\s*(mg|ug|㎍|IU|g)?\)/i);
+    if (elementalMatch) {
+      elementalAmount = parseFloat(elementalMatch[1]);
+    }
+
+    // 괄호 부분 제외한 본문
+    const cleanItem = item.replace(/\([^\)]*로서[^\)]*\)/gi, '').trim();
+
+    // 2. 수치 및 단위 추출 (예: "100mg", "0.5mg", "46.29mg")
+    const match = cleanItem.match(regex);
+    let nameRaw = cleanItem;
     let amount = 0;
     let unit: 'mg' | 'ug' | 'IU' | 'g' = 'mg';
 
@@ -284,6 +342,15 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
       }
     }
 
+    // 약학정보원 포맷의 경우: "Benfotiamine 벤포티아민" 처럼 영문과 한글이 병기되어 있을 수 있음
+    // 영문명과 한글명 분리 감지
+    let detectedInn = '';
+    const engKorMatch = nameRaw.match(/^([A-Za-z0-9\s\-\'\,\%]+)\s+([가-힣0-9\s\(\)·\-]+)$/);
+    if (engKorMatch) {
+      detectedInn = engKorMatch[1].trim();
+      nameRaw = engKorMatch[2].trim();
+    }
+
     // 사전에서 매핑되는 영문 INN 찾기 (부분 일치 검사)
     let matchedKey: string | null = null;
     for (const dictKey of Object.keys(INN_DICTIONARY)) {
@@ -295,36 +362,38 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
 
     if (matchedKey) {
       const meta = INN_DICTIONARY[matchedKey];
-      const elementalAmount = meta.elementalRatio ? +(amount * meta.elementalRatio).toFixed(2) : undefined;
+      const finalElemental = elementalAmount ?? (meta.elementalRatio ? +(amount * meta.elementalRatio).toFixed(2) : undefined);
 
       results.push({
         ingredientId: `ing_auto_${Date.now()}_${index}`,
-        englishInn: meta.englishInn,
+        englishInn: detectedInn || meta.englishInn,
         functionalCategory: meta.functionalCategory,
         chemicalFormName: meta.chemicalFormName,
         rawAmount: amount || 10,
         unit: (unit || meta.defaultUnit) as 'mg' | 'ug' | 'IU' | 'g',
-        elementalAmount,
-        isMainActive: index === 0 || amount >= 50,
+        elementalAmount: finalElemental,
+        isMainActive: index === 0 || amount >= 30,
         standardKey: meta.standardKey,
         clinicalSummary: meta.clinicalSummary,
-        noteKorean: `식약처/식품안전나라 공공데이터 자동 파싱 (${nameRaw})`
+        noteKorean: `약학정보원·의약품안전나라 표준 공시 (${nameRaw})`
       });
     } else {
       // 미등록 성분: 기본 English INN 추정 및 범용 메타데이터 생성
       results.push({
         ingredientId: `ing_auto_${Date.now()}_${index}`,
-        englishInn: nameRaw,
+        englishInn: detectedInn || nameRaw,
         functionalCategory: '에너지 대사',
         chemicalFormName: '표준 정제 원료',
         rawAmount: amount || 10,
         unit,
+        elementalAmount,
         isMainActive: false,
         clinicalSummary: `• ${nameRaw} 활성 성분 영양 및 생리 활성 지원`,
-        noteKorean: `원문: ${item}`
+        noteKorean: `약학정보원/의약품안전나라: ${item}`
       });
     }
   });
 
   return results;
 }
+

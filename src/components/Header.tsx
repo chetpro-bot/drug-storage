@@ -1,4 +1,4 @@
-import { Pill, Activity, Monitor, ShieldCheck, Cloud, RefreshCw } from 'lucide-react';
+import { Pill, Monitor, ShieldCheck, Cloud, RefreshCw } from 'lucide-react';
 import { useProductStore } from '../stores/useProductStore';
 import { APP_VERSION } from '../version';
 
@@ -43,11 +43,7 @@ export const Header: React.FC = () => {
         </div>
         <div className="flex items-center gap-1.5 text-emerald-400 bg-emerald-950/60 px-2.5 py-1 rounded border border-emerald-800">
           <ShieldCheck className="w-3.5 h-3.5" />
-          <span>KDRIs 2020 & 식약처·약학정보원(KPAIC) 연동</span>
-        </div>
-        <div className="flex items-center gap-1.5 text-slate-400">
-          <Activity className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-          <span>상담 엔진: 활성</span>
+          <span>식약처 의약품안전나라 & 약학정보원(KPAIC) 공식 데이터 연동</span>
         </div>
       </div>
     </header>

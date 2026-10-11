@@ -1,14 +1,11 @@
 import React from 'react';
 import { ProductItem } from '../types/product';
-import { useConsultationStore } from '../stores/useConsultationStore';
 import { useProductStore } from '../stores/useProductStore';
 import { 
   Building2, 
   Clock, 
   Tag, 
   FileText, 
-  CheckCircle2, 
-  PlusCircle,
   Trash2
 } from 'lucide-react';
 
@@ -17,9 +14,7 @@ interface ProductHeaderProps {
 }
 
 export const ProductHeader: React.FC<ProductHeaderProps> = ({ product }) => {
-  const { addRegimenItem, regimenItems } = useConsultationStore();
   const { deleteProduct } = useProductStore();
-  const isAlreadyInRegimen = regimenItems.some((item) => item.productId === product.id);
 
 
   const getClassificationBadge = () => {
@@ -129,7 +124,7 @@ export const ProductHeader: React.FC<ProductHeaderProps> = ({ product }) => {
           </div>
         </div>
 
-        {/* 우측 액션: 상담 시뮬레이터 연동 및 관리 액션 */}
+        {/* 우측 액션: 관리 액션 */}
         <div className="flex flex-col items-end gap-2.5 shrink-0">
           <div className="flex items-center gap-2">
             <button
@@ -138,33 +133,11 @@ export const ProductHeader: React.FC<ProductHeaderProps> = ({ product }) => {
                   deleteProduct(product.id);
                 }
               }}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors font-semibold"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors font-semibold"
               title="잘못 등록된 제품 삭제"
             >
               <Trash2 className="w-3.5 h-3.5" />
               <span>품목 삭제</span>
-            </button>
-
-            <button
-              onClick={() => addRegimenItem(product.id)}
-              disabled={isAlreadyInRegimen}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all shadow-sm ${
-                isAlreadyInRegimen
-                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-300 cursor-default'
-                  : 'bg-sky-600 hover:bg-sky-700 text-white active:scale-95'
-              }`}
-            >
-              {isAlreadyInRegimen ? (
-                <>
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <span>복약 상담 시뮬레이터 담김</span>
-                </>
-              ) : (
-                <>
-                  <PlusCircle className="w-4 h-4" />
-                  <span>상담 시뮬레이터 추가</span>
-                </>
-              )}
             </button>
           </div>
 

@@ -75,15 +75,18 @@ export function subscribeToProducts(
  */
 export async function saveProductToFirestore(product: ProductItem): Promise<void> {
   if (!isLiveFirebaseConfigured()) {
-    console.log('[로컬 모드] Firestore 미연동 상태로 메모리 스토어에 보존됩니다.');
     return;
   }
 
-  const docRef = doc(db, PRODUCTS_COLLECTION, product.id);
-  await setDoc(docRef, {
-    ...product,
-    updatedAt: new Date().toISOString()
-  }, { merge: true });
+  try {
+    const docRef = doc(db, PRODUCTS_COLLECTION, product.id);
+    await setDoc(docRef, {
+      ...product,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  } catch (e: any) {
+    console.warn('Firestore 저장 알림 (로컬에 안전하게 보존됩니다):', e?.message || e);
+  }
 }
 
 /**
@@ -91,8 +94,12 @@ export async function saveProductToFirestore(product: ProductItem): Promise<void
  */
 export async function deleteProductFromFirestore(productId: string): Promise<void> {
   if (!isLiveFirebaseConfigured()) return;
-  const docRef = doc(db, PRODUCTS_COLLECTION, productId);
-  await deleteDoc(docRef);
+  try {
+    const docRef = doc(db, PRODUCTS_COLLECTION, productId);
+    await deleteDoc(docRef);
+  } catch (e: any) {
+    console.warn('Firestore 삭제 알림 (로컬에서는 삭제 완료되었습니다):', e?.message || e);
+  }
 }
 
 /**

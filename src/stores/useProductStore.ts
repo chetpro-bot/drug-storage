@@ -38,20 +38,67 @@ interface ProductState {
 }
 
 const LOCAL_STORAGE_KEY = 'pharmassist_products_v1';
+const DELETED_IDS_KEY = 'pharmassist_deleted_ids_v1';
+
+function getDeletedIds(): Set<string> {
+  try {
+    const saved = localStorage.getItem(DELETED_IDS_KEY);
+    if (saved) {
+      return new Set(JSON.parse(saved));
+    }
+  } catch (e) {
+    console.warn('삭제 목록 로드 실패:', e);
+  }
+  return new Set();
+}
+
+function markDeletedId(id: string) {
+  try {
+    const ids = getDeletedIds();
+    ids.add(id);
+    localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(Array.from(ids)));
+  } catch (e) {
+    console.warn('삭제 목록 저장 실패:', e);
+  }
+}
+
+function unmarkDeletedId(id: string) {
+  try {
+    const ids = getDeletedIds();
+    if (ids.has(id)) {
+      ids.delete(id);
+      localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(Array.from(ids)));
+    }
+  } catch (e) {
+    console.warn('삭제 목록 갱신 실패:', e);
+  }
+}
 
 function getInitialProducts(): ProductItem[] {
+  const deletedIds = getDeletedIds();
+  let loadedProducts: ProductItem[] = [];
+
   try {
     const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length >= 0) {
-        return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        loadedProducts = parsed.filter((p: ProductItem) => !deletedIds.has(p.id));
       }
     }
   } catch (e) {
     console.warn('로컬스토리지 로드 실패:', e);
   }
-  return MOCK_PRODUCTS;
+
+  // 사용자가 명시적으로 삭제하지 않은 초기 기본 목업 제품들이 누락되어 있다면 자동 복원
+  const existingIds = new Set(loadedProducts.map((p) => p.id));
+  const missingMocks = MOCK_PRODUCTS.filter(
+    (p) => !deletedIds.has(p.id) && !existingIds.has(p.id)
+  );
+
+  const combined = [...loadedProducts, ...missingMocks];
+  persistToLocal(combined);
+  return combined;
 }
 
 function persistToLocal(products: ProductItem[]) {
@@ -81,26 +128,62 @@ export const useProductStore = create<ProductState>((set, get) => {
 
     initRealtimeSubscription: () => {
       set({ isSyncing: true });
-      const unsubscribe = subscribeToProducts((updatedList) => {
-        // Firestore에서 실시간 목록이 들어오면 로컬스토리지도 동기화
-        persistToLocal(updatedList);
+      const unsubscribe = subscribeToProducts((firestoreList) => {
+        const deletedIds = getDeletedIds();
+        const currentProducts = get().products;
+
+        // 1. Firestore에서 들어온 목록 중 사용자가 명시적으로 삭제한 ID 제외
+        const validFromFirestore = firestoreList.filter((p) => !deletedIds.has(p.id));
+
+        // 2. 현재 로컬에 등록되어 있는 제품들과 안전하게 병합 (클라우드 단일 조회로 로컬 품목이 유실되는 현상 원천 방지)
+        const mergedMap = new Map<string, ProductItem>();
+
+        // 우선 현재 로컬 제품들을 맵에 등록
+        currentProducts.forEach((p) => {
+          if (!deletedIds.has(p.id)) {
+            mergedMap.set(p.id, p);
+          }
+        });
+
+        // Firestore에서 온 제품들 반영 (최신 변경사항 반영)
+        validFromFirestore.forEach((p) => {
+          mergedMap.set(p.id, p);
+        });
+
+        // 등록/수정일시 최신순으로 정렬
+        const mergedList = Array.from(mergedMap.values()).sort(
+          (a, b) =>
+            new Date(b.updatedAt || b.createdAt).getTime() -
+            new Date(a.updatedAt || a.createdAt).getTime()
+        );
+
+        // 로컬에만 있고 Firestore에는 아직 저장되지 않은 제품들은 백그라운드로 보강 동기화
+        const firestoreIds = new Set(validFromFirestore.map((p) => p.id));
+        mergedList.forEach((prod) => {
+          if (!firestoreIds.has(prod.id)) {
+            saveProductToFirestore(prod).catch(() => {});
+          }
+        });
+
+        persistToLocal(mergedList);
         set((state) => ({
-          products: updatedList,
+          products: mergedList,
           isSyncing: false,
-          selectedProductId: state.selectedProductId || updatedList[0]?.id || null
+          selectedProductId: state.selectedProductId || mergedList[0]?.id || null
         }));
       });
       return unsubscribe;
     },
 
     addProduct: async (product) => {
-      const next = [product, ...get().products.filter(p => p.id !== product.id)];
+      unmarkDeletedId(product.id);
+      const next = [product, ...get().products.filter((p) => p.id !== product.id)];
       persistToLocal(next);
-      set({ products: next });
+      set({ products: next, selectedProductId: product.id });
       try {
         await saveProductToFirestore(product);
       } catch (e) {
-        console.error('Firestore 저장 에러:', e);
+        console.warn('Firestore 저장 비동기 처리 알림:', e);
       }
     },
 
@@ -117,22 +200,24 @@ export const useProductStore = create<ProductState>((set, get) => {
       try {
         await saveProductToFirestore(updated);
       } catch (e) {
-        console.error('Firestore 업데이트 에러:', e);
+        console.warn('Firestore 업데이트 비동기 처리 알림:', e);
       }
     },
 
     deleteProduct: async (id) => {
+      markDeletedId(id);
       const next = get().products.filter((p) => p.id !== id);
       persistToLocal(next);
       set((state) => ({
         products: next,
-        selectedProductId: state.selectedProductId === id ? (next[0]?.id || null) : state.selectedProductId
+        selectedProductId:
+          state.selectedProductId === id ? next[0]?.id || null : state.selectedProductId
       }));
 
       try {
         await deleteProductFromFirestore(id);
       } catch (e) {
-        console.error('Firestore 삭제 에러:', e);
+        console.warn('Firestore 삭제 비동기 처리 알림:', e);
       }
     },
 

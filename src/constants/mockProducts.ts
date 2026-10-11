@@ -313,67 +313,67 @@ export const MOCK_PRODUCTS: ProductItem[] = [
         englishInn: 'Zinc gluconate',
         functionalCategory: '면역/세포분열',
         chemicalFormName: '유기산염 (글루콘산아연)',
-        rawAmount: 40,
+        rawAmount: 28,
         unit: 'mg',
-        elementalAmount: 5.74, // 1포당 약 2.87mg -> 1일 2포 시 5.74mg
+        elementalAmount: 4.0, // 1회(1포) 4.0mg -> 1일 2회 복용 시 8.0mg (식품안전나라 1일 기준치 8mg과 정확히 일치)
         isMainActive: true,
         standardKey: 'ZINC',
-        clinicalSummary: '• 산화아연 대비 위장장애(GI Distress)가 현저히 낮고 위산 분비 의존성 없는 우수한 흡수율\n• 성장기 세포 분열 및 정상 면역기능 유지 핵심 미네랄',
-        noteKorean: '어린이 위장 친화형 유기염 아연'
+        clinicalSummary: '• 산화아연 대비 위장장애(GI Distress)가 현저히 낮고 위산 분비 의존성 없는 우수한 흡수율\n• 성장기 세포 분열 및 정상 면역기능 유지 핵심 미네랄 (1일 아연 8mg)',
+        noteKorean: '어린이 위장 친화형 유기염 아연 (1일 아연 8mg)'
       },
       {
         ingredientId: 'ing_thiamine_hcl',
         englishInn: 'Thiamine hydrochloride',
         functionalCategory: '에너지 대사',
         chemicalFormName: '염산염 (티아민염산염 액상)',
-        rawAmount: 2.0,
+        rawAmount: 1.0,
         unit: 'mg',
         isMainActive: true,
         standardKey: 'VITAMIN_B1',
-        clinicalSummary: '• 탄수화물 및 에너지 대사에 관여하여 식욕 개선 및 활동 에너지 공급\n• 액상 제형으로 신속한 위장관 확산 및 흡수'
+        clinicalSummary: '• 탄수화물 및 에너지 대사에 관여하여 식욕 개선 및 활동 에너지 공급 (1일 2mg)\n• 액상 제형으로 신속한 위장관 확산 및 흡수'
       },
       {
         ingredientId: 'ing_riboflavin_sodium_phosphate',
         englishInn: "Riboflavin 5'-phosphate sodium",
         functionalCategory: '에너지 대사',
         chemicalFormName: '수용성 활성 에스테르염 (인산나트륨 형태)',
-        rawAmount: 2.4,
+        rawAmount: 1.2,
         unit: 'mg',
         isMainActive: true,
         standardKey: 'VITAMIN_B2',
-        clinicalSummary: '• 체내 에너지 생성 조효소(FMN/FAD) 전구체, 점막 세포 건강 유지\n• 용해도가 뛰어난 활성형 액상 원료 채택'
+        clinicalSummary: '• 체내 에너지 생성 조효소(FMN/FAD) 전구체, 점막 세포 건강 유지 (1일 2.4mg)\n• 용해도가 뛰어난 활성형 액상 원료 채택'
       },
       {
         ingredientId: 'ing_pyridoxine_hcl',
         englishInn: 'Pyridoxine hydrochloride',
         functionalCategory: '신경계/인지 기능',
         chemicalFormName: '염산염 (피리독신염산염)',
-        rawAmount: 3.0,
+        rawAmount: 1.5,
         unit: 'mg',
         isMainActive: true,
         standardKey: 'VITAMIN_B6',
-        clinicalSummary: '• 단백질 및 아미노산 이용에 필요, 혈액 호모시스테인 정상 수준 유지\n• 성장기 단백질 합성 극대화 지원'
+        clinicalSummary: '• 단백질 및 아미노산 이용에 필요, 혈액 호모시스테인 정상 수준 유지 (1일 3mg)\n• 성장기 단백질 합성 극대화 지원'
       },
       {
         ingredientId: 'ing_nicotinamide',
         englishInn: 'Nicotinamide',
         functionalCategory: '에너지 대사',
-        chemicalFormName: '아미드형 (나이아신아미드)',
-        rawAmount: 26,
+        chemicalFormName: '아미드형 (나이아신아마이드)',
+        rawAmount: 13.0,
         unit: 'mg',
         isMainActive: true,
         standardKey: 'VITAMIN_B3',
-        clinicalSummary: '• 안면 홍조(Flushing) 부작용이 없는 아미드 형태, 산화환원 반응 NAD/NADP 합성\n• 체내 에너지 생성 필수 보조'
+        clinicalSummary: '• 안면 홍조(Flushing) 부작용이 없는 아미드 형태, 산화환원 반응 NAD/NADP 합성 (1일 26mg)\n• 체내 에너지 생성 필수 보조'
       },
       {
         ingredientId: 'ing_amino_blend',
         englishInn: 'L-Arginine, L-Lysine hydrochloride, L-Carnitine blend',
         functionalCategory: '아미노산/단백질 합성',
         chemicalFormName: '유리 아미노산 및 염산염 복합체',
-        rawAmount: 500,
+        rawAmount: 250,
         unit: 'mg',
         isMainActive: false,
-        clinicalSummary: '• 성장호르몬 분비 자극(L-Arginine) 및 칼슘 흡수 보조(L-Lysine) 시너지 배합\n• 유아 및 소아 대사 활력 보강',
+        clinicalSummary: '• 성장호르몬 분비 자극(L-Arginine) 및 칼슘 흡수 보조(L-Lysine) 시너지 배합 (1일 500mg)\n• 유아 및 소아 대사 활력 보강',
         noteKorean: '부원료 대사 아미노산'
       }
     ],

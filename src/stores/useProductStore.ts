@@ -99,6 +99,15 @@ function getInitialProducts(): ProductItem[] {
     }
   }
 
+  // 만약 기존에 캐시된 마이타민업의 성분이 구버전(1일 환산 수치 오류)이라면 최신 정정 규격으로 자동 갱신
+  const mytaminMock = MOCK_PRODUCTS.find((p) => p.id === 'prod_mytamin_up');
+  if (mytaminMock) {
+    const mytaminIdx = loadedProducts.findIndex((p) => p.id === 'prod_mytamin_up');
+    if (mytaminIdx !== -1 && loadedProducts[mytaminIdx].ingredients[0].rawAmount > 30) {
+      loadedProducts[mytaminIdx] = mytaminMock;
+    }
+  }
+
   // 사용자가 명시적으로 삭제하지 않은 초기 기본 목업 제품들이 누락되어 있다면 자동 복원
   const existingIds = new Set(loadedProducts.map((p) => p.id));
   const missingMocks = MOCK_PRODUCTS.filter(

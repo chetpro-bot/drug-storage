@@ -256,9 +256,9 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
       setDosageInstruction(result.dosageInstruction);
       setIndicationsText(result.indicationsSummary.join(', '));
       setVerifiedIngredients(result.parsedIngredients);
-    } catch (e) {
-      console.error('공공데이터 조회 실패:', e);
-      alert('공공데이터 조회 중 오류가 발생했습니다.');
+    } catch (e: any) {
+      console.error('약학정보원 조회 실패:', e);
+      alert(e?.message || '약학정보원 조회 중 오류가 발생했습니다.');
     } finally {
       setIsLoadingPublicData(false);
     }

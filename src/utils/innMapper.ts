@@ -339,6 +339,27 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     defaultUnit: 'mg',
     standardKey: 'CHROMIUM',
     clinicalSummary: '• GTF(Glucose Tolerance Factor) 인슐린 보조인자, 혈당 대사 및 당뇨 예방 보조'
+  },
+  '유비데카레논': {
+    englishInn: 'Ubidecarenone',
+    functionalCategory: '항산화/혈행',
+    chemicalFormName: '코엔자임 Q10 (CoQ10)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 미토콘드리아 전자전달계 ATP 생성 촉진, 강력한 항산화 및 심혈관 기능 보호'
+  },
+  'DL-메티오닌': {
+    englishInn: 'DL-Methionine',
+    functionalCategory: '간기능/해독',
+    chemicalFormName: '함황 필수 아미노산',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 글루타티온 합성 전구체, 간 지방 축적 억제(지방간 예방) 및 간 해독 지원'
+  },
+  '오로트산수화물': {
+    englishInn: 'Orotic acid hydrate',
+    functionalCategory: '간기능/해독',
+    chemicalFormName: '오로트산 수화물 (비타민 B13)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 피리미딘 염기 및 핵산 합성 조효소, 간세포 재생 촉진'
   }
 };
 

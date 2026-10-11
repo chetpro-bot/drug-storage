@@ -4,7 +4,6 @@ import { ProductClassification, DosageForm } from '../types/classification';
 import { ProductItem } from '../types/product';
 import { FunctionalCategory, ProductIngredientEntry } from '../types/ingredient';
 import { fetchAndNormalizePublicDrugData, PublicDataFetchResult } from '../services/publicDataService';
-import { parseRawIngredientString } from '../utils/innMapper';
 import { 
   X, 
   Search, 
@@ -15,8 +14,7 @@ import {
   Loader2, 
   FileSearch,
   ShieldCheck,
-  RotateCcw,
-  ClipboardList
+  RotateCcw
 } from 'lucide-react';
 
 
@@ -55,10 +53,6 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
   const [verifiedIngredients, setVerifiedIngredients] = useState<ProductIngredientEntry[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 약학정보원 / 식약처 원문 직접 붙여넣기 모드
-  const [showPasteBox, setShowPasteBox] = useState(false);
-  const [pastedRawText, setPastedRawText] = useState('');
-
   // 폼 필드 전체 초기화 함수
   const resetForm = () => {
     setProductName('');
@@ -77,8 +71,6 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
     setDosageInstruction('');
     setIndicationsText('');
     setVerifiedIngredients([]);
-    setShowPasteBox(false);
-    setPastedRawText('');
     setIsSubmitting(false);
   };
 
@@ -88,22 +80,6 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
       resetForm();
     }
   }, [isOpen]);
-
-  // 약학정보원/식약처 복사 텍스트 직접 파싱
-  const handleParsePastedText = () => {
-    if (!pastedRawText.trim()) {
-      alert('약학정보원 또는 식약처에서 복사한 성분/함량 텍스트를 붙여넣어 주세요.');
-      return;
-    }
-    const parsed = parseRawIngredientString(pastedRawText);
-    if (parsed.length === 0) {
-      alert('성분을 인식하지 못했습니다. 텍스트 형식을 확인해주세요.');
-      return;
-    }
-    setVerifiedIngredients(parsed);
-    setShowPasteBox(false);
-  };
-
 
   const handleClose = () => {
     resetForm();
@@ -345,64 +321,8 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
                     </>
                   )}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setShowPasteBox(!showPasteBox)}
-                  className={`px-2.5 py-2 rounded-lg font-bold text-[11px] border transition-all flex items-center gap-1 shrink-0 ${
-                    showPasteBox
-                      ? 'bg-purple-600 text-white border-purple-700'
-                      : 'bg-white text-purple-700 border-purple-300 hover:bg-purple-50'
-                  }`}
-                  title="약학정보원 웹페이지 성분표 복사글 직접 붙여넣기"
-                >
-                  <ClipboardList className="w-3.5 h-3.5" />
-                  <span>원문 붙여넣기</span>
-                </button>
               </div>
             </div>
-
-            {/* 약학정보원 / 식약처 복사 원문 직접 붙여넣기 박스 */}
-            {showPasteBox && (
-              <div className="p-3.5 bg-purple-50 border border-purple-200 rounded-xl space-y-2 animate-in fade-in">
-                <div className="flex items-center justify-between">
-                  <span className="font-bold text-purple-950 flex items-center gap-1.5">
-                    <ClipboardList className="w-4 h-4 text-purple-700" />
-                    <span>약학정보원(KPAIC) 또는 식약처 허가 성분표 직접 붙여넣기</span>
-                  </span>
-                  <span className="text-[10px] text-purple-700">
-                    약학정보원의 '성분/함량' 표를 그대로 마우스로 긁어 복사한 뒤 붙여넣으세요
-                  </span>
-                </div>
-                <textarea
-                  rows={4}
-                  value={pastedRawText}
-                  onChange={(e) => setPastedRawText(e.target.value)}
-                  placeholder={`예시:
-Benfotiamine 벤포티아민 100mg (티아민염산염(으)로서 72.31mg)
-Biotin 비오틴 0.1mg
-Bisbenthiamine 비스벤티아민 30mg (티아민염산염(으)로서 26.25mg)
-Magnesium Oxide 산화마그네슘 100mg (마그네슘(으)로서 60.3mg)
-Zinc Oxide 산화아연 18.7mg (아연(으)로서 15mg)`}
-                  className="w-full p-2.5 bg-white border border-purple-300 rounded-lg font-mono text-[11px] focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                />
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowPasteBox(false)}
-                    className="px-3 py-1.5 text-slate-600 hover:text-slate-800 text-xs font-medium"
-                  >
-                    닫기
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleParsePastedText}
-                    className="px-4 py-1.5 bg-purple-700 hover:bg-purple-800 text-white rounded-lg text-xs font-bold shadow-sm transition-all"
-                  >
-                    ⚡ 붙여넣은 원문에서 전 성분 자동 추출하기
-                  </button>
-                </div>
-              </div>
-            )}
 
             {publicDataFetched && (
               <div className="p-3 bg-white border border-emerald-300 rounded-lg flex items-start justify-between gap-3 text-slate-700 animate-in fade-in">

@@ -90,6 +90,15 @@ function getInitialProducts(): ProductItem[] {
     console.warn('로컬스토리지 로드 실패:', e);
   }
 
+  // 만약 기존에 캐시된 비맥스제트정의 성분이 21개 미만(구버전 8개)이라면 최신 규격(21개)으로 자동 갱신
+  const bmaxMock = MOCK_PRODUCTS.find((p) => p.id === 'prod_bmax_jet');
+  if (bmaxMock) {
+    const bmaxIdx = loadedProducts.findIndex((p) => p.id === 'prod_bmax_jet');
+    if (bmaxIdx !== -1 && loadedProducts[bmaxIdx].ingredients.length < 21) {
+      loadedProducts[bmaxIdx] = bmaxMock;
+    }
+  }
+
   // 사용자가 명시적으로 삭제하지 않은 초기 기본 목업 제품들이 누락되어 있다면 자동 복원
   const existingIds = new Set(loadedProducts.map((p) => p.id));
   const missingMocks = MOCK_PRODUCTS.filter(

@@ -113,10 +113,30 @@ const KNOWN_PUBLIC_DRUGS: Record<string, Partial<PublicDataFetchResult>> = {
     amountPerServing: 1,
     servingUnitKorean: '정',
     regulatoryCode: '202300072',
-    rawIngredientsText: '벤포티아민 100mg, 비스벤티아민 30mg, 메코발라민 1000ug, 피리독살포스페이트 5mg, 우르소데옥시콜산 30mg, 산화아연 30mg, 산화마그네슘 100mg, 콜레칼시페롤 1000IU',
+    rawIngredientsText: `벤포티아민 100mg (티아민염산염으로서 72.3mg)
+비스벤티아민 30mg (티아민염산염으로서 26.2mg)
+리보플라빈부티레이트 50mg
+니코틴산아미드 10mg
+판토텐산칼슘 100mg
+피리독살포스페이트수화물 50mg
+메코발라민 1000ug
+비오틴 0.2mg
+폴산 0.5mg
+제피아스코르브산 51.15mg (아스코르브산으로서 50mg)
+콜레칼시페롤농축분말 10mg (비타민D로서 1000IU)
+토코페롤아세테이트2배산 20mg (비타민E로서 10IU)
+콜린타르타르산염 100mg
+이노시톨 100mg
+산화마그네슘 100mg (마그네슘으로서 60.3mg)
+산화아연 30mg (아연으로서 24.1mg)
+우르소데옥시콜산 60mg
+타우린 100mg
+감마-오리자놀 3mg
+셀레늄함유건조효모 40.8mg (셀레늄으로서 22ug)
+크롬함유건조효모 20mg (크롬으로서 40ug)`,
     dosageInstruction: '만 19세 이상 및 성인: 1일 1회, 1회 1정을 식후 복용',
-    indicationsSummary: ['육체피로, 체력저하 시 비타민 B1, B2, B6, D 보급', '신경통, 근육통, 관절통 완화', '아연 보급'],
-    sourceOrigin: '식약처 의약품안전나라'
+    indicationsSummary: ['육체피로, 체력저하 시 비타민 B1, B2, B6, C, D 보급', '신경통, 근육통, 관절통 완화', '아연 보급 및 간기능 보조'],
+    sourceOrigin: '약학정보원(KPAIC) DB'
   },
   '임팩타민': {
     productName: '임팩타민시그니처정',

@@ -293,6 +293,52 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '유리 아미노산',
     defaultUnit: 'mg',
     clinicalSummary: '• 담즙산 결합 및 삼투압 조절, 심근 수축력 및 근육 피로 완화'
+  },
+  '제피아스코르브산': {
+    englishInn: 'Ascorbic acid coated',
+    functionalCategory: '항산화/혈행',
+    chemicalFormName: '코팅 제피 비타민 C (아스코르브산)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_C',
+    clinicalSummary: '• 산화 방지 및 위장 자극 경감 코팅 비타민 C, 결합조직 형성 및 항산화 작용'
+  },
+  '콜레칼시페롤농축분말': {
+    englishInn: 'Cholecalciferol concentrate powder',
+    functionalCategory: '골격/관절/치아',
+    chemicalFormName: '농축 분말형 비타민 D3',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_D',
+    clinicalSummary: '• 장관 내 칼슘 흡수 촉진 및 골밀도 유지, 면역 세포 수용체 활성화'
+  },
+  '토코페롤아세테이트2배산': {
+    englishInn: 'Tocopherol acetate 50%',
+    functionalCategory: '항산화/혈행',
+    chemicalFormName: '비타민 E 아세테이트 2배산',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_E',
+    clinicalSummary: '• 말초 혈관 순환 촉진, 세포막 불포화지방산 산화 억제'
+  },
+  '감마-오리자놀': {
+    englishInn: 'Gamma-oryzanol',
+    functionalCategory: '신경계/인지 기능',
+    chemicalFormName: '미강유 추출 페룰산 에스테르 혼합물',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 자율신경계(간뇌 시상하부) 조절, 갱년기 신경 증상 및 위장 신경증 완화'
+  },
+  '감마오리자놀': {
+    englishInn: 'Gamma-oryzanol',
+    functionalCategory: '신경계/인지 기능',
+    chemicalFormName: '미강유 추출 페룰산 에스테르 혼합물',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 자율신경계(간뇌 시상하부) 조절, 갱년기 신경 증상 및 위장 신경증 완화'
+  },
+  '크롬함유건조효모': {
+    englishInn: 'Chromium in dried yeast',
+    functionalCategory: '에너지 대사',
+    chemicalFormName: '유기 크롬 (건조효모 결합형)',
+    defaultUnit: 'mg',
+    standardKey: 'CHROMIUM',
+    clinicalSummary: '• GTF(Glucose Tolerance Factor) 인슐린 보조인자, 혈당 대사 및 당뇨 예방 보조'
   }
 };
 

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useProductStore } from '../stores/useProductStore';
 import { ProductClassification, DosageForm } from '../types/classification';
 import { ProductItem } from '../types/product';
-import { FunctionalCategory, ProductIngredientEntry } from '../types/ingredient';
+import { ProductIngredientEntry } from '../types/ingredient';
 import { fetchAndNormalizePublicDrugData, PublicDataFetchResult } from '../services/publicDataService';
 import { recognizeAndParsePackageImage, parseNutritionLabelText, OcrParseResult } from '../services/labelOcrService';
 import { 
@@ -643,7 +643,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-emerald-600" />
                   <h4 className="font-bold text-slate-900 text-xs">
-                    [2단계] 약사 임상 검수 (Verification Table) — 성분명(English INN), 염(Form), 함량 확인
+                    [2단계] 약사 임상 검수 (Verification Table) — 성분명(English INN), 함량 확인
                   </h4>
                 </div>
                 <button
@@ -661,40 +661,16 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-slate-100 text-slate-600 text-[11px] font-bold uppercase tracking-wider border-b border-slate-200">
-                      <th className="py-2.5 px-3 w-[110px]">기능 분류</th>
-                      <th className="py-2.5 px-3 w-[190px]">성분명 (English INN)</th>
-                      <th className="py-2.5 px-3 w-[180px]">원료 형태 / 염(Form)</th>
-                      <th className="py-2.5 px-3 w-[110px] text-right">투입 함량</th>
-                      <th className="py-2.5 px-3 w-[80px]">단위</th>
-                      <th className="py-2.5 px-3 w-[110px] text-right">순수 원소량</th>
-                      <th className="py-2.5 px-3">MOA 작용 기전 요약</th>
-                      <th className="py-2.5 px-2 w-[40px] text-center">삭제</th>
+                      <th className="py-2.5 px-3">성분명 (English INN)</th>
+                      <th className="py-2.5 px-3 w-[140px] text-right">투입 함량</th>
+                      <th className="py-2.5 px-3 w-[100px]">단위</th>
+                      <th className="py-2.5 px-3 w-[140px] text-right">순수 원소량</th>
+                      <th className="py-2.5 px-2 w-[50px] text-center">삭제</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {verifiedIngredients.map((ing, idx) => (
                       <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                        {/* 기능 분류 */}
-                        <td className="p-2">
-                          <select
-                            value={ing.functionalCategory}
-                            onChange={(e) =>
-                              handleUpdateIngredient(idx, {
-                                functionalCategory: e.target.value as FunctionalCategory
-                              })
-                            }
-                            className="w-full p-1 border border-slate-300 rounded text-[11px] bg-white font-medium"
-                          >
-                            <option value="에너지 대사">에너지 대사</option>
-                            <option value="신경계/인지 기능">신경계</option>
-                            <option value="골격/관절/치아">골격/관절</option>
-                            <option value="면역/세포분열">면역/세포</option>
-                            <option value="간기능/해독">간기능/해독</option>
-                            <option value="항산화/혈행">항산화/혈행</option>
-                            <option value="아미노산/단백질 합성">아미노산</option>
-                          </select>
-                        </td>
-
                         {/* 성분명 (English INN) */}
                         <td className="p-2">
                           <input
@@ -704,18 +680,6 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
                               handleUpdateIngredient(idx, { englishInn: e.target.value })
                             }
                             className="w-full p-1.5 border border-slate-300 rounded font-bold text-slate-900 bg-white"
-                          />
-                        </td>
-
-                        {/* 원료 형태 / 염 (Form) */}
-                        <td className="p-2">
-                          <input
-                            type="text"
-                            value={ing.chemicalFormName}
-                            onChange={(e) =>
-                              handleUpdateIngredient(idx, { chemicalFormName: e.target.value })
-                            }
-                            className="w-full p-1.5 border border-slate-300 rounded text-slate-700 bg-white text-[11px]"
                           />
                         </td>
 
@@ -761,18 +725,6 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
                               })
                             }
                             className="w-full p-1.5 border border-slate-200 rounded text-right font-mono text-[11px] text-emerald-700 bg-emerald-50/50"
-                          />
-                        </td>
-
-                        {/* MOA 작용 기전 요약 */}
-                        <td className="p-2">
-                          <input
-                            type="text"
-                            value={ing.clinicalSummary}
-                            onChange={(e) =>
-                              handleUpdateIngredient(idx, { clinicalSummary: e.target.value })
-                            }
-                            className="w-full p-1.5 border border-slate-300 rounded text-[11px] text-slate-700 bg-white"
                           />
                         </td>
 

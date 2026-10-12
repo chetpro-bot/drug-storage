@@ -1,14 +1,43 @@
-import { FunctionalCategory, NutrientStandardKey, ProductIngredientEntry } from '../types/ingredient';
+import { EfficacyCategory, NutrientStandardKey, ProductIngredientEntry } from '../types/ingredient';
 import kpicMasterData from '../constants/kpicMasterDatabase.json';
 
 export const KPIC_MASTER_DATABASE: Record<string, string> = kpicMasterData;
+
+/**
+ * 성분명 또는 영문 INN으로부터 약학정보원(KPIC) 공식 약효분류 조회
+ */
+export function resolveKpicCategory(nameOrInn: string): string | null {
+  if (!nameOrInn) return null;
+  const cleanTk = nameOrInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+  if (!cleanTk) return null;
+
+  // 1. 완전 일치 우선 검색
+  for (const [kpicIng, kpicCat] of Object.entries(KPIC_MASTER_DATABASE)) {
+    const cleanKpic = kpicIng.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+    if (cleanTk === cleanKpic && kpicCat && kpicCat !== '기타') {
+      return kpicCat;
+    }
+  }
+
+  // 2. 부분 일치 검색
+  if (cleanTk.length >= 3) {
+    for (const [kpicIng, kpicCat] of Object.entries(KPIC_MASTER_DATABASE)) {
+      const cleanKpic = kpicIng.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+      if (cleanKpic.length >= 3 && (cleanTk.includes(cleanKpic) || cleanKpic.includes(cleanTk)) && kpicCat && kpicCat !== '기타') {
+        return kpicCat;
+      }
+    }
+  }
+
+  return null;
+}
 
 /**
  * 한글 성분명 ➔ 영문 표준 INN(International Nonproprietary Name) 및 임상 메타데이터 사전
  */
 export interface InnMappingMeta {
   englishInn: string;
-  functionalCategory: FunctionalCategory;
+  functionalCategory: EfficacyCategory; // KPIC 약효 분류
   chemicalFormName: string;
   defaultUnit: 'mg' | 'ug' | 'IU' | 'g';
   standardKey?: NutrientStandardKey;
@@ -37,7 +66,7 @@ export function saveLearnedIngredientMapping(nameOrInn: string, meta: Partial<In
     const cleanKey = nameOrInn.trim().toLowerCase();
     current[cleanKey] = {
       englishInn: meta.englishInn || nameOrInn,
-      functionalCategory: meta.functionalCategory || '소화효소제',
+      functionalCategory: meta.functionalCategory || '기타',
       chemicalFormName: meta.chemicalFormName || '표준 규격 원료',
       defaultUnit: meta.defaultUnit || 'mg',
       clinicalSummary: meta.clinicalSummary || `• ${nameOrInn} 약효 및 대사 조절 작용`,
@@ -53,7 +82,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   // 비타민 B군
   '벤포티아민': {
     englishInn: 'Benfotiamine',
-    functionalCategory: '에너지 대사',
+    functionalCategory: '비타민B1',
     chemicalFormName: '지용성 활성형 비타민 B1 (에스테르 유도체)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B1',
@@ -61,7 +90,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '비스벤티아민': {
     englishInn: 'Bisbentiamine',
-    functionalCategory: '신경계/인지 기능',
+    functionalCategory: '비타민B1',
     chemicalFormName: '뇌 투과형 지용성 활성 비타민 B1 (이량체)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B1',
@@ -69,7 +98,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '푸르설티아민': {
     englishInn: 'Fursultiamine',
-    functionalCategory: '에너지 대사',
+    functionalCategory: '비타민B1',
     chemicalFormName: '프로설티아민 유도체 지용성 비타민 B1',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B1',
@@ -77,7 +106,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '티아민질산염': {
     englishInn: 'Thiamine mononitrate',
-    functionalCategory: '에너지 대사',
+    functionalCategory: '비타민B1',
     chemicalFormName: '질산염 (수용성 티아민)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B1',
@@ -85,7 +114,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '티아민염산염': {
     englishInn: 'Thiamine hydrochloride',
-    functionalCategory: '에너지 대사',
+    functionalCategory: '비타민B1',
     chemicalFormName: '염산염 (수용성 티아민)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B1',
@@ -93,7 +122,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '리보플라빈': {
     englishInn: 'Riboflavin',
-    functionalCategory: '에너지 대사',
+    functionalCategory: '비타민B2',
     chemicalFormName: '순수 리보플라빈 (비타민 B2)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B2',
@@ -101,7 +130,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '리보플라빈포스페이트나트륨': {
     englishInn: "Riboflavin 5'-phosphate sodium",
-    functionalCategory: '에너지 대사',
+    functionalCategory: '비타민B2',
     chemicalFormName: '수용성 활성 에스테르염 (인산나트륨 형태)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B2',
@@ -109,7 +138,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '니코틴산아미드': {
     englishInn: 'Nicotinamide',
-    functionalCategory: '에너지 대사',
+    functionalCategory: '비타민B3',
     chemicalFormName: '아미드형 (비타민 B3)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B3',
@@ -117,7 +146,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '판토텐산칼슘': {
     englishInn: 'Calcium pantothenate',
-    functionalCategory: '에너지 대사',
+    functionalCategory: '비타민B5',
     chemicalFormName: '칼슘염 (비타민 B5)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B5',
@@ -125,7 +154,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '칼슘판토테네이트': {
     englishInn: 'Calcium pantothenate',
-    functionalCategory: '에너지 대사',
+    functionalCategory: '비타민B5',
     chemicalFormName: '칼슘염 (비타민 B5)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B5',
@@ -133,7 +162,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '피리독신염산염': {
     englishInn: 'Pyridoxine hydrochloride',
-    functionalCategory: '신경계/인지 기능',
+    functionalCategory: '비타민B6',
     chemicalFormName: '염산염 (비타민 B6)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B6',
@@ -141,7 +170,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '피리독살포스페이트': {
     englishInn: "Pyridoxal 5'-phosphate",
-    functionalCategory: '신경계/인지 기능',
+    functionalCategory: '비타민B6',
     chemicalFormName: '활성 조효소형 비타민 B6 (PLP)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B6',
@@ -149,7 +178,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '메코발라민': {
     englishInn: 'Mecobalamin',
-    functionalCategory: '신경계/인지 기능',
+    functionalCategory: '비타민B12 보충',
     chemicalFormName: '체내 직접 작용 활성 비타민 B12 (메틸코발라민)',
     defaultUnit: 'ug',
     standardKey: 'VITAMIN_B12',
@@ -157,7 +186,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '시아노코발라민': {
     englishInn: 'Cyanocobalamin',
-    functionalCategory: '신경계/인지 기능',
+    functionalCategory: '비타민B12 보충',
     chemicalFormName: '합성형 비타민 B12',
     defaultUnit: 'ug',
     standardKey: 'VITAMIN_B12',
@@ -165,7 +194,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '폴산': {
     englishInn: 'Folic acid',
-    functionalCategory: '면역/세포분열',
+    functionalCategory: '엽산 보충',
     chemicalFormName: '합성 엽산 (비타민 B9)',
     defaultUnit: 'ug',
     standardKey: 'VITAMIN_B9',
@@ -173,7 +202,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '비오틴': {
     englishInn: 'Biotin',
-    functionalCategory: '에너지 대사',
+    functionalCategory: '비타민B7',
     chemicalFormName: '순수 비오틴 (비타민 B7)',
     defaultUnit: 'ug',
     standardKey: 'VITAMIN_B7',
@@ -183,7 +212,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   // 미네랄
   '산화아연': {
     englishInn: 'Zinc oxide',
-    functionalCategory: '면역/세포분열',
+    functionalCategory: '아연(Zn)',
     chemicalFormName: '무기염 (산화아연)',
     defaultUnit: 'mg',
     standardKey: 'ZINC',
@@ -192,7 +221,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '글루콘산아연': {
     englishInn: 'Zinc gluconate',
-    functionalCategory: '면역/세포분열',
+    functionalCategory: '아연(Zn)',
     chemicalFormName: '유기산염 (글루콘산아연)',
     defaultUnit: 'mg',
     standardKey: 'ZINC',
@@ -201,7 +230,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '산화마그네슘': {
     englishInn: 'Magnesium oxide',
-    functionalCategory: '골격/관절/치아',
+    functionalCategory: '마그네슘(Mg)',
     chemicalFormName: '무기염 (산화마그네슘)',
     defaultUnit: 'mg',
     standardKey: 'MAGNESIUM',
@@ -210,7 +239,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '글리세로인산마그네슘': {
     englishInn: 'Magnesium glycerophosphate',
-    functionalCategory: '골격/관절/치아',
+    functionalCategory: '마그네슘(Mg)',
     chemicalFormName: '유기 유도체염 (글리세로인산마그네슘)',
     defaultUnit: 'mg',
     standardKey: 'MAGNESIUM',
@@ -219,7 +248,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '탄산칼슘': {
     englishInn: 'Calcium carbonate',
-    functionalCategory: '골격/관절/치아',
+    functionalCategory: '칼슘(Ca)',
     chemicalFormName: '무기염 (탄산칼슘)',
     defaultUnit: 'mg',
     standardKey: 'CALCIUM',
@@ -228,7 +257,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '구연산칼슘': {
     englishInn: 'Calcium citrate',
-    functionalCategory: '골격/관절/치아',
+    functionalCategory: '칼슘(Ca)',
     chemicalFormName: '유기산염 (구연산칼슘)',
     defaultUnit: 'mg',
     standardKey: 'CALCIUM',
@@ -237,7 +266,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '푸마르산제일철': {
     englishInn: 'Ferrous fumarate',
-    functionalCategory: '항산화/혈행',
+    functionalCategory: '제1철 (Ferrous)',
     chemicalFormName: '유기산 2가 철 (푸마르산염)',
     defaultUnit: 'mg',
     standardKey: 'IRON',
@@ -247,21 +276,21 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
 
   '콜린타르타르산염': {
     englishInn: 'Choline bitartrate',
-    functionalCategory: '신경계/인지 기능',
+    functionalCategory: '기타 비타민B',
     chemicalFormName: '주석산염 (콜린염)',
     defaultUnit: 'mg',
     clinicalSummary: '• 신경전달물질 아세틸콜린(Acetylcholine) 합성 전구체, 뇌 신경 신호 전달 촉진'
   },
   '이노시톨': {
     englishInn: 'Inositol',
-    functionalCategory: '신경계/인지 기능',
+    functionalCategory: '기타 비타민B',
     chemicalFormName: '미오-이노시톨 (Myo-inositol)',
     defaultUnit: 'mg',
     clinicalSummary: '• 세포막 인지질 구성 성분, 뇌세포 2차 신호전달계(IP3) 조절 및 신경 보호'
   },
   '리보플라빈부티레이트': {
     englishInn: 'Riboflavin butyrate',
-    functionalCategory: '에너지 대사',
+    functionalCategory: '비타민B2',
     chemicalFormName: '지용성 부티레이트 에스테르형 활성 비타민 B2',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B2',
@@ -269,7 +298,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '피리독살포스페이트수화물': {
     englishInn: "Pyridoxal phosphate hydrate",
-    functionalCategory: '신경계/인지 기능',
+    functionalCategory: '비타민B6',
     chemicalFormName: '활성 조효소형 비타민 B6 수화물 (PLP)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B6',
@@ -277,7 +306,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '농축콜레칼시페롤': {
     englishInn: 'Cholecalciferol concentrated',
-    functionalCategory: '골격/관절/치아',
+    functionalCategory: '비타민D3 제제',
     chemicalFormName: '농축 천연 비타민 D3 유도체',
     defaultUnit: 'IU',
     standardKey: 'VITAMIN_D',
@@ -285,7 +314,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '셀레늄함유건조효모': {
     englishInn: 'Selenium in dried yeast',
-    functionalCategory: '항산화/혈행',
+    functionalCategory: '셀레늄(Se)',
     chemicalFormName: '유기 셀레늄 (건조효모 결합형)',
     defaultUnit: 'ug',
     standardKey: 'SELENIUM',
@@ -293,7 +322,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '토코페롤아세테이트': {
     englishInn: 'Tocopherol acetate',
-    functionalCategory: '항산화/혈행',
+    functionalCategory: '비타민E 제제',
     chemicalFormName: '합성 비타민 E 에스테르',
     defaultUnit: 'IU',
     standardKey: 'VITAMIN_E',
@@ -301,7 +330,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '우르소데옥시콜산': {
     englishInn: 'Ursodeoxycholic acid',
-    functionalCategory: '간기능/해독',
+    functionalCategory: '담석용해제',
     chemicalFormName: '친수성 담즙산 (UDCA: Ursodeoxycholic Acid)',
     defaultUnit: 'mg',
     clinicalSummary: '• 간세포 보호막 형성, 담즙 분비 촉진(이담 작용) 및 해독 대사 활성화'
@@ -309,7 +338,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
 
   '콜레칼시페롤': {
     englishInn: 'Cholecalciferol',
-    functionalCategory: '골격/관절/치아',
+    functionalCategory: '비타민D3 제제',
     chemicalFormName: '천연 비타민 D3 유도체',
     defaultUnit: 'IU',
     standardKey: 'VITAMIN_D',
@@ -318,7 +347,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
 
   '아스코르브산': {
     englishInn: 'Ascorbic acid',
-    functionalCategory: '항산화/혈행',
+    functionalCategory: '비타민C 제제',
     chemicalFormName: '순수 L-아스코르브산 (비타민 C)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_C',
@@ -326,21 +355,21 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   'L-아르기닌': {
     englishInn: 'L-Arginine',
-    functionalCategory: '아미노산/단백질 합성',
+    functionalCategory: '간보호제',
     chemicalFormName: '유리 L-아르기닌',
     defaultUnit: 'mg',
     clinicalSummary: '• 산화질소(NO) 생성 전구체, 혈관 확장 및 대사 활력 지원'
   },
   '타우린': {
     englishInn: 'Taurine',
-    functionalCategory: '에너지 대사',
+    functionalCategory: '비필수 아미노산제제',
     chemicalFormName: '유리 아미노산',
     defaultUnit: 'mg',
     clinicalSummary: '• 담즙산 결합 및 삼투압 조절, 심근 수축력 및 근육 피로 완화'
   },
   '제피아스코르브산': {
     englishInn: 'Ascorbic acid coated',
-    functionalCategory: '항산화/혈행',
+    functionalCategory: '비타민C 제제',
     chemicalFormName: '코팅 제피 비타민 C (아스코르브산)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_C',
@@ -348,7 +377,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '콜레칼시페롤농축분말': {
     englishInn: 'Cholecalciferol concentrate powder',
-    functionalCategory: '골격/관절/치아',
+    functionalCategory: '비타민D3 제제',
     chemicalFormName: '농축 분말형 비타민 D3',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_D',
@@ -356,7 +385,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '토코페롤아세테이트2배산': {
     englishInn: 'Tocopherol acetate 50%',
-    functionalCategory: '항산화/혈행',
+    functionalCategory: '비타민E 제제',
     chemicalFormName: '비타민 E 아세테이트 2배산',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_E',
@@ -364,21 +393,21 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '감마-오리자놀': {
     englishInn: 'Gamma-oryzanol',
-    functionalCategory: '신경계/인지 기능',
+    functionalCategory: '자율신경제',
     chemicalFormName: '미강유 추출 페룰산 에스테르 혼합물',
     defaultUnit: 'mg',
     clinicalSummary: '• 자율신경계(간뇌 시상하부) 조절, 갱년기 신경 증상 및 위장 신경증 완화'
   },
   '감마오리자놀': {
     englishInn: 'Gamma-oryzanol',
-    functionalCategory: '신경계/인지 기능',
+    functionalCategory: '자율신경제',
     chemicalFormName: '미강유 추출 페룰산 에스테르 혼합물',
     defaultUnit: 'mg',
     clinicalSummary: '• 자율신경계(간뇌 시상하부) 조절, 갱년기 신경 증상 및 위장 신경증 완화'
   },
   '크롬함유건조효모': {
     englishInn: 'Chromium in dried yeast',
-    functionalCategory: '에너지 대사',
+    functionalCategory: '크롬(Cr)',
     chemicalFormName: '유기 크롬 (건조효모 결합형)',
     defaultUnit: 'mg',
     standardKey: 'CHROMIUM',
@@ -386,35 +415,35 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '유비데카레논': {
     englishInn: 'Ubidecarenone',
-    functionalCategory: '항산화/혈행',
+    functionalCategory: '기타 심부전 치료제',
     chemicalFormName: '코엔자임 Q10 (CoQ10)',
     defaultUnit: 'mg',
     clinicalSummary: '• 미토콘드리아 전자전달계 ATP 생성 촉진, 강력한 항산화 및 심혈관 기능 보호'
   },
   'DL-메티오닌': {
     englishInn: 'DL-Methionine',
-    functionalCategory: '간기능/해독',
+    functionalCategory: '간보호제',
     chemicalFormName: '함황 필수 아미노산',
     defaultUnit: 'mg',
     clinicalSummary: '• 글루타티온 합성 전구체, 간 지방 축적 억제(지방간 예방) 및 간 해독 지원'
   },
   '오로트산수화물': {
     englishInn: 'Orotic acid hydrate',
-    functionalCategory: '간기능/해독',
+    functionalCategory: '기타 간장 약물',
     chemicalFormName: '오로트산 수화물 (비타민 B13)',
     defaultUnit: 'mg',
     clinicalSummary: '• 피리미딘 염기 및 핵산 합성 조효소, 간세포 재생 촉진'
   },
   '베타카로틴': {
     englishInn: 'Beta-carotene',
-    functionalCategory: '항산화/혈행',
+    functionalCategory: '비타민A 제제',
     chemicalFormName: '천연 프로비타민 A 카로티노이드',
     defaultUnit: 'mg',
     clinicalSummary: '• 체내 필요 시 비타민 A로 전환, 시각 기능 및 피부·점막 세포 재생\n• 유해 활성산소 소거 및 항산화 작용'
   },
   '베타카로틴20%': {
     englishInn: 'Beta-carotene 20%',
-    functionalCategory: '항산화/혈행',
+    functionalCategory: '비타민A 제제',
     chemicalFormName: '천연 프로비타민 A 카로티노이드',
     defaultUnit: 'mg',
     clinicalSummary: '• 체내 필요 시 비타민 A로 전환, 시각 기능 및 피부·점막 세포 재생\n• 유해 활성산소 소거 및 항산화 작용'
@@ -495,14 +524,14 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   // 해열진통소염제
   '아세트아미노펜': {
     englishInn: 'Acetaminophen',
-    functionalCategory: '신경계/인지 기능',
+    functionalCategory: 'p-aminophenol 유도체',
     chemicalFormName: '해열진통제 (아세트아미노펜)',
     defaultUnit: 'mg',
     clinicalSummary: '• 중추 신경계 COX 억제, 두통·발열·근육통 완화 (위장장애 최소화)'
   },
   '이부프로펜': {
     englishInn: 'Ibuprofen',
-    functionalCategory: '신경계/인지 기능',
+    functionalCategory: 'Propionic acids',
     chemicalFormName: '비프로피온산계 NSAID 소염진통제',
     defaultUnit: 'mg',
     clinicalSummary: '• 말초 COX-1/COX-2 억제, 염증·통증·발열 완화'
@@ -678,21 +707,36 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
       }
     }
 
-    // 1. KPIC 약학정보원 마스터 데이터베이스에서 공식 약효분류 조회
+    // 1. KPIC 약학정보원 마스터 데이터베이스에서 공식 약효분류 조회 (정확도 우선순위 검색)
     let kpicCategory: string | undefined = undefined;
     const testKeys = [detectedInn, nameRaw, lookupKey].filter(Boolean);
+    // 1-1. 완전 일치 우선 검색
     for (const tk of testKeys) {
       const cleanTk = tk.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
       for (const [kpicIng, kpicCat] of Object.entries(KPIC_MASTER_DATABASE)) {
         const cleanKpicIng = kpicIng.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
-        if (cleanTk === cleanKpicIng || cleanTk.includes(cleanKpicIng) || cleanKpicIng.includes(cleanTk)) {
-          if (kpicCat && kpicCat !== '기타') {
+        if (cleanTk === cleanKpicIng && kpicCat && kpicCat !== '기타') {
+          kpicCategory = kpicCat;
+          break;
+        }
+      }
+      if (kpicCategory) break;
+    }
+    // 1-2. 부분 일치 검색
+    if (!kpicCategory) {
+      for (const tk of testKeys) {
+        const cleanTk = tk.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+        if (cleanTk.length < 3) continue;
+        for (const [kpicIng, kpicCat] of Object.entries(KPIC_MASTER_DATABASE)) {
+          const cleanKpicIng = kpicIng.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+          if (cleanKpicIng.length < 3) continue;
+          if ((cleanTk.includes(cleanKpicIng) || cleanKpicIng.includes(cleanTk)) && kpicCat && kpicCat !== '기타') {
             kpicCategory = kpicCat;
             break;
           }
         }
+        if (kpicCategory) break;
       }
-      if (kpicCategory) break;
     }
 
     if (matchedKey) {
@@ -729,7 +773,7 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
       results.push({
         ingredientId: `ing_auto_${Date.now()}_${index}`,
         englishInn: fallbackInn,
-        functionalCategory: kpicCategory || '소화효소제',
+        functionalCategory: kpicCategory || '기타',
         chemicalFormName: '표준 정제 원료',
         rawAmount: amount || 10,
         unit,

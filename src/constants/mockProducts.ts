@@ -29,7 +29,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_ascorbic_acid_coated',
         englishInn: 'Ascorbic Acid Coated',
-        functionalCategory: '항산화/혈행',
+        functionalCategory: '비타민C 제제',
         chemicalFormName: '제피아스코르브산 (코팅 비타민 C)',
         rawAmount: 51.15,
         unit: 'mg',
@@ -42,7 +42,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_benfotiamine',
         englishInn: 'Benfotiamine',
-        functionalCategory: '에너지 대사',
+        functionalCategory: '비타민B1',
         chemicalFormName: '지용성 활성형 비타민 B1 (에스테르 유도체)',
         rawAmount: 100,
         unit: 'mg',
@@ -56,7 +56,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_biotin',
         englishInn: 'Biotin',
-        functionalCategory: '에너지 대사',
+        functionalCategory: '비타민B7',
         chemicalFormName: '순수 비오틴 (비타민 B7)',
         rawAmount: 0.2,
         unit: 'mg',
@@ -68,7 +68,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_bisbentiamine',
         englishInn: 'Bisbenthiamine',
-        functionalCategory: '신경계/인지 기능',
+        functionalCategory: '비타민B1',
         chemicalFormName: '뇌 투과형 지용성 활성 비타민 B1 (이량체 구조)',
         rawAmount: 30,
         unit: 'mg',
@@ -82,7 +82,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_calcium_pantothenate',
         englishInn: 'Calcium Pantothenate',
-        functionalCategory: '에너지 대사',
+        functionalCategory: '비타민B5',
         chemicalFormName: '칼슘염 (비타민 B5)',
         rawAmount: 100,
         unit: 'mg',
@@ -94,7 +94,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_cholecalciferol_powder',
         englishInn: 'Cholecalciferol Concentrate Powder',
-        functionalCategory: '골격/관절/치아',
+        functionalCategory: '비타민D3 제제',
         chemicalFormName: '콜레칼시페롤농축분말 (비타민 D3)',
         rawAmount: 10,
         unit: 'mg',
@@ -107,7 +107,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_choline_bitartrate',
         englishInn: 'Choline Bitartrate',
-        functionalCategory: '신경계/인지 기능',
+        functionalCategory: '기타 비타민B',
         chemicalFormName: '콜린타르타르산염',
         rawAmount: 100,
         unit: 'mg',
@@ -118,7 +118,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_chromium_yeast',
         englishInn: 'Chromium in Dried Yeast',
-        functionalCategory: '에너지 대사',
+        functionalCategory: '크롬(Cr)',
         chemicalFormName: '크롬함유건조효모 (유기 크롬)',
         rawAmount: 20,
         unit: 'mg',
@@ -131,7 +131,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_folic_acid',
         englishInn: 'Folic Acid',
-        functionalCategory: '면역/세포분열',
+        functionalCategory: '엽산 보충',
         chemicalFormName: '합성 엽산 (비타민 B9)',
         rawAmount: 0.5,
         unit: 'mg',
@@ -143,7 +143,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_inositol',
         englishInn: 'Inositol',
-        functionalCategory: '신경계/인지 기능',
+        functionalCategory: '기타 비타민B',
         chemicalFormName: '미오-이노시톨 (Myo-inositol)',
         rawAmount: 100,
         unit: 'mg',
@@ -154,7 +154,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_magnesium_oxide',
         englishInn: 'Magnesium Oxide',
-        functionalCategory: '골격/관절/치아',
+        functionalCategory: '마그네슘(Mg)',
         chemicalFormName: '무기염 (산화마그네슘)',
         rawAmount: 100,
         unit: 'mg',
@@ -168,7 +168,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_mecobalamin',
         englishInn: 'Mecobalamin',
-        functionalCategory: '신경계/인지 기능',
+        functionalCategory: '비타민B12 보충',
         chemicalFormName: '체내 직접 작용 활성형 비타민 B12 (메틸코발라민)',
         rawAmount: 1,
         unit: 'mg',
@@ -182,7 +182,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_nicotinamide',
         englishInn: 'Nicotinamide',
-        functionalCategory: '에너지 대사',
+        functionalCategory: '비타민B3',
         chemicalFormName: '아미드형 비타민 B3 (나이아신아마이드)',
         rawAmount: 10,
         unit: 'mg',
@@ -194,7 +194,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_pyridoxal_phosphate_hydrate',
         englishInn: 'Pyridoxal Phosphate Hydrate',
-        functionalCategory: '신경계/인지 기능',
+        functionalCategory: '비타민B6',
         chemicalFormName: '활성 조효소형 비타민 B6 수화물 (PLP)',
         rawAmount: 50,
         unit: 'mg',
@@ -207,7 +207,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_riboflavin_butyrate',
         englishInn: 'Riboflavin Butyrate',
-        functionalCategory: '에너지 대사',
+        functionalCategory: '비타민B2',
         chemicalFormName: '지용성 부티레이트 에스테르형 활성 비타민 B2',
         rawAmount: 50,
         unit: 'mg',
@@ -221,7 +221,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_selenium_yeast',
         englishInn: 'Selenium in Dried Yeast',
-        functionalCategory: '항산화/혈행',
+        functionalCategory: '셀레늄(Se)',
         chemicalFormName: '셀레늄함유건조효모 (유기 셀레늄)',
         rawAmount: 40.8,
         unit: 'mg',
@@ -234,7 +234,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_taurine',
         englishInn: 'Taurine',
-        functionalCategory: '에너지 대사',
+        functionalCategory: '비필수 아미노산제제',
         chemicalFormName: '유리 아미노산 (타우린)',
         rawAmount: 100,
         unit: 'mg',
@@ -245,7 +245,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_tocopherol_acetate',
         englishInn: 'Tocopherol Acetate Powder 50%',
-        functionalCategory: '항산화/혈행',
+        functionalCategory: '비타민E 제제',
         chemicalFormName: '토코페롤아세테이트 2배산 (비타민 E)',
         rawAmount: 20,
         unit: 'mg',
@@ -258,7 +258,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_udca',
         englishInn: 'Ursodeoxycholic Acid',
-        functionalCategory: '간기능/해독',
+        functionalCategory: '담석용해제',
         chemicalFormName: '친수성 담즙산 (UDCA: Ursodeoxycholic Acid)',
         rawAmount: 60,
         unit: 'mg',
@@ -270,7 +270,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_zinc_oxide',
         englishInn: 'Zinc Oxide',
-        functionalCategory: '면역/세포분열',
+        functionalCategory: '아연(Zn)',
         chemicalFormName: '무기염 (산화아연)',
         rawAmount: 30,
         unit: 'mg',
@@ -284,7 +284,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_gamma_oryzanol',
         englishInn: 'Gamma Oryzanol',
-        functionalCategory: '신경계/인지 기능',
+        functionalCategory: '자율신경제',
         chemicalFormName: '감마-오리자놀 (미강 추출 페룰산 에스테르)',
         rawAmount: 3,
         unit: 'mg',
@@ -335,7 +335,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_zinc_gluconate',
         englishInn: 'Zinc gluconate',
-        functionalCategory: '면역/세포분열',
+        functionalCategory: '아연(Zn)',
         chemicalFormName: '유기산염 (글루콘산아연)',
         rawAmount: 28,
         unit: 'mg',
@@ -348,7 +348,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_thiamine_hcl',
         englishInn: 'Thiamine hydrochloride',
-        functionalCategory: '에너지 대사',
+        functionalCategory: '비타민B1',
         chemicalFormName: '염산염 (티아민염산염 액상)',
         rawAmount: 1.0,
         unit: 'mg',
@@ -359,7 +359,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_riboflavin_sodium_phosphate',
         englishInn: "Riboflavin 5'-phosphate sodium",
-        functionalCategory: '에너지 대사',
+        functionalCategory: '비타민B2',
         chemicalFormName: '수용성 활성 에스테르염 (인산나트륨 형태)',
         rawAmount: 1.2,
         unit: 'mg',
@@ -370,7 +370,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_pyridoxine_hcl',
         englishInn: 'Pyridoxine hydrochloride',
-        functionalCategory: '신경계/인지 기능',
+        functionalCategory: '비타민B6',
         chemicalFormName: '염산염 (피리독신염산염)',
         rawAmount: 1.5,
         unit: 'mg',
@@ -381,7 +381,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_nicotinamide',
         englishInn: 'Nicotinamide',
-        functionalCategory: '에너지 대사',
+        functionalCategory: '비타민B3',
         chemicalFormName: '아미드형 (나이아신아마이드)',
         rawAmount: 13.0,
         unit: 'mg',
@@ -392,7 +392,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_amino_blend',
         englishInn: 'L-Arginine, L-Lysine hydrochloride, L-Carnitine blend',
-        functionalCategory: '아미노산/단백질 합성',
+        functionalCategory: '아미노산제제',
         chemicalFormName: '유리 아미노산 및 염산염 복합체',
         rawAmount: 250,
         unit: 'mg',
@@ -438,7 +438,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_ascorbic_acid',
         englishInn: 'Ascorbic acid',
-        functionalCategory: '항산화/혈행',
+        functionalCategory: '비타민C 제제',
         chemicalFormName: '순수 L-아스코르브산',
         rawAmount: 500,
         unit: 'mg',
@@ -450,7 +450,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_taurine',
         englishInn: 'Taurine',
-        functionalCategory: '에너지 대사',
+        functionalCategory: '비필수 아미노산제제',
         chemicalFormName: '유리 타우린',
         rawAmount: 1000,
         unit: 'mg',

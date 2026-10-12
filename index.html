@@ -23,8 +23,31 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch((err) => {
+          navigator.serviceWorker.register('/sw.js').then((reg) => {
+            // 새 버전 즉시 확인
+            reg.update();
+            reg.addEventListener('updatefound', () => {
+              const newWorker = reg.installing;
+              if (newWorker) {
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    console.log('새 버전 감지됨: 자동 새로고침 진행');
+                    window.location.reload();
+                  }
+                });
+              }
+            });
+          }).catch((err) => {
             console.log('SW registration failed:', err);
+          });
+
+          // 새 서비스워커 활성화 시 자동 새로고침
+          let isRefreshing = false;
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!isRefreshing) {
+              isRefreshing = true;
+              window.location.reload();
+            }
           });
         });
       }

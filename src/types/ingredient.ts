@@ -66,19 +66,42 @@ export interface IngredientDefinition {
   targetTissues: string[];              // 표적 조직 (예: 신경계, 근육, 간)
 }
 
-export type FunctionalCategory = 
-  | '에너지 대사'
-  | '신경계/인지 기능'
-  | '골격/관절/치아'
-  | '면역/세포분열'
-  | '간기능/해독'
-  | '항산화/혈행'
-  | '아미노산/단백질 합성'
+export type EfficacyCategory = 
+  | '비타민B1'
+  | '비타민B2'
+  | '비타민B3'
+  | '비타민B5'
+  | '비타민B6'
+  | '비타민B7'
+  | '비타민B12 보충'
+  | '기타 비타민B'
+  | '비타민C 제제'
+  | '비타민D 제제'
+  | '비타민D3 제제'
+  | '비타민E 제제'
+  | '비타민A 제제'
+  | '비타민K 제제'
+  | '엽산 보충'
+  | '마그네슘(Mg)'
+  | '아연(Zn)'
+  | '칼슘(Ca)'
+  | '셀레늄(Se)'
+  | '크롬(Cr)'
   | '소화효소제'
   | '소염효소'
   | '장내 가스 제거제'
   | '담석용해제'
+  | '비필수 아미노산제제'
+  | '아미노산제제'
+  | '간보호제'
+  | '자율신경제'
+  | '기타 심부전 치료제'
+  | '기타 간장 약물'
+  | '기타'
   | (string & {});
+
+// 하위 호환성을 위해 FunctionalCategory도 EfficacyCategory의 별칭으로 유지
+export type FunctionalCategory = EfficacyCategory;
 
 /**
  * 제품에 포함된 단일 성분 처방 정보
@@ -86,7 +109,7 @@ export type FunctionalCategory =
 export interface ProductIngredientEntry {
   ingredientId: string;
   englishInn: string;                   // 영문 표준 명칭 (English INN)
-  functionalCategory: FunctionalCategory;// 기능 분류 (에너지 대사, 신경계 등)
+  functionalCategory: EfficacyCategory; // KPIC 약효 분류 (비타민B1, 소화효소제 등)
   chemicalFormName: string;             // 원료 형태/염(Form, 예: "지용성 활성 에스테르", "유기염(Gluconate)")
   rawAmount: number;                    // 투입/표기 원료량
   unit: 'mg' | 'ug' | 'IU' | 'CFU' | 'g';

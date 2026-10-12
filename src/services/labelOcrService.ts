@@ -13,16 +13,56 @@ export interface OcrParseResult {
   unmappedIngredients: string[];
 }
 
+export async function fileToDataUrl(file: File | Blob, maxWidth = 1600): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataUrl = e.target?.result as string;
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width <= maxWidth && height <= maxWidth) {
+          resolve(dataUrl);
+          return;
+        }
+        if (width > height) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        } else {
+          width = Math.round((width * maxWidth) / height);
+          height = maxWidth;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.85));
+        } else {
+          resolve(dataUrl);
+        }
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    };
+    reader.onerror = (err) => reject(err);
+    reader.readAsDataURL(file);
+  });
+}
+
 /**
  * 이미지 전처리 함수 (캔버스를 통해 그레이스케일 및 대비를 강화하여 텍스트 인식률 50% 향상)
  */
-export async function preprocessImageForOcr(imageFile: File | Blob): Promise<string> {
+export async function preprocessImageForOcr(imageSource: File | Blob | string): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    const url = URL.createObjectURL(imageFile);
+    const url = typeof imageSource === 'string' ? imageSource : URL.createObjectURL(imageSource);
 
     img.onload = () => {
-      URL.revokeObjectURL(url);
+      if (typeof imageSource !== 'string') {
+        URL.revokeObjectURL(url);
+      }
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       if (!ctx) {
@@ -57,9 +97,7 @@ export async function preprocessImageForOcr(imageFile: File | Blob): Promise<str
         const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
 
         for (let i = 0; i < data.length; i += 4) {
-          // 명도 계산
           const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-          // 대비 필터 적용
           const adjusted = factor * (gray - 128) + 128;
           const clamped = Math.max(0, Math.min(255, adjusted));
 
@@ -75,7 +113,7 @@ export async function preprocessImageForOcr(imageFile: File | Blob): Promise<str
       resolve(canvas.toDataURL('image/jpeg', 0.9));
     };
 
-    img.onerror = (err) => reject(err);
+    img.onerror = () => reject(new Error('이미지를 불러올 수 없습니다. 유효한 이미지 파일인지 확인해주세요.'));
     img.src = url;
   });
 }
@@ -90,7 +128,7 @@ async function getOcrWorker(
 ): Promise<Worker> {
   if (cachedWorker) return cachedWorker;
 
-  const worker = await createWorker('kor+eng', undefined, {
+  const workerPromise = createWorker('kor+eng', undefined, {
     logger: (m) => {
       if (m.status === 'recognizing text' && onProgress) {
         onProgress(Math.round((m.progress || 0) * 100), '텍스트 정밀 인식 중...');
@@ -100,6 +138,13 @@ async function getOcrWorker(
     }
   });
 
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => {
+      reject(new Error('OCR 인공지능 엔진 로딩 시간이 초과되었습니다. 네트워크 상태를 확인하시거나 텍스트 직접 입력을 이용해주세요.'));
+    }, 35000);
+  });
+
+  const worker = await Promise.race([workerPromise, timeoutPromise]);
   cachedWorker = worker;
   return worker;
 }
@@ -504,7 +549,7 @@ export function parseKpicEfficacyText(rawText: string): KpicEfficacyMapping[] {
  * 자료 첨부 (약학정보원 캡처, 제약사 브로슈어, 라벨 사진) 범용 OCR 분석기
  */
 export async function recognizeUniversalDocument(
-  imageFile: File | Blob,
+  imageSource: File | Blob | string,
   onProgress?: (progress: number, status: string) => void
 ): Promise<{
   rawText: string;
@@ -512,27 +557,37 @@ export async function recognizeUniversalDocument(
   kpicMappings: KpicEfficacyMapping[];
   nutritionParsed: OcrParseResult;
 }> {
-  if (onProgress) onProgress(10, '자료 이미지 선명도 최적화 중...');
-  const processedDataUrl = await preprocessImageForOcr(imageFile);
+  const recognitionPromise = (async () => {
+    if (onProgress) onProgress(10, '자료 이미지 선명도 최적화 중...');
+    const processedDataUrl = await preprocessImageForOcr(imageSource);
 
-  if (onProgress) onProgress(30, 'OCR 인공지능 엔진 초기화 중...');
-  const worker = await getOcrWorker(onProgress);
+    if (onProgress) onProgress(30, 'OCR 인공지능 엔진 초기화 중...');
+    const worker = await getOcrWorker(onProgress);
 
-  if (onProgress) onProgress(50, '첨부 자료 글자 정밀 판독 중...');
-  const result = await worker.recognize(processedDataUrl);
-  const rawText = result.data.text;
+    if (onProgress) onProgress(50, '첨부 자료 글자 정밀 판독 중...');
+    const result = await worker.recognize(processedDataUrl);
+    const rawText = result.data.text;
 
-  if (onProgress) onProgress(85, '약효분류 및 성분 스펙 구조화 중...');
-  const kpicMappings = parseKpicEfficacyText(rawText);
-  const nutritionParsed = parseNutritionLabelText(rawText);
-  const isKpicFormat = kpicMappings.length > 0 || rawText.includes('약효분류') || rawText.includes('소화기계');
+    if (onProgress) onProgress(85, '약효분류 및 성분 스펙 구조화 중...');
+    const kpicMappings = parseKpicEfficacyText(rawText);
+    const nutritionParsed = parseNutritionLabelText(rawText);
+    const isKpicFormat = kpicMappings.length > 0 || rawText.includes('약효분류') || rawText.includes('소화기계');
 
-  if (onProgress) onProgress(100, '자료 판독 완료!');
+    if (onProgress) onProgress(100, '자료 판독 완료!');
 
-  return {
-    rawText,
-    isKpicFormat,
-    kpicMappings,
-    nutritionParsed
-  };
+    return {
+      rawText,
+      isKpicFormat,
+      kpicMappings,
+      nutritionParsed
+    };
+  })();
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => {
+      reject(new Error('자료 분석 시간(45초)이 초과되었습니다. 네트워크 상태를 확인하시거나 텍스트 직접 입력을 이용해주세요.'));
+    }, 45000);
+  });
+
+  return Promise.race([recognitionPromise, timeoutPromise]);
 }

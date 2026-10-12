@@ -307,7 +307,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
 
       setOcrRawText(docResult.rawText);
 
-      // 1. 약학정보원 KPIC 약효분류 포맷인 경우: 기존 성분의 기능 분류를 즉시 자동 갱신 및 학습
+      // 1. 약학정보원 KPIC 약효분류 포맷인 경우: 기존 성분의 약효 분류를 즉시 자동 갱신 및 학습
       if (docResult.isKpicFormat && docResult.kpicMappings.length > 0) {
         applyKpicMappings(docResult.kpicMappings);
         alert(`약학정보원(KPIC) 약효분류 ${docResult.kpicMappings.length}건이 성공적으로 인식되어 성분 분류에 반영되었습니다!`);
@@ -968,7 +968,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
                 </button>
               </div>
 
-              {/* 성분 검수 테이블 (기능 분류, 원료 형태, MOA 컬럼 제거됨) */}
+              {/* 성분 검수 테이블 (약효 분류, 원료 형태, MOA 컬럼 제거됨) */}
               <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>

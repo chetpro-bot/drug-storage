@@ -26,6 +26,17 @@ export interface FunctionalFoodRegulatoryDetail {
   standardSpecificationKorean?: string; // 기준 및 규격
 }
 
+export interface AttachedDocument {
+  id: string;
+  fileName: string;
+  fileSize?: number;
+  uploadedAt: string;
+  dataUrl: string; // 이미지 Base64 데이터 URL
+  status?: 'PENDING' | 'ANALYZING' | 'ANALYZED' | 'FAILED';
+  analysisSummary?: string; // 예: "약학정보원 약효분류 18건 적용 완료"
+  extractedText?: string;
+}
+
 /**
  * 약국 영양제 및 일반의약품 통합 마스터 품목 모델
  */
@@ -46,6 +57,9 @@ export interface ProductItem {
 
   // 성분 리스트 (모든 유효성분은 영문 INN 기준 매핑)
   ingredients: ProductIngredientEntry[];
+
+  // 첨부 참고 자료 (약학정보원 캡처, 라벨 사진, 제약사 브로슈어 등)
+  attachments?: AttachedDocument[];
 
   // 분류별 규제 세부 정보
   otcDetail?: OtcDrugRegulatoryDetail;

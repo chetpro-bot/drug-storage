@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { ProductItem } from '../types/product';
-import { FunctionalCategory } from '../types/ingredient';
+import { EfficacyCategory } from '../types/ingredient';
 import { Layers, HelpCircle, RotateCcw } from 'lucide-react';
 
 interface ColumnDef {
@@ -11,7 +11,7 @@ interface ColumnDef {
 }
 
 const COLUMNS: ColumnDef[] = [
-  { id: 'category', label: '기능 분류', defaultWidth: 120, minWidth: 80 },
+  { id: 'category', label: '약효 분류', defaultWidth: 130, minWidth: 90 },
   { id: 'specification', label: '성분 / 함량 (Specification)', defaultWidth: 380, minWidth: 180 },
   { id: 'summary', label: '핵심 특징 및 작용 원리 요약', defaultWidth: 400, minWidth: 180 },
   { id: 'form', label: '원료 형태', defaultWidth: 240, minWidth: 120 },
@@ -104,7 +104,7 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
     } catch (e) {}
   };
 
-  // 제품 내 존재하는 기능 카테고리 추출
+  // 제품 내 존재하는 KPIC 약효 분류 카테고리 추출
   const availableCategories = Array.from(
     new Set(product.ingredients.map((ing) => ing.functionalCategory))
   );
@@ -113,30 +113,69 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
     ? product.ingredients
     : product.ingredients.filter((ing) => ing.functionalCategory === selectedCategory);
 
-  const getCategoryColor = (cat: FunctionalCategory) => {
+  const getCategoryColor = (cat: EfficacyCategory) => {
     switch (cat) {
-      case '에너지 대사':
+      // 비타민 B군
+      case '비타민B1':
         return 'bg-amber-100 text-amber-800 border-amber-200';
-      case '신경계/인지 기능':
-        return 'bg-indigo-100 text-indigo-800 border-indigo-200';
-      case '골격/관절/치아':
-        return 'bg-teal-100 text-teal-800 border-teal-200';
-      case '면역/세포분열':
-        return 'bg-rose-100 text-rose-800 border-rose-200';
-      case '간기능/해독':
-        return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-      case '항산화/혈행':
+      case '비타민B2':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case '비타민B3':
         return 'bg-orange-100 text-orange-800 border-orange-200';
-      case '아미노산/단백질 합성':
+      case '비타민B5':
+        return 'bg-lime-100 text-lime-800 border-lime-200';
+      case '비타민B6':
+        return 'bg-teal-100 text-teal-800 border-teal-200';
+      case '비타민B7':
+        return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+      case '비타민B12 보충':
+        return 'bg-rose-100 text-rose-800 border-rose-200';
+      case '기타 비타민B':
+        return 'bg-orange-50 text-orange-700 border-orange-200';
+      // 기타 비타민 & 미네랄
+      case '비타민C 제제':
+        return 'bg-amber-100 text-amber-900 border-amber-300';
+      case '비타민D 제제':
+      case '비타민D3 제제':
+        return 'bg-sky-100 text-sky-800 border-sky-200';
+      case '비타민E 제제':
+        return 'bg-emerald-100 text-emerald-900 border-emerald-200';
+      case '비타민A 제제':
+        return 'bg-red-100 text-red-800 border-red-200';
+      case '엽산 보충':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case '마그네슘(Mg)':
+        return 'bg-indigo-100 text-indigo-800 border-indigo-200';
+      case '아연(Zn)':
+        return 'bg-violet-100 text-violet-800 border-violet-200';
+      case '칼슘(Ca)':
         return 'bg-cyan-100 text-cyan-800 border-cyan-200';
+      case '셀레늄(Se)':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case '크롬(Cr)':
+        return 'bg-purple-100 text-purple-800 border-purple-200';
+      case '제1철 (Ferrous)':
+        return 'bg-rose-100 text-rose-800 border-rose-200';
+      // 소화 / 효소
       case '소화효소제':
         return 'bg-blue-100 text-blue-800 border-blue-200';
-      case '소염효소':
-        return 'bg-purple-100 text-purple-800 border-purple-200';
       case '장내 가스 제거제':
         return 'bg-sky-100 text-sky-800 border-sky-200';
+      case '소염효소':
+        return 'bg-purple-100 text-purple-800 border-purple-200';
       case '담석용해제':
-        return 'bg-lime-100 text-lime-800 border-lime-200';
+        return 'bg-teal-100 text-teal-800 border-teal-200';
+      // 아미노산 & 기타
+      case '비필수 아미노산제제':
+      case '아미노산제제':
+        return 'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200';
+      case '간보호제':
+      case '기타 간장 약물':
+        return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+      case '자율신경제':
+        return 'bg-indigo-100 text-indigo-800 border-indigo-200';
+      case '기타 심부전 치료제':
+        return 'bg-rose-100 text-rose-800 border-rose-200';
       default:
         return 'bg-slate-100 text-slate-800 border-slate-200';
     }
@@ -164,7 +203,7 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
           </button>
         </div>
 
-        {/* 기능별 필터 칩 */}
+        {/* 약효별 필터 칩 */}
         <div className="flex items-center gap-1.5 flex-wrap">
           <button
             onClick={() => setSelectedCategory('ALL')}
@@ -298,7 +337,7 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
                   key={idx}
                   className="hover:bg-sky-50/50 transition-colors group align-top"
                 >
-                  {/* 1. 기능 분류 */}
+                  {/* 1. 약효 분류 */}
                   <td className="py-3 px-3.5 whitespace-nowrap text-center">
                     <span
                       className={`inline-block text-[11px] font-bold px-2.5 py-1 rounded-md border ${getCategoryColor(

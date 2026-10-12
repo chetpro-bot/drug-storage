@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { ProductItem } from '../types/product';
 import { ProductClassification } from '../types/classification';
 import { MOCK_PRODUCTS } from '../constants/mockProducts';
+import { resolveKpicCategory } from '../utils/innMapper';
 import { 
   subscribeToProducts, 
   saveProductToFirestore, 
@@ -37,8 +38,52 @@ interface ProductState {
   getSelectedProduct: () => ProductItem | undefined;
 }
 
-const LOCAL_STORAGE_KEY = 'pharmassist_products_v1';
+const LOCAL_STORAGE_KEY = 'pharmassist_products_v3';
 const DELETED_IDS_KEY = 'pharmassist_deleted_ids_v1';
+
+const OLD_NUTRITION_CATEGORIES = new Set([
+  '에너지 대사',
+  '신경계/인지 기능',
+  '골격/관절/치아',
+  '면역/세포분열',
+  '간기능/해독',
+  '항산화/혈행',
+  '아미노산/단백질 합성'
+]);
+
+function migrateAndEnsureKpic(products: ProductItem[]): ProductItem[] {
+  return products.map((prod) => {
+    // 목업 기본 제품인 경우 최신 MOCK_PRODUCTS 규격으로 강제 업데이트
+    const matchingMock = MOCK_PRODUCTS.find((m) => m.id === prod.id);
+    if (matchingMock) {
+      return matchingMock;
+    }
+
+    let hasChanges = false;
+    const updatedIngredients = prod.ingredients.map((ing) => {
+      // 이전 분류 체계이거나 미지정인 경우 KPIC 마스터 DB에서 공식 약효분류로 자동 갱신
+      if (OLD_NUTRITION_CATEGORIES.has(ing.functionalCategory) || !ing.functionalCategory) {
+        const kpicCat = resolveKpicCategory(ing.englishInn);
+        if (kpicCat && kpicCat !== ing.functionalCategory) {
+          hasChanges = true;
+          return { ...ing, functionalCategory: kpicCat };
+        }
+      }
+      return ing;
+    });
+
+    if (hasChanges) {
+      const updated = {
+        ...prod,
+        ingredients: updatedIngredients,
+        updatedAt: new Date().toISOString()
+      };
+      saveProductToFirestore(updated).catch(() => {});
+      return updated;
+    }
+    return prod;
+  });
+}
 
 function getDeletedIds(): Set<string> {
   try {
@@ -79,7 +124,9 @@ function getInitialProducts(): ProductItem[] {
   let loadedProducts: ProductItem[] = [];
 
   try {
-    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
+    const saved = localStorage.getItem(LOCAL_STORAGE_KEY) || 
+                  localStorage.getItem('pharmassist_products_v2') || 
+                  localStorage.getItem('pharmassist_products_v1');
     if (saved) {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length > 0) {
@@ -90,33 +137,21 @@ function getInitialProducts(): ProductItem[] {
     console.warn('로컬스토리지 로드 실패:', e);
   }
 
-  // 비맥스제트정 최신 약학정보원 규격(영문 간결 성분표) 동기화
-  const bmaxMock = MOCK_PRODUCTS.find((p) => p.id === 'prod_bmax_jet');
-  if (bmaxMock) {
-    const bmaxIdx = loadedProducts.findIndex((p) => p.id === 'prod_bmax_jet');
-    if (bmaxIdx !== -1) {
-      loadedProducts[bmaxIdx] = bmaxMock;
+  // 기본 목업 제품 최신 KPIC 규격 강제 동기화
+  MOCK_PRODUCTS.forEach((mock) => {
+    if (!deletedIds.has(mock.id)) {
+      const idx = loadedProducts.findIndex((p) => p.id === mock.id);
+      if (idx !== -1) {
+        loadedProducts[idx] = mock;
+      } else {
+        loadedProducts.push(mock);
+      }
     }
-  }
+  });
 
-  // 만약 기존에 캐시된 마이타민업이 있다면 최신 정정 규격 및 기능성 정보로 자동 동기화
-  const mytaminMock = MOCK_PRODUCTS.find((p) => p.id === 'prod_mytamin_up');
-  if (mytaminMock) {
-    const mytaminIdx = loadedProducts.findIndex((p) => p.id === 'prod_mytamin_up');
-    if (mytaminIdx !== -1) {
-      loadedProducts[mytaminIdx] = mytaminMock;
-    }
-  }
-
-  // 사용자가 명시적으로 삭제하지 않은 초기 기본 목업 제품들이 누락되어 있다면 자동 복원
-  const existingIds = new Set(loadedProducts.map((p) => p.id));
-  const missingMocks = MOCK_PRODUCTS.filter(
-    (p) => !deletedIds.has(p.id) && !existingIds.has(p.id)
-  );
-
-  const combined = [...loadedProducts, ...missingMocks];
-  persistToLocal(combined);
-  return combined;
+  const migrated = migrateAndEnsureKpic(loadedProducts);
+  persistToLocal(migrated);
+  return migrated;
 }
 
 function persistToLocal(products: ProductItem[]) {
@@ -165,11 +200,18 @@ export const useProductStore = create<ProductState>((set, get) => {
 
         // Firestore에서 온 제품들 반영 (최신 변경사항 반영)
         validFromFirestore.forEach((p) => {
-          mergedMap.set(p.id, p);
+          // 기본 목업 제품인 경우 최신 코드 스펙을 항상 우선 반영
+          const matchingMock = MOCK_PRODUCTS.find((m) => m.id === p.id);
+          if (matchingMock) {
+            mergedMap.set(p.id, matchingMock);
+            saveProductToFirestore(matchingMock).catch(() => {});
+          } else {
+            mergedMap.set(p.id, p);
+          }
         });
 
-        // 등록/수정일시 최신순으로 정렬
-        const mergedList = Array.from(mergedMap.values()).sort(
+        // 등록/수정일시 최신순으로 정렬 및 KPIC 약효분류 체계 자동 마이그레이션 적용
+        const mergedList = migrateAndEnsureKpic(Array.from(mergedMap.values())).sort(
           (a, b) =>
             new Date(b.updatedAt || b.createdAt).getTime() -
             new Date(a.updatedAt || a.createdAt).getTime()

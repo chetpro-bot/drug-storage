@@ -194,16 +194,23 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
     setVerifiedIngredients(result.parsedIngredients);
   };
 
-  // 약학정보원 검색 결과에서 특정 제품을 선택했을 때
-  const handleSelectDrugMaster = (item: PublicDrugMasterItem) => {
+  // 약학정보원/식약처 검색 결과에서 특정 제품을 선택했을 때
+  const handleSelectDrugMaster = async (item: PublicDrugMasterItem) => {
     // 1. 정확한 제약회사명과 공식 제품명 자동 반영
     setManufacturer(item.manufacturer);
     setProductName(item.productName);
     setClassification(item.classification);
 
-    // 2. 표준 규격 데이터 변환 및 성분 검수 테이블 세팅
-    const result = convertMasterItemToFetchResult(item);
-    applyFetchResult(result);
+    // 2. 표준 규격 데이터 변환 및 성분 검수 테이블 세팅 (식약처 상세 실시간 호출 포함)
+    setIsLoadingPublicData(true);
+    try {
+      const result = await convertMasterItemToFetchResult(item);
+      applyFetchResult(result);
+    } catch (err) {
+      console.error('상세 정보 변환 실패:', err);
+    } finally {
+      setIsLoadingPublicData(false);
+    }
 
     // 검색 결과 패널 닫기
     setShowSearchResults(false);
@@ -316,22 +323,22 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
 
   if (!isOpen) return null;
 
-  // 약학정보원 검색 실행 (다중 결과 검색 지원)
+  // 약학정보원/식약처 검색 실행 (실시간 다중 결과 검색 지원)
   const handleFetchPublicData = async () => {
     const query = productName.trim() || manufacturer.trim();
     if (!query) {
-      alert('조회할 제품명 또는 제약회사명을 입력해주세요.\n(예: "임팩타민", "비맥스", "벤포벨", "대웅제약" 등)');
+      alert('조회할 제품명 또는 제약회사명을 입력해주세요.\n(예: "임팩타민", "비맥스", "베아제", "타이레놀", "대웅제약" 등)');
       return;
     }
 
     setIsLoadingPublicData(true);
     setSearchErrorMsg(null);
     try {
-      const results = searchPublicDrugDatabase(query);
+      const results = await searchPublicDrugDatabase(query);
 
       if (results.length === 0) {
         if (classification === 'OTC_DRUG') {
-          setSearchErrorMsg(`"${query}"에 해당하는 약학정보원(KPAIC) 등록 제품을 찾을 수 없습니다. 정확한 제품명을 입력해주세요.`);
+          setSearchErrorMsg(`"${query}"에 해당하는 식약처/약학정보원 공공데이터 등록 제품을 찾을 수 없습니다. 정확한 제품명을 입력해주세요.`);
           setShowSearchResults(false);
         } else {
           // 건기식/일반식품 fallback
@@ -344,8 +351,8 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
         setShowSearchResults(true);
       }
     } catch (e: any) {
-      console.error('약학정보원 조회 실패:', e);
-      alert(e?.message || '약학정보원 조회 중 오류가 발생했습니다.');
+      console.error('공공데이터 조회 실패:', e);
+      alert(e?.message || '공공데이터 조회 중 오류가 발생했습니다.');
     } finally {
       setIsLoadingPublicData(false);
     }

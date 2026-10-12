@@ -1077,45 +1077,264 @@ Simethicone 시메티콘 30mg`,
 ];
 
 /**
- * 약학정보원(KPAIC) 마스터 데이터베이스에서 키워드로 제품 검색
+ * 공공데이터포털(식약처 의약품 허가 상세 정보) 오픈 API 연동 서비스
  */
-export function searchPublicDrugDatabase(keyword: string): PublicDrugMasterItem[] {
-  const cleanQuery = keyword.trim().replace(/\s+/g, '').toLowerCase();
+const DATA_GO_KR_API_KEY = '864de6190645216e2e968761319f76898e0ac8da5200fe1def929646b0c7df9f';
+const MFDS_INQ_URL = 'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService08/getDrugPrdtPrmsnInq08';
+const MFDS_DTL_URL = 'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService08/getDrugPrdtPrmsnDtlInq08';
+
+/**
+ * XML/HTML 태그 및 CDATA 안전 제거 유틸리티
+ */
+function cleanXmlDocText(xmlStr?: string | null): string {
+  if (!xmlStr) return '';
+  return xmlStr
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1 ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * 제형 판별 유틸리티 (CHART 성상 텍스트 및 제품명 기반)
+ */
+function inferDosageForm(chartText: string = '', prodName: string = ''): DosageForm {
+  const combined = `${chartText} ${prodName}`.toLowerCase();
+  if (combined.includes('연질캡슐') || combined.includes('소프트캡슐')) return 'SOFT_CAPSULE';
+  if (combined.includes('경질캡슐') || combined.includes('캡슐')) return 'HARD_CAPSULE';
+  if (combined.includes('장용')) return 'ENTERIC_TABLET';
+  if (combined.includes('필름코팅')) return 'FILM_COATED_TABLET';
+  if (combined.includes('시럽') || combined.includes('액제') || combined.includes('액상') || combined.includes('현탁액')) return 'LIQUID_ORAL';
+  if (combined.includes('과립')) return 'GRANULE';
+  if (combined.includes('산제') || combined.includes('가루')) return 'POWDER';
+  if (combined.includes('젤리') || combined.includes('츄어블')) return 'JELLY';
+  return 'TABLET';
+}
+
+/**
+ * 식약처 품목 상세 정보(MATERIAL_NAME)를 파싱하여 rawIngredientsText 생성
+ */
+function formatMaterialNameToRawIngredients(materialName?: string, mainIngrEng?: string): string {
+  if (!materialName) {
+    if (mainIngrEng) {
+      return mainIngrEng.split('/').map(s => s.trim()).join('\n');
+    }
+    return '';
+  }
+
+  const parts = materialName.split(';').map(p => p.trim()).filter(Boolean);
+  const lines: string[] = [];
+
+  for (const part of parts) {
+    const fields: Record<string, string> = {};
+    part.split('|').forEach(f => {
+      const idx = f.indexOf(':');
+      if (idx !== -1) {
+        fields[f.slice(0, idx).trim()] = f.slice(idx + 1).trim();
+      }
+    });
+
+    const ingrName = fields['성분명'] || '';
+    const amount = fields['분량'] || '';
+    let unit = fields['단위'] || '';
+    if (unit === '밀리그램') unit = 'mg';
+    else if (unit === '마이크로그램') unit = 'ug';
+
+    if (ingrName) {
+      if (amount) {
+        lines.push(`${ingrName} ${amount}${unit}`);
+      } else {
+        lines.push(ingrName);
+      }
+    }
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * 용법용량 텍스트에서 1일 섭취 횟수와 1회 복용량 추정
+ */
+function parseServingFromInstruction(instruction: string): { dailyServings: number; amountPerServing: number; servingUnitKorean: string } {
+  let dailyServings = 1;
+  let amountPerServing = 1;
+  let servingUnitKorean = '정';
+
+  if (instruction.includes('캡슐')) servingUnitKorean = '캡슐';
+  else if (instruction.includes('포')) servingUnitKorean = '포';
+  else if (instruction.includes('정')) servingUnitKorean = '정';
+
+  const dailyMatch = instruction.match(/1일\s*([0-9]+)\s*회/);
+  if (dailyMatch) {
+    dailyServings = parseInt(dailyMatch[1], 10) || 1;
+  }
+
+  const servingMatch = instruction.match(/1회\s*([0-9]+)\s*[정포캡슐]/);
+  if (servingMatch) {
+    amountPerServing = parseInt(servingMatch[1], 10) || 1;
+  }
+
+  return { dailyServings, amountPerServing, servingUnitKorean };
+}
+
+/**
+ * 식약처 실시간 공공데이터 API 품목 상세 조회 (단일 품목 기준코드 기반)
+ */
+export async function fetchMfdsDrugDetail(itemSeq: string): Promise<{
+  rawIngredientsText: string;
+  dosageInstruction: string;
+  indicationsSummary: string[];
+  packagingUnit: string;
+  dosageForm: DosageForm;
+  chartText: string;
+} | null> {
+  try {
+    const url = `${MFDS_DTL_URL}?serviceKey=${encodeURIComponent(DATA_GO_KR_API_KEY)}&item_seq=${encodeURIComponent(itemSeq)}&type=json`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const item = data?.body?.items?.[0];
+    if (!item) return null;
+
+    const dosageInstruction = cleanXmlDocText(item.UD_DOC_DATA) || '용법용량 첨부문서 참조';
+    const cleanEffects = cleanXmlDocText(item.EE_DOC_DATA);
+    const indicationsSummary = cleanEffects
+      ? cleanEffects.split(/[○·\n\r]+/).map(s => s.trim()).filter(s => s.length > 2).slice(0, 5)
+      : ['효능·효과 첨부문서 참조'];
+    const packagingUnit = item.PACK_UNIT ? item.PACK_UNIT.split(/[\n,]/)[0].trim() : '120정';
+    const dosageForm = inferDosageForm(item.CHART, item.ITEM_NAME);
+    const rawIngredientsText = formatMaterialNameToRawIngredients(item.MATERIAL_NAME, item.MAIN_INGR_ENG);
+
+    return {
+      rawIngredientsText,
+      dosageInstruction,
+      indicationsSummary: indicationsSummary.length > 0 ? indicationsSummary : ['효능·효과 첨부문서 참조'],
+      packagingUnit,
+      dosageForm,
+      chartText: item.CHART || ''
+    };
+  } catch (err) {
+    console.warn('식약처 상세 정보 조회 실패:', err);
+    return null;
+  }
+}
+
+/**
+ * 식약처 공공데이터포털 실시간 API 검색 (메인) + 로컬 마스터 DB 폴백
+ */
+export async function searchPublicDrugDatabase(keyword: string): Promise<PublicDrugMasterItem[]> {
+  const cleanQuery = keyword.trim().replace(/\s+/g, '');
   if (!cleanQuery) return [];
 
+  // 1. 식약처 의약품 공공데이터포털 실시간 검색 (최대 30건 조회)
+  try {
+    const url = `${MFDS_INQ_URL}?serviceKey=${encodeURIComponent(DATA_GO_KR_API_KEY)}&item_name=${encodeURIComponent(keyword.trim())}&type=json&pageNo=1&numOfRows=30`;
+    const res = await fetch(url);
+    if (res.ok) {
+      const data = await res.json();
+      const items = data?.body?.items;
+      if (Array.isArray(items) && items.length > 0) {
+        return items.map((mfdsItem: any) => {
+          const mfgName = (mfdsItem.ENTP_NAME || '').replace(/^\(주\)/, '').trim();
+          const cleanProdName = mfdsItem.ITEM_NAME || '';
+          const ingrListText = (mfdsItem.ITEM_INGR_NAME || '').split('/').join('\n');
+
+          return {
+            id: `mfds_${mfdsItem.ITEM_SEQ}`,
+            productName: cleanProdName,
+            manufacturer: mfgName || '제약사',
+            classification: 'OTC_DRUG',
+            dosageForm: inferDosageForm(mfdsItem.CHART, cleanProdName),
+            packagingUnit: '규격 포장 단위 (상세 확인)',
+            dailyServings: 1,
+            amountPerServing: 1,
+            servingUnitKorean: '정',
+            regulatoryCode: mfdsItem.ITEM_SEQ,
+            rawIngredientsText: ingrListText,
+            dosageInstruction: '용법용량 첨부문서 참조 (상세 연동 시 자동 세팅)',
+            indicationsSummary: [mfdsItem.PRDUCT_TYPE || '일반의약품 효능·효과'],
+            searchKeywords: [cleanProdName, mfgName]
+          };
+        });
+      }
+    }
+  } catch (apiErr) {
+    console.warn('식약처 실시간 API 통신 오류, 내장 DB로 폴백합니다:', apiErr);
+  }
+
+  // 2. 오프라인 또는 API 미검색 시 로컬 마스터 데이터베이스 검색
+  const cleanQueryLower = cleanQuery.toLowerCase();
   return PUBLIC_DRUG_DATABASE.filter((item) => {
     const cleanName = item.productName.replace(/\s+/g, '').toLowerCase();
     const cleanMfg = item.manufacturer.replace(/\s+/g, '').toLowerCase();
     const cleanKeywords = item.searchKeywords?.map((k) => k.replace(/\s+/g, '').toLowerCase()) || [];
 
     return (
-      cleanName.includes(cleanQuery) ||
-      cleanQuery.includes(cleanName) ||
-      cleanMfg.includes(cleanQuery) ||
-      cleanKeywords.some((k) => k.includes(cleanQuery) || cleanQuery.includes(k)) ||
-      item.regulatoryCode.includes(cleanQuery)
+      cleanName.includes(cleanQueryLower) ||
+      cleanQueryLower.includes(cleanName) ||
+      cleanMfg.includes(cleanQueryLower) ||
+      cleanKeywords.some((k) => k.includes(cleanQueryLower) || cleanQueryLower.includes(k)) ||
+      item.regulatoryCode.includes(cleanQueryLower)
     );
   });
 }
 
 /**
  * 마스터 품목 객체를 검수 및 제품 등록용 PublicDataFetchResult 형식으로 변환
+ * (식약처 실시간 API 품목인 경우 상세 스펙 및 성분/분량을 비동기로 완벽 동기화)
  */
-export function convertMasterItemToFetchResult(item: PublicDrugMasterItem): PublicDataFetchResult {
-  const parsedIngredients = parseRawIngredientString(item.rawIngredientsText || '');
+export async function convertMasterItemToFetchResult(item: PublicDrugMasterItem): Promise<PublicDataFetchResult> {
+  let targetRawText = item.rawIngredientsText || '';
+  let targetDosageInstruction = item.dosageInstruction;
+  let targetIndicationsSummary = item.indicationsSummary;
+  let targetPackagingUnit = item.packagingUnit;
+  let targetDosageForm = item.dosageForm;
+  let { dailyServings, amountPerServing, servingUnitKorean } = parseServingFromInstruction(targetDosageInstruction);
+
+  // 식약처 실시간 데이터(id가 mfds_로 시작)인 경우 품목 상세(getDrugPrdtPrmsnDtlInq08)를 실시간 호출하여 정확한 성분/분량/용법 수집
+  if (item.id.startsWith('mfds_') || item.regulatoryCode) {
+    const detail = await fetchMfdsDrugDetail(item.regulatoryCode);
+    if (detail) {
+      if (detail.rawIngredientsText) {
+        targetRawText = detail.rawIngredientsText;
+      }
+      if (detail.dosageInstruction && detail.dosageInstruction !== '용법용량 첨부문서 참조') {
+        targetDosageInstruction = detail.dosageInstruction;
+        const parsedServing = parseServingFromInstruction(targetDosageInstruction);
+        dailyServings = parsedServing.dailyServings;
+        amountPerServing = parsedServing.amountPerServing;
+        servingUnitKorean = parsedServing.servingUnitKorean;
+      }
+      if (detail.indicationsSummary.length > 0) {
+        targetIndicationsSummary = detail.indicationsSummary;
+      }
+      if (detail.packagingUnit) {
+        targetPackagingUnit = detail.packagingUnit;
+      }
+      targetDosageForm = detail.dosageForm;
+    }
+  }
+
+  const parsedIngredients = parseRawIngredientString(targetRawText);
+
   return {
     productName: item.productName,
     manufacturer: item.manufacturer,
     classification: item.classification,
-    dosageForm: item.dosageForm,
-    packagingUnit: item.packagingUnit,
-    dailyServings: item.dailyServings,
-    amountPerServing: item.amountPerServing,
-    servingUnitKorean: item.servingUnitKorean,
+    dosageForm: targetDosageForm,
+    packagingUnit: targetPackagingUnit,
+    dailyServings,
+    amountPerServing,
+    servingUnitKorean,
     regulatoryCode: item.regulatoryCode,
-    rawIngredientsText: item.rawIngredientsText,
-    dosageInstruction: item.dosageInstruction,
-    indicationsSummary: item.indicationsSummary,
+    rawIngredientsText: targetRawText,
+    dosageInstruction: targetDosageInstruction,
+    indicationsSummary: targetIndicationsSummary,
     parsedIngredients,
     sourceOrigin: '약학정보원(KPAIC) DB'
   };
@@ -1130,18 +1349,16 @@ export async function fetchAndNormalizePublicDrugData(
   classification: ProductClassification = 'OTC_DRUG'
 ): Promise<PublicDataFetchResult> {
   const query = (productName || manufacturer).trim();
-  const searchResults = searchPublicDrugDatabase(query);
-
-  await new Promise((resolve) => setTimeout(resolve, 300)); // 통신 체감 UX 딜레이
+  const searchResults = await searchPublicDrugDatabase(query);
 
   if (searchResults.length > 0) {
-    return convertMasterItemToFetchResult(searchResults[0]);
+    return await convertMasterItemToFetchResult(searchResults[0]);
   }
 
-  // 일반의약품인데 약학정보원(KPAIC) DB에 미등록된 품목인 경우 에러 차단
+  // 일반의약품인데 DB에 미등록된 품목인 경우 에러 차단
   if (classification === 'OTC_DRUG') {
     throw new Error(
-      `[약학정보원 조회 실패] 입력하신 제품("${productName}")은 약학정보원(KPAIC) 정밀 DB에 아직 동기화되지 않았거나 제품명이 다릅니다.\n약학정보원 웹페이지(health.kr)의 정확한 제품명을 확인해주세요.`
+      `[공공데이터 조회 실패] 입력하신 제품("${productName}")은 식약처/약학정보원 데이터베이스에서 조회되지 않았습니다.\n정확한 제품명을 확인해주세요.`
     );
   }
 

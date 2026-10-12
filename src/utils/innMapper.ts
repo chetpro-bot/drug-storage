@@ -441,6 +441,20 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     defaultUnit: 'mg',
     clinicalSummary: '• 단백질 소화 촉진 및 항염 부종 완화'
   },
+  '크리아제-PEG': {
+    englishInn: 'Crease-PEG',
+    functionalCategory: '간기능/해독',
+    chemicalFormName: '복합 소화효소 제제',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 전분, 단백, 지방 분해 촉진 소화 효소'
+  },
+  '디아스타제·프로테아제100': {
+    englishInn: 'Diastase · Protease 100',
+    functionalCategory: '간기능/해독',
+    chemicalFormName: '전분 및 단백질 분해 소화효소',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 탄수화물 및 단백질 소화 분해 촉진'
+  },
 
   // 해열진통소염제
   '아세트아미노펜': {

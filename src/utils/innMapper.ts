@@ -87,6 +87,14 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     standardKey: 'VITAMIN_B5',
     clinicalSummary: '• 조효소 Coenzyme A 구성 성분, 지방산 대사 및 부신피질 호르몬 합성 지원'
   },
+  '칼슘판토테네이트': {
+    englishInn: 'Calcium pantothenate',
+    functionalCategory: '에너지 대사',
+    chemicalFormName: '칼슘염 (비타민 B5)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_B5',
+    clinicalSummary: '• 조효소 Coenzyme A 구성 성분, 지방산 대사 및 부신피질 호르몬 합성 지원'
+  },
   '피리독신염산염': {
     englishInn: 'Pyridoxine hydrochloride',
     functionalCategory: '신경계/인지 기능',
@@ -360,6 +368,20 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '오로트산 수화물 (비타민 B13)',
     defaultUnit: 'mg',
     clinicalSummary: '• 피리미딘 염기 및 핵산 합성 조효소, 간세포 재생 촉진'
+  },
+  '베타카로틴': {
+    englishInn: 'Beta-carotene',
+    functionalCategory: '항산화/혈행',
+    chemicalFormName: '천연 프로비타민 A 카로티노이드',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 체내 필요 시 비타민 A로 전환, 시각 기능 및 피부·점막 세포 재생\n• 유해 활성산소 소거 및 항산화 작용'
+  },
+  '베타카로틴20%': {
+    englishInn: 'Beta-carotene 20%',
+    functionalCategory: '항산화/혈행',
+    chemicalFormName: '천연 프로비타민 A 카로티노이드',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 체내 필요 시 비타민 A로 전환, 시각 기능 및 피부·점막 세포 재생\n• 유해 활성산소 소거 및 항산화 작용'
   }
 };
 
@@ -538,25 +560,36 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
         rawAmount: amount || 10,
         unit: (unit || meta.defaultUnit) as 'mg' | 'ug' | 'IU' | 'g',
         elementalAmount: finalElemental,
-        isMainActive: index === 0 || amount >= 30,
+        // 주요(Main Active) 기준: 첫 번째 처방 주성분이거나, 단위가 mg일 때 투입량이 30mg 이상인 고함량 성분
+        isMainActive: index === 0 || (unit === 'mg' && amount >= 30),
         standardKey: meta.standardKey,
         clinicalSummary: meta.clinicalSummary,
-        noteKorean: `약학정보원·의약품안전나라 표준 공시 (${nameRaw})`,
+        noteKorean: undefined,
         formattedSpecification
       });
     } else {
-      // 미등록 성분: 기본 English INN 추정 및 범용 메타데이터 생성
+      // 미등록 성분: 한글 단어 영문 매핑 재검색 시도 후 기본 영문 INN 추정
+      let fallbackInn = detectedInn || nameRaw;
+      if (/^[가-힣]/.test(fallbackInn)) {
+        for (const [k, meta] of Object.entries(INN_DICTIONARY)) {
+          if (fallbackInn.includes(k) || k.includes(fallbackInn)) {
+            fallbackInn = meta.englishInn;
+            break;
+          }
+        }
+      }
+
       results.push({
         ingredientId: `ing_auto_${Date.now()}_${index}`,
-        englishInn: detectedInn || nameRaw,
+        englishInn: fallbackInn,
         functionalCategory: '에너지 대사',
         chemicalFormName: '표준 정제 원료',
         rawAmount: amount || 10,
         unit,
         elementalAmount,
-        isMainActive: false,
+        isMainActive: index === 0 || (unit === 'mg' && amount >= 30),
         clinicalSummary: `• ${nameRaw} 활성 성분 영양 및 생리 활성 지원`,
-        noteKorean: `약학정보원/의약품안전나라: ${item}`,
+        noteKorean: undefined,
         formattedSpecification
       });
     }

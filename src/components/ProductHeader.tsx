@@ -5,7 +5,6 @@ import {
   Building2, 
   Clock, 
   Tag, 
-  FileText, 
   Trash2
 } from 'lucide-react';
 
@@ -140,11 +139,6 @@ export const ProductHeader: React.FC<ProductHeaderProps> = ({ product }) => {
               <Trash2 className="w-3.5 h-3.5" />
               <span>품목 삭제</span>
             </button>
-          </div>
-
-          <div className="text-[11px] text-slate-400 flex items-center gap-1">
-            <FileText className="w-3 h-3" />
-            <span>식약처·KPAIC(Korea Pharmaceutical Information Center) 표준 공시</span>
           </div>
         </div>
       </div>

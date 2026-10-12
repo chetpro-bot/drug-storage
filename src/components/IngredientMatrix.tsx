@@ -14,7 +14,7 @@ const COLUMNS: ColumnDef[] = [
   { id: 'category', label: '기능 분류', defaultWidth: 120, minWidth: 80 },
   { id: 'specification', label: '성분 / 함량 (Specification)', defaultWidth: 380, minWidth: 180 },
   { id: 'summary', label: '핵심 특징 및 작용 원리 요약', defaultWidth: 400, minWidth: 180 },
-  { id: 'form', label: '원료 형태 / 염 (Form)', defaultWidth: 240, minWidth: 120 },
+  { id: 'form', label: '원료 형태', defaultWidth: 240, minWidth: 120 },
 ];
 
 const COLUMN_STORAGE_KEY = 'pharmassist_matrix_column_widths_v2';
@@ -220,11 +220,9 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
           </thead>
           <tbody className="divide-y divide-slate-100 text-xs">
             {filteredIngredients.map((ing, idx) => {
-              // 1. formattedSpecification이 이미 있으면 최우선 사용
-              let displaySpec = ing.formattedSpecification;
-
-              // 2. 만약 없으면 제품 데이터로부터 자동 생성
-              if (!displaySpec) {
+              // 1. formattedSpecification이 이미 있으면 최우선 사용하되, 한글 성분명이 남아있으면 영문화
+              let rawSpec = ing.formattedSpecification;
+              if (!rawSpec) {
                 let mainName = ing.englishInn;
                 if (mainName === 'Gamma-oryzanol') mainName = 'Gamma Oryzanol';
 
@@ -269,8 +267,23 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
                   }
                 }
 
-                displaySpec = `${mainName} ${mainAmountStr}${bracketStr}`.trim();
+                rawSpec = `${mainName} ${mainAmountStr}${bracketStr}`.trim();
               }
+
+              // 한글 성분명 영문화 정제
+              const displaySpec = rawSpec
+                .replace(/베타카로틴\s*20\%/gi, 'Beta-carotene 20%')
+                .replace(/베타카로틴/gi, 'Beta-carotene')
+                .replace(/칼슘판토테네이트|판토텐산칼슘/gi, 'Calcium pantothenate')
+                .replace(/콜레칼시페롤농축분말|농축콜레칼시페롤/gi, 'Cholecalciferol')
+                .replace(/피리독신염산염/gi, 'Pyridoxine hydrochloride')
+                .replace(/시아노코발라민/gi, 'Cyanocobalamin')
+                .replace(/니코틴산아미드/gi, 'Nicotinamide')
+                .replace(/콜린타르타르산염/gi, 'Choline bitartrate')
+                .replace(/이노시톨/gi, 'Inositol')
+                .replace(/산화아연/gi, 'Zinc oxide')
+                .replace(/산화마그네슘/gi, 'Magnesium oxide')
+                .trim();
 
               return (
                 <tr
@@ -308,16 +321,11 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
                     </div>
                   </td>
 
-                  {/* 4. 원료 형태 / 염 */}
+                  {/* 4. 원료 형태 */}
                   <td className="py-3 px-3.5">
                     <div className="text-slate-700 font-medium text-xs leading-relaxed break-words">
                       {ing.chemicalFormName}
                     </div>
-                    {ing.noteKorean && (
-                      <div className="text-[10px] text-slate-400 mt-1 break-words">
-                        {ing.noteKorean}
-                      </div>
-                    )}
                   </td>
                 </tr>
               );

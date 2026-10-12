@@ -182,18 +182,18 @@ Zinc Oxide 산화아연 18.7mg (아연으로서 15mg)`,
     amountPerServing: 1,
     servingUnitKorean: '정',
     regulatoryCode: '201503387',
-    rawIngredientsText: `벤포티아민 50mg
-리보플라빈 50mg
-피리독신염산염 50mg
-시아노코발라민 50ug
-니코틴산아미드 50mg
-판토텐산칼슘 50mg
-콜린타르타르산염 50mg
-이노시톨 50mg
-산화아연 18.7mg (아연으로서 15mg)
-베타카로틴20% 15mg
-콜레칼시페롤농축분말 10mg (비타민D로서 1000IU)
-칼슘판토테네이트 50mg`,
+    rawIngredientsText: `Benfotiamine 벤포티아민 50mg
+Riboflavin 리보플라빈 50mg
+Pyridoxine Hydrochloride 피리독신염산염 50mg
+Cyanocobalamin 시아노코발라민 50ug
+Nicotinamide 니코틴산아미드 50mg
+Calcium Pantothenate 판토텐산칼슘 50mg
+Choline Bitartrate 콜린타르타르산염 50mg
+Inositol 이노시톨 50mg
+Zinc Oxide 산화아연 18.7mg (아연으로서 15mg)
+Beta-Carotene 20% 베타카로틴20% 15mg
+Cholecalciferol Concentrate Powder 콜레칼시페롤농축분말 10mg (비타민D로서 1000IU)
+Calcium Pantothenate 칼슘판토테네이트 50mg`,
     dosageInstruction: '만 12세 이상 및 성인: 1일 1회 1~2정 복용',
     indicationsSummary: [
       '청소년 및 수험생 뇌 활력, 눈의 피로, 체력 증진',

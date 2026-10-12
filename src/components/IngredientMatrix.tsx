@@ -1,6 +1,8 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { ProductItem } from '../types/product';
-import { Layers, HelpCircle, GripVertical } from 'lucide-react';
+import { Layers, HelpCircle, GripVertical, SlidersHorizontal } from 'lucide-react';
+import { normalizeCategory, getCategoryColor } from '../utils/categoryColors';
+import { EfficacyClassificationModal } from './EfficacyClassificationModal';
 
 interface ColumnDef {
   id: string;
@@ -24,6 +26,7 @@ interface IngredientMatrixProps {
 
 export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
   // 각 열(컬럼) 너비 수동 조절 상태 (localStorage 자동 보존)
   const [columnWidths, setColumnWidths] = useState<number[]>(() => {
@@ -92,13 +95,6 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
     document.body.style.userSelect = 'none';
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
-  };
-
-  // 카테고리 명칭 정규화 (비타민X 제제 -> 비타민X, X 보충 -> X)
-  const normalizeCategory = (cat: string): string => {
-    let res = (cat || '').replace(/^비타민([A-Za-z0-9]+)\s*제제$/, '비타민$1');
-    res = res.replace(/\s*보충$/, '');
-    return res;
   };
 
   // 제품 내 존재하는 KPIC 약효 분류 카테고리 추출 (기본: 가나다순)
@@ -226,107 +222,34 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
     ? sortedIngredients
     : sortedIngredients.filter((ing) => normalizeCategory(ing.functionalCategory) === selectedCategory);
 
-  const getCategoryColor = (cat: string) => {
-    const norm = normalizeCategory(cat);
-    switch (norm) {
-      // 비타민 B군
-      case '비타민B1':
-        return 'bg-amber-100 text-amber-800 border-amber-200';
-      case '비타민B2':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case '비타민B3':
-        return 'bg-orange-100 text-orange-800 border-orange-200';
-      case '비타민B5':
-        return 'bg-lime-100 text-lime-800 border-lime-200';
-      case '비타민B6':
-        return 'bg-teal-100 text-teal-800 border-teal-200';
-      case '비타민B7':
-        return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-      case '비타민B12':
-      case '비타민B12 보충':
-        return 'bg-rose-100 text-rose-800 border-rose-200';
-      case '기타 비타민B':
-        return 'bg-orange-50 text-orange-700 border-orange-200';
-      // 기타 비타민 & 미네랄
-      case '비타민C':
-      case '비타민C 제제':
-        return 'bg-amber-100 text-amber-900 border-amber-300';
-      case '비타민D':
-      case '비타민D 제제':
-      case '비타민D3':
-      case '비타민D3 제제':
-        return 'bg-sky-100 text-sky-800 border-sky-200';
-      case '비타민E':
-      case '비타민E 제제':
-        return 'bg-emerald-100 text-emerald-900 border-emerald-200';
-      case '비타민A':
-      case '비타민A 제제':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case '비타민K':
-      case '비타민K 제제':
-        return 'bg-teal-100 text-teal-800 border-teal-200';
-      case '엽산':
-      case '엽산 보충':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case '마그네슘(Mg)':
-        return 'bg-indigo-100 text-indigo-800 border-indigo-200';
-      case '아연(Zn)':
-        return 'bg-violet-100 text-violet-800 border-violet-200';
-      case '칼슘(Ca)':
-        return 'bg-cyan-100 text-cyan-800 border-cyan-200';
-      case '셀레늄(Se)':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case '크롬(Cr)':
-        return 'bg-purple-100 text-purple-800 border-purple-200';
-      case '제1철 (Ferrous)':
-        return 'bg-rose-100 text-rose-800 border-rose-200';
-      // 소화 / 효소
-      case '소화효소제':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case '장내 가스 제거제':
-        return 'bg-sky-100 text-sky-800 border-sky-200';
-      case '소염효소':
-        return 'bg-purple-100 text-purple-800 border-purple-200';
-      case '담석용해제':
-        return 'bg-teal-100 text-teal-800 border-teal-200';
-      // 아미노산 & 기타
-      case '비필수 아미노산제제':
-      case '아미노산제제':
-        return 'bg-fuchsia-100 text-fuchsia-800 border-fuchsia-200';
-      case '간보호제':
-      case '기타 간장 약물':
-        return 'bg-emerald-100 text-emerald-800 border-emerald-200';
-      case '자율신경제':
-        return 'bg-indigo-100 text-indigo-800 border-indigo-200';
-      case '기타 심부전 치료제':
-        return 'bg-rose-100 text-rose-800 border-rose-200';
-      default:
-        return 'bg-slate-100 text-slate-800 border-slate-200';
-    }
-  };
-
   return (
     <div className="flex-1 bg-white border border-slate-200 rounded-xl flex flex-col shadow-xs overflow-hidden">
       {/* 헤더 & 카테고리 필터 */}
-      <div className="p-4 border-b border-slate-200 bg-slate-50/80 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Layers className="w-4 h-4 text-sky-600" />
-          <h3 className="text-sm font-bold text-slate-900">
-            성분 / 함량
-          </h3>
-          <span
-            className="w-6 h-6 rounded-full bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center shrink-0 shadow-2xs"
-            title={`총 ${product.ingredients.length}개 성분`}
+      <div className="p-3.5 px-5 border-b border-slate-200 bg-slate-50/90 flex flex-wrap items-center justify-between gap-y-3 gap-x-6">
+        {/* 좌측: 성분 / 함량 타이틀 (큰 폰트 & 충분한 공간 확보) + 약효 분류표 수정하기 버튼 */}
+        <div className="flex items-center gap-4 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <Layers className="w-5 h-5 text-sky-600 shrink-0" />
+            <h3 className="text-base font-extrabold text-slate-900 whitespace-nowrap tracking-tight">
+              성분 / 함량
+            </h3>
+          </div>
+
+          <button
+            onClick={() => setIsCategoryModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:text-sky-800 bg-white hover:bg-sky-50 border border-sky-300 hover:border-sky-400 rounded-lg transition-colors cursor-pointer shadow-2xs shrink-0"
+            title="약학정보원(KPIC) 약효 분류표 전체 조회, 성분 검색 및 약효 분류 실시간 수정"
           >
-            {product.ingredients.length}
-          </span>
+            <SlidersHorizontal className="w-3.5 h-3.5 text-sky-600" />
+            <span>약효 분류표 수정하기</span>
+          </button>
         </div>
 
-        {/* 약효별 필터 칩 (드래그하여 순서 재배치 가능) */}
-        <div className="flex items-center gap-1.5 flex-wrap">
+        {/* 우측: 충분한 공간을 두고 배치된 약효별 필터 탭 (드래그하여 순서 재배치 가능) */}
+        <div className="flex-1 flex items-center gap-1.5 flex-wrap min-w-[320px] pl-4 border-l border-slate-200/90">
           <button
             onClick={() => setSelectedCategory('ALL')}
-            className={`px-2.5 py-1 text-xs rounded-md font-medium transition-all ${
+            className={`px-3 py-1 text-xs rounded-md font-bold transition-all shrink-0 ${
               selectedCategory === 'ALL'
                 ? 'bg-slate-800 text-white shadow-xs'
                 : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
@@ -352,7 +275,7 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
                   setSelectedCategory(cat);
                 }}
                 title={`${cat} (드래그하여 순서 변경 가능)`}
-                className={`group inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-md font-medium transition-all select-none cursor-grab active:cursor-grabbing ${
+                className={`group inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-md font-medium transition-all select-none cursor-grab active:cursor-grabbing shrink-0 ${
                   isSelected
                     ? 'bg-sky-700 text-white shadow-xs'
                     : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
@@ -530,6 +453,12 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
           {product.productName} ({product.manufacturer})
         </span>
       </div>
+
+      {/* 약학정보원(KPIC) 약효 분류표 관리 및 수정 모달 */}
+      <EfficacyClassificationModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+      />
     </div>
   );
 };

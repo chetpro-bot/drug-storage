@@ -117,6 +117,7 @@ export type FunctionalCategory = EfficacyCategory;
 export interface ProductIngredientEntry {
   ingredientId: string;
   englishInn: string;                   // 영문 표준 명칭 (English INN)
+  koreanName?: string;                  // 한글 성분명
   functionalCategory: EfficacyCategory; // KPIC 약효 분류 (비타민B1, 소화효소제 등)
   chemicalFormName: string;             // 원료 형태/염(Form, 예: "지용성 활성 에스테르", "유기염(Gluconate)")
   rawAmount: number;                    // 투입/표기 원료량

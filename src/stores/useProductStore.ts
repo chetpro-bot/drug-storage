@@ -2,7 +2,8 @@ import { create } from 'zustand';
 import { ProductItem } from '../types/product';
 import { ProductClassification } from '../types/classification';
 import { MOCK_PRODUCTS } from '../constants/mockProducts';
-import { resolveKpicCategory } from '../utils/innMapper';
+import { resolveKpicCategory, saveLearnedIngredientMapping } from '../utils/innMapper';
+import { normalizeCategory } from '../utils/categoryColors';
 import { 
   subscribeToProducts, 
   saveProductToFirestore, 
@@ -32,6 +33,10 @@ interface ProductState {
   addProduct: (product: ProductItem) => Promise<void>;
   updateProduct: (id: string, partial: Partial<ProductItem>) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
+
+  // Efficacy Category Realtime Updates
+  updateIngredientCategory: (ingredientKey: string, newCategory: string) => Promise<void>;
+  batchRenameCategory: (oldCategory: string, newCategory: string) => Promise<void>;
 
   // Getters
   getFilteredProducts: () => ProductItem[];
@@ -284,6 +289,102 @@ export const useProductStore = create<ProductState>((set, get) => {
         await deleteProductFromFirestore(id);
       } catch (e) {
         console.warn('Firestore 삭제 비동기 처리 알림:', e);
+      }
+    },
+
+    updateIngredientCategory: async (ingredientKey: string, newCategory: string) => {
+      const normNew = normalizeCategory(newCategory);
+      if (!ingredientKey || !normNew) return;
+      const cleanKey = ingredientKey.trim().toLowerCase();
+
+      // 1. 학습 사전에 즉시 저장 (추후 추가되는 제품 및 분석 시 자동 적용)
+      saveLearnedIngredientMapping(ingredientKey, { functionalCategory: normNew as any });
+
+      // 2. 모든 제품 순회하며 해당 성분의 functionalCategory 갱신
+      const { products } = get();
+      let hasChange = false;
+      const updatedProducts = products.map((prod) => {
+        let prodChanged = false;
+        const updatedIngredients = prod.ingredients.map((ing) => {
+          const innMatch = ing.englishInn?.trim().toLowerCase() === cleanKey;
+          const nameMatch = ing.koreanName?.trim().toLowerCase() === cleanKey;
+          if ((innMatch || nameMatch) && normalizeCategory(ing.functionalCategory) !== normNew) {
+            prodChanged = true;
+            return { ...ing, functionalCategory: normNew as any };
+          }
+          return ing;
+        });
+
+        if (prodChanged) {
+          hasChange = true;
+          const updated = {
+            ...prod,
+            ingredients: updatedIngredients,
+            updatedAt: new Date().toISOString()
+          };
+          saveProductToFirestore(updated).catch(() => {});
+          return updated;
+        }
+        return prod;
+      });
+
+      if (hasChange) {
+        persistToLocal(updatedProducts);
+        set({ products: updatedProducts });
+      }
+    },
+
+    batchRenameCategory: async (oldCategory: string, newCategory: string) => {
+      const normOld = normalizeCategory(oldCategory);
+      const normNew = normalizeCategory(newCategory);
+      if (!normOld || !normNew || normOld === normNew) return;
+
+      const { products } = get();
+      let hasChange = false;
+      const updatedProducts = products.map((prod) => {
+        let prodChanged = false;
+        const updatedIngredients = prod.ingredients.map((ing) => {
+          if (normalizeCategory(ing.functionalCategory) === normOld) {
+            prodChanged = true;
+            return { ...ing, functionalCategory: normNew as any };
+          }
+          return ing;
+        });
+
+        if (prodChanged) {
+          hasChange = true;
+          const updated = {
+            ...prod,
+            ingredients: updatedIngredients,
+            updatedAt: new Date().toISOString()
+          };
+          saveProductToFirestore(updated).catch(() => {});
+          return updated;
+        }
+        return prod;
+      });
+
+      // 학습 사전에도 일괄 치환
+      try {
+        const saved = localStorage.getItem('pharmassist_learned_inn_dict_v1');
+        if (saved) {
+          const dict = JSON.parse(saved);
+          let dictChanged = false;
+          Object.keys(dict).forEach((k) => {
+            if (normalizeCategory(dict[k].functionalCategory) === normOld) {
+              dict[k].functionalCategory = normNew;
+              dictChanged = true;
+            }
+          });
+          if (dictChanged) {
+            localStorage.setItem('pharmassist_learned_inn_dict_v1', JSON.stringify(dict));
+          }
+        }
+      } catch (e) {}
+
+      if (hasChange) {
+        persistToLocal(updatedProducts);
+        set({ products: updatedProducts });
       }
     },
 

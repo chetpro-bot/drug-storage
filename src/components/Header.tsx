@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Pill, Monitor, ShieldCheck, Cloud, RefreshCw, Download, CheckCircle2 } from 'lucide-react';
+import { Pill, Monitor, ShieldCheck, Cloud, RefreshCw, Download, CheckCircle2, SlidersHorizontal } from 'lucide-react';
 import { useProductStore } from '../stores/useProductStore';
 import { APP_VERSION } from '../version';
+import { EfficacyClassificationModal } from './EfficacyClassificationModal';
 
 export const Header: React.FC = () => {
   const { isLiveSyncActive, isSyncing } = useProductStore();
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isStandalone, setIsStandalone] = useState(false);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
   useEffect(() => {
     // 이미 독립형 앱(PWA Standalone)으로 실행 중인지 감지
@@ -103,11 +105,26 @@ export const Header: React.FC = () => {
           <Monitor className="w-3.5 h-3.5 text-sky-400" />
           <span>1920x1080 와이드 최적화</span>
         </div>
+        <button
+          onClick={() => setIsCategoryModalOpen(true)}
+          className="flex items-center gap-1.5 px-3 py-1 rounded-md bg-sky-950/80 hover:bg-sky-900 border border-sky-700 text-sky-300 hover:text-white font-medium transition-colors cursor-pointer shadow-2xs"
+          title="약학정보원(KPIC) 약효 분류표 전체 조회, 성분 검색 및 약효 분류 실시간 수정"
+        >
+          <SlidersHorizontal className="w-3.5 h-3.5 text-sky-400" />
+          <span>약효 분류표 수정</span>
+        </button>
+
         <div className="flex items-center gap-1.5 text-emerald-400 bg-emerald-950/60 px-2.5 py-1 rounded border border-emerald-800">
           <ShieldCheck className="w-3.5 h-3.5" />
           <span>약학정보원(KPAIC) 공식 데이터 연동</span>
         </div>
       </div>
+
+      {/* 약학정보원(KPIC) 약효 분류표 관리 및 수정 모달 */}
+      <EfficacyClassificationModal
+        isOpen={isCategoryModalOpen}
+        onClose={() => setIsCategoryModalOpen(false)}
+      />
     </header>
   );
 };

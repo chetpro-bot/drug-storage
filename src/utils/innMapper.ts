@@ -17,6 +17,18 @@ export function resolveKpicCategory(nameOrInn: string): string | null {
     return res;
   };
 
+  // 0. 사용자 수정 및 학습 사전 우선 조회
+  const learned = getLearnedDict();
+  const rawKey = nameOrInn.trim().toLowerCase();
+  if (learned[rawKey]?.functionalCategory) {
+    return normalizeCategory(learned[rawKey].functionalCategory);
+  }
+  for (const [k, v] of Object.entries(learned)) {
+    if (k.toLowerCase().replace(/[^a-z0-9가-힣]/g, '') === cleanTk && v.functionalCategory) {
+      return normalizeCategory(v.functionalCategory);
+    }
+  }
+
   // 1. 완전 일치 우선 검색
   for (const [kpicIng, kpicCat] of Object.entries(KPIC_MASTER_DATABASE)) {
     const cleanKpic = kpicIng.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');

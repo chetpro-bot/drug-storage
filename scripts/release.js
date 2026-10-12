@@ -11,10 +11,18 @@ const rootDir = path.resolve(__dirname, '..');
 const pkgPath = path.join(rootDir, 'package.json');
 const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
 
-// 2. 패치 버전 자동 증가 (예: 1.0.0 -> 1.0.1)
-const versionParts = pkg.version.split('.').map(Number);
-versionParts[2] += 1; // patch 버전 +1
-const newVersion = versionParts.join('.');
+// 2. 버전 자동 증가 (뒷자리들은 0~9 한 자리수로만 유지: 1.2.0 -> 1.2.1 ... -> 1.2.9 -> 1.3.0)
+let [major, minor, patch] = pkg.version.split('.').map(Number);
+patch += 1;
+if (patch >= 10) {
+  patch = 0;
+  minor += 1;
+  if (minor >= 10) {
+    minor = 0;
+    major += 1;
+  }
+}
+const newVersion = `${major}.${minor}.${patch}`;
 pkg.version = newVersion;
 
 // package.json 저장

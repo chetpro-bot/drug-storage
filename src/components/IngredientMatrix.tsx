@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { ProductItem } from '../types/product';
 import { FunctionalCategory } from '../types/ingredient';
-import { Layers, Sparkles, HelpCircle, RotateCcw } from 'lucide-react';
+import { Layers, HelpCircle, RotateCcw } from 'lucide-react';
 
 interface ColumnDef {
   id: string;
@@ -305,12 +305,6 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
                   <td className="py-3 px-4">
                     <div className="font-bold text-slate-900 text-sm tracking-tight flex items-center gap-1.5 group-hover:text-sky-700 transition-colors">
                       <span className="break-words">{displaySpec}</span>
-                      {ing.isMainActive && (
-                        <span className="inline-flex items-center gap-0.5 text-[10px] text-amber-700 font-semibold bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200 shrink-0">
-                          <Sparkles className="w-2.5 h-2.5 text-amber-500" />
-                          주요
-                        </span>
-                      )}
                     </div>
                   </td>
 

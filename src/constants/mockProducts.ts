@@ -131,7 +131,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_folic_acid',
         englishInn: 'Folic Acid',
-        functionalCategory: '엽산 보충',
+        functionalCategory: '엽산',
         chemicalFormName: '합성 엽산 (비타민 B9)',
         rawAmount: 0.5,
         unit: 'mg',
@@ -168,7 +168,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_mecobalamin',
         englishInn: 'Mecobalamin',
-        functionalCategory: '비타민B12 보충',
+        functionalCategory: '비타민B12',
         chemicalFormName: '체내 직접 작용 활성형 비타민 B12 (메틸코발라민)',
         rawAmount: 1,
         unit: 'mg',

@@ -103,9 +103,11 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
     } catch (e) {}
   };
 
-  // 카테고리 명칭 정규화 (비타민X 제제 -> 비타민X)
+  // 카테고리 명칭 정규화 (비타민X 제제 -> 비타민X, X 보충 -> X)
   const normalizeCategory = (cat: string): string => {
-    return cat.replace(/^비타민([A-Za-z0-9]+)\s*제제$/, '비타민$1');
+    let res = cat.replace(/^비타민([A-Za-z0-9]+)\s*제제$/, '비타민$1');
+    res = res.replace(/\s*보충$/, '');
+    return res;
   };
 
   // 제품 내 존재하는 KPIC 약효 분류 카테고리 추출 (가나다순 정렬)
@@ -145,6 +147,7 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
         return 'bg-teal-100 text-teal-800 border-teal-200';
       case '비타민B7':
         return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+      case '비타민B12':
       case '비타민B12 보충':
         return 'bg-rose-100 text-rose-800 border-rose-200';
       case '기타 비타민B':
@@ -167,6 +170,7 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
       case '비타민K':
       case '비타민K 제제':
         return 'bg-teal-100 text-teal-800 border-teal-200';
+      case '엽산':
       case '엽산 보충':
         return 'bg-green-100 text-green-800 border-green-200';
       case '마그네슘(Mg)':

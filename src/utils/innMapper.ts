@@ -11,15 +11,17 @@ export function resolveKpicCategory(nameOrInn: string): string | null {
   const cleanTk = nameOrInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
   if (!cleanTk) return null;
 
-  const stripVitaminJeje = (cat: string) => {
-    return cat.replace(/^비타민([A-Za-z0-9]+)\s*제제$/, '비타민$1');
+  const normalizeCategory = (cat: string) => {
+    let res = cat.replace(/^비타민([A-Za-z0-9]+)\s*제제$/, '비타민$1');
+    res = res.replace(/\s*보충$/, '');
+    return res;
   };
 
   // 1. 완전 일치 우선 검색
   for (const [kpicIng, kpicCat] of Object.entries(KPIC_MASTER_DATABASE)) {
     const cleanKpic = kpicIng.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
     if (cleanTk === cleanKpic && kpicCat && kpicCat !== '기타') {
-      return stripVitaminJeje(kpicCat);
+      return normalizeCategory(kpicCat);
     }
   }
 
@@ -28,7 +30,7 @@ export function resolveKpicCategory(nameOrInn: string): string | null {
     for (const [kpicIng, kpicCat] of Object.entries(KPIC_MASTER_DATABASE)) {
       const cleanKpic = kpicIng.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
       if (cleanKpic.length >= 3 && (cleanTk.includes(cleanKpic) || cleanKpic.includes(cleanTk)) && kpicCat && kpicCat !== '기타') {
-        return stripVitaminJeje(kpicCat);
+        return normalizeCategory(kpicCat);
       }
     }
   }
@@ -182,7 +184,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '메코발라민': {
     englishInn: 'Mecobalamin',
-    functionalCategory: '비타민B12 보충',
+    functionalCategory: '비타민B12',
     chemicalFormName: '체내 직접 작용 활성 비타민 B12 (메틸코발라민)',
     defaultUnit: 'ug',
     standardKey: 'VITAMIN_B12',
@@ -190,7 +192,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '시아노코발라민': {
     englishInn: 'Cyanocobalamin',
-    functionalCategory: '비타민B12 보충',
+    functionalCategory: '비타민B12',
     chemicalFormName: '합성형 비타민 B12',
     defaultUnit: 'ug',
     standardKey: 'VITAMIN_B12',
@@ -198,7 +200,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '폴산': {
     englishInn: 'Folic acid',
-    functionalCategory: '엽산 보충',
+    functionalCategory: '엽산',
     chemicalFormName: '합성 엽산 (비타민 B9)',
     defaultUnit: 'ug',
     standardKey: 'VITAMIN_B9',

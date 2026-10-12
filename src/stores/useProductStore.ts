@@ -74,6 +74,15 @@ function migrateAndEnsureKpic(products: ProductItem[]): ProductItem[] {
         }
       }
 
+      // 3. 약효 분류에서 "보충" 제거 정규화 (예: '비타민B12 보충' -> '비타민B12', '엽산 보충' -> '엽산')
+      if (currentCat && /\s*보충$/.test(currentCat)) {
+        const strippedCat = currentCat.replace(/\s*보충$/, '');
+        if (strippedCat !== currentCat) {
+          currentCat = strippedCat;
+          hasChanges = true;
+        }
+      }
+
       if (currentCat !== ing.functionalCategory) {
         return { ...ing, functionalCategory: currentCat };
       }

@@ -830,30 +830,33 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
   const levelStyles = useMemo(() => {
     if (node.level === 1) {
       return {
-        wrapBg: 'bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden',
-        rowBg: 'bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 text-white hover:from-slate-850 hover:to-slate-800 py-3 px-4',
-        codeBg: 'bg-white/10 text-sky-200 border border-white/20',
-        badgeBg: 'bg-sky-400/20 text-sky-200 border border-sky-400/30',
-        textColor: 'text-white font-bold text-sm',
-        enameColor: 'text-slate-300 text-xs font-normal'
+        wrapBg: 'bg-white rounded-xl border border-slate-300 shadow-sm overflow-hidden my-2',
+        rowBg: 'bg-[#003675] text-white hover:bg-[#002c5f] py-3.5 px-4',
+        codeBg: 'bg-white/20 text-white font-mono font-bold text-xs px-2 py-0.5 rounded border border-white/30',
+        badgeBg: 'bg-white/15 text-white font-semibold text-xs px-2.5 py-0.5 rounded-full border border-white/25',
+        textColor: 'text-white font-bold text-sm md:text-base tracking-tight',
+        enameColor: 'text-sky-200 text-xs font-normal',
+        chevronColor: 'text-sky-200'
       };
     } else if (node.level === 2) {
       return {
-        wrapBg: 'border-l-2 border-[#246BEB]/40 my-1 ml-4 md:ml-6',
-        rowBg: 'bg-slate-100/90 hover:bg-sky-50 text-slate-850 py-2.5 px-3 rounded-lg border border-slate-200',
-        codeBg: 'bg-[#246BEB]/15 text-[#003675] border border-[#246BEB]/30',
-        badgeBg: 'bg-sky-100 text-sky-800 border border-sky-200',
-        textColor: 'text-slate-850 font-bold text-xs',
-        enameColor: 'text-slate-500 text-[11px] font-normal'
+        wrapBg: 'border-l-4 border-[#246BEB] my-1.5 ml-3 md:ml-6 rounded-r-lg',
+        rowBg: 'bg-slate-50 hover:bg-blue-50/80 text-slate-900 py-2.5 px-3 rounded-r-lg border border-slate-200 shadow-2xs',
+        codeBg: 'bg-[#246BEB] text-white font-mono font-bold text-xs px-2 py-0.5 rounded shadow-2xs',
+        badgeBg: 'bg-blue-50 text-[#003675] font-bold text-xs px-2.5 py-0.5 rounded-md border border-blue-200',
+        textColor: 'text-slate-900 font-bold text-xs md:text-sm',
+        enameColor: 'text-slate-600 text-xs font-medium',
+        chevronColor: 'text-[#246BEB]'
       };
     } else {
       return {
-        wrapBg: 'border-l-2 border-[#7FA6E8]/40 my-1 ml-4 md:ml-6',
-        rowBg: 'bg-white hover:bg-sky-50/60 text-slate-800 py-2 px-3 rounded-lg border border-slate-200/80',
-        codeBg: 'bg-[#7FA6E8]/20 text-sky-800 border border-[#7FA6E8]/40',
-        badgeBg: 'bg-slate-100 text-slate-700 border border-slate-200',
-        textColor: 'text-slate-800 font-semibold text-xs',
-        enameColor: 'text-slate-400 text-[11px] font-normal'
+        wrapBg: 'border-l-4 border-[#7FA6E8] my-1 ml-3 md:ml-6 rounded-r-md',
+        rowBg: 'bg-white hover:bg-sky-50 text-slate-900 py-2 px-3 rounded-r-md border border-slate-200 shadow-2xs',
+        codeBg: 'bg-[#7FA6E8] text-white font-mono font-bold text-[11px] px-1.5 py-0.5 rounded shadow-2xs',
+        badgeBg: 'bg-slate-100 text-slate-800 font-semibold text-[11px] px-2 py-0.5 rounded border border-slate-200',
+        textColor: 'text-slate-900 font-bold text-xs',
+        enameColor: 'text-slate-500 text-[11px] font-normal',
+        chevronColor: 'text-[#4B7DDA]'
       };
     }
   }, [node.level]);
@@ -874,9 +877,9 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
           <span className="w-5 h-5 flex items-center justify-center shrink-0">
             {canExpand ? (
               isExpanded ? (
-                <ChevronDown className="w-4 h-4 text-sky-400" />
+                <ChevronDown className={`w-4 h-4 ${levelStyles.chevronColor}`} />
               ) : (
-                <ChevronRight className="w-4 h-4 text-slate-400" />
+                <ChevronRight className={`w-4 h-4 ${levelStyles.chevronColor}`} />
               )
             ) : (
               <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
@@ -889,7 +892,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
           </span>
 
           {/* 카테고리 명칭 */}
-          <div className="flex items-baseline gap-1.5 truncate">
+          <div className="flex items-baseline gap-2 truncate">
             <span className={levelStyles.textColor}>{node.label}</span>
             {node.ename && (
               <span className={levelStyles.enameColor}>({node.ename})</span>
@@ -901,8 +904,8 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
         <div className="flex items-center gap-2 shrink-0">
           {/* 등록 제품 포함 배지 */}
           {node.productIngredientsCount > 0 && (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300 text-[10px] font-bold shadow-2xs">
-              <Package className="w-3 h-3 text-emerald-600" />
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 text-[11px] font-bold shadow-2xs">
+              <Package className="w-3.5 h-3.5 text-emerald-700" />
               <span>등록 제품 {node.productIngredientsCount}개 성분</span>
             </span>
           )}
@@ -920,7 +923,7 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
 
       {/* 펼쳐졌을 때: 하위 자식 노드 및 소속 성분 렌더링 */}
       {isExpanded && (
-        <div className="p-2 md:p-3 space-y-1.5 bg-slate-50/40">
+        <div className="p-2 md:p-3 space-y-1.5 bg-slate-50/50">
           {/* 1. 하위 자식 카테고리 재귀 렌더링 */}
           {node.children.map((child) => (
             <TreeNodeItem
@@ -942,9 +945,9 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
 
           {/* 2. 해당 노드에 소속된 성분 목록 렌더링 */}
           {node.ingredients.length > 0 && (
-            <div className="ml-4 md:ml-8 mt-2 space-y-1">
-              <div className="text-[11px] font-bold text-slate-500 px-2 py-1 flex items-center gap-1.5">
-                <Pill className="w-3 h-3 text-sky-600" />
+            <div className="ml-3 md:ml-6 mt-2 space-y-1">
+              <div className="text-[11px] font-bold text-slate-600 px-2 py-1 flex items-center gap-1.5">
+                <Pill className="w-3.5 h-3.5 text-[#246BEB]" />
                 <span>소속 성분 목록 ({node.ingredients.length}개)</span>
               </div>
 
@@ -1001,18 +1004,18 @@ const TreeIngredientRow: React.FC<TreeIngredientRowProps> = ({
   const isEditing = editingKey === ing.key;
 
   return (
-    <div className="py-2 px-3 md:px-4 hover:bg-sky-50/40 transition-colors flex flex-wrap items-center justify-between gap-3 text-xs group">
+    <div className="py-2.5 px-3 md:px-4 hover:bg-blue-50/40 transition-colors flex flex-wrap items-center justify-between gap-3 text-xs group border-b border-slate-100 last:border-b-0">
       {/* 1. 성분명 영역 */}
-      <div className="min-w-[200px] flex-1">
-        <div className="flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-sky-500 shrink-0" />
-          <span className="font-bold text-slate-900">{ing.englishInn}</span>
+      <div className="min-w-[220px] flex-1">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-[#246BEB] shrink-0" />
+          <span className="font-bold text-slate-900 text-xs md:text-sm">{ing.englishInn}</span>
           {ing.koreanName && ing.koreanName !== ing.englishInn && (
-            <span className="text-slate-500 text-[11px]">({ing.koreanName})</span>
+            <span className="text-slate-700 font-semibold text-xs">({ing.koreanName})</span>
           )}
         </div>
         {ing.chemicalFormName && (
-          <div className="text-[10px] text-slate-400 pl-3 truncate max-w-sm">
+          <div className="text-[11px] text-slate-500 pl-4 truncate max-w-md mt-0.5">
             {ing.chemicalFormName}
           </div>
         )}
@@ -1021,7 +1024,7 @@ const TreeIngredientRow: React.FC<TreeIngredientRowProps> = ({
       {/* 2. 현재 약효 분류 배지 */}
       <div className="shrink-0">
         <span
-          className={`inline-block text-[10px] md:text-[11px] font-bold px-2 py-0.5 rounded border ${getCategoryColor(
+          className={`inline-block text-xs font-bold px-2.5 py-1 rounded-md border ${getCategoryColor(
             ing.functionalCategory
           )}`}
         >
@@ -1040,7 +1043,7 @@ const TreeIngredientRow: React.FC<TreeIngredientRowProps> = ({
                 value={editCategoryVal}
                 onChange={(e) => setEditCategoryVal(e.target.value)}
                 placeholder="새 분류명 직접 입력"
-                className="bg-white border border-sky-400 rounded-md px-2 py-0.5 text-xs text-slate-900 w-32 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                className="bg-white border border-sky-400 rounded-md px-2 py-1 text-xs text-slate-900 w-36 focus:outline-none focus:ring-1 focus:ring-sky-500"
               />
             ) : (
               <select
@@ -1054,7 +1057,7 @@ const TreeIngredientRow: React.FC<TreeIngredientRowProps> = ({
                     setEditCategoryVal(e.target.value);
                   }
                 }}
-                className="bg-white border border-sky-400 rounded-md px-2 py-0.5 text-xs text-slate-900 w-32 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                className="bg-white border border-sky-400 rounded-md px-2 py-1 text-xs text-slate-900 w-36 focus:outline-none focus:ring-1 focus:ring-sky-500"
               >
                 {uniqueCategories.map((c) => (
                   <option key={c} value={c}>{c}</option>
@@ -1088,30 +1091,30 @@ const TreeIngredientRow: React.FC<TreeIngredientRowProps> = ({
               setEditCategoryVal(ing.functionalCategory);
               setCustomInputMode(false);
             }}
-            className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] md:text-[11px] font-medium text-slate-600 hover:text-sky-700 bg-slate-50 hover:bg-sky-50 border border-slate-200 hover:border-sky-300 rounded transition-colors cursor-pointer shadow-2xs"
+            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:text-sky-800 bg-white hover:bg-sky-50 border border-slate-300 hover:border-sky-400 rounded-md transition-colors cursor-pointer shadow-2xs"
           >
-            <Edit3 className="w-3 h-3 text-slate-400 group-hover:text-sky-600" />
+            <Edit3 className="w-3.5 h-3.5 text-slate-500 group-hover:text-sky-600" />
             <span>수정</span>
           </button>
         )}
       </div>
 
       {/* 4. 포함된 등록 제품 배지들 */}
-      <div className="shrink-0 min-w-[130px] flex justify-end">
+      <div className="shrink-0 min-w-[140px] flex justify-end">
         {ing.productCount > 0 ? (
-          <div className="flex items-center gap-1 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
             {ing.productNames.map((prodName, pIdx) => (
               <span
                 key={pIdx}
-                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-sky-50 text-sky-800 border border-sky-200 text-[10px] font-medium"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-300 text-[11px] font-bold shadow-2xs"
               >
-                <Package className="w-2.5 h-2.5 text-sky-500" />
+                <Package className="w-3 h-3 text-emerald-600" />
                 <span>{prodName}</span>
               </span>
             ))}
           </div>
         ) : (
-          <span className="text-[10px] text-slate-400 italic">미등록 (사전)</span>
+          <span className="text-[11px] text-slate-400 font-normal italic">미등록 (사전)</span>
         )}
       </div>
     </div>

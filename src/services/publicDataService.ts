@@ -937,6 +937,105 @@ D-비오틴 0.1mg
     searchKeywords: ['렛잇비', '렛잇비프로', '대웅', '대웅제약']
   },
 
+  // --- [대표 소화제 라인업] ---
+  {
+    id: 'kpaic_bearse_tab',
+    productName: '베아제정',
+    manufacturer: '대웅제약',
+    classification: 'OTC_DRUG',
+    dosageForm: 'FILM_COATED_TABLET',
+    packagingUnit: '10정 / 300정',
+    dailyServings: 3,
+    amountPerServing: 1,
+    servingUnitKorean: '정',
+    regulatoryCode: '198701925',
+    rawIngredientsText: `Diastase · Protease · Cellulase 디아스타제·프로테아제·셀룰라제 10mg
+Pancreatin Enteric Granules 판크레아틴장용과립 78.6mg
+Panprosin 판프로신 30mg
+Pancellase 판셀라제 10mg
+Ursodeoxycholic Acid 우르소데옥시콜산 10mg
+Simethicone 시메티콘 40mg`,
+    dosageInstruction: '성인 1회 1정, 1일 3회 식후 복용',
+    indicationsSummary: ['소화불량, 식욕감퇴(식욕부진), 과식, 식체(위체), 소화촉진, 소화불량으로 인한 위부팽만감'],
+    searchKeywords: ['베아제', '베아제정', '대웅', '대웅제약', '소화제']
+  },
+  {
+    id: 'kpaic_dr_bearse_tab',
+    productName: '닥터베아제정',
+    manufacturer: '대웅제약',
+    classification: 'OTC_DRUG',
+    dosageForm: 'FILM_COATED_TABLET',
+    packagingUnit: '10정 / 300정',
+    dailyServings: 3,
+    amountPerServing: 1,
+    servingUnitKorean: '정',
+    regulatoryCode: '200401825',
+    rawIngredientsText: `Pancreatin Enteric Granules 판크레아틴장용과립 160mg
+Lipase 리파제 30mg
+Panprosin 판프로신 20mg
+Pancellase 판셀라제 30mg
+Ursodeoxycholic Acid 우르소데옥시콜산 25mg
+Simethicone 시메티콘 40mg
+Bromelain 브로멜라인 10mg
+Diastase · Protease · Cellulase 디아스타제·프로테아제·셀룰라제 20mg`,
+    dosageInstruction: '성인 1회 1정, 1일 3회 식후 복용',
+    indicationsSummary: ['과식, 소화불량, 위부팽만감, 가스제거 및 육류·지방 소화 촉진'],
+    searchKeywords: ['베아제', '닥터베아제', '닥터베아제정', '대웅', '소화제']
+  },
+  {
+    id: 'kpaic_festal_plus',
+    productName: '훼스탈플러스정',
+    manufacturer: '한독',
+    classification: 'OTC_DRUG',
+    dosageForm: 'FILM_COATED_TABLET',
+    packagingUnit: '10정 / 100정',
+    dailyServings: 3,
+    amountPerServing: 1,
+    servingUnitKorean: '정',
+    regulatoryCode: '199901597',
+    rawIngredientsText: `Pancreatin 판크레아틴 315mg
+Pancellase 판셀라제 10mg
+Ursodeoxycholic Acid 우르소데옥시콜산 25mg
+Simethicone 시메티콘 30mg`,
+    dosageInstruction: '성인 1회 1~2정, 1일 3회 식후 씹지 않고 복용',
+    indicationsSummary: ['소화불량, 과식, 복부팽만감, 소화불량으로 인한 속쓰림 및 식체'],
+    searchKeywords: ['훼스탈', '훼스탈플러스', '한독', '소화제']
+  },
+
+  // --- [대표 해열진통소염제 라인업] ---
+  {
+    id: 'kpaic_tylenol_500',
+    productName: '타이레놀정 500mg',
+    manufacturer: '한국존슨앤드존슨 (켄뷰)',
+    classification: 'OTC_DRUG',
+    dosageForm: 'TABLET',
+    packagingUnit: '10정 / 30정',
+    dailyServings: 3,
+    amountPerServing: 1,
+    servingUnitKorean: '정',
+    regulatoryCode: '199301053',
+    rawIngredientsText: 'Acetaminophen 아세트아미노펜 500mg',
+    dosageInstruction: '만 12세 이상 및 성인: 1회 1~2정씩 1일 3~4회 (4~6시간 간격) 복용. 1일 최대 4,000mg(8정) 초과 금지',
+    indicationsSummary: ['두통, 신경통, 근육통, 월경통, 염좌통, 치통, 관절통, 감기로 인한 발열 및 통증 완화'],
+    searchKeywords: ['타이레놀', '아세트아미노펜', '타이레놀500', '진통제', '해열제']
+  },
+  {
+    id: 'kpaic_ezn6_ani',
+    productName: '이지엔6애니연질캡슐',
+    manufacturer: '대웅제약',
+    classification: 'OTC_DRUG',
+    dosageForm: 'SOFT_CAPSULE',
+    packagingUnit: '10캡슐 / 30캡슐',
+    dailyServings: 3,
+    amountPerServing: 1,
+    servingUnitKorean: '캡슐',
+    regulatoryCode: '200501140',
+    rawIngredientsText: 'Ibuprofen 이부프로펜 200mg',
+    dosageInstruction: '성인 1회 1~2캡슐 1일 3~4회 식후 복용 (1일 최대 3,200mg)',
+    indicationsSummary: ['두통, 치통, 생리통(월경통), 관절통, 감기 발열 및 염증 완화'],
+    searchKeywords: ['이지엔6', '이지엔', '이지엔6애니', '이부프로펜', '대웅']
+  },
+
   // --- [건강기능식품] ---
   {
     id: 'kpaic_cellti_gold',

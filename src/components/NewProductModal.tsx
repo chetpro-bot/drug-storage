@@ -351,6 +351,44 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
     }
   };
 
+  // 약학정보원 DB에 미등록된 품목 직접 성분 입력 모드 시작
+  const handleStartManualEntry = () => {
+    const targetName = productName.trim() || '신규 등록 의약품';
+    setProductName(targetName);
+    setSearchErrorMsg(null);
+    setShowSearchResults(false);
+
+    // 기본 성분 1개 및 2단계 검수 활성화
+    const initialEntry: ProductIngredientEntry = {
+      ingredientId: `ing_manual_${Date.now()}`,
+      englishInn: 'Active ingredient',
+      functionalCategory: '에너지 대사',
+      chemicalFormName: '표준 정제 원료',
+      rawAmount: 100,
+      unit: 'mg',
+      isMainActive: true,
+      clinicalSummary: '• 유효 성분 임상 효능 및 대사 작용'
+    };
+
+    setVerifiedIngredients([initialEntry]);
+    setPublicDataFetched({
+      productName: targetName,
+      manufacturer: manufacturer.trim() || '제약사 직접 입력',
+      classification,
+      dosageForm,
+      packagingUnit: '100정',
+      dailyServings: 1,
+      amountPerServing: 1,
+      servingUnitKorean: '정',
+      regulatoryCode: `수동등록_${Date.now().toString().slice(-6)}`,
+      rawIngredientsText: `${targetName} 직접 성분 입력`,
+      indicationsSummary: ['효능·효과 직접 작성'],
+      dosageInstruction: '1일 1회, 1회 1정 복용',
+      parsedIngredients: [initialEntry],
+      sourceOrigin: '약학정보원(KPAIC) DB'
+    });
+  };
+
   // 약사 성분 인라인 수정
   const handleUpdateIngredient = (index: number, partial: Partial<ProductIngredientEntry>) => {
     setVerifiedIngredients((prev) =>
@@ -584,11 +622,26 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
               </div>
             </div>
 
-            {/* 검색 에러 알림 */}
+            {/* 검색 에러 알림 및 직접 등록 지원 */}
             {searchErrorMsg && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-xs flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                <span>{searchErrorMsg}</span>
+              <div className="p-3.5 bg-amber-50 border-2 border-amber-300 rounded-xl text-amber-900 text-xs flex items-center justify-between gap-3 animate-in fade-in">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <div>
+                    <span className="font-bold">{searchErrorMsg}</span>
+                    <p className="text-[11px] text-amber-700 mt-0.5">
+                      약학정보원 사전 DB에 없는 품목이라도, 아래 버튼을 눌러 성분을 직접 입력하여 즉시 등록하실 수 있습니다.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleStartManualEntry}
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-lg shrink-0 shadow-xs flex items-center gap-1 active:scale-[0.98]"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>직접 성분 입력하여 등록하기</span>
+                </button>
               </div>
             )}
 

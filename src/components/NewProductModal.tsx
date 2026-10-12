@@ -541,7 +541,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
                   onChange={(e) => setClassification(e.target.value as ProductClassification)}
                   className="w-full p-2 bg-white border border-slate-300 rounded-lg font-semibold text-xs"
                 >
-                  <option value="OTC_DRUG">일반의약품 (약학정보원)</option>
+                  <option value="OTC_DRUG">일반의약품</option>
                   <option value="HEALTH_FUNCTIONAL_FOOD">건강기능식품</option>
                   <option value="GENERAL_FOOD">기타가공품/식품</option>
                 </select>

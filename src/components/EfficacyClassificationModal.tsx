@@ -254,11 +254,14 @@ export const EfficacyClassificationModal: React.FC<EfficacyClassificationModalPr
               <SlidersHorizontal className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                약학정보원(KPIC) 약효 분류표 관리 및 수정
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2 flex-wrap">
+                <span>약학정보원(KPIC) 약효 분류표 관리 및 수정</span>
+                <span className="text-[11px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-300 px-2.5 py-0.5 rounded-full">
+                  health.kr 최신 공식 데이터 연동
+                </span>
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                등록된 전체 성분의 약효 분류를 검색하고 실시간으로 수정합니다. 수정 시 모든 등록 제품에 즉시 반영됩니다.
+                약학정보원 공식 개편 사이트(health.kr)의 2,234개 전체 성분 및 1,352개 약효 분류 체계를 검색하고 실시간으로 수정합니다.
               </p>
             </div>
           </div>

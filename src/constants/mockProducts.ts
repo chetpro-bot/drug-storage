@@ -29,7 +29,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_ascorbic_acid_coated',
         englishInn: 'Ascorbic Acid Coated',
-        functionalCategory: '비타민C 제제',
+        functionalCategory: '비타민C',
         chemicalFormName: '제피아스코르브산 (코팅 비타민 C)',
         rawAmount: 51.15,
         unit: 'mg',
@@ -94,7 +94,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_cholecalciferol_powder',
         englishInn: 'Cholecalciferol Concentrate Powder',
-        functionalCategory: '비타민D3 제제',
+        functionalCategory: '비타민D3',
         chemicalFormName: '콜레칼시페롤농축분말 (비타민 D3)',
         rawAmount: 10,
         unit: 'mg',
@@ -245,7 +245,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_tocopherol_acetate',
         englishInn: 'Tocopherol Acetate Powder 50%',
-        functionalCategory: '비타민E 제제',
+        functionalCategory: '비타민E',
         chemicalFormName: '토코페롤아세테이트 2배산 (비타민 E)',
         rawAmount: 20,
         unit: 'mg',
@@ -438,7 +438,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_ascorbic_acid',
         englishInn: 'Ascorbic acid',
-        functionalCategory: '비타민C 제제',
+        functionalCategory: '비타민C',
         chemicalFormName: '순수 L-아스코르브산',
         rawAmount: 500,
         unit: 'mg',

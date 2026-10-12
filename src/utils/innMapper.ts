@@ -11,11 +11,15 @@ export function resolveKpicCategory(nameOrInn: string): string | null {
   const cleanTk = nameOrInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
   if (!cleanTk) return null;
 
+  const stripVitaminJeje = (cat: string) => {
+    return cat.replace(/^비타민([A-Za-z0-9]+)\s*제제$/, '비타민$1');
+  };
+
   // 1. 완전 일치 우선 검색
   for (const [kpicIng, kpicCat] of Object.entries(KPIC_MASTER_DATABASE)) {
     const cleanKpic = kpicIng.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
     if (cleanTk === cleanKpic && kpicCat && kpicCat !== '기타') {
-      return kpicCat;
+      return stripVitaminJeje(kpicCat);
     }
   }
 
@@ -24,7 +28,7 @@ export function resolveKpicCategory(nameOrInn: string): string | null {
     for (const [kpicIng, kpicCat] of Object.entries(KPIC_MASTER_DATABASE)) {
       const cleanKpic = kpicIng.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
       if (cleanKpic.length >= 3 && (cleanTk.includes(cleanKpic) || cleanKpic.includes(cleanTk)) && kpicCat && kpicCat !== '기타') {
-        return kpicCat;
+        return stripVitaminJeje(kpicCat);
       }
     }
   }
@@ -306,7 +310,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '농축콜레칼시페롤': {
     englishInn: 'Cholecalciferol concentrated',
-    functionalCategory: '비타민D3 제제',
+    functionalCategory: '비타민D3',
     chemicalFormName: '농축 천연 비타민 D3 유도체',
     defaultUnit: 'IU',
     standardKey: 'VITAMIN_D',
@@ -322,7 +326,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '토코페롤아세테이트': {
     englishInn: 'Tocopherol acetate',
-    functionalCategory: '비타민E 제제',
+    functionalCategory: '비타민E',
     chemicalFormName: '합성 비타민 E 에스테르',
     defaultUnit: 'IU',
     standardKey: 'VITAMIN_E',
@@ -338,7 +342,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
 
   '콜레칼시페롤': {
     englishInn: 'Cholecalciferol',
-    functionalCategory: '비타민D3 제제',
+    functionalCategory: '비타민D3',
     chemicalFormName: '천연 비타민 D3 유도체',
     defaultUnit: 'IU',
     standardKey: 'VITAMIN_D',
@@ -347,7 +351,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
 
   '아스코르브산': {
     englishInn: 'Ascorbic acid',
-    functionalCategory: '비타민C 제제',
+    functionalCategory: '비타민C',
     chemicalFormName: '순수 L-아스코르브산 (비타민 C)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_C',
@@ -369,7 +373,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '제피아스코르브산': {
     englishInn: 'Ascorbic acid coated',
-    functionalCategory: '비타민C 제제',
+    functionalCategory: '비타민C',
     chemicalFormName: '코팅 제피 비타민 C (아스코르브산)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_C',
@@ -377,7 +381,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '콜레칼시페롤농축분말': {
     englishInn: 'Cholecalciferol concentrate powder',
-    functionalCategory: '비타민D3 제제',
+    functionalCategory: '비타민D3',
     chemicalFormName: '농축 분말형 비타민 D3',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_D',
@@ -385,7 +389,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '토코페롤아세테이트2배산': {
     englishInn: 'Tocopherol acetate 50%',
-    functionalCategory: '비타민E 제제',
+    functionalCategory: '비타민E',
     chemicalFormName: '비타민 E 아세테이트 2배산',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_E',
@@ -436,14 +440,14 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '베타카로틴': {
     englishInn: 'Beta-carotene',
-    functionalCategory: '비타민A 제제',
+    functionalCategory: '비타민A',
     chemicalFormName: '천연 프로비타민 A 카로티노이드',
     defaultUnit: 'mg',
     clinicalSummary: '• 체내 필요 시 비타민 A로 전환, 시각 기능 및 피부·점막 세포 재생\n• 유해 활성산소 소거 및 항산화 작용'
   },
   '베타카로틴20%': {
     englishInn: 'Beta-carotene 20%',
-    functionalCategory: '비타민A 제제',
+    functionalCategory: '비타민A',
     chemicalFormName: '천연 프로비타민 A 카로티노이드',
     defaultUnit: 'mg',
     clinicalSummary: '• 체내 필요 시 비타민 A로 전환, 시각 기능 및 피부·점막 세포 재생\n• 유해 활성산소 소거 및 항산화 작용'

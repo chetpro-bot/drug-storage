@@ -1,6 +1,5 @@
 import React, { useState, useRef } from 'react';
 import { ProductItem } from '../types/product';
-import { EfficacyCategory } from '../types/ingredient';
 import { Layers, HelpCircle, RotateCcw } from 'lucide-react';
 
 interface ColumnDef {
@@ -104,17 +103,35 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
     } catch (e) {}
   };
 
-  // 제품 내 존재하는 KPIC 약효 분류 카테고리 추출
+  // 카테고리 명칭 정규화 (비타민X 제제 -> 비타민X)
+  const normalizeCategory = (cat: string): string => {
+    return cat.replace(/^비타민([A-Za-z0-9]+)\s*제제$/, '비타민$1');
+  };
+
+  // 제품 내 존재하는 KPIC 약효 분류 카테고리 추출 (가나다순 정렬)
   const availableCategories = Array.from(
-    new Set(product.ingredients.map((ing) => ing.functionalCategory))
-  );
+    new Set(product.ingredients.map((ing) => normalizeCategory(ing.functionalCategory)))
+  ).sort((a, b) => a.localeCompare(b, 'ko'));
+
+  // 1차 약효 분류 가나다순, 2차 영문 성분명(English INN) 알파벳 abc순 정렬
+  const sortedIngredients = [...product.ingredients].sort((a, b) => {
+    const catA = normalizeCategory(a.functionalCategory);
+    const catB = normalizeCategory(b.functionalCategory);
+    const catComp = catA.localeCompare(catB, 'ko');
+    if (catComp !== 0) return catComp;
+
+    const nameA = a.englishInn || '';
+    const nameB = b.englishInn || '';
+    return nameA.localeCompare(nameB, 'en', { sensitivity: 'base' });
+  });
 
   const filteredIngredients = selectedCategory === 'ALL'
-    ? product.ingredients
-    : product.ingredients.filter((ing) => ing.functionalCategory === selectedCategory);
+    ? sortedIngredients
+    : sortedIngredients.filter((ing) => normalizeCategory(ing.functionalCategory) === selectedCategory);
 
-  const getCategoryColor = (cat: EfficacyCategory) => {
-    switch (cat) {
+  const getCategoryColor = (cat: string) => {
+    const norm = normalizeCategory(cat);
+    switch (norm) {
       // 비타민 B군
       case '비타민B1':
         return 'bg-amber-100 text-amber-800 border-amber-200';
@@ -133,15 +150,23 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
       case '기타 비타민B':
         return 'bg-orange-50 text-orange-700 border-orange-200';
       // 기타 비타민 & 미네랄
+      case '비타민C':
       case '비타민C 제제':
         return 'bg-amber-100 text-amber-900 border-amber-300';
+      case '비타민D':
       case '비타민D 제제':
+      case '비타민D3':
       case '비타민D3 제제':
         return 'bg-sky-100 text-sky-800 border-sky-200';
+      case '비타민E':
       case '비타민E 제제':
         return 'bg-emerald-100 text-emerald-900 border-emerald-200';
+      case '비타민A':
       case '비타민A 제제':
         return 'bg-red-100 text-red-800 border-red-200';
+      case '비타민K':
+      case '비타민K 제제':
+        return 'bg-teal-100 text-teal-800 border-teal-200';
       case '엽산 보충':
         return 'bg-green-100 text-green-800 border-green-200';
       case '마그네슘(Mg)':
@@ -344,7 +369,7 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
                         ing.functionalCategory
                       )}`}
                     >
-                      {ing.functionalCategory}
+                      {normalizeCategory(ing.functionalCategory)}
                     </span>
                   </td>
 

@@ -55,13 +55,27 @@ function migrateAndEnsureKpic(products: ProductItem[]): ProductItem[] {
   return products.map((prod) => {
     let hasChanges = false;
     const updatedIngredients = prod.ingredients.map((ing) => {
-      // 이전 분류 체계이거나 미지정인 경우 KPIC 마스터 DB에서 공식 약효분류로 자동 갱신
-      if (OLD_NUTRITION_CATEGORIES.has(ing.functionalCategory) || !ing.functionalCategory) {
+      // 1. 이전 영양 분류 체계이거나 미지정인 경우 KPIC 마스터 DB에서 공식 약효분류로 자동 갱신
+      let currentCat = ing.functionalCategory;
+      if (OLD_NUTRITION_CATEGORIES.has(currentCat) || !currentCat) {
         const kpicCat = resolveKpicCategory(ing.englishInn);
-        if (kpicCat && kpicCat !== ing.functionalCategory) {
+        if (kpicCat && kpicCat !== currentCat) {
+          currentCat = kpicCat;
           hasChanges = true;
-          return { ...ing, functionalCategory: kpicCat };
         }
+      }
+
+      // 2. 비타민 제제 명칭에서 "제제" 제거 정규화 (예: '비타민C 제제' -> '비타민C')
+      if (currentCat && /^비타민([A-Za-z0-9]+)\s*제제$/.test(currentCat)) {
+        const strippedCat = currentCat.replace(/^비타민([A-Za-z0-9]+)\s*제제$/, '비타민$1');
+        if (strippedCat !== currentCat) {
+          currentCat = strippedCat;
+          hasChanges = true;
+        }
+      }
+
+      if (currentCat !== ing.functionalCategory) {
+        return { ...ing, functionalCategory: currentCat };
       }
       return ing;
     });

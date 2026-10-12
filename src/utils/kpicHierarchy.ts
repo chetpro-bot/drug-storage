@@ -152,15 +152,29 @@ export function buildKpicTree(userIngredients: IngredientRowInput[]): KpicTreeNo
 
     // 사용자 데이터와 매칭
     const cleanN = cleanToken(rawName);
-    const matchedUser =
-      userMap.get(rawName.toLowerCase()) ||
-      userMap.get(cleanN) ||
-      userIngredients.find(
-        (u) =>
-          cleanToken(u.englishInn) === cleanN ||
+
+    // 1순위: 등록 제품에 포함된 성분(productCount > 0) 우선 매칭
+    let matchedUser = userIngredients.find(
+      (u) =>
+        u.productCount > 0 &&
+        (cleanToken(u.englishInn) === cleanN ||
+          u.key === rawName.toLowerCase() ||
           (cleanN.length >= 4 && cleanToken(u.englishInn).includes(cleanN)) ||
-          (cleanN.length >= 4 && cleanN.includes(cleanToken(u.englishInn)))
-      );
+          (cleanN.length >= 4 && cleanN.includes(cleanToken(u.englishInn))))
+    );
+
+    // 2순위: 등록 제품에 없을 경우 일반 사전 및 마스터 데이터베이스 매칭
+    if (!matchedUser) {
+      matchedUser =
+        userMap.get(rawName.toLowerCase()) ||
+        userMap.get(cleanN) ||
+        userIngredients.find(
+          (u) =>
+            cleanToken(u.englishInn) === cleanN ||
+            (cleanN.length >= 4 && cleanToken(u.englishInn).includes(cleanN)) ||
+            (cleanN.length >= 4 && cleanN.includes(cleanToken(u.englishInn)))
+        );
+    }
 
     if (matchedUser) {
       matchedUserKeys.add(matchedUser.key);
@@ -196,24 +210,54 @@ export function buildKpicTree(userIngredients: IngredientRowInput[]): KpicTreeNo
       const targetCat = normalizeCategory(u.functionalCategory);
       let foundNode: KpicTreeNode | undefined;
 
+      // 1순위: 카테고리 라벨 완전 일치 (예: '기타 비타민B' -> P02AZ)
       for (const node of nodeMap.values()) {
-        if (node.label === targetCat || targetCat.includes(node.label)) {
+        if (node.label === targetCat) {
           foundNode = node;
           break;
         }
       }
 
-      // 비타민 관련 fallback: P02(수용성 비타민), P01(지용성 비타민), P99(기타 영양제), Z99(기타)
+      // 2순위: 도메인 계열별 엄격 매칭 (항생제/기타 등 엉뚱한 노드로 빠지는 것 방지)
       if (!foundNode) {
-        if (targetCat.includes('비타민')) {
+        if (targetCat.includes('비타민B')) {
+          foundNode = nodeMap.get('P02AZ') || nodeMap.get('P02A') || nodeMap.get('P02');
+        } else if (targetCat.includes('비타민C')) {
+          foundNode = nodeMap.get('P02BA') || nodeMap.get('P02B') || nodeMap.get('P02');
+        } else if (targetCat.includes('비타민D')) {
+          foundNode = nodeMap.get('P01CA') || nodeMap.get('P01C') || nodeMap.get('P01');
+        } else if (targetCat.includes('비타민E')) {
+          foundNode = nodeMap.get('P01DA') || nodeMap.get('P01D') || nodeMap.get('P01');
+        } else if (targetCat.includes('비타민A')) {
+          foundNode = nodeMap.get('P01AA') || nodeMap.get('P01');
+        } else if (targetCat.includes('비타민')) {
           foundNode = nodeMap.get('P02') || nodeMap.get('P01') || nodeMap.get('P05');
-        } else if (targetCat.includes('미네랄') || targetCat.includes('마그네슘') || targetCat.includes('칼슘')) {
+        } else if (targetCat.includes('미네랄') || targetCat.includes('마그네슘') || targetCat.includes('칼슘') || targetCat.includes('아연') || targetCat.includes('셀레늄') || targetCat.includes('철') || targetCat.includes('크롬')) {
           foundNode = nodeMap.get('P04');
         } else if (targetCat.includes('아미노산')) {
           foundNode = nodeMap.get('P03');
-        } else {
-          foundNode = nodeMap.get('Z99') || nodeMap.get('P99');
+        } else if (targetCat.includes('소화')) {
+          foundNode = nodeMap.get('B08') || nodeMap.get('B01');
+        } else if (targetCat.includes('간')) {
+          foundNode = nodeMap.get('B08A') || nodeMap.get('B08');
         }
+      }
+
+      // 3순위: '기타'를 제외한 의미 있는 3글자 이상 부분 일치
+      if (!foundNode) {
+        for (const node of nodeMap.values()) {
+          if (node.label !== '기타' && node.label.length >= 3) {
+            if (node.label.includes(targetCat) || targetCat.includes(node.label)) {
+              foundNode = node;
+              break;
+            }
+          }
+        }
+      }
+
+      // 4순위: 안전한 일반 영양제/약물 Fallback
+      if (!foundNode) {
+        foundNode = nodeMap.get('P99Z') || nodeMap.get('P99') || nodeMap.get('Z99');
       }
 
       if (foundNode) {

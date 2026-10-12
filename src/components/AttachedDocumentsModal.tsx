@@ -1,11 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ProductItem, AttachedDocument } from '../types/product';
+import { ProductIngredientEntry } from '../types/ingredient';
 import { 
   recognizeUniversalDocument, 
   parseKpicEfficacyText, 
   fileToDataUrl 
 } from '../services/labelOcrService';
-import { saveLearnedIngredientMapping } from '../utils/innMapper';
+import { 
+  saveLearnedIngredientMapping, 
+  parseRawIngredientString, 
+  resolveKpicCategory 
+} from '../utils/innMapper';
 import { useProductStore } from '../stores/useProductStore';
 import { 
   X, 
@@ -19,7 +24,9 @@ import {
   AlertCircle, 
   Loader2, 
   ClipboardCopy, 
-  RefreshCw
+  RefreshCw,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 interface AttachedDocumentsModalProps {
@@ -46,6 +53,9 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
   
   // 텍스트 직접 입력 탭 상태
   const [directText, setDirectText] = useState<string>('');
+
+  // 추출 텍스트 보기 토글 ID
+  const [expandedTextDocId, setExpandedTextDocId] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const isCancelledRef = useRef<boolean>(false);
@@ -80,7 +90,7 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
 
   const attachments: AttachedDocument[] = product.attachments || [];
 
-  // 파일 업로드 처리 (다중 파일)
+  // 파일 업로드 처리 (다중 파일 지원)
   const handleAddFiles = async (files: FileList | File[]) => {
     const fileArray = Array.from(files).filter(f => f.type.startsWith('image/'));
     if (fileArray.length === 0) {
@@ -106,7 +116,7 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
     const updated = [...attachments, ...newDocs];
     await updateProduct(product.id, { attachments: updated });
 
-    // 첫 번째 파일이 업로드되면 자동으로 분석 제안 또는 시작
+    // 첫 번째 파일이 업로드되면 자동으로 분석 시작
     if (newDocs.length > 0 && !analyzingDocId) {
       handleAnalyzeDocument(newDocs[0]);
     }
@@ -119,13 +129,13 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
     await updateProduct(product.id, { attachments: filtered });
   };
 
-  // 첨부 자료 OCR 분석 실행
+  // 첨부 자료 OCR 분석 실행 및 성분표 100% 반영
   const handleAnalyzeDocument = async (doc: AttachedDocument) => {
     if (analyzingDocId) return;
 
     setAnalyzingDocId(doc.id);
     setProgressPercent(10);
-    setProgressStatus('자료 이미지 확인 및 준비 중...');
+    setProgressStatus('자료 이미지 확인 및 OCR 엔진 초기화...');
     isCancelledRef.current = false;
 
     try {
@@ -138,58 +148,132 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
 
       if (isCancelledRef.current) return;
 
-      let appliedCount = 0;
-      let summaryText = '';
+      const rawText = result.rawText || '';
+      const rawTextClean = rawText.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
 
-      // 1. KPIC 약효분류 인식된 경우 성분표에 반영
-      if (result.kpicMappings.length > 0) {
-        const updatedIngredients = product.ingredients.map((ing) => {
-          const found = result.kpicMappings.find((km) => {
-            const kName = km.ingredientName.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
-            const ingName = ing.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
-            return kName.includes(ingName) || ingName.includes(kName);
-          });
-          if (found) {
-            appliedCount++;
-            saveLearnedIngredientMapping(ing.englishInn, { functionalCategory: found.category });
-            return { ...ing, functionalCategory: found.category };
+      // 1. 직접 KPIC 약효분류 포맷 인식
+      const directKpic = parseKpicEfficacyText(rawText);
+
+      // 2. 의약품 성분/함량 파싱 ("벤포티아민 100mg" 등)
+      const parsedIngredients = parseRawIngredientString(rawText);
+
+      // 3. 건기식 라벨 파싱 성분
+      const nutritionIngredients = result.nutritionParsed.parsedIngredients || [];
+
+      // 성분표 반영 추적
+      const appliedList: string[] = [];
+      const updatedIngredients = [...product.ingredients];
+
+      // A) 기존 성분들에 대해 KPIC 약효분류 및 규격 갱신
+      updatedIngredients.forEach((ing) => {
+        const ingNameClean = ing.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+
+        // 1) 직접 KPIC 매핑이 있는지 확인
+        const directFound = directKpic.find((km) => {
+          const kName = km.ingredientName.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+          return kName.includes(ingNameClean) || ingNameClean.includes(kName);
+        });
+
+        if (directFound) {
+          ing.functionalCategory = directFound.category;
+          saveLearnedIngredientMapping(ing.englishInn, { functionalCategory: directFound.category });
+          appliedList.push(`${ing.englishInn} ➔ ${directFound.category}`);
+          return;
+        }
+
+        // 2) 파싱된 성분 목록과 매칭 확인
+        const parsedFound = [...parsedIngredients, ...nutritionIngredients].find((pe) => {
+          const pName = pe.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+          return pName.includes(ingNameClean) || ingNameClean.includes(pName);
+        });
+
+        if (parsedFound) {
+          if (parsedFound.functionalCategory) {
+            ing.functionalCategory = parsedFound.functionalCategory;
           }
-          return ing;
-        });
+          if (parsedFound.rawAmount && parsedFound.rawAmount > 0) {
+            ing.rawAmount = parsedFound.rawAmount;
+            ing.unit = parsedFound.unit;
+            if (parsedFound.formattedSpecification) {
+              ing.formattedSpecification = parsedFound.formattedSpecification;
+            }
+          }
+          appliedList.push(`${ing.englishInn} ➔ ${ing.functionalCategory} (${ing.rawAmount}${ing.unit})`);
+          return;
+        }
 
-        await updateProduct(product.id, { ingredients: updatedIngredients });
-        summaryText = `약학정보원 약효분류 ${result.kpicMappings.length}건 인식 (성분표 ${appliedCount}건 매칭 반영)`;
-      } else if (result.nutritionParsed.parsedIngredients.length > 0) {
-        // 2. 건기식 영양정보표인 경우
-        await updateProduct(product.id, {
-          ingredients: result.nutritionParsed.parsedIngredients,
-          dailyServings: result.nutritionParsed.servingInfo.dailyServings,
-          amountPerServing: result.nutritionParsed.servingInfo.amountPerServing,
-          servingUnitKorean: result.nutritionParsed.servingInfo.servingUnit
-        });
-        summaryText = `영양성분표 ${result.nutritionParsed.parsedIngredients.length}건 성분표에 업데이트 완료`;
+        // 3) 본문 텍스트 내에 성분명이 포함되어 있는지 대조하여 KPIC 마스터 분류 자동 조회
+        if (ingNameClean.length >= 3 && rawTextClean.includes(ingNameClean)) {
+          const kpicCat = resolveKpicCategory(ing.englishInn);
+          if (kpicCat && kpicCat !== ing.functionalCategory) {
+            ing.functionalCategory = kpicCat;
+            appliedList.push(`${ing.englishInn} ➔ ${kpicCat} (문서 매칭)`);
+          }
+        }
+      });
+
+      // B) 기존 성분표에 없던 새로운 성분이 문서에서 감지된 경우 성분표에 자동 추가
+      const existingNames = new Set(
+        updatedIngredients.map((i) => i.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, ''))
+      );
+      const newItemsToAdd: ProductIngredientEntry[] = [];
+
+      [...parsedIngredients, ...nutritionIngredients].forEach((pe) => {
+        const peName = pe.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+        if (peName.length >= 2 && !existingNames.has(peName)) {
+          existingNames.add(peName);
+          newItemsToAdd.push(pe);
+          appliedList.push(`[신규 성분] ${pe.englishInn} (${pe.rawAmount}${pe.unit}) - ${pe.functionalCategory}`);
+        }
+      });
+
+      const finalIngredients = [...updatedIngredients, ...newItemsToAdd];
+
+      let summaryText = '';
+      if (appliedList.length > 0) {
+        summaryText = `성분 및 약효분류 ${appliedList.length}건 성분표에 반영 완료`;
+      } else if (rawText.length > 20) {
+        summaryText = `텍스트 판독 완료 (${rawText.length}자)`;
       } else {
-        summaryText = '텍스트 판독 완료 (유효 약효분류 미검출)';
+        summaryText = '텍스트 판독 완료 (선명한 사진 권장)';
       }
 
-      // 문서 상태 갱신
-      const updatedDocs = attachments.map(d => {
+      // 문서 상태 및 추출 텍스트 저장
+      const updatedDocs = attachments.map((d) => {
         if (d.id === doc.id) {
           return {
             ...d,
             status: 'ANALYZED' as const,
             analysisSummary: summaryText,
-            extractedText: result.rawText.slice(0, 500)
+            extractedText: rawText
           };
         }
         return d;
       });
-      await updateProduct(product.id, { attachments: updatedDocs });
 
-      alert(summaryText + '!\n성분표에 성공적으로 반영되었습니다.');
+      // 데이터베이스(로컬 & Firestore)에 즉시 저장
+      await updateProduct(product.id, {
+        ingredients: finalIngredients,
+        attachments: updatedDocs
+      });
+
+      // 사용자 알림
+      if (appliedList.length > 0) {
+        alert(
+          `🎉 첨부 자료 분석 내용이 성분표에 성공적으로 반영되었습니다!\n\n` +
+          `[반영 내역 (${appliedList.length}건)]\n` +
+          appliedList.slice(0, 10).map((item) => `• ${item}`).join('\n') +
+          (appliedList.length > 10 ? `\n...외 ${appliedList.length - 10}건` : '')
+        );
+      } else {
+        alert(
+          `자료에서 텍스트(${rawText.length}자)를 판독했습니다.\n` +
+          `기존 성분명과 일치하는 항목이 발견되지 않았습니다. 자료의 [텍스트 확인] 버튼을 눌러 판독된 내용을 확인하시거나, '텍스트 직접 붙여넣기' 탭을 이용해주세요.`
+        );
+      }
     } catch (err: any) {
       console.error('자료 분석 오류:', err);
-      const updatedDocs = attachments.map(d => {
+      const updatedDocs = attachments.map((d) => {
         if (d.id === doc.id) {
           return {
             ...d,
@@ -219,33 +303,69 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
   // 텍스트 직접 입력 적용
   const handleApplyDirectText = async () => {
     if (!directText.trim()) {
-      alert('약학정보원에서 복사한 약효분류 텍스트를 입력해주세요.');
+      alert('약학정보원에서 복사한 성분 또는 약효분류 텍스트를 입력해주세요.');
       return;
     }
 
     const kpicMappings = parseKpicEfficacyText(directText);
-    if (kpicMappings.length === 0) {
-      alert('입력된 텍스트에서 유효한 약효분류를 찾지 못했습니다.\n(예: "Simethicone 소화기계질환 > 기타 약물 > 장내 가스 제거제")');
-      return;
-    }
+    const parsedIngredients = parseRawIngredientString(directText);
 
-    let appliedCount = 0;
-    const updatedIngredients = product.ingredients.map((ing) => {
-      const found = kpicMappings.find((km) => {
+    const updatedIngredients = [...product.ingredients];
+    const appliedList: string[] = [];
+
+    updatedIngredients.forEach((ing) => {
+      const ingNameClean = ing.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+
+      // 1. 직접 KPIC
+      const foundKpic = kpicMappings.find((km) => {
         const kName = km.ingredientName.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
-        const ingName = ing.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
-        return kName.includes(ingName) || ingName.includes(kName);
+        return kName.includes(ingNameClean) || ingNameClean.includes(kName);
       });
-      if (found) {
-        appliedCount++;
-        saveLearnedIngredientMapping(ing.englishInn, { functionalCategory: found.category });
-        return { ...ing, functionalCategory: found.category };
+      if (foundKpic) {
+        ing.functionalCategory = foundKpic.category;
+        saveLearnedIngredientMapping(ing.englishInn, { functionalCategory: foundKpic.category });
+        appliedList.push(`${ing.englishInn} ➔ ${foundKpic.category}`);
+        return;
       }
-      return ing;
+
+      // 2. 성분/함량
+      const foundParsed = parsedIngredients.find((pe) => {
+        const pName = pe.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+        return pName.includes(ingNameClean) || ingNameClean.includes(pName);
+      });
+      if (foundParsed) {
+        if (foundParsed.functionalCategory) ing.functionalCategory = foundParsed.functionalCategory;
+        if (foundParsed.rawAmount) {
+          ing.rawAmount = foundParsed.rawAmount;
+          ing.unit = foundParsed.unit;
+        }
+        appliedList.push(`${ing.englishInn} ➔ ${ing.functionalCategory} (${ing.rawAmount}${ing.unit})`);
+      }
     });
 
-    await updateProduct(product.id, { ingredients: updatedIngredients });
-    alert(`약학정보원 약효분류 ${kpicMappings.length}건 중 현재 제품 성분 ${appliedCount}건에 성공적으로 반영되었습니다!`);
+    // 신규 성분 추가
+    const existingNames = new Set(
+      updatedIngredients.map((i) => i.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, ''))
+    );
+    const newItems: ProductIngredientEntry[] = [];
+    parsedIngredients.forEach((pe) => {
+      const peName = pe.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+      if (peName.length >= 2 && !existingNames.has(peName)) {
+        existingNames.add(peName);
+        newItems.push(pe);
+        appliedList.push(`[신규] ${pe.englishInn} (${pe.rawAmount}${pe.unit}) - ${pe.functionalCategory}`);
+      }
+    });
+
+    const finalIngredients = [...updatedIngredients, ...newItems];
+    await updateProduct(product.id, { ingredients: finalIngredients });
+
+    alert(
+      `🎉 텍스트 분석 내용이 성분표에 반영되었습니다!\n\n` +
+      `[반영 내역 (${appliedList.length}건)]\n` +
+      appliedList.slice(0, 10).map((item) => `• ${item}`).join('\n')
+    );
+
     setDirectText('');
     setActiveTab('FILES');
   };
@@ -270,7 +390,7 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                약학정보원 캡처, 제약사 학술자료, 라벨 사진을 여러 개 첨부하고 언제든 확인할 수 있습니다.
+                약학정보원 캡처, 제약사 학술자료, 라벨 사진을 여러 개 첨부하고 언제든 확인/분석할 수 있습니다.
               </p>
             </div>
           </div>
@@ -397,30 +517,32 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {attachments.map((doc, idx) => {
                       const isThisAnalyzing = analyzingDocId === doc.id;
+                      const isTextExpanded = expandedTextDocId === doc.id;
+
                       return (
                         <div
                           key={doc.id || idx}
-                          className="border border-slate-200 hover:border-purple-300 bg-white rounded-xl p-3 flex gap-3 transition-all hover:shadow-xs group"
+                          className="border border-slate-200 hover:border-purple-300 bg-white rounded-xl p-3 flex flex-col justify-between transition-all hover:shadow-xs group gap-2"
                         >
-                          {/* 썸네일 미리보기 */}
-                          <div
-                            onClick={() => setPreviewImage({ url: doc.dataUrl, title: doc.fileName })}
-                            className="w-20 h-20 rounded-lg overflow-hidden bg-slate-100 border border-slate-200 shrink-0 cursor-pointer relative group/thumb"
-                            title="클릭하여 원본 크게 보기"
-                          >
-                            <img
-                              src={doc.dataUrl}
-                              alt={doc.fileName}
-                              className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform"
-                            />
-                            <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white">
-                              <Eye className="w-4 h-4" />
+                          <div className="flex gap-3">
+                            {/* 썸네일 미리보기 */}
+                            <div
+                              onClick={() => setPreviewImage({ url: doc.dataUrl, title: doc.fileName })}
+                              className="w-20 h-20 rounded-lg overflow-hidden bg-slate-100 border border-slate-200 shrink-0 cursor-pointer relative group/thumb"
+                              title="클릭하여 원본 크게 보기"
+                            >
+                              <img
+                                src={doc.dataUrl}
+                                alt={doc.fileName}
+                                className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform"
+                              />
+                              <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                <Eye className="w-4 h-4" />
+                              </div>
                             </div>
-                          </div>
 
-                          {/* 정보 및 액션 */}
-                          <div className="flex-1 min-w-0 flex flex-col justify-between">
-                            <div>
+                            {/* 정보 영역 */}
+                            <div className="flex-1 min-w-0">
                               <div className="flex items-start justify-between gap-1">
                                 <h4
                                   onClick={() => setPreviewImage({ url: doc.dataUrl, title: doc.fileName })}
@@ -441,52 +563,71 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
                                 등록: {new Date(doc.uploadedAt).toLocaleDateString()} {new Date(doc.uploadedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                               </p>
                               {doc.analysisSummary && (
-                                <p className="text-[11px] font-medium text-slate-700 mt-1 line-clamp-2 bg-slate-50 p-1 rounded border border-slate-100">
+                                <p className="text-[11px] font-medium text-slate-700 mt-1 line-clamp-2 bg-slate-50 p-1.5 rounded border border-slate-100">
                                   {doc.analysisSummary}
                                 </p>
                               )}
                             </div>
+                          </div>
 
-                            {/* 상태 배지 & 분석 버튼 */}
-                            <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-slate-100">
-                              <div>
-                                {doc.status === 'ANALYZED' ? (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
-                                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                    <span>반영 완료</span>
-                                  </span>
-                                ) : doc.status === 'FAILED' ? (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
-                                    <AlertCircle className="w-3 h-3 text-rose-600" />
-                                    <span>재분석 권장</span>
-                                  </span>
-                                ) : (
-                                  <span className="text-[10px] text-slate-400">미분석 자료</span>
-                                )}
-                              </div>
-
+                          {/* 판독된 원문 텍스트 토글 영역 */}
+                          {doc.extractedText && (
+                            <div className="mt-1 pt-1 border-t border-slate-100">
                               <button
-                                onClick={() => handleAnalyzeDocument(doc)}
-                                disabled={isThisAnalyzing || analyzingDocId !== null}
-                                className={`flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-md transition-colors ${
-                                  isThisAnalyzing
-                                    ? 'bg-purple-100 text-purple-700 cursor-not-allowed'
-                                    : 'bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 shadow-2xs'
-                                }`}
+                                type="button"
+                                onClick={() => setExpandedTextDocId(isTextExpanded ? null : doc.id)}
+                                className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-purple-700 font-medium"
                               >
-                                {isThisAnalyzing ? (
-                                  <>
-                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                    <span>분석 중...</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Sparkles className="w-3 h-3 text-purple-600" />
-                                    <span>약효분류 분석</span>
-                                  </>
-                                )}
+                                {isTextExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                                <span>판독된 텍스트 원문 {isTextExpanded ? '접기' : '보기'} ({doc.extractedText.length}자)</span>
                               </button>
+                              {isTextExpanded && (
+                                <pre className="mt-1 p-2 bg-slate-50 border border-slate-200 rounded-lg text-[10px] text-slate-700 font-mono whitespace-pre-wrap max-h-32 overflow-y-auto">
+                                  {doc.extractedText}
+                                </pre>
+                              )}
                             </div>
+                          )}
+
+                          {/* 상태 배지 & 분석 버튼 */}
+                          <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+                            <div>
+                              {doc.status === 'ANALYZED' ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                  <span>반영 완료</span>
+                                </span>
+                              ) : doc.status === 'FAILED' ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded">
+                                  <AlertCircle className="w-3 h-3 text-rose-600" />
+                                  <span>재분석 권장</span>
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-slate-400">미분석 자료</span>
+                              )}
+                            </div>
+
+                            <button
+                              onClick={() => handleAnalyzeDocument(doc)}
+                              disabled={isThisAnalyzing || analyzingDocId !== null}
+                              className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-md transition-colors ${
+                                isThisAnalyzing
+                                  ? 'bg-purple-100 text-purple-700 cursor-not-allowed'
+                                  : 'bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 shadow-2xs'
+                              }`}
+                            >
+                              {isThisAnalyzing ? (
+                                <>
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                  <span>분석 중...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Sparkles className="w-3 h-3 text-purple-600" />
+                                  <span>약효/성분 반영</span>
+                                </>
+                              )}
+                            </button>
                           </div>
                         </div>
                       );
@@ -504,18 +645,18 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
                   약학정보원(KPIC) 복사 텍스트 초고속 자동 반영기
                 </p>
                 <p className="text-slate-600 text-[11px]">
-                  약학정보원 웹페이지에서 성분 약효분류 표를 드래그하여 복사한 후 그대로 붙여넣으세요. OCR 이미지 인식 과정을 거치지 않아 0.1초 만에 100% 정확하게 성분표에 반영됩니다.
+                  약학정보원 웹페이지에서 성분 약효분류 표나 성분 분량 텍스트를 드래그하여 복사한 후 그대로 붙여넣으세요. OCR 이미지 인식 과정을 거치지 않아 0.1초 만에 100% 정확하게 성분표에 반영됩니다.
                 </p>
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  복사한 약효분류 텍스트 붙여넣기
+                  복사한 텍스트 붙여넣기 (약효분류 또는 성분/분량)
                 </label>
                 <textarea
                   value={directText}
                   onChange={(e) => setDirectText(e.target.value)}
-                  placeholder={`[예시 텍스트]\nBenfotiamine 소화기계질환 > 비타민제제 > 비타민B1\nSimethicone 소화기계질환 > 기타 약물 > 장내 가스 제거제\nUrsodeoxycholic Acid 소화기계질환 > 간장ㆍ담낭ㆍ췌장질환 치료 > 담석용해제`}
+                  placeholder={`[예시 1: 약효분류 복사]\nBenfotiamine 소화기계질환 > 비타민제제 > 비타민B1\nSimethicone 소화기계질환 > 기타 약물 > 장내 가스 제거제\nUrsodeoxycholic Acid 소화기계질환 > 간장ㆍ담낭ㆍ췌장질환 치료 > 담석용해제\n\n[예시 2: 성분 분량 복사]\n벤포티아민 100mg\n피리독살포스페이트수화물 50mg\n우르소데옥시콜산 10mg`}
                   className="w-full h-48 p-3 text-xs font-mono border border-slate-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-purple-500 bg-slate-50 focus:bg-white resize-y"
                 />
               </div>
@@ -527,7 +668,7 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
                   className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl transition-colors shadow-xs"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
-                  <span>약효분류 즉시 성분표에 반영</span>
+                  <span>약효/성분 즉시 성분표에 반영</span>
                 </button>
               </div>
             </div>
@@ -537,7 +678,7 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
         {/* 모달 하단 닫기 */}
         <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
           <span className="text-[11px] text-slate-400">
-            첨부된 이미지는 제품 데이터와 함께 안전하게 저장됩니다.
+            반영된 내용은 메인 화면의 성분표에 즉시 갱신됩니다.
           </span>
           <button
             onClick={onClose}

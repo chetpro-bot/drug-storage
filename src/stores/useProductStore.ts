@@ -53,12 +53,6 @@ const OLD_NUTRITION_CATEGORIES = new Set([
 
 function migrateAndEnsureKpic(products: ProductItem[]): ProductItem[] {
   return products.map((prod) => {
-    // 목업 기본 제품인 경우 최신 MOCK_PRODUCTS 규격으로 강제 업데이트
-    const matchingMock = MOCK_PRODUCTS.find((m) => m.id === prod.id);
-    if (matchingMock) {
-      return matchingMock;
-    }
-
     let hasChanges = false;
     const updatedIngredients = prod.ingredients.map((ing) => {
       // 이전 분류 체계이거나 미지정인 경우 KPIC 마스터 DB에서 공식 약효분류로 자동 갱신
@@ -137,15 +131,11 @@ function getInitialProducts(): ProductItem[] {
     console.warn('로컬스토리지 로드 실패:', e);
   }
 
-  // 기본 목업 제품 최신 KPIC 규격 강제 동기화
+  // 기본 목업 제품은 아직 등록된 적 없는 신규 환경에서만 초기 시드로 추가
+  const existingIds = new Set(loadedProducts.map((p) => p.id));
   MOCK_PRODUCTS.forEach((mock) => {
-    if (!deletedIds.has(mock.id)) {
-      const idx = loadedProducts.findIndex((p) => p.id === mock.id);
-      if (idx !== -1) {
-        loadedProducts[idx] = mock;
-      } else {
-        loadedProducts.push(mock);
-      }
+    if (!deletedIds.has(mock.id) && !existingIds.has(mock.id)) {
+      loadedProducts.push(mock);
     }
   });
 
@@ -200,14 +190,7 @@ export const useProductStore = create<ProductState>((set, get) => {
 
         // Firestore에서 온 제품들 반영 (최신 변경사항 반영)
         validFromFirestore.forEach((p) => {
-          // 기본 목업 제품인 경우 최신 코드 스펙을 항상 우선 반영
-          const matchingMock = MOCK_PRODUCTS.find((m) => m.id === p.id);
-          if (matchingMock) {
-            mergedMap.set(p.id, matchingMock);
-            saveProductToFirestore(matchingMock).catch(() => {});
-          } else {
-            mergedMap.set(p.id, p);
-          }
+          mergedMap.set(p.id, p);
         });
 
         // 등록/수정일시 최신순으로 정렬 및 KPIC 약효분류 체계 자동 마이그레이션 적용

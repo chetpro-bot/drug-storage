@@ -1,4 +1,7 @@
 import { FunctionalCategory, NutrientStandardKey, ProductIngredientEntry } from '../types/ingredient';
+import kpicMasterData from '../constants/kpicMasterDatabase.json';
+
+export const KPIC_MASTER_DATABASE: Record<string, string> = kpicMasterData;
 
 /**
  * 한글 성분명 ➔ 영문 표준 INN(International Nonproprietary Name) 및 임상 메타데이터 사전
@@ -675,6 +678,23 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
       }
     }
 
+    // 1. KPIC 약학정보원 마스터 데이터베이스에서 공식 약효분류 조회
+    let kpicCategory: string | undefined = undefined;
+    const testKeys = [detectedInn, nameRaw, lookupKey].filter(Boolean);
+    for (const tk of testKeys) {
+      const cleanTk = tk.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+      for (const [kpicIng, kpicCat] of Object.entries(KPIC_MASTER_DATABASE)) {
+        const cleanKpicIng = kpicIng.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+        if (cleanTk === cleanKpicIng || cleanTk.includes(cleanKpicIng) || cleanKpicIng.includes(cleanTk)) {
+          if (kpicCat && kpicCat !== '기타') {
+            kpicCategory = kpicCat;
+            break;
+          }
+        }
+      }
+      if (kpicCategory) break;
+    }
+
     if (matchedKey) {
       const meta = combinedDict[matchedKey];
       const finalElemental = elementalAmount ?? (meta.elementalRatio ? +(amount * meta.elementalRatio).toFixed(2) : undefined);
@@ -682,7 +702,7 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
       results.push({
         ingredientId: `ing_auto_${Date.now()}_${index}`,
         englishInn: detectedInn || meta.englishInn,
-        functionalCategory: meta.functionalCategory,
+        functionalCategory: kpicCategory || meta.functionalCategory,
         chemicalFormName: meta.chemicalFormName,
         rawAmount: amount || 10,
         unit: (unit || meta.defaultUnit) as 'mg' | 'ug' | 'IU' | 'g',
@@ -709,7 +729,7 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
       results.push({
         ingredientId: `ing_auto_${Date.now()}_${index}`,
         englishInn: fallbackInn,
-        functionalCategory: '에너지 대사',
+        functionalCategory: kpicCategory || '소화효소제',
         chemicalFormName: '표준 정제 원료',
         rawAmount: amount || 10,
         unit,

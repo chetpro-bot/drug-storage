@@ -65,7 +65,7 @@ export interface InnMappingMeta {
 
 const LEARNED_DICT_STORAGE_KEY = 'pharmassist_learned_inn_dict_v1';
 
-function getLearnedDict(): Record<string, InnMappingMeta> {
+export function getLearnedDict(): Record<string, InnMappingMeta> {
   try {
     const saved = localStorage.getItem(LEARNED_DICT_STORAGE_KEY);
     if (saved) return JSON.parse(saved);

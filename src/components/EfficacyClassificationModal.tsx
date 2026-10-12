@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useProductStore } from '../stores/useProductStore';
-import { INN_DICTIONARY } from '../utils/innMapper';
+import { INN_DICTIONARY, KPIC_MASTER_DATABASE, getLearnedDict } from '../utils/innMapper';
 import { 
   normalizeCategory, 
   getCategoryColor, 
@@ -119,12 +119,52 @@ export const EfficacyClassificationModal: React.FC<EfficacyClassificationModalPr
       }
     });
 
+    // 1-3. KPIC 마스터 데이터베이스 (2,400여 개 전체 성분 및 공식 약효분류 매핑)
+    Object.entries(KPIC_MASTER_DATABASE).forEach(([kpicName, kpicCat]) => {
+      if (!kpicCat || kpicCat === '기타') return;
+      const normKey = kpicName.trim().toLowerCase();
+
+      if (!map.has(normKey)) {
+        map.set(normKey, {
+          key: normKey,
+          englishInn: kpicName,
+          koreanName: /[가-힣]/.test(kpicName) ? kpicName : '',
+          functionalCategory: normalizeCategory(kpicCat),
+          productNames: [],
+          productCount: 0
+        });
+      }
+    });
+
+    // 1-4. 사용자가 커스텀 수정한 학습 사전(learnedDict) 최우선 오버라이드
+    try {
+      const learned = getLearnedDict();
+      Object.entries(learned).forEach(([learnedKey, meta]) => {
+        const normKey = learnedKey.trim().toLowerCase();
+        if (map.has(normKey)) {
+          const item = map.get(normKey)!;
+          if (meta.functionalCategory) {
+            item.functionalCategory = normalizeCategory(meta.functionalCategory);
+          }
+        } else if (meta.englishInn && meta.functionalCategory) {
+          map.set(normKey, {
+            key: normKey,
+            englishInn: meta.englishInn,
+            koreanName: /[가-힣]/.test(learnedKey) ? learnedKey : '',
+            functionalCategory: normalizeCategory(meta.functionalCategory),
+            productNames: [],
+            productCount: 0
+          });
+        }
+      });
+    } catch (e) {}
+
     // 제품에 포함된 성분 우선, 그 다음 가나다순 정렬
     return Array.from(map.values()).sort((a, b) => {
       if (b.productCount !== a.productCount) {
         return b.productCount - a.productCount;
       }
-      return a.englishInn.localeCompare(b.englishInn, 'en');
+      return a.englishInn.localeCompare(b.englishInn, 'ko');
     });
   }, [products]);
 
@@ -154,6 +194,20 @@ export const EfficacyClassificationModal: React.FC<EfficacyClassificationModalPr
       return matchInn || matchKor || matchCat || matchProd;
     });
   }, [allIngredients, searchQuery, selectedFilterCategory, onlyInProducts]);
+
+  // 대용량(2,400+개) 쾌속 렌더링을 위한 페이지네이션 (50개씩)
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 50;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedFilterCategory, onlyInProducts]);
+
+  const totalPages = Math.ceil(filteredList.length / PAGE_SIZE) || 1;
+  const paginatedList = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return filteredList.slice(start, start + PAGE_SIZE);
+  }, [filteredList, currentPage]);
 
   // 성분 개별 수정 실행
   const handleSaveCategory = async (key: string, newCat: string) => {
@@ -338,7 +392,7 @@ export const EfficacyClassificationModal: React.FC<EfficacyClassificationModalPr
                   </td>
                 </tr>
               ) : (
-                filteredList.map((item) => {
+                paginatedList.map((item) => {
                   const isEditing = editingKey === item.key;
 
                   return (
@@ -470,10 +524,10 @@ export const EfficacyClassificationModal: React.FC<EfficacyClassificationModalPr
         </div>
 
         {/* 하단 푸터 통계 및 안내 */}
-        <div className="p-3 md:px-6 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="p-3 md:px-6 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-4 flex-wrap">
             <span>
-              전체 성분 <strong className="text-slate-800">{allIngredients.length}</strong>개
+              전체 성분 <strong className="text-slate-800">{allIngredients.length.toLocaleString()}</strong>개
             </span>
             <span className="text-slate-300">|</span>
             <span>
@@ -481,9 +535,32 @@ export const EfficacyClassificationModal: React.FC<EfficacyClassificationModalPr
             </span>
             <span className="text-slate-300">|</span>
             <span>
-              검색 결과 <strong className="text-sky-700 font-bold">{filteredList.length}</strong>개
+              검색 결과 <strong className="text-sky-700 font-bold">{filteredList.length.toLocaleString()}</strong>개
             </span>
           </div>
+
+          {/* 페이지네이션 컨트롤 */}
+          {totalPages > 1 && (
+            <div className="flex items-center gap-2">
+              <button
+                disabled={currentPage <= 1}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className="px-2.5 py-1 text-xs rounded border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              >
+                이전
+              </button>
+              <span className="font-semibold text-slate-700">
+                {currentPage} / {totalPages} 페이지
+              </span>
+              <button
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className="px-2.5 py-1 text-xs rounded border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              >
+                다음
+              </button>
+            </div>
+          )}
 
           <button
             onClick={onClose}

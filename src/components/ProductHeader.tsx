@@ -2,12 +2,14 @@ import React, { useState } from 'react';
 import { ProductItem } from '../types/product';
 import { useProductStore } from '../stores/useProductStore';
 import { AttachedDocumentsModal } from './AttachedDocumentsModal';
+import { NewProductModal } from './NewProductModal';
 import { 
   Building2, 
   Clock, 
   Tag, 
   Trash2, 
-  Paperclip 
+  Paperclip,
+  Edit3
 } from 'lucide-react';
 
 interface ProductHeaderProps {
@@ -17,6 +19,7 @@ interface ProductHeaderProps {
 export const ProductHeader: React.FC<ProductHeaderProps> = ({ product }) => {
   const { deleteProduct } = useProductStore();
   const [isDocsModalOpen, setIsDocsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
 
   const getClassificationBadge = () => {
@@ -145,13 +148,23 @@ export const ProductHeader: React.FC<ProductHeaderProps> = ({ product }) => {
               )}
             </button>
 
+            {/* 품목 수정 버튼 */}
+            <button
+              onClick={() => setIsEditModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-sky-700 hover:text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors font-bold cursor-pointer shadow-2xs"
+              title="등록된 제품 정보 및 유효 성분/함량 수정"
+            >
+              <Edit3 className="w-3.5 h-3.5 text-sky-600" />
+              <span>품목 수정</span>
+            </button>
+
             <button
               onClick={() => {
                 if (window.confirm(`'${product.productName}' 품목을 약국 데이터베이스에서 삭제하시겠습니까?`)) {
                   deleteProduct(product.id);
                 }
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors font-semibold"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-colors font-semibold cursor-pointer"
               title="잘못 등록된 제품 삭제"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -166,6 +179,13 @@ export const ProductHeader: React.FC<ProductHeaderProps> = ({ product }) => {
         isOpen={isDocsModalOpen}
         onClose={() => setIsDocsModalOpen(false)}
         product={product}
+      />
+
+      {/* 등록 품목 내용 수정 모달 */}
+      <NewProductModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        productToEdit={product}
       />
     </div>
   );

@@ -16,7 +16,7 @@ export interface PublicDataFetchResult {
   indicationsSummary: string[];
   dosageInstruction: string;
   parsedIngredients: ProductIngredientEntry[];
-  sourceOrigin: '약학정보원(KPAIC) DB' | '패키지 라벨 AI OCR 추출';
+  sourceOrigin: '약학정보원(KPAIC) DB' | '패키지 라벨 AI OCR 추출' | '약국 등록 품목 DB';
 }
 
 export interface PublicDrugMasterItem {

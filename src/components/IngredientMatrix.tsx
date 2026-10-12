@@ -316,11 +316,9 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
                 <th
                   key={col.id}
                   style={{ width: `${columnWidths[idx]}px` }}
-                  className={`relative py-2.5 px-3.5 group/th ${
-                    idx === 0 ? 'text-center' : ''
-                  }`}
+                  className="relative py-2.5 px-3.5 group/th text-center"
                 >
-                  <span className="truncate block font-bold">{col.label}</span>
+                  <span className="truncate block font-bold text-center">{col.label}</span>
                   {/* 드래그 리사이즈 핸들 */}
                   <div
                     onMouseDown={(e) => handleMouseDown(idx, e)}

@@ -17,6 +17,7 @@ import {
   OcrParseResult 
 } from '../services/labelOcrService';
 import { saveLearnedIngredientMapping } from '../utils/innMapper';
+import { STANDARD_EFFICACY_CATEGORIES } from '../utils/categoryColors';
 import { 
   X, 
   Search, 
@@ -32,16 +33,23 @@ import {
   Check,
   RotateCcw,
   FileSearch,
-  Paperclip
+  Paperclip,
+  Edit3
 } from 'lucide-react';
 
 interface NewProductModalProps {
   isOpen: boolean;
   onClose: () => void;
+  productToEdit?: ProductItem | null;
 }
 
-export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClose }) => {
-  const { products, addProduct, setSelectedProductId } = useProductStore();
+export const NewProductModal: React.FC<NewProductModalProps> = ({
+  isOpen,
+  onClose,
+  productToEdit
+}) => {
+  const { products, addProduct, updateProduct, setSelectedProductId } = useProductStore();
+  const isEditMode = !!productToEdit;
 
   // 1단계 입력 상태
   const [productName, setProductName] = useState('');
@@ -96,6 +104,9 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
     const normTarget = normalizeNameForDup(trimmedName);
 
     return products.find((p) => {
+      // 수정 모드일 때 자기 자신은 중복 대상에서 제외
+      if (productToEdit && p.id === productToEdit.id) return false;
+
       // 1. 규격 허가코드 / 품목기준코드 일치 (가장 엄격)
       if (trimmedCode) {
         const pCode = p.otcDetail?.itemSeq || p.functionalFoodDetail?.reportNo;
@@ -153,12 +164,78 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
     setShowRawTextEditor(false);
   };
 
-  // 모달이 열릴 때마다 항상 깨끗하게 초기화
+  const populateFromProduct = (p: ProductItem) => {
+    setProductName(p.productName || '');
+    setManufacturer(p.manufacturer || '');
+    setClassification(p.classification || 'OTC_DRUG');
+    setIsLoadingPublicData(false);
+    setSearchResults([]);
+    setShowSearchResults(false);
+    setSearchErrorMsg(null);
+    setDosageForm(p.dosageForm || 'FILM_COATED_TABLET');
+    setPackagingUnit(p.packagingUnit || '');
+    setDailyServings(p.dailyServings || 1);
+    setAmountPerServing(p.amountPerServing || 1);
+    setServingUnitKorean(p.servingUnitKorean || '정');
+    setPriceRetailKrw(p.priceRetailKrw || 0);
+    setTags(p.tags?.join(', ') || '');
+
+    const regCode = p.otcDetail?.itemSeq || p.functionalFoodDetail?.reportNo || '';
+    setRegulatoryCode(regCode);
+
+    const doseInst =
+      p.otcDetail?.dosageAndAdministrationKorean ||
+      p.functionalFoodDetail?.suggestedUseKorean ||
+      `1일 ${p.dailyServings || 1}회, 1회 ${p.amountPerServing || 1}${p.servingUnitKorean || '정'} 복용`;
+    setDosageInstruction(doseInst);
+
+    const indications =
+      p.otcDetail?.indicationsKorean ||
+      p.functionalFoodDetail?.functionalClaimsKorean ||
+      [];
+    setIndicationsText(indications.join(', '));
+
+    setVerifiedIngredients(
+      p.ingredients ? JSON.parse(JSON.stringify(p.ingredients)) : []
+    );
+
+    setPublicDataFetched({
+      productName: p.productName,
+      manufacturer: p.manufacturer,
+      classification: p.classification,
+      dosageForm: p.dosageForm,
+      packagingUnit: p.packagingUnit,
+      dailyServings: p.dailyServings,
+      amountPerServing: p.amountPerServing,
+      servingUnitKorean: p.servingUnitKorean,
+      regulatoryCode: regCode,
+      rawIngredientsText: `${p.productName} 등록 규격 데이터`,
+      indicationsSummary: indications,
+      dosageInstruction: doseInst,
+      parsedIngredients: p.ingredients || [],
+      sourceOrigin: '약국 등록 품목 DB'
+    });
+
+    setIsSubmitting(false);
+    setShowOcrPanel(false);
+    setOcrImagePreview(null);
+    setIsOcrLoading(false);
+    setOcrProgress(0);
+    setOcrStatusMessage('');
+    setOcrRawText('');
+    setShowRawTextEditor(false);
+  };
+
+  // 모달이 열릴 때 신규 등록이면 초기화, 수정이면 기존 제품 데이터 반영
   React.useEffect(() => {
     if (isOpen) {
-      resetForm();
+      if (productToEdit) {
+        populateFromProduct(productToEdit);
+      } else {
+        resetForm();
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, productToEdit]);
 
   // 클립보드 이미지 붙여넣기(Ctrl+V) 자동 지원
   React.useEffect(() => {
@@ -494,6 +571,47 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
 
     setIsSubmitting(true);
     try {
+      if (isEditMode && productToEdit) {
+        const updatedProduct: Partial<ProductItem> = {
+          productName: productName.trim(),
+          manufacturer: manufacturer.trim(),
+          classification,
+          dosageForm,
+          packagingUnit,
+          dailyServings,
+          amountPerServing,
+          servingUnitKorean,
+          priceRetailKrw,
+          tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
+          ingredients: verifiedIngredients,
+          ...(classification === 'OTC_DRUG'
+            ? {
+                otcDetail: {
+                  ...productToEdit.otcDetail,
+                  itemSeq: regulatoryCode || productToEdit.otcDetail?.itemSeq || `${Math.floor(202000000 + Math.random() * 4000000)}`,
+                  permitDate: productToEdit.otcDetail?.permitDate || new Date().toISOString().slice(0, 10),
+                  indicationsKorean: indicationsText ? indicationsText.split(',').map((s) => s.trim()).filter(Boolean) : productToEdit.otcDetail?.indicationsKorean || ['피로회복 및 신경통 완화'],
+                  dosageAndAdministrationKorean: dosageInstruction || `1일 ${dailyServings}회, 1회 ${amountPerServing}${servingUnitKorean} 복용`,
+                  storageMethodKorean: productToEdit.otcDetail?.storageMethodKorean || '기밀용기, 실온(1~30℃)보관',
+                  precautionsSummaryKorean: productToEdit.otcDetail?.precautionsSummaryKorean || ['복용 전 설명서 참조', '항생제 복용 시 2시간 간격 유지']
+                }
+              }
+            : {
+                functionalFoodDetail: {
+                  ...productToEdit.functionalFoodDetail,
+                  reportNo: regulatoryCode || productToEdit.functionalFoodDetail?.reportNo || `202400${Math.floor(10000 + Math.random() * 90000)}`,
+                  functionalClaimsKorean: indicationsText ? indicationsText.split(',').map((s) => s.trim()).filter(Boolean) : productToEdit.functionalFoodDetail?.functionalClaimsKorean || ['정상적인 면역 및 에너지 대사'],
+                  suggestedUseKorean: dosageInstruction || `1일 ${dailyServings}회, 1회 ${amountPerServing}${servingUnitKorean} 섭취`,
+                  safetyPrecautionsKorean: productToEdit.functionalFoodDetail?.safetyPrecautionsKorean || ['특이체질 시 성분 확인']
+                }
+              })
+        };
+
+        await updateProduct(productToEdit.id, updatedProduct);
+        onClose();
+        return;
+      }
+
       const newId = `prod_${Date.now()}`;
       const newProduct: ProductItem = {
         id: newId,
@@ -516,7 +634,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
               otcDetail: {
                 itemSeq: regulatoryCode || `${Math.floor(202000000 + Math.random() * 4000000)}`,
                 permitDate: new Date().toISOString().slice(0, 10),
-                indicationsKorean: indicationsText ? [indicationsText] : ['피로회복 및 신경통 완화'],
+                indicationsKorean: indicationsText ? indicationsText.split(',').map((s) => s.trim()).filter(Boolean) : ['피로회복 및 신경통 완화'],
                 dosageAndAdministrationKorean: dosageInstruction || `1일 ${dailyServings}회, 1회 ${amountPerServing}${servingUnitKorean} 복용`,
                 storageMethodKorean: '기밀용기, 실온(1~30℃)보관',
                 precautionsSummaryKorean: ['복용 전 설명서 참조', '항생제 복용 시 2시간 간격 유지']
@@ -525,7 +643,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
           : {
               functionalFoodDetail: {
                 reportNo: regulatoryCode || `202400${Math.floor(10000 + Math.random() * 90000)}`,
-                functionalClaimsKorean: indicationsText ? [indicationsText] : ['정상적인 면역 및 에너지 대사'],
+                functionalClaimsKorean: indicationsText ? indicationsText.split(',').map((s) => s.trim()).filter(Boolean) : ['정상적인 면역 및 에너지 대사'],
                 suggestedUseKorean: dosageInstruction || `1일 ${dailyServings}회, 1회 ${amountPerServing}${servingUnitKorean} 섭취`,
                 safetyPrecautionsKorean: ['특이체질 시 성분 확인']
               }
@@ -550,31 +668,33 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
         {/* 모달 헤더 */}
         <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-sky-600 flex items-center justify-center text-white shadow-sm">
-              <Database className="w-5 h-5" />
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white shadow-sm ${isEditMode ? 'bg-indigo-600' : 'bg-sky-600'}`}>
+              {isEditMode ? <Edit3 className="w-5 h-5" /> : <Database className="w-5 h-5" />}
             </div>
             <div>
               <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <span>약학정보원(KPAIC) DB 연동 & 신규 품목 등록 모듈</span>
+                <span>{isEditMode ? `등록 품목 정보 및 성분 수정 — ${productToEdit?.productName}` : '약학정보원(KPAIC) DB 연동 & 신규 품목 등록 모듈'}</span>
               </h3>
               <p className="text-xs text-slate-500">
-                약학정보원(KPAIC) 정밀 성분 DB 조회 ➔ 영문 INN 표준 매핑 ➔ 약사 검수(Verification) ➔ 실시간 클라우드 동기화
+                {isEditMode
+                  ? '제품 기본 정보, 제형, 복용법, 규격 및 유효 성분/함량 수정 ➔ 실시간 클라우드 동기화'
+                  : '약학정보원(KPAIC) 정밀 성분 DB 조회 ➔ 영문 INN 표준 매핑 ➔ 약사 검수(Verification) ➔ 실시간 클라우드 동기화'}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={resetForm}
-              className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 rounded-lg transition-colors border border-slate-200"
-              title="입력창 전체 초기화"
+              onClick={isEditMode && productToEdit ? () => populateFromProduct(productToEdit) : resetForm}
+              className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 rounded-lg transition-colors border border-slate-200 cursor-pointer"
+              title={isEditMode ? '원래 저장된 내용으로 되돌리기' : '입력창 전체 초기화'}
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              <span>입력창 비우기</span>
+              <span>{isEditMode ? '원래대로 되돌리기' : '입력창 비우기'}</span>
             </button>
             <button
               onClick={handleClose}
-              className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+              className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -588,14 +708,14 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
             <div className="flex items-center justify-between">
               <span className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
                 <FileSearch className="w-4 h-4 text-sky-600" />
-                <span>[1단계] 약학정보원(KPAIC) 제품 조회 및 규격 확인</span>
+                <span>[1단계] 제품 기본 정보 및 공공 규격 확인</span>
               </span>
               <span className="text-[11px] text-sky-700 bg-sky-100/80 px-2 py-0.5 rounded font-medium">
                 약학정보원(KPAIC) 표준 규격 DB 연동
               </span>
             </div>
 
-            <div className="grid grid-cols-12 gap-3 items-end">
+            <div className="grid grid-cols-12 gap-2.5 items-end">
               <div className="col-span-3">
                 <label className="block font-bold text-slate-700 mb-1 text-xs">
                   제약회사 / 제조사
@@ -609,7 +729,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
                 />
               </div>
 
-              <div className="col-span-4">
+              <div className="col-span-3">
                 <label className="block font-bold text-slate-700 mb-1 text-xs">
                   제품명 *
                 </label>
@@ -643,36 +763,44 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
                 </select>
               </div>
 
-              <div className="col-span-3 flex gap-1.5">
+              <div className="col-span-2">
+                <label className="block font-bold text-slate-700 mb-1 text-xs">
+                  품목기준코드 / 허가번호
+                </label>
+                <input
+                  type="text"
+                  value={regulatoryCode}
+                  onChange={(e) => setRegulatoryCode(e.target.value)}
+                  placeholder="예: 202300436"
+                  className="w-full p-2 bg-white border border-slate-300 rounded-lg font-mono text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="col-span-2 flex gap-1.5">
                 <button
                   type="button"
                   onClick={handleFetchPublicData}
                   disabled={isLoadingPublicData}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2 bg-sky-600 hover:bg-sky-700 disabled:bg-sky-400 text-white rounded-lg font-bold shadow-xs transition-all active:scale-[0.99] text-[11px]"
+                  className="flex-1 flex items-center justify-center gap-1 py-2 px-2 bg-sky-600 hover:bg-sky-700 disabled:bg-sky-400 text-white rounded-lg font-bold shadow-xs transition-all active:scale-[0.99] text-[11px] cursor-pointer"
                   title="약학정보원(KPAIC) DB에서 제품 검색 및 후보 선택"
                 >
                   {isLoadingPublicData ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>조회 중...</span>
-                    </>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   ) : (
-                    <>
-                      <Search className="w-3.5 h-3.5" />
-                      <span>약학정보원 정보 조회</span>
-                    </>
+                    <Search className="w-3.5 h-3.5" />
                   )}
+                  <span>{isEditMode ? 'DB 조회' : 'KPAIC 조회'}</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setShowOcrPanel(!showOcrPanel)}
-                  className={`px-3 py-2 rounded-lg font-bold text-[11px] border transition-all flex items-center gap-1.5 shrink-0 shadow-2xs ${
+                  className={`px-2.5 py-2 rounded-lg font-bold text-[11px] border transition-all flex items-center gap-1 shrink-0 shadow-2xs cursor-pointer ${
                     showOcrPanel
                       ? 'bg-purple-700 text-white border-purple-800'
-                      : 'bg-purple-50 text-purple-700 border-purple-300 hover:bg-purple-100'
+                      : 'bg-white hover:bg-purple-50 text-purple-700 border-purple-300'
                   }`}
-                  title="약학정보원 캡처, 제약사 학술 자료, 건기식 라벨 사진을 첨부하여 약효분류 및 성분을 자동 동기화합니다"
+                  title="약학정보원 캡처, 제약사 학술 브로슈어, 영양정보표 라벨 사진을 첨부하여 자동 분석"
                 >
                   <Paperclip className="w-3.5 h-3.5" />
                   <span>자료 첨부</span>
@@ -968,16 +1096,18 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
                 </button>
               </div>
 
-              {/* 성분 검수 테이블 (약효 분류, 원료 형태, MOA 컬럼 제거됨) */}
+              {/* 성분 검수 테이블 (약효 분류, 원료 형태 포함) */}
               <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-slate-100 text-slate-600 text-[11px] font-bold uppercase tracking-wider border-b border-slate-200">
                       <th className="py-2.5 px-3">성분명 (English INN)</th>
-                      <th className="py-2.5 px-3 w-[140px] text-right">투입 함량</th>
-                      <th className="py-2.5 px-3 w-[100px]">단위</th>
-                      <th className="py-2.5 px-3 w-[140px] text-right">순수 원소량</th>
-                      <th className="py-2.5 px-2 w-[50px] text-center">삭제</th>
+                      <th className="py-2.5 px-3 w-[150px]">약효 분류</th>
+                      <th className="py-2.5 px-3 w-[110px] text-right">투입 함량</th>
+                      <th className="py-2.5 px-3 w-[80px]">단위</th>
+                      <th className="py-2.5 px-3 w-[110px] text-right">순수 원소량</th>
+                      <th className="py-2.5 px-3 w-[160px]">원료 형태</th>
+                      <th className="py-2.5 px-2 w-[45px] text-center">삭제</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -992,6 +1122,20 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
                               handleUpdateIngredient(idx, { englishInn: e.target.value })
                             }
                             className="w-full p-1.5 border border-slate-300 rounded font-bold text-slate-900 bg-white"
+                          />
+                        </td>
+
+                        {/* 약효 분류 */}
+                        <td className="p-2">
+                          <input
+                            type="text"
+                            list="efficacy-categories-list"
+                            value={ing.functionalCategory || ''}
+                            onChange={(e) =>
+                              handleUpdateIngredient(idx, { functionalCategory: e.target.value })
+                            }
+                            placeholder="약효 분류"
+                            className="w-full p-1.5 border border-slate-300 rounded font-medium text-slate-800 bg-white text-[11px]"
                           />
                         </td>
 
@@ -1040,13 +1184,27 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
                           />
                         </td>
 
+                        {/* 원료 형태 */}
+                        <td className="p-2">
+                          <input
+                            type="text"
+                            placeholder="예: 벤포티아민"
+                            value={ing.chemicalFormName || ''}
+                            onChange={(e) =>
+                              handleUpdateIngredient(idx, { chemicalFormName: e.target.value })
+                            }
+                            className="w-full p-1.5 border border-slate-200 rounded font-medium text-[11px] text-slate-700 bg-white"
+                          />
+                        </td>
+
                         {/* 삭제 */}
                         <td className="p-2 text-center">
                           <button
                             type="button"
                             onClick={() => handleRemoveIngredient(idx)}
                             disabled={verifiedIngredients.length === 1}
-                            className="p-1 text-slate-400 hover:text-rose-600 disabled:opacity-20"
+                            className="p-1 text-slate-400 hover:text-rose-600 disabled:opacity-20 cursor-pointer"
+                            title="성분 삭제"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -1055,6 +1213,11 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
                     ))}
                   </tbody>
                 </table>
+                <datalist id="efficacy-categories-list">
+                  {STANDARD_EFFICACY_CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat} />
+                  ))}
+                </datalist>
               </div>
 
               {/* 기본 규격 및 복용 스케줄 세부 정보 */}
@@ -1125,6 +1288,34 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
                 </div>
               </div>
 
+              {/* 표준 복용·섭취 기준 및 효능 문구 */}
+              <div className="grid grid-cols-12 gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
+                <div className="col-span-6">
+                  <label className="block font-bold text-slate-700 mb-1 text-xs">
+                    표준 복용·섭취 기준 문구
+                  </label>
+                  <input
+                    type="text"
+                    value={dosageInstruction}
+                    onChange={(e) => setDosageInstruction(e.target.value)}
+                    placeholder="예: 만 19세 이상 및 성인 : 1일 1회, 1회 1정 식후 복용"
+                    className="w-full p-2 border border-slate-300 rounded-lg bg-white text-xs font-medium"
+                  />
+                </div>
+                <div className="col-span-6">
+                  <label className="block font-bold text-slate-700 mb-1 text-xs">
+                    효능·효과 / 기능성 요약 문구
+                  </label>
+                  <input
+                    type="text"
+                    value={indicationsText}
+                    onChange={(e) => setIndicationsText(e.target.value)}
+                    placeholder="예: 육체피로, 체력저하, 신경통, 근육통 완화"
+                    className="w-full p-2 border border-slate-300 rounded-lg bg-white text-xs font-medium"
+                  />
+                </div>
+              </div>
+
               {/* 임상 태그 */}
               <div>
                 <label className="block font-bold text-slate-700 mb-1 text-xs">
@@ -1153,7 +1344,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
             <button
               type="button"
               onClick={handleClose}
-              className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 font-semibold hover:bg-slate-100 text-xs"
+              className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 font-semibold hover:bg-slate-100 text-xs cursor-pointer"
             >
               취소
             </button>
@@ -1162,9 +1353,11 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
               type="button"
               onClick={handleSaveToCloud}
               disabled={verifiedIngredients.length === 0 || isSubmitting || !!currentDuplicate}
-              className={`px-6 py-2 rounded-lg font-bold shadow-md transition-all flex items-center gap-2 text-xs ${
+              className={`px-6 py-2 rounded-lg font-bold shadow-md transition-all flex items-center gap-2 text-xs cursor-pointer ${
                 currentDuplicate
                   ? 'bg-rose-200 text-rose-500 cursor-not-allowed border border-rose-300'
+                  : isEditMode
+                  ? 'bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white active:scale-[0.98]'
                   : 'bg-sky-600 hover:bg-sky-700 disabled:bg-slate-300 text-white active:scale-[0.98]'
               }`}
               title={currentDuplicate ? '이미 취급 목록에 등록된 품목입니다' : undefined}
@@ -1172,12 +1365,17 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
               {isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>약국 Cloud DB 동기화 중...</span>
+                  <span>{isEditMode ? '수정 내용 클라우드 반영 중...' : '약국 Cloud DB 동기화 중...'}</span>
                 </>
               ) : currentDuplicate ? (
                 <>
                   <AlertTriangle className="w-4 h-4 text-rose-500" />
                   <span>이미 등록된 품목 (등록 불가)</span>
+                </>
+              ) : isEditMode ? (
+                <>
+                  <Check className="w-4 h-4" />
+                  <span>수정 내용 저장 및 실시간 동기화</span>
                 </>
               ) : (
                 <>

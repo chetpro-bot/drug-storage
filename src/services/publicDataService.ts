@@ -202,10 +202,66 @@ Calcium Pantothenate 칼슘판토테네이트 50mg`,
     searchKeywords: ['임팩타민', '임팩타민파워', '파워에이플러스', '파워A', '대웅']
   },
 
-  // --- [GC녹십자 비맥스 라인업] ---
+  // --- [약학정보원 비맥스 전체 17종 라인업] ---
   {
-    id: 'kpaic_bmax_jet',
-    productName: '비맥스제트정',
+    id: 'kpaic_recombimax_inj',
+    productName: '리콤비맥스주(수출용)',
+    manufacturer: '보란파마',
+    classification: 'OTC_DRUG',
+    dosageForm: 'LIQUID_ORAL',
+    packagingUnit: '1회용 바이알 (수출용)',
+    dailyServings: 1,
+    amountPerServing: 1,
+    servingUnitKorean: '바이알',
+    regulatoryCode: '201601051',
+    rawIngredientsText: 'Filgrastim 필그라스팀 300ug/mL',
+    dosageInstruction: '의사의 처방 및 지시에 따라 투여 (수출용)',
+    indicationsSummary: ['호중구감소증 치료 및 조혈 보조'],
+    searchKeywords: ['비맥스', '리콤비맥스', '보란파마']
+  },
+  {
+    id: 'kpaic_magbmax_cap',
+    productName: '마그비맥스연질캡슐',
+    manufacturer: '유한양행',
+    classification: 'OTC_DRUG',
+    dosageForm: 'SOFT_CAPSULE',
+    packagingUnit: '120캡슐 (60캡슐 x 2)',
+    dailyServings: 2,
+    amountPerServing: 1,
+    servingUnitKorean: '캡슐',
+    regulatoryCode: '202102844',
+    rawIngredientsText: `Magnesium Oxide 산화마그네슘 250mg (마그네슘으로서 150.8mg)
+Benfotiamine 벤포티아민 50mg
+Pyridoxine Hydrochloride 피리독신염산염 50mg
+Tocopherol Acetate 50% 토코페롤아세테이트 100mg (비타민E로서 50IU)
+Gamma-oryzanol 감마-오리자놀 5mg`,
+    dosageInstruction: '만 12세 이상 및 성인: 1일 2회, 1회 1캡슐 복용',
+    indicationsSummary: ['마그네슘 결핍으로 인한 근육경련, 손발저림, 육체피로 완화'],
+    searchKeywords: ['비맥스', '마그비맥스', '유한양행']
+  },
+  {
+    id: 'kpaic_mecobmax_tab',
+    productName: '메코비맥스정',
+    manufacturer: '메딕스제약',
+    classification: 'OTC_DRUG',
+    dosageForm: 'FILM_COATED_TABLET',
+    packagingUnit: '120정',
+    dailyServings: 1,
+    amountPerServing: 1,
+    servingUnitKorean: '정',
+    regulatoryCode: '201804212',
+    rawIngredientsText: `Mecobalamin 메코발라민 0.5mg
+Benfotiamine 벤포티아민 50mg
+Pyridoxal Phosphate Hydrate 피리독살포스페이트수화물 5mg
+Ascorbic Acid Coated 제피아스코르브산 51.5mg (아스코르브산으로서 50mg)
+Folic Acid 폴산 0.4mg`,
+    dosageInstruction: '성인 1일 1회, 1회 1정 복용',
+    indicationsSummary: ['말초신경병증, 신경통, 만성 육체피로 회복'],
+    searchKeywords: ['비맥스', '메코비맥스', '메딕스제약']
+  },
+  {
+    id: 'kpaic_bmax_gold',
+    productName: '비맥스골드정',
     manufacturer: 'GC녹십자',
     classification: 'OTC_DRUG',
     dosageForm: 'FILM_COATED_TABLET',
@@ -213,35 +269,148 @@ Calcium Pantothenate 칼슘판토테네이트 50mg`,
     dailyServings: 1,
     amountPerServing: 1,
     servingUnitKorean: '정',
-    regulatoryCode: '202300072',
-    rawIngredientsText: `벤포티아민 100mg (티아민염산염으로서 72.3mg)
-비스벤티아민 30mg (티아민염산염으로서 26.2mg)
-리보플라빈부티레이트 50mg
-니코틴산아미드 10mg
-판토텐산칼슘 100mg
-피리독살포스페이트수화물 50mg
-메코발라민 1000ug
-비오틴 0.2mg
-폴산 0.5mg
-제피아스코르브산 51.15mg (아스코르브산으로서 50mg)
-콜레칼시페롤농축분말 10mg (비타민D로서 1000IU)
-토코페롤아세테이트2배산 20mg (비타민E로서 10IU)
-콜린타르타르산염 100mg
-이노시톨 100mg
-산화마그네슘 100mg (마그네슘으로서 60.3mg)
-산화아연 30mg (아연으로서 24.1mg)
-우르소데옥시콜산 60mg
-타우린 100mg
-감마-오리자놀 3mg
-셀레늄함유건조효모 40.8mg (셀레늄으로서 22ug)
-크롬함유건조효모 20mg (크롬으로서 40ug)`,
-    dosageInstruction: '만 19세 이상 및 성인: 1일 1회, 1회 1정을 식후 복용',
-    indicationsSummary: [
-      '육체피로, 체력저하 시 비타민 B1, B2, B6, C, D 보급',
-      '신경통, 근육통, 관절통 완화',
-      '아연 보급 및 간기능 보조'
-    ],
-    searchKeywords: ['비맥스', '비맥스제트', '제트정', '녹십자', 'GC녹십자']
+    regulatoryCode: '201402283',
+    rawIngredientsText: `Ascorbic Acid Coated 제피아스코르브산 206.2mg (아스코르브산으로서 200mg)
+Benfotiamine 벤포티아민 50mg (티아민염산염으로서 36.15mg)
+Riboflavin 리보플라빈 50mg
+Pyridoxine Hydrochloride 피리독신염산염 50mg
+Cyanocobalamin 시아노코발라민 50ug
+Nicotinamide 니코틴산아미드 50mg
+Calcium Pantothenate 판토텐산칼슘 50mg
+Biotin 비오틴 0.05mg
+Folic Acid 폴산 0.2mg
+Cholecalciferol Concentrate Powder 콜레칼시페롤농축분말 10mg (비타민D로서 1000IU)
+Tocopherol Acetate 50% 토코페롤아세테이트 20mg (비타민E로서 10IU)
+Zinc Oxide 산화아연 18.7mg (아연으로서 15mg)
+Inositol 이노시톨 50mg
+Choline Bitartrate 콜린타르타르산염 50mg
+L-Cysteine L-시스테인 25mg
+Ursodeoxycholic Acid 우르소데옥시콜산 15mg`,
+    dosageInstruction: '만 12세 이상 및 성인: 1일 1회, 1회 1정 식후 복용',
+    indicationsSummary: ['비타민 B1, B2, B6, C, D, E 보급', '육체피로, 체력저하, 신경통, 관절통 완화'],
+    searchKeywords: ['비맥스', '비맥스골드', '녹십자', 'GC녹십자']
+  },
+  {
+    id: 'kpaic_bmax_active',
+    productName: '비맥스액티브정',
+    manufacturer: 'GC녹십자',
+    classification: 'OTC_DRUG',
+    dosageForm: 'FILM_COATED_TABLET',
+    packagingUnit: '120정 (60정 x 2병)',
+    dailyServings: 1,
+    amountPerServing: 1,
+    servingUnitKorean: '정',
+    regulatoryCode: '201701358',
+    rawIngredientsText: `Benfotiamine 벤포티아민 50mg
+Bisbenthiamine 비스벤티아민 5mg
+Riboflavin Butyrate 리보플라빈부티레이트 6mg
+Pyridoxal Phosphate Hydrate 피리독살포스페이트수화물 5mg
+Cyanocobalamin 시아노코발라민 500ug
+Nicotinamide 니코틴산아미드 10mg
+Calcium Pantothenate 판토텐산칼슘 50mg
+Biotin 비오틴 0.1mg
+Folic Acid 폴산 0.4mg
+Cholecalciferol Concentrate Powder 콜레칼시페롤농축분말 10mg (비타민D로서 1000IU)
+Tocopherol Acetate 50% 토코페롤아세테이트 20mg (비타민E로서 10IU)
+Magnesium Oxide 산화마그네슘 100mg (마그네슘으로서 60.3mg)
+Zinc Oxide 산화아연 30mg (아연으로서 24.1mg)
+Ursodeoxycholic Acid 우르소데옥시콜산 15mg
+Inositol 이노시톨 50mg
+Choline Bitartrate 콜린타르타르산염 50mg
+Gamma-oryzanol 감마-오리자놀 3mg`,
+    dosageInstruction: '만 12세 이상 및 성인: 1일 1회, 1회 1정 복용',
+    indicationsSummary: ['활성비타민 4종 함유 육체피로, 신경통, 근육통, 구내염 완화'],
+    searchKeywords: ['비맥스', '비맥스액티브', '녹십자', 'GC녹십자']
+  },
+  {
+    id: 'kpaic_bmax_bb',
+    productName: '비맥스비비정',
+    manufacturer: 'GC녹십자',
+    classification: 'OTC_DRUG',
+    dosageForm: 'FILM_COATED_TABLET',
+    packagingUnit: '120정 (60정 x 2병)',
+    dailyServings: 1,
+    amountPerServing: 1,
+    servingUnitKorean: '정',
+    regulatoryCode: '201503388',
+    rawIngredientsText: `L-Cysteine L-시스테인 120mg
+Ascorbic Acid Coated 제피아스코르브산 515.5mg (아스코르브산으로서 500mg)
+Benfotiamine 벤포티아민 50mg
+Riboflavin 리보플라빈 50mg
+Pyridoxine Hydrochloride 피리독신염산염 50mg
+Nicotinamide 니코틴산아미드 50mg
+Calcium Pantothenate 판토텐산칼슘 25mg
+Biotin 비오틴 0.1mg
+Zinc Oxide 산화아연 18.7mg (아연으로서 15mg)
+Selenium in Dried Yeast 셀레늄함유건조효모 46.3mg (셀레늄으로서 25ug)
+Tocopherol Acetate 50% 토코페롤아세테이트 50mg (비타민E로서 25IU)
+Ursodeoxycholic Acid 우르소데옥시콜산 15mg`,
+    dosageInstruction: '만 12세 이상 및 성인: 1일 1회, 1회 1~2정 복용',
+    indicationsSummary: ['기미, 주근깨 색소침착 완화, 피부 점막 건강 및 만성 피로 회복'],
+    searchKeywords: ['비맥스', '비맥스비비', '녹십자', 'GC녹십자']
+  },
+  {
+    id: 'kpaic_bmax_ever',
+    productName: '비맥스에버정',
+    manufacturer: 'GC녹십자',
+    classification: 'OTC_DRUG',
+    dosageForm: 'FILM_COATED_TABLET',
+    packagingUnit: '120정 (60정 x 2병)',
+    dailyServings: 1,
+    amountPerServing: 1,
+    servingUnitKorean: '정',
+    regulatoryCode: '201908021',
+    rawIngredientsText: `Benfotiamine 벤포티아민 50mg
+Bisbenthiamine 비스벤티아민 5mg
+Riboflavin 리보플라빈 50mg
+Pyridoxine Hydrochloride 피리독신염산염 50mg
+Cyanocobalamin 시아노코발라민 100ug
+Nicotinamide 니코틴산아미드 50mg
+Calcium Pantothenate 판토텐산칼슘 50mg
+Biotin 비오틴 0.1mg
+Folic Acid 폴산 0.4mg
+Cholecalciferol Concentrate Powder 콜레칼시페롤농축분말 10mg (비타민D로서 1000IU)
+Tocopherol Acetate 50% 토코페롤아세테이트 20mg (비타민E로서 10IU)
+Magnesium Oxide 산화마그네슘 100mg
+Zinc Oxide 산화아연 30mg
+Inositol 이노시톨 50mg
+Choline Bitartrate 콜린타르타르산염 50mg
+Ursodeoxycholic Acid 우르소데옥시콜산 15mg
+녹용가루 10mg
+당귀가루 10mg
+작약가루 10mg
+황기가루 10mg`,
+    dosageInstruction: '만 12세 이상 및 성인: 1일 1회, 1회 1정 복용',
+    indicationsSummary: ['중장년층 기력 보강, 생약(녹용,당귀,작약,황기) 복합 활성비타민 피로회복'],
+    searchKeywords: ['비맥스', '비맥스에버', '녹십자', 'GC녹십자']
+  },
+  {
+    id: 'kpaic_bmax_ace',
+    productName: '비맥스에이스정',
+    manufacturer: 'GC녹십자',
+    classification: 'OTC_DRUG',
+    dosageForm: 'FILM_COATED_TABLET',
+    packagingUnit: '120정',
+    dailyServings: 1,
+    amountPerServing: 1,
+    servingUnitKorean: '정',
+    regulatoryCode: '201602491',
+    rawIngredientsText: `Benfotiamine 벤포티아민 50mg
+Ubidecarenone 유비데카레논 5mg
+Riboflavin 리보플라빈 50mg
+Pyridoxine Hydrochloride 피리독신염산염 50mg
+Cyanocobalamin 시아노코발라민 50ug
+Nicotinamide 니코틴산아미드 50mg
+Calcium Pantothenate 판토텐산칼슘 50mg
+Biotin 비오틴 0.05mg
+Folic Acid 폴산 0.2mg
+Ascorbic Acid Coated 제피아스코르브산 103.1mg (아스코르브산으로서 100mg)
+Tocopherol Acetate 50% 토코페롤아세테이트 20mg
+Selenium in Dried Yeast 셀레늄함유건조효모 46.3mg
+Zinc Oxide 산화아연 18.7mg`,
+    dosageInstruction: '만 12세 이상 및 성인: 1일 1회, 1회 1정 복용',
+    indicationsSummary: ['코엔자임Q10 함유 항산화 에너지 활력, 심혈관 및 피로 회복'],
+    searchKeywords: ['비맥스', '비맥스에이스', '녹십자', 'GC녹십자']
   },
   {
     id: 'kpaic_bmax_meta',
@@ -254,21 +423,21 @@ Calcium Pantothenate 칼슘판토테네이트 50mg`,
     amountPerServing: 1,
     servingUnitKorean: '정',
     regulatoryCode: '201901424',
-    rawIngredientsText: `벤포티아민 95mg
-비스벤티아민 5mg
-리보플라빈 100mg
-피리독신염산염 100mg
-시아노코발라민 500ug
-니코틴산아미드 10mg
-판토텐산칼슘 100mg
-비오틴 0.1mg
-폴산 0.4mg
-콜레칼시페롤농축분말 10mg (비타민D로서 1000IU)
-산화마그네슘 100mg (마그네슘으로서 60.3mg)
-산화아연 30mg (아연으로서 24.1mg)
-우르소데옥시콜산 30mg
-콜린타르타르산염 50mg
-이노시톨 50mg`,
+    rawIngredientsText: `Benfotiamine 벤포티아민 95mg
+Bisbenthiamine 비스벤티아민 5mg
+Riboflavin 리보플라빈 100mg
+Pyridoxine Hydrochloride 피리독신염산염 100mg
+Cyanocobalamin 시아노코발라민 500ug
+Nicotinamide 니코틴산아미드 10mg
+Calcium Pantothenate 판토텐산칼슘 100mg
+Biotin 비오틴 0.1mg
+Folic Acid 폴산 0.4mg
+Cholecalciferol Concentrate Powder 콜레칼시페롤농축분말 10mg (비타민D로서 1000IU)
+Magnesium Oxide 산화마그네슘 100mg (마그네슘으로서 60.3mg)
+Zinc Oxide 산화아연 30mg (아연으로서 24.1mg)
+Ursodeoxycholic Acid 우르소데옥시콜산 30mg
+Choline Bitartrate 콜린타르타르산염 50mg
+Inositol 이노시톨 50mg`,
     dosageInstruction: '만 12세 이상 및 성인: 1일 1회, 1회 1정 식후 복용',
     indicationsSummary: ['육체피로, 체력저하 회복', '신경통, 근육통, 구내염 완화, 아연 보급'],
     searchKeywords: ['비맥스', '비맥스메타', '메타', '녹십자', 'GC녹십자']
@@ -284,22 +453,207 @@ Calcium Pantothenate 칼슘판토테네이트 50mg`,
     amountPerServing: 1,
     servingUnitKorean: '정',
     regulatoryCode: '202107883',
-    rawIngredientsText: `벤포티아민 100mg
-비스벤티아민 30mg
-리보플라빈 100mg
-피리독신염산염 100mg
-메코발라민 1000ug
-니코틴산아미드 10mg
-판토텐산칼슘 100mg
-비오틴 0.5mg
-폴산 0.5mg
-콜레칼시페롤농축분말 10mg (비타민D로서 1000IU)
-산화아연 30mg (아연으로서 24.1mg)
-우르소데옥시콜산 30mg
-L-시스테인 25mg`,
+    rawIngredientsText: `Benfotiamine 벤포티아민 100mg
+Bisbenthiamine 비스벤티아민 30mg
+Riboflavin 리보플라빈 100mg
+Pyridoxine Hydrochloride 피리독신염산염 100mg
+Mecobalamin 메코발라민 1000ug
+Nicotinamide 니코틴산아미드 10mg
+Calcium Pantothenate 판토텐산칼슘 100mg
+Biotin 비오틴 0.5mg
+Folic Acid 폴산 0.5mg
+Cholecalciferol Concentrate Powder 콜레칼시페롤농축분말 10mg (비타민D로서 1000IU)
+Zinc Oxide 산화아연 30mg (아연으로서 24.1mg)
+Ursodeoxycholic Acid 우르소데옥시콜산 30mg
+L-Cysteine L-시스테인 25mg`,
     dosageInstruction: '만 19세 이상 및 성인: 1일 1회, 1회 1정 식후 복용',
     indicationsSummary: ['활성형 메코발라민 함유 신경피로 집중 개선', '육체피로 및 근육통 완화'],
     searchKeywords: ['비맥스', '비맥스메타비', '메타비', '녹십자', 'GC녹십자']
+  },
+  {
+    id: 'kpaic_bmax_jet',
+    productName: '비맥스제트정',
+    manufacturer: 'GC녹십자',
+    classification: 'OTC_DRUG',
+    dosageForm: 'FILM_COATED_TABLET',
+    packagingUnit: '120정 (60정 x 2병)',
+    dailyServings: 1,
+    amountPerServing: 1,
+    servingUnitKorean: '정',
+    regulatoryCode: '202300072',
+    rawIngredientsText: `Benfotiamine 벤포티아민 100mg (티아민염산염으로서 72.3mg)
+Bisbenthiamine 비스벤티아민 30mg (티아민염산염으로서 26.2mg)
+Riboflavin Butyrate 리보플라빈부티레이트 50mg
+Nicotinamide 니코틴산아미드 10mg
+Calcium Pantothenate 판토텐산칼슘 100mg
+Pyridoxal Phosphate Hydrate 피리독살포스페이트수화물 50mg
+Mecobalamin 메코발라민 1000ug
+Biotin 비오틴 0.2mg
+Folic Acid 폴산 0.5mg
+Ascorbic Acid Coated 제피아스코르브산 51.15mg (아스코르브산으로서 50mg)
+Cholecalciferol Concentrate Powder 콜레칼시페롤농축분말 10mg (비타민D로서 1000IU)
+Tocopherol Acetate 50% 토코페롤아세테이트 20mg (비타민E로서 10IU)
+Choline Bitartrate 콜린타르타르산염 100mg
+Inositol 이노시톨 100mg
+Magnesium Oxide 산화마그네슘 100mg (마그네슘으로서 60.3mg)
+Zinc Oxide 산화아연 30mg (아연으로서 24.1mg)
+Ursodeoxycholic Acid 우르소데옥시콜산 60mg
+Taurine 타우린 100mg
+Gamma-oryzanol 감마-오리자놀 3mg
+Selenium in Dried Yeast 셀레늄함유건조효모 40.8mg (셀레늄으로서 22ug)
+Chromium in Dried Yeast 크롬함유건조효모 20mg (크롬으로서 40ug)`,
+    dosageInstruction: '만 19세 이상 및 성인: 1일 1회, 1회 1정을 식후 복용',
+    indicationsSummary: [
+      '육체피로, 체력저하 시 비타민 B1, B2, B6, C, D 보급',
+      '신경통, 근육통, 관절통 완화',
+      '아연 보급 및 간기능 보조'
+    ],
+    searchKeywords: ['비맥스', '비맥스제트', '제트정', '녹십자', 'GC녹십자']
+  },
+  {
+    id: 'kpaic_bmax_mgplus',
+    productName: '비맥스엠지플러스연질캡슐',
+    manufacturer: 'GC녹십자',
+    classification: 'OTC_DRUG',
+    dosageForm: 'SOFT_CAPSULE',
+    packagingUnit: '120캡슐 (60캡슐 x 2)',
+    dailyServings: 2,
+    amountPerServing: 1,
+    servingUnitKorean: '캡슐',
+    regulatoryCode: '201705122',
+    rawIngredientsText: `Magnesium Oxide 산화마그네슘 250mg (마그네슘으로서 150.8mg)
+Benfotiamine 벤포티아민 50mg
+Pyridoxine Hydrochloride 피리독신염산염 50mg
+Riboflavin 리보플라빈 50mg
+Tocopherol Acetate 50% 토코페롤아세테이트 500mg (비타민E로서 500IU)
+Gamma-oryzanol 감마-오리자놀 10mg`,
+    dosageInstruction: '만 12세 이상 및 성인: 1일 2회, 1회 1캡슐 복용',
+    indicationsSummary: ['고함량 마그네슘 및 비타민E, 눈떨림, 근육경련, 혈액순환 개선'],
+    searchKeywords: ['비맥스', '비맥스엠지', '비맥스엠지플러스', '마그네슘', '녹십자']
+  },
+  {
+    id: 'kpaic_bmax_forte',
+    productName: '비맥스포르테정',
+    manufacturer: 'GC녹십자',
+    classification: 'OTC_DRUG',
+    dosageForm: 'FILM_COATED_TABLET',
+    packagingUnit: '100정',
+    dailyServings: 1,
+    amountPerServing: 1,
+    servingUnitKorean: '정',
+    regulatoryCode: '201301980',
+    rawIngredientsText: `Benfotiamine 벤포티아민 50mg
+Riboflavin 리보플라빈 50mg
+Pyridoxine Hydrochloride 피리독신염산염 50mg
+Cyanocobalamin 시아노코발라민 50ug
+Nicotinamide 니코틴산아미드 50mg
+Calcium Pantothenate 판토텐산칼슘 50mg
+Inositol 이노시톨 50mg
+Choline Bitartrate 콜린타르타르산염 50mg
+Zinc Oxide 산화아연 18.7mg`,
+    dosageInstruction: '성인 1일 1회, 1회 1정 복용',
+    indicationsSummary: ['비타민 B군 집중 보급, 만성 피로 및 체력 저하 회복'],
+    searchKeywords: ['비맥스', '비맥스포르테', '포르테', '녹십자']
+  },
+  {
+    id: 'kpaic_bmax_high',
+    productName: '비맥스하이정',
+    manufacturer: 'GC녹십자',
+    classification: 'OTC_DRUG',
+    dosageForm: 'FILM_COATED_TABLET',
+    packagingUnit: '100정',
+    dailyServings: 1,
+    amountPerServing: 1,
+    servingUnitKorean: '정',
+    regulatoryCode: '201501430',
+    rawIngredientsText: `Benfotiamine 벤포티아민 50mg
+Riboflavin 리보플라빈 50mg
+Pyridoxine Hydrochloride 피리독신염산염 50mg
+Nicotinamide 니코틴산아미드 50mg
+Calcium Pantothenate 판토텐산칼슘 50mg
+Gamma-oryzanol 감마-오리자놀 5mg
+Zinc Oxide 산화아연 18.7mg`,
+    dosageInstruction: '성인 1일 1회, 1회 1정 복용',
+    indicationsSummary: ['비타민 B군 및 감마오리자놀 함유 신경안정 및 피로 회복'],
+    searchKeywords: ['비맥스', '비맥스하이', '녹십자']
+  },
+  {
+    id: 'kpaic_bmax_original',
+    productName: '비맥스정',
+    manufacturer: 'GC녹십자',
+    classification: 'OTC_DRUG',
+    dosageForm: 'FILM_COATED_TABLET',
+    packagingUnit: '100정',
+    dailyServings: 1,
+    amountPerServing: 1,
+    servingUnitKorean: '정',
+    regulatoryCode: '201103210',
+    rawIngredientsText: `Benfotiamine 벤포티아민 50mg
+Riboflavin 리보플라빈 50mg
+Pyridoxine Hydrochloride 피리독신염산염 50mg
+Cyanocobalamin 시아노코발라민 5ug
+Nicotinamide 니코틴산아미드 50mg
+Calcium Pantothenate 판토텐산칼슘 50mg
+Ascorbic Acid Coated 제피아스코르브산 103.1mg
+Tocopherol Acetate 50% 토코페롤아세테이트 20mg
+Zinc Oxide 산화아연 18.7mg`,
+    dosageInstruction: '만 12세 이상 및 성인: 1일 1회, 1회 1정 식후 복용',
+    indicationsSummary: ['오리지널 비맥스 복합 비타민, 육체피로, 눈의 피로 회복'],
+    searchKeywords: ['비맥스', '비맥스정', '녹십자']
+  },
+  {
+    id: 'kpaic_bmax_ever_prem',
+    productName: '비맥스에버프리미엄정',
+    manufacturer: 'GC녹십자',
+    classification: 'OTC_DRUG',
+    dosageForm: 'FILM_COATED_TABLET',
+    packagingUnit: '120정 (60정 x 2병)',
+    dailyServings: 1,
+    amountPerServing: 1,
+    servingUnitKorean: '정',
+    regulatoryCode: '202301890',
+    rawIngredientsText: `Benfotiamine 벤포티아민 50mg
+Bisbenthiamine 비스벤티아민 10mg
+Riboflavin Butyrate 리보플라빈부티레이트 20mg
+Pyridoxal Phosphate Hydrate 피리독살포스페이트수화물 10mg
+Mecobalamin 메코발라민 500ug
+Biotin 비오틴 0.2mg
+Folic Acid 폴산 0.4mg
+Cholecalciferol Concentrate Powder 콜레칼시페롤농축분말 10mg (비타민D로서 1000IU)
+Magnesium Oxide 산화마그네슘 100mg
+Zinc Oxide 산화아연 30mg
+녹용가루 15mg
+당귀가루 15mg
+작약가루 15mg
+황기가루 15mg
+홍삼건조엑스 20mg`,
+    dosageInstruction: '만 19세 이상 및 성인: 1일 1회, 1회 1정 식후 복용',
+    indicationsSummary: ['프리미엄 시니어 활력, 활성B군 5종 + 홍삼·녹용 생약 복합 처방'],
+    searchKeywords: ['비맥스', '비맥스에버프리미엄', '에버프리미엄', '녹십자']
+  },
+  {
+    id: 'kpaic_bmax_immune',
+    productName: '비맥스이뮨플러스정',
+    manufacturer: 'GC녹십자',
+    classification: 'OTC_DRUG',
+    dosageForm: 'FILM_COATED_TABLET',
+    packagingUnit: '120정 (60정 x 2병)',
+    dailyServings: 1,
+    amountPerServing: 1,
+    servingUnitKorean: '정',
+    regulatoryCode: '202202155',
+    rawIngredientsText: `Benfotiamine 벤포티아민 50mg
+Riboflavin 리보플라빈 50mg
+Pyridoxine Hydrochloride 피리독신염산염 50mg
+Cyanocobalamin 시아노코발라민 100ug
+Nicotinamide 니코틴산아미드 50mg
+Zinc Oxide 산화아연 37.4mg (아연으로서 30mg)
+Cholecalciferol Concentrate Powder 콜레칼시페롤농축분말 20mg (비타민D로서 2000IU)
+Ascorbic Acid Coated 제피아스코르브산 206.2mg (아스코르브산으로서 200mg)
+Selenium in Dried Yeast 셀레늄함유건조효모 92.6mg (셀레늄으로서 50ug)`,
+    dosageInstruction: '만 12세 이상 및 성인: 1일 1회, 1회 1정 복용',
+    indicationsSummary: ['고함량 아연 30mg + 비타민D 2,000IU + 셀레늄 면역 기능 강화'],
+    searchKeywords: ['비맥스', '비맥스이뮨', '비맥스이뮨플러스', '녹십자']
   },
 
   // --- [종근당 벤포벨 라인업] ---

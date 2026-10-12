@@ -384,73 +384,73 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     clinicalSummary: '• 체내 필요 시 비타민 A로 전환, 시각 기능 및 피부·점막 세포 재생\n• 유해 활성산소 소거 및 항산화 작용'
   },
 
-  // 소화효소 및 위장관 제제
+  // 소화효소 및 위장관 제제 (KPIC 약효분류 표준 적용)
   '판크레아틴장용과립': {
     englishInn: 'Pancreatin enteric granules',
-    functionalCategory: '간기능/해독',
+    functionalCategory: '소화효소제',
     chemicalFormName: '장용 코팅 복합 소화효소제 (판크레아틴)',
     defaultUnit: 'mg',
     clinicalSummary: '• 췌장 유래 복합 효소(아밀라아제, 트립신, 리파아제), 장내 탄·단·지 소화 촉진'
   },
   '판크레아틴': {
     englishInn: 'Pancreatin',
-    functionalCategory: '간기능/해독',
+    functionalCategory: '소화효소제',
     chemicalFormName: '복합 췌장 소화효소제',
     defaultUnit: 'mg',
     clinicalSummary: '• 탄수화물, 단백질, 지방 복합 분해 소화 효소 작용'
   },
   '디아스타제·프로테아제·셀룰라제': {
     englishInn: 'Diastase · Protease · Cellulase',
-    functionalCategory: '간기능/해독',
+    functionalCategory: '소화효소제',
     chemicalFormName: '복합 다당류·단백질 분해 소화효소',
     defaultUnit: 'mg',
     clinicalSummary: '• 위 내에서 탄수화물, 섬유소 및 단백질 1차 분해 촉진'
   },
   '판프로신': {
     englishInn: 'Panprosin',
-    functionalCategory: '간기능/해독',
+    functionalCategory: '소화효소제',
     chemicalFormName: '단백질 분해 효소',
     defaultUnit: 'mg',
     clinicalSummary: '• 단백질의 펩톤 분해 촉진, 소화 촉진'
   },
   '판셀라제': {
     englishInn: 'Pancellase',
-    functionalCategory: '간기능/해독',
+    functionalCategory: '소화효소제',
     chemicalFormName: '섬유소 분해 효소 복합체',
     defaultUnit: 'mg',
     clinicalSummary: '• 채소류 섬유질 세포벽 분해, 위장 팽만감 완화'
   },
   '리파제': {
     englishInn: 'Lipase',
-    functionalCategory: '간기능/해독',
+    functionalCategory: '소화효소제',
     chemicalFormName: '지방 분해 효소',
     defaultUnit: 'mg',
     clinicalSummary: '• 고지방식 섭취 시 중성지방 분해 및 소화 불량 완화'
   },
   '시메티콘': {
     englishInn: 'Simethicone',
-    functionalCategory: '간기능/해독',
+    functionalCategory: '장내 가스 제거제',
     chemicalFormName: '가스 제거제 (디메티콘-실리카 복합체)',
     defaultUnit: 'mg',
     clinicalSummary: '• 위장관 내 기포 표면장력 저하로 가스 제거, 복부 팽만감 및 트림 완화'
   },
   '브로멜라인': {
     englishInn: 'Bromelain',
-    functionalCategory: '간기능/해독',
+    functionalCategory: '소염효소',
     chemicalFormName: '파인애플 유래 식물성 단백분해효소',
     defaultUnit: 'mg',
-    clinicalSummary: '• 단백질 소화 촉진 및 항염 부종 완화'
+    clinicalSummary: '• 단백질 소화 촉진 및 염증성 부종 완화'
   },
   '크리아제-PEG': {
     englishInn: 'Crease-PEG',
-    functionalCategory: '간기능/해독',
+    functionalCategory: '소화효소제',
     chemicalFormName: '복합 소화효소 제제',
     defaultUnit: 'mg',
     clinicalSummary: '• 전분, 단백, 지방 분해 촉진 소화 효소'
   },
   '디아스타제·프로테아제100': {
     englishInn: 'Diastase · Protease 100',
-    functionalCategory: '간기능/해독',
+    functionalCategory: '소화효소제',
     chemicalFormName: '전분 및 단백질 분해 소화효소',
     defaultUnit: 'mg',
     clinicalSummary: '• 탄수화물 및 단백질 소화 분해 촉진'

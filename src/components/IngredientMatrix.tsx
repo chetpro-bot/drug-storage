@@ -129,6 +129,14 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
         return 'bg-orange-100 text-orange-800 border-orange-200';
       case '아미노산/단백질 합성':
         return 'bg-cyan-100 text-cyan-800 border-cyan-200';
+      case '소화효소제':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case '소염효소':
+        return 'bg-purple-100 text-purple-800 border-purple-200';
+      case '장내 가스 제거제':
+        return 'bg-sky-100 text-sky-800 border-sky-200';
+      case '담석용해제':
+        return 'bg-lime-100 text-lime-800 border-lime-200';
       default:
         return 'bg-slate-100 text-slate-800 border-slate-200';
     }

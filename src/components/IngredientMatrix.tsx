@@ -1,6 +1,6 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { ProductItem } from '../types/product';
-import { Layers, HelpCircle, RotateCcw } from 'lucide-react';
+import { Layers, HelpCircle, GripVertical } from 'lucide-react';
 
 interface ColumnDef {
   id: string;
@@ -11,7 +11,7 @@ interface ColumnDef {
 
 const COLUMNS: ColumnDef[] = [
   { id: 'category', label: '약효 분류', defaultWidth: 130, minWidth: 90 },
-  { id: 'specification', label: '성분 / 함량 (Specification)', defaultWidth: 380, minWidth: 180 },
+  { id: 'specification', label: '성분 / 함량', defaultWidth: 380, minWidth: 180 },
   { id: 'summary', label: '핵심 특징 및 작용 원리 요약', defaultWidth: 400, minWidth: 180 },
   { id: 'form', label: '원료 형태', defaultWidth: 240, minWidth: 120 },
 ];
@@ -94,38 +94,133 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
     document.addEventListener('mouseup', handleMouseUp);
   };
 
-  // 너비 기본값으로 초기화
-  const handleResetWidths = () => {
-    const defaults = COLUMNS.map((c) => c.defaultWidth);
-    setColumnWidths(defaults);
-    try {
-      localStorage.removeItem(COLUMN_STORAGE_KEY);
-    } catch (e) {}
-  };
-
   // 카테고리 명칭 정규화 (비타민X 제제 -> 비타민X, X 보충 -> X)
   const normalizeCategory = (cat: string): string => {
-    let res = cat.replace(/^비타민([A-Za-z0-9]+)\s*제제$/, '비타민$1');
+    let res = (cat || '').replace(/^비타민([A-Za-z0-9]+)\s*제제$/, '비타민$1');
     res = res.replace(/\s*보충$/, '');
     return res;
   };
 
-  // 제품 내 존재하는 KPIC 약효 분류 카테고리 추출 (가나다순 정렬)
-  const availableCategories = Array.from(
-    new Set(product.ingredients.map((ing) => normalizeCategory(ing.functionalCategory)))
-  ).sort((a, b) => a.localeCompare(b, 'ko'));
+  // 제품 내 존재하는 KPIC 약효 분류 카테고리 추출 (기본: 가나다순)
+  const availableCategories = useMemo(() => {
+    return Array.from(
+      new Set(product.ingredients.map((ing) => normalizeCategory(ing.functionalCategory)))
+    ).filter(Boolean).sort((a, b) => a.localeCompare(b, 'ko'));
+  }, [product.ingredients]);
 
-  // 1차 약효 분류 가나다순, 2차 영문 성분명(English INN) 알파벳 abc순 정렬
-  const sortedIngredients = [...product.ingredients].sort((a, b) => {
-    const catA = normalizeCategory(a.functionalCategory);
-    const catB = normalizeCategory(b.functionalCategory);
-    const catComp = catA.localeCompare(catB, 'ko');
-    if (catComp !== 0) return catComp;
-
-    const nameA = a.englishInn || '';
-    const nameB = b.englishInn || '';
-    return nameA.localeCompare(nameB, 'en', { sensitivity: 'base' });
+  // 사용자가 드래그로 조정한 약효 분류 순서 (localStorage에 보관)
+  const [categoryOrder, setCategoryOrder] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(`pharmassist_cat_order_${product.id}`);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const valid = parsed.filter((c) => availableCategories.includes(c));
+          const missing = availableCategories.filter((c) => !valid.includes(c));
+          return [...valid, ...missing];
+        }
+      }
+    } catch (e) {}
+    return availableCategories;
   });
+
+  // 제품이 바뀌거나 가용 카테고리가 달라질 때 categoryOrder 동기화
+  useEffect(() => {
+    setCategoryOrder((prev) => {
+      try {
+        const saved = localStorage.getItem(`pharmassist_cat_order_${product.id}`);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            const valid = parsed.filter((c) => availableCategories.includes(c));
+            const missing = availableCategories.filter((c) => !valid.includes(c));
+            return [...valid, ...missing];
+          }
+        }
+      } catch (e) {}
+
+      const valid = prev.filter((c) => availableCategories.includes(c));
+      const missing = availableCategories.filter((c) => !valid.includes(c));
+      const combined = [...valid, ...missing];
+      return combined.length > 0 ? combined : availableCategories;
+    });
+  }, [product.id, availableCategories]);
+
+  // 카테고리 버튼 드래그 앤 드롭 상태 관리
+  const [draggedCatIndex, setDraggedCatIndex] = useState<number | null>(null);
+  const [dragOverCatIndex, setDragOverCatIndex] = useState<number | null>(null);
+  const isDraggingRef = useRef(false);
+
+  const handleCatDragStart = (e: React.DragEvent, index: number) => {
+    isDraggingRef.current = true;
+    setDraggedCatIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', String(index));
+  };
+
+  const handleCatDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverCatIndex !== index) {
+      setDragOverCatIndex(index);
+    }
+  };
+
+  const handleCatDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedCatIndex === null || draggedCatIndex === targetIndex) {
+      setDraggedCatIndex(null);
+      setDragOverCatIndex(null);
+      return;
+    }
+
+    setCategoryOrder((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(draggedCatIndex, 1);
+      next.splice(targetIndex, 0, moved);
+      try {
+        localStorage.setItem(`pharmassist_cat_order_${product.id}`, JSON.stringify(next));
+      } catch (err) {}
+      return next;
+    });
+
+    setDraggedCatIndex(null);
+    setDragOverCatIndex(null);
+  };
+
+  const handleCatDragEnd = () => {
+    setDraggedCatIndex(null);
+    setDragOverCatIndex(null);
+    setTimeout(() => {
+      isDraggingRef.current = false;
+    }, 60);
+  };
+
+  // 1차: 약효 분류 버튼 배치 순서(categoryOrder), 2차: 영문 성분명(English INN) 알파벳 abc순 정렬
+  const sortedIngredients = useMemo(() => {
+    return [...product.ingredients].sort((a, b) => {
+      const catA = normalizeCategory(a.functionalCategory);
+      const catB = normalizeCategory(b.functionalCategory);
+
+      const idxA = categoryOrder.indexOf(catA);
+      const idxB = categoryOrder.indexOf(catB);
+
+      if (idxA !== -1 && idxB !== -1) {
+        if (idxA !== idxB) return idxA - idxB;
+      } else if (idxA !== -1) {
+        return -1;
+      } else if (idxB !== -1) {
+        return 1;
+      } else {
+        const catComp = catA.localeCompare(catB, 'ko');
+        if (catComp !== 0) return catComp;
+      }
+
+      const nameA = a.englishInn || '';
+      const nameB = b.englishInn || '';
+      return nameA.localeCompare(nameB, 'en', { sensitivity: 'base' });
+    });
+  }, [product.ingredients, categoryOrder]);
 
   const filteredIngredients = selectedCategory === 'ALL'
     ? sortedIngredients
@@ -217,22 +312,17 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
         <div className="flex items-center gap-2">
           <Layers className="w-4 h-4 text-sky-600" />
           <h3 className="text-sm font-bold text-slate-900">
-            약학정보원 성분 / 함량 정보 (Ingredient Specifications)
+            성분 / 함량
           </h3>
-          <span className="text-xs bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-semibold">
-            총 {product.ingredients.length}개 성분
-          </span>
-          <button
-            onClick={handleResetWidths}
-            className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-sky-700 bg-white hover:bg-sky-50 border border-slate-200 hover:border-sky-300 px-2 py-0.5 rounded-md transition-colors shadow-2xs ml-1"
-            title="마우스로 조절한 열 너비를 기본값으로 초기화합니다"
+          <span
+            className="w-6 h-6 rounded-full bg-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center shrink-0 shadow-2xs"
+            title={`총 ${product.ingredients.length}개 성분`}
           >
-            <RotateCcw className="w-3 h-3 text-slate-400" />
-            <span>너비 초기화</span>
-          </button>
+            {product.ingredients.length}
+          </span>
         </div>
 
-        {/* 약효별 필터 칩 */}
+        {/* 약효별 필터 칩 (드래그하여 순서 재배치 가능) */}
         <div className="flex items-center gap-1.5 flex-wrap">
           <button
             onClick={() => setSelectedCategory('ALL')}
@@ -244,19 +334,45 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
           >
             전체 ({product.ingredients.length})
           </button>
-          {availableCategories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-2.5 py-1 text-xs rounded-md font-medium transition-all ${
-                selectedCategory === cat
-                  ? 'bg-sky-700 text-white shadow-xs'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
+          {categoryOrder.map((cat, idx) => {
+            const isSelected = selectedCategory === cat;
+            const isDraggingThis = draggedCatIndex === idx;
+            const isOverThis = dragOverCatIndex === idx;
+
+            return (
+              <button
+                key={cat}
+                draggable
+                onDragStart={(e) => handleCatDragStart(e, idx)}
+                onDragOver={(e) => handleCatDragOver(e, idx)}
+                onDrop={(e) => handleCatDrop(e, idx)}
+                onDragEnd={handleCatDragEnd}
+                onClick={() => {
+                  if (isDraggingRef.current) return;
+                  setSelectedCategory(cat);
+                }}
+                title={`${cat} (드래그하여 순서 변경 가능)`}
+                className={`group inline-flex items-center gap-1 px-2.5 py-1 text-xs rounded-md font-medium transition-all select-none cursor-grab active:cursor-grabbing ${
+                  isSelected
+                    ? 'bg-sky-700 text-white shadow-xs'
+                    : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                } ${
+                  isDraggingThis ? 'opacity-40 scale-95 border-dashed border-sky-400' : ''
+                } ${
+                  isOverThis && !isDraggingThis ? 'ring-2 ring-sky-500 ring-offset-1 border-sky-500' : ''
+                }`}
+              >
+                <GripVertical
+                  className={`w-3 h-3 -ml-0.5 transition-opacity ${
+                    isSelected
+                      ? 'text-sky-200 opacity-60 group-hover:opacity-100'
+                      : 'text-slate-400 opacity-40 group-hover:opacity-80'
+                  }`}
+                />
+                <span>{cat}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 

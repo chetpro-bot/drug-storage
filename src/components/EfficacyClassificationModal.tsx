@@ -25,7 +25,6 @@ import {
   ChevronRight,
   Layers,
   TableProperties,
-  Pill,
   ExternalLink
 } from 'lucide-react';
 
@@ -945,28 +944,21 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
 
           {/* 2. 해당 노드에 소속된 성분 목록 렌더링 */}
           {node.ingredients.length > 0 && (
-            <div className="ml-3 md:ml-6 mt-2 space-y-1">
-              <div className="text-[11px] font-bold text-slate-600 px-2 py-1 flex items-center gap-1.5">
-                <Pill className="w-3.5 h-3.5 text-[#246BEB]" />
-                <span>소속 성분 목록 ({node.ingredients.length}개)</span>
-              </div>
-
-              <div className="bg-white rounded-lg border border-slate-200 divide-y divide-slate-100 overflow-hidden shadow-2xs">
-                {node.ingredients.map((ing) => (
-                  <TreeIngredientRow
-                    key={ing.key}
-                    ing={ing}
-                    editingKey={editingKey}
-                    editCategoryVal={editCategoryVal}
-                    customInputMode={customInputMode}
-                    uniqueCategories={uniqueCategories}
-                    setEditingKey={setEditingKey}
-                    setEditCategoryVal={setEditCategoryVal}
-                    setCustomInputMode={setCustomInputMode}
-                    onSaveCategory={onSaveCategory}
-                  />
-                ))}
-              </div>
+            <div className="ml-3 md:ml-6 mt-1.5 bg-white rounded-lg border border-slate-200 divide-y divide-slate-100 overflow-hidden shadow-2xs">
+              {node.ingredients.map((ing) => (
+                <TreeIngredientRow
+                  key={ing.key}
+                  ing={ing}
+                  editingKey={editingKey}
+                  editCategoryVal={editCategoryVal}
+                  customInputMode={customInputMode}
+                  uniqueCategories={uniqueCategories}
+                  setEditingKey={setEditingKey}
+                  setEditCategoryVal={setEditCategoryVal}
+                  setCustomInputMode={setCustomInputMode}
+                  onSaveCategory={onSaveCategory}
+                />
+              ))}
             </div>
           )}
         </div>

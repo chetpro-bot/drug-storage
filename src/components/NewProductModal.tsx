@@ -10,7 +10,13 @@ import {
   PublicDataFetchResult, 
   PublicDrugMasterItem 
 } from '../services/publicDataService';
-import { recognizeAndParsePackageImage, parseNutritionLabelText, OcrParseResult } from '../services/labelOcrService';
+import { 
+  recognizeUniversalDocument,
+  parseNutritionLabelText, 
+  parseKpicEfficacyText,
+  OcrParseResult 
+} from '../services/labelOcrService';
+import { saveLearnedIngredientMapping } from '../utils/innMapper';
 import { 
   X, 
   Search, 
@@ -20,13 +26,13 @@ import {
   Trash2, 
   Loader2, 
   ShieldCheck, 
-  Camera, 
   Upload, 
   Sparkles,
   AlertTriangle,
   Check,
   RotateCcw,
-  FileSearch
+  FileSearch,
+  Paperclip
 } from 'lucide-react';
 
 interface NewProductModalProps {
@@ -253,6 +259,33 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
     });
   };
 
+  // 첨부된 약학정보원 캡처/텍스트 약효분류를 현재 성분표에 반영하고 학습 사전에 저장
+  const applyKpicMappings = (kpicList: { ingredientName: string; category: string }[]) => {
+    if (kpicList.length === 0) return;
+
+    setVerifiedIngredients((prev) => {
+      return prev.map((ing) => {
+        const found = kpicList.find((km) => {
+          const kName = km.ingredientName.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+          const ingName = ing.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+          return kName.includes(ingName) || ingName.includes(kName);
+        });
+
+        if (found) {
+          // 성분 사전에 영구 학습 저장
+          saveLearnedIngredientMapping(ing.englishInn, {
+            functionalCategory: found.category
+          });
+          return {
+            ...ing,
+            functionalCategory: found.category
+          };
+        }
+        return ing;
+      });
+    });
+  };
+
   const processOcrFile = async (file: File) => {
     if (!file.type.startsWith('image/')) {
       alert('이미지 파일(JPG, PNG 등)을 선택해주세요.');
@@ -267,22 +300,29 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
     setOcrImagePreview(previewUrl);
 
     try {
-      const result = await recognizeAndParsePackageImage(file, (progress, status) => {
+      const docResult = await recognizeUniversalDocument(file, (progress, status) => {
         setOcrProgress(progress);
         setOcrStatusMessage(status);
       });
 
-      setOcrRawText(result.rawOcrText);
+      setOcrRawText(docResult.rawText);
 
-      if (result.parsedIngredients.length === 0) {
-        alert('라벨에서 영양성분을 감지하지 못했습니다. 글씨가 선명한 사진을 다시 선택해주세요.');
+      // 1. 약학정보원 KPIC 약효분류 포맷인 경우: 기존 성분의 기능 분류를 즉시 자동 갱신 및 학습
+      if (docResult.isKpicFormat && docResult.kpicMappings.length > 0) {
+        applyKpicMappings(docResult.kpicMappings);
+        alert(`약학정보원(KPIC) 약효분류 ${docResult.kpicMappings.length}건이 성공적으로 인식되어 성분 분류에 반영되었습니다!`);
         return;
       }
 
-      applyOcrResult(result);
+      // 2. 패키지 영양·기능정보표(건기식/식품)인 경우: 성분 및 섭취량 정규화 파싱
+      if (docResult.nutritionParsed.parsedIngredients.length > 0) {
+        applyOcrResult(docResult.nutritionParsed);
+      } else {
+        alert('첨부 자료에서 약효분류 또는 영양성분표를 감지하지 못했습니다. 선명한 캡처 사진을 다시 선택해주세요.');
+      }
     } catch (err: any) {
       console.error('OCR 파싱 실패:', err);
-      alert('라벨 인식 중 오류가 발생했습니다: ' + (err?.message || '이미지를 확인해주세요'));
+      alert('자료 인식 중 오류가 발생했습니다: ' + (err?.message || '이미지를 확인해주세요'));
     } finally {
       setIsOcrLoading(false);
     }
@@ -295,9 +335,20 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
     }
   };
 
-  // 실물 라벨 텍스트 수동 재파싱
+  // 자료 원문 텍스트 직접 재파싱 (약학정보원 텍스트 복사/붙여넣기 지원)
   const handleReparseRawText = () => {
     if (!ocrRawText.trim()) return;
+
+    // 약학정보원 약효분류 텍스트 검사
+    const kpicList = parseKpicEfficacyText(ocrRawText);
+    if (kpicList.length > 0) {
+      applyKpicMappings(kpicList);
+      setShowRawTextEditor(false);
+      alert(`약학정보원(KPIC) 약효분류 ${kpicList.length}건이 성분표에 반영되었습니다.`);
+      return;
+    }
+
+    // 건기식 영양정보표 검사
     const result = parseNutritionLabelText(ocrRawText);
     applyOcrResult(result);
     setShowRawTextEditor(false);
@@ -616,15 +667,15 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
                 <button
                   type="button"
                   onClick={() => setShowOcrPanel(!showOcrPanel)}
-                  className={`px-2.5 py-2 rounded-lg font-bold text-[11px] border transition-all flex items-center gap-1 shrink-0 ${
+                  className={`px-3 py-2 rounded-lg font-bold text-[11px] border transition-all flex items-center gap-1.5 shrink-0 shadow-2xs ${
                     showOcrPanel
                       ? 'bg-purple-700 text-white border-purple-800'
                       : 'bg-purple-50 text-purple-700 border-purple-300 hover:bg-purple-100'
                   }`}
-                  title="건기식 패키지 뒷면 영양·기능정보표 사진 AI OCR 자동 파싱"
+                  title="약학정보원 캡처, 제약사 학술 자료, 건기식 라벨 사진을 첨부하여 약효분류 및 성분을 자동 동기화합니다"
                 >
-                  <Camera className="w-3.5 h-3.5" />
-                  <span>라벨 사진 OCR</span>
+                  <Paperclip className="w-3.5 h-3.5" />
+                  <span>자료 첨부</span>
                 </button>
               </div>
             </div>
@@ -745,16 +796,16 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
               </div>
             )}
 
-            {/* 건기식 전용 패키지 영양·기능정보표 사진 AI OCR 분석기 */}
+            {/* 자료 첨부 (약학정보원 캡처, 제약사 학술자료, 건기식 라벨 AI 파서) */}
             {showOcrPanel && (
               <div className="p-4 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 rounded-xl space-y-3 animate-in fade-in">
                 <div className="flex items-center justify-between">
                   <span className="font-bold text-purple-950 flex items-center gap-1.5 text-xs">
-                    <Sparkles className="w-4 h-4 text-purple-600" />
-                    <span>건기식 전용 [제품 패키지 영양정보표 사진 AI OCR / 라벨 파서]</span>
+                    <Paperclip className="w-4 h-4 text-purple-600" />
+                    <span>[자료 첨부] 약학정보원(KPIC) 캡처 · 제약사 브로슈어 · 영양정보표 자동 동기화</span>
                   </span>
                   <span className="text-[11px] text-purple-700 bg-purple-100 px-2 py-0.5 rounded font-medium">
-                    클립보드 붙여넣기(Ctrl+V) 지원
+                    클립보드 이미지/텍스트 붙여넣기(Ctrl+V) 지원
                   </span>
                 </div>
 
@@ -792,10 +843,10 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({ isOpen, onClos
                           </div>
                           <div>
                             <p className="text-xs font-bold text-slate-800">
-                              영양·기능정보표 사진을 선택하거나 여기로 드래그하세요
+                              약학정보원 캡처, 제약사 자료, 영양성분표 사진을 첨부하세요
                             </p>
                             <p className="text-[11px] text-slate-500">
-                              스마트폰 촬영 사진(JPG, PNG) 또는 캡처 이미지 붙여넣기(Ctrl+V)
+                              파일 선택 또는 화면 캡처 후 <b>Ctrl+V</b>로 즉시 붙여넣을 수 있습니다.
                             </p>
                           </div>
                         </div>

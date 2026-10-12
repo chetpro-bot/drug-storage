@@ -13,6 +13,39 @@ export interface InnMappingMeta {
   elementalRatio?: number; // 원소 환산비 (예: 산화아연 0.803, 글루콘산아연 0.1435)
 }
 
+const LEARNED_DICT_STORAGE_KEY = 'pharmassist_learned_inn_dict_v1';
+
+function getLearnedDict(): Record<string, InnMappingMeta> {
+  try {
+    const saved = localStorage.getItem(LEARNED_DICT_STORAGE_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch (e) {
+    console.warn('학습 성분 사전 로드 실패:', e);
+  }
+  return {};
+}
+
+/**
+ * 약학정보원 캡처/자료로부터 학습된 새로운 성분 및 KPIC 약효분류 영구 저장
+ */
+export function saveLearnedIngredientMapping(nameOrInn: string, meta: Partial<InnMappingMeta>) {
+  try {
+    const current = getLearnedDict();
+    const cleanKey = nameOrInn.trim().toLowerCase();
+    current[cleanKey] = {
+      englishInn: meta.englishInn || nameOrInn,
+      functionalCategory: meta.functionalCategory || '소화효소제',
+      chemicalFormName: meta.chemicalFormName || '표준 규격 원료',
+      defaultUnit: meta.defaultUnit || 'mg',
+      clinicalSummary: meta.clinicalSummary || `• ${nameOrInn} 약효 및 대사 조절 작용`,
+      ...meta
+    } as InnMappingMeta;
+    localStorage.setItem(LEARNED_DICT_STORAGE_KEY, JSON.stringify(current));
+  } catch (e) {
+    console.warn('학습 성분 사전 저장 실패:', e);
+  }
+}
+
 export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   // 비타민 B군
   '벤포티아민': {
@@ -627,17 +660,23 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
       nameRaw = engKorMatch[2].trim();
     }
 
-    // 사전에서 매핑되는 영문 INN 찾기 (부분 일치 검사)
+    // 사전에서 매핑되는 영문 INN 찾기 (학습 사전 + 기본 사전 부분 일치 검사)
+    const learnedDict = getLearnedDict();
+    const combinedDict: Record<string, InnMappingMeta> = { ...INN_DICTIONARY, ...learnedDict };
+
     let matchedKey: string | null = null;
-    for (const dictKey of Object.keys(INN_DICTIONARY)) {
-      if (nameRaw.includes(dictKey) || dictKey.includes(nameRaw)) {
+    const lookupKey = (detectedInn || nameRaw).toLowerCase();
+
+    for (const dictKey of Object.keys(combinedDict)) {
+      const cleanDictKey = dictKey.toLowerCase();
+      if (lookupKey.includes(cleanDictKey) || cleanDictKey.includes(lookupKey) || nameRaw.includes(dictKey) || dictKey.includes(nameRaw)) {
         matchedKey = dictKey;
         break;
       }
     }
 
     if (matchedKey) {
-      const meta = INN_DICTIONARY[matchedKey];
+      const meta = combinedDict[matchedKey];
       const finalElemental = elementalAmount ?? (meta.elementalRatio ? +(amount * meta.elementalRatio).toFixed(2) : undefined);
 
       results.push({

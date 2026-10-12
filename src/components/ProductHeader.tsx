@@ -1,11 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ProductItem } from '../types/product';
 import { useProductStore } from '../stores/useProductStore';
+import { recognizeUniversalDocument } from '../services/labelOcrService';
+import { saveLearnedIngredientMapping } from '../utils/innMapper';
 import { 
   Building2, 
   Clock, 
   Tag, 
-  Trash2
+  Trash2,
+  Paperclip
 } from 'lucide-react';
 
 interface ProductHeaderProps {
@@ -13,7 +16,8 @@ interface ProductHeaderProps {
 }
 
 export const ProductHeader: React.FC<ProductHeaderProps> = ({ product }) => {
-  const { deleteProduct } = useProductStore();
+  const { deleteProduct, updateProduct } = useProductStore();
+  const [isProcessingDoc, setIsProcessingDoc] = useState(false);
 
 
   const getClassificationBadge = () => {
@@ -127,6 +131,68 @@ export const ProductHeader: React.FC<ProductHeaderProps> = ({ product }) => {
         {/* 우측 액션: 관리 액션 */}
         <div className="flex flex-col items-end gap-2.5 shrink-0">
           <div className="flex items-center gap-2">
+            {/* 기존 등록 제품에 자료 첨부하여 약효/성분 자동 갱신 */}
+            <label
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-purple-700 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-colors font-bold cursor-pointer shadow-2xs"
+              title="약학정보원 캡처, 제약사 학술 자료, 영양성분표 사진을 첨부하여 약효분류 및 성분을 자동 동기화합니다"
+            >
+              <Paperclip className="w-3.5 h-3.5 text-purple-600" />
+              <span>자료 첨부</span>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={isProcessingDoc}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setIsProcessingDoc(true);
+                  try {
+                    const result = await recognizeUniversalDocument(file);
+                    
+                    // 1. 약학정보원 KPIC 약효분류 갱신
+                    if (result.isKpicFormat && result.kpicMappings.length > 0) {
+                      const updatedIngredients = product.ingredients.map((ing) => {
+                        const found = result.kpicMappings.find((km) => {
+                          const kName = km.ingredientName.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+                          const ingName = ing.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+                          return kName.includes(ingName) || ingName.includes(kName);
+                        });
+                        if (found) {
+                          saveLearnedIngredientMapping(ing.englishInn, { functionalCategory: found.category });
+                          return { ...ing, functionalCategory: found.category };
+                        }
+                        return ing;
+                      });
+
+                      await updateProduct(product.id, { ingredients: updatedIngredients });
+                      alert(`약학정보원(KPIC) 약효분류 ${result.kpicMappings.length}건이 성분표에 성공적으로 업데이트되었습니다!`);
+                      return;
+                    }
+
+                    // 2. 건기식 라벨 파싱 갱신
+                    if (result.nutritionParsed.parsedIngredients.length > 0) {
+                      await updateProduct(product.id, {
+                        ingredients: result.nutritionParsed.parsedIngredients,
+                        dailyServings: result.nutritionParsed.servingInfo.dailyServings,
+                        amountPerServing: result.nutritionParsed.servingInfo.amountPerServing,
+                        servingUnitKorean: result.nutritionParsed.servingInfo.servingUnit
+                      });
+                      alert('첨부 자료의 영양성분표가 제품 성분표에 성공적으로 업데이트되었습니다!');
+                      return;
+                    }
+
+                    alert('첨부 자료에서 약효분류 또는 영양성분표를 인식하지 못했습니다. 글씨가 선명한 캡처 사진을 확인해주세요.');
+                  } catch (err: any) {
+                    console.error('자료 분석 오류:', err);
+                    alert('자료 분석 중 오류가 발생했습니다: ' + (err?.message || '파일을 확인해주세요'));
+                  } finally {
+                    setIsProcessingDoc(false);
+                  }
+                }}
+              />
+            </label>
+
             <button
               onClick={() => {
                 if (window.confirm(`'${product.productName}' 품목을 약국 데이터베이스에서 삭제하시겠습니까?`)) {
@@ -140,6 +206,11 @@ export const ProductHeader: React.FC<ProductHeaderProps> = ({ product }) => {
               <span>품목 삭제</span>
             </button>
           </div>
+          {isProcessingDoc && (
+            <span className="text-[11px] font-bold text-purple-600 animate-pulse flex items-center gap-1">
+              자료 분석 및 약효분류 갱신 중...
+            </span>
+          )}
         </div>
       </div>
     </div>

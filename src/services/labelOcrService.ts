@@ -441,3 +441,98 @@ export async function recognizeAndParsePackageImage(
   if (onProgress) onProgress(100, '라벨 분석 완료!');
   return parsed;
 }
+
+export interface KpicEfficacyMapping {
+  ingredientName: string;
+  category: string;
+  rawLine?: string;
+}
+
+/**
+ * 약학정보원(KPIC) 약효분류 텍스트/캡처 추출 텍스트 파싱 유틸리티
+ * 예: "Bromelain 감염성질환 > 소염효소제 > 소염효소"
+ * 예: "Diastase·Protease 100 소화기계질환 > 기타 약물 > 소화효소제"
+ * 예: "Simethicone 소화기계질환 > 기타 약물 > 장내 가스 제거제"
+ */
+export function parseKpicEfficacyText(rawText: string): KpicEfficacyMapping[] {
+  const lines = rawText.split(/[\r\n]+/).map(l => l.trim()).filter(Boolean);
+  const mappings: KpicEfficacyMapping[] = [];
+
+  for (const line of lines) {
+    // 1. 화살표(>) 또는 공백으로 나뉜 트리 파싱
+    // 예: "Simethicone 소화기계질환 > 기타 약물 > 장내 가스 제거제"
+    // 예: "Ursodeoxycholic Acid 소화기계질환 > 간장ㆍ담낭ㆍ췌장질환 치료 > 담석용해제"
+    if (line.includes('>') || line.includes('〉') || line.includes('약효분류')) {
+      // 가장 마지막 분류명 (예: "장내 가스 제거제", "소화효소제", "소염효소") 추출
+      const arrowParts = line.split(/[>〉]/).map(s => s.trim());
+      const finalCategory = arrowParts[arrowParts.length - 1];
+      
+      // 앞쪽 성분명 추출
+      const firstPart = arrowParts[0];
+      // 영문 성분명 추출 (예: "Diastase·Protease 100", "Simethicone", "Bromelain", "Ursodeoxycholic Acid")
+      const ingMatch = firstPart.match(/([A-Za-z0-9\s·\-\.\%]+?)(?:\s+[가-힣]|$)/);
+      const ingredientName = ingMatch ? ingMatch[1].trim() : firstPart.split(/\s+/)[0].trim();
+
+      if (ingredientName && finalCategory) {
+        mappings.push({
+          ingredientName,
+          category: finalCategory.replace(/[\*\#\:]/g, '').trim(),
+          rawLine: line
+        });
+      }
+    } else {
+      // 단순 공백 분리 형태 (예: "Simethicone 장내 가스 제거제", "판크레아틴 소화효소제")
+      const words = line.split(/\s+/);
+      if (words.length >= 2) {
+        const potentialName = words[0];
+        const potentialCat = words.slice(1).join(' ');
+        if (/^[A-Za-z가-힣0-9·\-]+$/.test(potentialName) && potentialCat.length <= 15) {
+          mappings.push({
+            ingredientName: potentialName,
+            category: potentialCat,
+            rawLine: line
+          });
+        }
+      }
+    }
+  }
+
+  return mappings;
+}
+
+/**
+ * 자료 첨부 (약학정보원 캡처, 제약사 브로슈어, 라벨 사진) 범용 OCR 분석기
+ */
+export async function recognizeUniversalDocument(
+  imageFile: File | Blob,
+  onProgress?: (progress: number, status: string) => void
+): Promise<{
+  rawText: string;
+  isKpicFormat: boolean;
+  kpicMappings: KpicEfficacyMapping[];
+  nutritionParsed: OcrParseResult;
+}> {
+  if (onProgress) onProgress(10, '자료 이미지 선명도 최적화 중...');
+  const processedDataUrl = await preprocessImageForOcr(imageFile);
+
+  if (onProgress) onProgress(30, 'OCR 인공지능 엔진 초기화 중...');
+  const worker = await getOcrWorker(onProgress);
+
+  if (onProgress) onProgress(50, '첨부 자료 글자 정밀 판독 중...');
+  const result = await worker.recognize(processedDataUrl);
+  const rawText = result.data.text;
+
+  if (onProgress) onProgress(85, '약효분류 및 성분 스펙 구조화 중...');
+  const kpicMappings = parseKpicEfficacyText(rawText);
+  const nutritionParsed = parseNutritionLabelText(rawText);
+  const isKpicFormat = kpicMappings.length > 0 || rawText.includes('약효분류') || rawText.includes('소화기계');
+
+  if (onProgress) onProgress(100, '자료 판독 완료!');
+
+  return {
+    rawText,
+    isKpicFormat,
+    kpicMappings,
+    nutritionParsed
+  };
+}

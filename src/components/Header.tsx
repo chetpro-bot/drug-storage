@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Pill, Monitor, ShieldCheck, Cloud, RefreshCw, Download, CheckCircle2, SlidersHorizontal, LayoutGrid, Table2 } from 'lucide-react';
+import { Pill, Monitor, ShieldCheck, Cloud, RefreshCw, Download, CheckCircle2, SlidersHorizontal } from 'lucide-react';
 import { useProductStore } from '../stores/useProductStore';
 import { APP_VERSION } from '../version';
 import { EfficacyClassificationModal } from './EfficacyClassificationModal';
 
 export const Header: React.FC = () => {
-  const { isLiveSyncActive, isSyncing, viewMode, setViewMode } = useProductStore();
+  const { isLiveSyncActive, isSyncing } = useProductStore();
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isStandalone, setIsStandalone] = useState(false);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -52,52 +52,21 @@ export const Header: React.FC = () => {
   };
 
   return (
-    <header className="h-14 bg-slate-900 border-b border-slate-800 text-white px-5 flex items-center justify-between shrink-0 select-none">
-      <div className="flex items-center gap-4">
-        <div
-          onClick={() => setViewMode('CATALOG')}
-          className="flex items-center gap-3 cursor-pointer"
-          title="효능별 제품 카탈로그 그리드 홈으로 이동"
-        >
-          <div className="w-8 h-8 rounded-lg bg-sky-500 flex items-center justify-center text-white shadow-md">
-            <Pill className="w-5 h-5" />
-          </div>
-          <div className="flex items-baseline gap-2">
-            <h1 className="text-base font-bold tracking-tight text-white flex items-center gap-1.5">
-              PharmAssist Pro
-              <span className="text-[10px] font-mono font-medium text-slate-400 bg-slate-800 px-1.5 py-0.2 rounded border border-slate-700">
-                v{APP_VERSION}
-              </span>
-            </h1>
-          </div>
+    <header className="h-14 bg-slate-900 border-b border-slate-800 text-white px-6 flex items-center justify-between shrink-0 select-none">
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-sky-500 flex items-center justify-center text-white shadow-md">
+          <Pill className="w-5 h-5" />
         </div>
-
-        {/* 화면 모드 전환 탭 (효능별 카탈로그 카드뷰 vs 제품 상세 성분 매트릭스) */}
-        <div className="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700 text-xs">
-          <button
-            type="button"
-            onClick={() => setViewMode('CATALOG')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-              viewMode === 'CATALOG'
-                ? 'bg-sky-500 text-white shadow-xs'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <LayoutGrid className="w-3.5 h-3.5" />
-            <span>효능별 카탈로그 (카드뷰)</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewMode('DETAIL')}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg font-bold transition-all cursor-pointer ${
-              viewMode === 'DETAIL'
-                ? 'bg-sky-500 text-white shadow-xs'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Table2 className="w-3.5 h-3.5" />
-            <span>제품 상세 성분표</span>
-          </button>
+        <div className="flex items-baseline gap-2.5">
+          <h1 className="text-base font-bold tracking-tight text-white flex items-center gap-1.5">
+            PharmAssist Pro
+            <span className="text-[10px] font-mono font-medium text-slate-400 bg-slate-800 px-1.5 py-0.2 rounded border border-slate-700">
+              v{APP_VERSION}
+            </span>
+          </h1>
+          <span className="text-xs font-semibold px-2.5 py-0.5 rounded bg-sky-950 text-sky-400 border border-sky-800">
+            약국 영양제 & 일반의약품 상담 카탈로그
+          </span>
         </div>
       </div>
 

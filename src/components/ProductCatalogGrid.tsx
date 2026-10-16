@@ -24,11 +24,13 @@ import {
 
 interface ProductCatalogGridProps {
   onOpenNewProductModal: () => void;
+  onSelectProduct: (product: ProductItem) => void;
   onEditProduct?: (product: ProductItem) => void;
 }
 
 export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
   onOpenNewProductModal,
+  onSelectProduct,
   onEditProduct
 }) => {
   const {
@@ -40,7 +42,6 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
     selectedTag,
     setSelectedTag,
     setSelectedProductId,
-    setViewMode,
     updateProduct,
     getFilteredProducts
   } = useProductStore();
@@ -155,10 +156,10 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
     setEditingPriceId(null);
   };
 
-  // 카드 클릭 시 상세 정보 뷰로 이동
-  const handleSelectProductCard = (productId: string) => {
-    setSelectedProductId(productId);
-    setViewMode('DETAIL');
+  // 카드 클릭 시 상세 정보 팝업 모달 열기
+  const handleSelectProductCard = (product: ProductItem) => {
+    setSelectedProductId(product.id);
+    onSelectProduct(product);
   };
 
   const getClassificationInfo = (classification: ProductClassification) => {
@@ -409,7 +410,7 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
             {filteredProducts.map((product) => {
               const classInfo = getClassificationInfo(product.classification);
               const thumbnail = getProductThumbnail(product);
@@ -420,7 +421,7 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
               return (
                 <div
                   key={product.id}
-                  onClick={() => handleSelectProductCard(product.id)}
+                  onClick={() => handleSelectProductCard(product)}
                   className={`group bg-slate-800/90 hover:bg-slate-800 border border-slate-700/90 ${classInfo.accentBorder} rounded-2xl p-3.5 flex flex-col justify-between transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-black/40 cursor-pointer`}
                 >
                   <div>

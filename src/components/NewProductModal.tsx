@@ -17,7 +17,7 @@ import {
 } from '../services/labelOcrService';
 import { saveLearnedIngredientMapping } from '../utils/innMapper';
 import { STANDARD_EFFICACY_CATEGORIES } from '../utils/categoryColors';
-import { STANDARD_EFFICACY_TAGS } from '../constants/efficacyTags';
+import { STANDARD_EFFICACY_TAGS, inferInitialEfficacyTags } from '../constants/efficacyTags';
 import { 
   X, 
   Search, 
@@ -283,6 +283,17 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
     setDosageInstruction(result.dosageInstruction);
     setIndicationsText(result.indicationsSummary.join(', '));
     setVerifiedIngredients(result.parsedIngredients);
+
+    if (!isEditMode) {
+      const suggestedTags = inferInitialEfficacyTags(
+        result.productName,
+        result.indicationsSummary,
+        result.parsedIngredients
+      );
+      if (suggestedTags.length > 0) {
+        setTags(suggestedTags.join(', '));
+      }
+    }
   };
 
   // 약학정보원/식약처 검색 결과에서 특정 제품을 선택했을 때

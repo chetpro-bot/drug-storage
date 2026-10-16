@@ -78,3 +78,29 @@ export const searchHealthFoodProxy = onRequest({ cors: true }, async (req, res) 
     res.status(500).json({ error: error.message || "식품안전나라 수집 중 오류가 발생했습니다." });
   }
 });
+
+/**
+ * 의약품안전나라(nedrug.mfds.go.kr) 품목 상세 원문 허가증(원료약품 및 분량/환산량) 프록시
+ */
+export const nedrugItemDetailProxy = onRequest({ cors: true }, async (req, res) => {
+  try {
+    const { itemSeq } = req.query;
+    if (!itemSeq) {
+      res.status(400).json({ error: "품목기준코드(itemSeq) 파라미터가 필요합니다." });
+      return;
+    }
+
+    const targetUrl = `https://nedrug.mfds.go.kr/pbp/CCBBB01/getItemDetail?itemSeq=${encodeURIComponent(String(itemSeq))}`;
+    const response = await fetch(targetUrl);
+    if (!response.ok) {
+      throw new Error(`의약품안전나라 응답 오류: ${response.status}`);
+    }
+
+    const html = await response.text();
+    res.status(200).send(html);
+  } catch (error: any) {
+    logger.error("의약품안전나라 프록시 오류:", error);
+    res.status(500).json({ error: error.message || "의약품안전나라 상세 수집 중 오류가 발생했습니다." });
+  }
+});
+

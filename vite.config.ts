@@ -16,5 +16,12 @@ export default defineConfig({
   server: {
     port: 3000,
     open: false,
+    proxy: {
+      '/api/nedrug': {
+        target: 'https://nedrug.mfds.go.kr',
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/api\/nedrug/, ''),
+      },
+    },
   },
 });

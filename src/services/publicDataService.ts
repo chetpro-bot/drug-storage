@@ -1,6 +1,6 @@
 import { ProductClassification, DosageForm } from '../types/classification';
 import { ProductIngredientEntry } from '../types/ingredient';
-import { parseRawIngredientString } from '../utils/innMapper';
+import { parseRawIngredientString, INN_DICTIONARY } from '../utils/innMapper';
 
 export type PublicDataSourceOrigin =
   | '약학정보원(KPAIC) DB'
@@ -78,24 +78,24 @@ export const PUBLIC_DRUG_DATABASE: PublicDrugMasterItem[] = [
     dailyServings: 1,
     amountPerServing: 1,
     servingUnitKorean: '정',
-    regulatoryCode: '202204118',
-    rawIngredientsText: `Benfotiamine 벤포티아민 100mg (티아민염산염으로서 72.31mg)
-Biotin 비오틴 0.1mg
-Bisbenthiamine 비스벤티아민 30mg (티아민염산염으로서 26.25mg)
-Calcium Pantothenate 판토텐산칼슘 100mg
-Cholecalciferol Concentrated 농축콜레칼시페롤 10mg (비타민D로서 1000IU)
-Choline Bitartrate 콜린타르타르산염 50mg
-Folic Acid 폴산 0.5mg
-Inositol 이노시톨 50mg
-Magnesium Oxide 산화마그네슘 100mg (마그네슘으로서 60.3mg)
-Mecobalamin 메코발라민 0.5mg
-Nicotinamide 니코틴산아미드 50mg
-Pyridoxal Phosphate Hydrate 피리독살포스페이트수화물 10mg
-Riboflavin Butyrate 리보플라빈부티레이트 25mg
-Selenium in Dried Yeast 셀레늄함유건조효모 46.29mg (셀레늄으로서 25ug)
-Tocopherol Acetate 50% 토코페롤아세테이트 20mg (비타민E로서 10IU)
-Ursodeoxycholic Acid 우르소데옥시콜산 15mg
-Zinc Oxide 산화아연 18.7mg (아연으로서 15mg)`,
+    regulatoryCode: '202301266',
+    rawIngredientsText: `벤포티아민 (Benfotiamine) 100mg (티아민염산염으로서 72.31mg)
+판토텐산칼슘 (Calcium Pantothenate) 100mg
+산화마그네슘 (Magnesium Oxide) 100mg (마그네슘으로서 60.3mg)
+니코틴산아미드 (Nicotinamide) 50mg
+콜린타르타르산염 (Choline Bitartrate) 50mg
+이노시톨 (Inositol) 50mg
+셀레늄함유건조효모 (Selenium in Dried Yeast) 46.29mg (셀레늄으로서 25μg)
+비스벤티아민 (Bisbenthiamine) 30mg (티아민염산염으로서 26.25mg)
+리보플라빈부티레이트 (Riboflavin Butyrate) 25mg
+토코페롤아세테이트50% (Tocopherol Acetate 50%) 20mg (비타민E로서 10IU)
+산화아연 (Zinc Oxide) 18.7mg (아연으로서 15mg)
+우르소데옥시콜산 (Ursodeoxycholic Acid) 15mg
+농축콜레칼시페롤 (Cholecalciferol Concentrate) 10mg (비타민D로서 1,000IU)
+피리독살포스페이트수화물 (Pyridoxal Phosphate Hydrate) 10mg
+폴산 (Folic Acid) 0.5mg
+메코발라민 (Mecobalamin) 0.5mg
+비오틴 (Biotin) 0.1mg`,
     dosageInstruction: '만 12세 이상 및 성인: 1일 1회, 1회 1정 식후 복용',
     indicationsSummary: [
       '비타민 B1, B2, B6, D, E의 보급: 육체피로, 병중·병후 체력 저하 시',
@@ -507,28 +507,28 @@ L-Cysteine L-시스테인 25mg`,
     dailyServings: 1,
     amountPerServing: 1,
     servingUnitKorean: '정',
-    regulatoryCode: '202300072',
-    rawIngredientsText: `Benfotiamine 벤포티아민 100mg (티아민염산염으로서 72.3mg)
-Bisbenthiamine 비스벤티아민 30mg (티아민염산염으로서 26.2mg)
-Riboflavin Butyrate 리보플라빈부티레이트 50mg
-Nicotinamide 니코틴산아미드 10mg
-Calcium Pantothenate 판토텐산칼슘 100mg
-Pyridoxal Phosphate Hydrate 피리독살포스페이트수화물 50mg
-Mecobalamin 메코발라민 1000ug
-Biotin 비오틴 0.2mg
-Folic Acid 폴산 0.5mg
-Ascorbic Acid Coated 제피아스코르브산 51.15mg (아스코르브산으로서 50mg)
-Cholecalciferol Concentrate Powder 콜레칼시페롤농축분말 10mg (비타민D로서 1000IU)
-Tocopherol Acetate 50% 토코페롤아세테이트 20mg (비타민E로서 10IU)
-Choline Bitartrate 콜린타르타르산염 100mg
-Inositol 이노시톨 100mg
-Magnesium Oxide 산화마그네슘 100mg (마그네슘으로서 60.3mg)
-Zinc Oxide 산화아연 30mg (아연으로서 24.1mg)
-Ursodeoxycholic Acid 우르소데옥시콜산 60mg
-Taurine 타우린 100mg
-Gamma-oryzanol 감마-오리자놀 3mg
-Selenium in Dried Yeast 셀레늄함유건조효모 40.8mg (셀레늄으로서 22ug)
-Chromium in Dried Yeast 크롬함유건조효모 20mg (크롬으로서 40ug)`,
+    regulatoryCode: '202300436',
+    rawIngredientsText: `벤포티아민 (Benfotiamine) 100mg (티아민염산염으로서 72.3mg)
+비스벤티아민 (Bisbenthiamine) 30mg (티아민염산염으로서 26.2mg)
+리보플라빈부티레이트 (Riboflavin Butyrate) 50mg (리보플라빈으로서 28.7mg)
+니코틴산아미드 (Nicotinamide) 10mg
+판토텐산칼슘 (Calcium Pantothenate) 100mg
+피리독살포스페이트수화물 (Pyridoxal Phosphate Hydrate) 50mg
+비오틴 (Biotin) 0.2mg
+폴산 (Folic Acid) 0.5mg
+메코발라민 (Mecobalamin) 1mg
+제피아스코르브산 (Ascorbic Acid Coated) 51.15mg (아스코르브산으로서 50mg)
+타우린 (Taurine) 100mg
+크롬함유건조효모 (Chromium in Dried Yeast) 20mg (크롬으로서 10μg)
+이노시톨 (Inositol) 100mg
+콜레칼시페롤농축분말 (Cholecalciferol Concentrate Powder) 10mg (비타민D로서 1,000IU)
+콜린타르타르산염 (Choline Bitartrate) 100mg
+산화아연 (Zinc Oxide) 30mg (아연으로서 24.1mg)
+우르소데옥시콜산 (Ursodeoxycholic Acid) 60mg
+셀레늄함유건조효모 (Selenium in Dried Yeast) 40.8mg (셀레늄으로서 22μg)
+토코페롤아세테이트2배산 (Tocopherol Acetate Powder 50%) 20mg (비타민E로서 10IU)
+γ-오리자놀 (γ-Oryzanol) 3mg
+산화마그네슘 (Magnesium Oxide) 100mg (마그네슘으로서 60.3mg)`,
     dosageInstruction: '만 19세 이상 및 성인: 1일 1회, 1회 1정을 식후 복용',
     indicationsSummary: [
       '육체피로, 체력저하 시 비타민 B1, B2, B6, C, D 보급',
@@ -1815,7 +1815,217 @@ export async function searchFoodSafetyGeneralFoods(
 }
 
 /**
- * 식약처 실시간 공공데이터 API 품목 상세 조회 (단일 품목 기준코드 기반 — 효능·효과 전문 및 사용상의 주의사항 전문 수집)
+ * 한글 원료명에 대응하는 약학정보원(KPIC) 표준 Title Case 영문 성분명 반환
+ */
+function resolveKpaicEnglishIngredientName(korName: string, mainIngrEng?: string): string {
+  const cleanKor = korName.replace(/\s+/g, '');
+  const kpaicStandardMap: Record<string, string> = {
+    '벤포티아민': 'Benfotiamine',
+    '비스벤티아민': 'Bisbenthiamine',
+    '푸르설티아민': 'Fursultiamine',
+    '티아민질산염': 'Thiamine Mononitrate',
+    '티아민염산염': 'Thiamine Hydrochloride',
+    '리보플라빈': 'Riboflavin',
+    '리보플라빈부티레이트': 'Riboflavin Butyrate',
+    '리보플라빈포스페이트나트륨': "Riboflavin 5'-Phosphate Sodium",
+    '니코틴산아미드': 'Nicotinamide',
+    '판토텐산칼슘': 'Calcium Pantothenate',
+    '피리독신염산염': 'Pyridoxine Hydrochloride',
+    '피리독살포스페이트수화물': 'Pyridoxal Phosphate Hydrate',
+    '메코발라민': 'Mecobalamin',
+    '시아노코발라민': 'Cyanocobalamin',
+    '히드록소코발라민아세트산염': 'Hydroxocobalamin Acetate',
+    '비오틴': 'Biotin',
+    'D-비오틴': 'D-Biotin',
+    '폴산': 'Folic Acid',
+    '제피아스코르브산': 'Ascorbic Acid Coated',
+    '아스코르브산': 'Ascorbic Acid',
+    '타우린': 'Taurine',
+    '크롬함유건조효모': 'Chromium in Dried Yeast',
+    '이노시톨': 'Inositol',
+    '콜레칼시페롤농축분말': 'Cholecalciferol Concentrate Powder',
+    '농축콜레칼시페롤': 'Cholecalciferol Concentrate',
+    '콜레칼시페롤': 'Cholecalciferol',
+    '콜린타르타르산염': 'Choline Bitartrate',
+    '산화아연': 'Zinc Oxide',
+    '글루콘산아연': 'Zinc Gluconate',
+    '우르소데옥시콜산': 'Ursodeoxycholic Acid',
+    '셀레늄함유건조효모': 'Selenium in Dried Yeast',
+    '토코페롤아세테이트2배산': 'Tocopherol Acetate Powder 50%',
+    '토코페롤아세테이트50%': 'Tocopherol Acetate 50%',
+    '토코페롤아세테이트': 'Tocopherol Acetate',
+    '감마-오리자놀': 'γ-Oryzanol',
+    'γ-오리자놀': 'γ-Oryzanol',
+    '감마오리자놀': 'γ-Oryzanol',
+    '산화마그네슘': 'Magnesium Oxide',
+    '글리세로인산마그네슘': 'Magnesium Glycerophosphate',
+    'L-시스테인': 'L-Cysteine',
+    '유비데카레논': 'Ubidecarenone',
+    'DL-메티오닌': 'DL-Methionine',
+    '오로트산수화물': 'Orotic Acid Hydrate',
+    '베타카로틴20%': 'Beta-Carotene 20%'
+  };
+
+  if (kpaicStandardMap[cleanKor]) {
+    return kpaicStandardMap[cleanKor];
+  }
+
+  // 사전에서 매칭 후 Title Case 변환
+  const sortedKeys = Object.keys(INN_DICTIONARY).sort((a, b) => b.length - a.length);
+  for (const k of sortedKeys) {
+    if (cleanKor.includes(k.replace(/\s+/g, ''))) {
+      const inn = INN_DICTIONARY[k].englishInn;
+      // 식약처 MAIN_INGR_ENG 목록에 일치하는 대소문자 표기가 있으면 우선 활용
+      if (mainIngrEng) {
+        const candidates = mainIngrEng.split('/').map(s => s.trim()).filter(Boolean);
+        const found = candidates.find(c => c.toLowerCase() === inn.toLowerCase());
+        if (found) return found;
+      }
+      return inn.replace(/\b[a-z]/g, ch => ch.toUpperCase());
+    }
+  }
+
+  return '';
+}
+
+/**
+ * 한글 단위명(밀리그램, 마이크로그램, 아이.유 등)을 표준 약어(mg, μg, IU, g)로 변환
+ */
+function normalizeNedrugUnit(rawUnit: string = ''): string {
+  const u = rawUnit.trim();
+  if (u === '밀리그램' || u === '밀리그람') return 'mg';
+  if (u === '마이크로그램' || u === '마이크로그람' || u === '㎍' || u === 'ug') return 'μg';
+  if (u === '그램' || u === '그람') return 'g';
+  if (u === '아이.유' || u === '아이유' || u === '국제단위' || /^iu$/i.test(u)) return 'IU';
+  if (u === '밀리리터' || u === '밀리리타') return 'mL';
+  return u;
+}
+
+/**
+ * 의약품안전나라 ingrInfo 문자열(예: "티아민염산염(으)로서 72.3 밀리그램", "비타민 D(으)로서 1000 아이.유")을
+ * 약학정보원(KPIC) 표준 표기(예: "티아민염산염으로서 72.3mg", "비타민D로서 1,000IU")로 정제
+ */
+function formatNedrugIngrInfo(rawInfo?: string | null): string {
+  if (!rawInfo || !rawInfo.trim()) return '';
+  const m = rawInfo.trim().match(/^(.+?)(?:\(으\)|으)?로서\s*([0-9\.,]+)\s*(.*)$/);
+  if (!m) return rawInfo.trim();
+
+  let targetName = m[1].trim().replace(/^비타민\s+([A-Za-z0-9]+)/i, '비타민$1');
+  let numStr = m[2].trim();
+  const unitStr = normalizeNedrugUnit(m[3] || '');
+
+  // IU 단위에서 1000 이상인 경우 천단위 콤마 포맷 (예: 1000IU -> 1,000IU)
+  if (unitStr === 'IU' && !numStr.includes(',')) {
+    const n = parseFloat(numStr);
+    if (!isNaN(n) && n >= 1000) {
+      numStr = n.toLocaleString('en-US');
+    }
+  }
+
+  // 마지막 글자 받침 여부에 따라 '으로서' / '로서' 자동 선택
+  let particle = '로서';
+  const lastChar = targetName.charCodeAt(targetName.length - 1);
+  if (lastChar >= 0xac00 && lastChar <= 0xd7a3) {
+    const jongseong = (lastChar - 0xac00) % 28;
+    if (jongseong > 0 && jongseong !== 8) {
+      particle = '으로서';
+    }
+  }
+
+  return `${targetName}${particle} ${numStr}${unitStr}`;
+}
+
+/**
+ * 의약품안전나라(nedrug.mfds.go.kr) 품목 상세 페이지 내 원료약품 JSON(var aasda = {...})을 직접 파싱하여
+ * 약학정보원(KPIC)과 100% 동일한 성분/함량/환산량 텍스트 생성
+ */
+export async function fetchNedrugIngredientsText(
+  itemSeq: string,
+  mainIngrEng?: string
+): Promise<string | null> {
+  if (!itemSeq) return null;
+  const directUrl = `https://nedrug.mfds.go.kr/pbp/CCBBB01/getItemDetail?itemSeq=${encodeURIComponent(itemSeq)}`;
+
+  const fetchHtml = async (): Promise<string | null> => {
+    // 1. Node.js 환경 (테스트/스크립트 실행 시) 직접 호출
+    if (typeof window === 'undefined') {
+      const r = await fetch(directUrl);
+      if (r.ok) return await r.text();
+      return null;
+    }
+
+    // 2. 브라우저 환경 1순위: Vite 프록시 (/api/nedrug) 호출
+    try {
+      const proxyRes = await fetch(`/api/nedrug/pbp/CCBBB01/getItemDetail?itemSeq=${encodeURIComponent(itemSeq)}`);
+      if (proxyRes.ok) {
+        const txt = await proxyRes.text();
+        if (txt.includes('var aasda =')) return txt;
+      }
+    } catch {
+      // ignore and try next fallback
+    }
+
+    // 3. 브라우저 환경 2순위 (정적 호스팅 배포 시): 공개 CORS 프록시 우회 호출
+    const corsProxies = [
+      `https://corsproxy.io/?${encodeURIComponent(directUrl)}`,
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`
+    ];
+    for (const pUrl of corsProxies) {
+      try {
+        const r = await fetch(pUrl);
+        if (r.ok) {
+          const txt = await r.text();
+          if (txt.includes('var aasda =')) return txt;
+        }
+      } catch {
+        // try next
+      }
+    }
+    return null;
+  };
+
+  try {
+    const html = await fetchHtml();
+    if (!html) return null;
+
+    const matches = [...html.matchAll(/var aasda = (\{.*?\});/g)];
+    if (matches.length === 0) return null;
+
+    const lines: string[] = [];
+    for (const m of matches) {
+      try {
+        const obj = JSON.parse(m[1]);
+        let korName: string = (obj.ingrName || '').trim();
+        if (!korName) continue;
+
+        // 약학정보원 표기 통일 (감마-오리자놀 -> γ-오리자놀, 토코페롤아세테이트 2배산 -> 토코페롤아세테이트2배산)
+        if (korName === '감마-오리자놀') korName = 'γ-오리자놀';
+        else if (korName === '토코페롤아세테이트 2배산') korName = '토코페롤아세테이트2배산';
+
+        const engName = resolveKpaicEnglishIngredientName(korName, mainIngrEng);
+        const amount: string = (obj.ingrTotqy || '').trim();
+        const unit: string = normalizeNedrugUnit(obj.ingrUnitName || '밀리그램');
+        const infoFormatted = formatNedrugIngrInfo(obj.ingrInfo);
+
+        const namePart = engName ? `${korName} (${engName})` : korName;
+        const amountPart = amount ? ` ${amount}${unit}` : '';
+        const infoPart = infoFormatted ? ` (${infoFormatted})` : '';
+
+        lines.push(`${namePart}${amountPart}${infoPart}`);
+      } catch {
+        // skip malformed JSON row
+      }
+    }
+
+    return lines.length > 0 ? lines.join('\n') : null;
+  } catch (err) {
+    console.warn('의약품안전나라 상세 성분/환산량 파싱 실패:', err);
+    return null;
+  }
+}
+
+/**
+ * 식약처 실시간 공공데이터 API 품목 상세 조회 (단일 품목 기준코드 기반 — 효능·효과 전문, 주의사항 전문 및 의약품안전나라 원문 성분/환산량 수집)
  */
 export async function fetchMfdsDrugDetail(itemSeq: string): Promise<{
   rawIngredientsText: string;
@@ -1850,7 +2060,11 @@ export async function fetchMfdsDrugDetail(itemSeq: string): Promise<{
     const storageMethod = (item.STORAGE_METHOD || '기밀용기, 실온(1~30℃) 보관').replace(/\s+/g, ' ').trim();
     const packagingUnit = item.PACK_UNIT ? item.PACK_UNIT.split(/[\n,]/)[0].trim() : '120정';
     const dosageForm = inferDosageForm(item.CHART, item.ITEM_NAME);
-    const rawIngredientsText = formatMaterialNameToRawIngredients(item.MATERIAL_NAME, item.MAIN_INGR_ENG);
+
+    // 의약품안전나라(nedrug.mfds.go.kr) 원문 허가증 테이블에서 유효성분 환산량(ingrInfo) 포함 데이터 최우선 수집
+    const nedrugIngredientsText = await fetchNedrugIngredientsText(itemSeq, item.MAIN_INGR_ENG);
+    const rawIngredientsText =
+      nedrugIngredientsText || formatMaterialNameToRawIngredients(item.MATERIAL_NAME, item.MAIN_INGR_ENG);
 
     return {
       rawIngredientsText,

@@ -402,22 +402,53 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     clinicalSummary: '• 장관 내 칼슘 흡수 촉진 및 골밀도 유지, 면역 세포 수용체 활성화'
   },
   '토코페롤아세테이트2배산': {
-    englishInn: 'Tocopherol acetate 50%',
+    englishInn: 'Tocopherol Acetate Powder 50%',
     functionalCategory: '비타민E',
     chemicalFormName: '비타민 E 아세테이트 2배산',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_E',
     clinicalSummary: '• 말초 혈관 순환 촉진, 세포막 불포화지방산 산화 억제'
   },
+  '토코페롤아세테이트 2배산': {
+    englishInn: 'Tocopherol Acetate Powder 50%',
+    functionalCategory: '비타민E',
+    chemicalFormName: '비타민 E 아세테이트 2배산',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_E',
+    clinicalSummary: '• 말초 혈관 순환 촉진, 세포막 불포화지방산 산화 억제'
+  },
+  '토코페롤아세테이트50%': {
+    englishInn: 'Tocopherol Acetate 50%',
+    functionalCategory: '비타민E',
+    chemicalFormName: '비타민 E 아세테이트 50%',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_E',
+    clinicalSummary: '• 말초 혈관 순환 촉진, 세포막 불포화지방산 산화 억제'
+  },
+  '토코페롤아세테이트 50%': {
+    englishInn: 'Tocopherol Acetate 50%',
+    functionalCategory: '비타민E',
+    chemicalFormName: '비타민 E 아세테이트 50%',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_E',
+    clinicalSummary: '• 말초 혈관 순환 촉진, 세포막 불포화지방산 산화 억제'
+  },
   '감마-오리자놀': {
-    englishInn: 'Gamma-oryzanol',
+    englishInn: 'γ-Oryzanol',
+    functionalCategory: '자율신경제',
+    chemicalFormName: '미강유 추출 페룰산 에스테르 혼합물',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 자율신경계(간뇌 시상하부) 조절, 갱년기 신경 증상 및 위장 신경증 완화'
+  },
+  'γ-오리자놀': {
+    englishInn: 'γ-Oryzanol',
     functionalCategory: '자율신경제',
     chemicalFormName: '미강유 추출 페룰산 에스테르 혼합물',
     defaultUnit: 'mg',
     clinicalSummary: '• 자율신경계(간뇌 시상하부) 조절, 갱년기 신경 증상 및 위장 신경증 완화'
   },
   '감마오리자놀': {
-    englishInn: 'Gamma-oryzanol',
+    englishInn: 'γ-Oryzanol',
     functionalCategory: '자율신경제',
     chemicalFormName: '미강유 추출 페룰산 에스테르 혼합물',
     defaultUnit: 'mg',
@@ -1077,6 +1108,7 @@ export function formatKpaicSpecification(rawItem: string): string {
   // 1. 특수 문자 치환 (γ- -> Gamma )
   str = str.replace(/γ\s*[-－]?\s*oryzanol/gi, 'Gamma Oryzanol');
   str = str.replace(/γ\s*[-－]?\s*오리자놀/gi, 'Gamma Oryzanol');
+  str = str.replace(/감마\s*[-－]?\s*오리자놀/gi, 'Gamma Oryzanol');
 
   // 2. 괄호 환산 성분 영문화 맵
   const elementalNameMap: Record<string, string> = {
@@ -1089,8 +1121,10 @@ export function formatKpaicSpecification(rawItem: string): string {
     '메코발라민': 'Mecobalamin',
     '비타민D': 'Vitamin D',
     '비타민 d': 'Vitamin D',
+    '비타민 D': 'Vitamin D',
     '비타민E': 'Vitamin E',
     '비타민 e': 'Vitamin E',
+    '비타민 E': 'Vitamin E',
     '아연': 'Zinc',
     '마그네슘': 'Magnesium',
     '칼슘': 'Calcium',
@@ -1101,12 +1135,14 @@ export function formatKpaicSpecification(rawItem: string): string {
 
   // 3. 괄호 부분 "(아스코르브산(으)로서 50mg)" 처리
   let bracketFormatted = '';
-  const bracketMatch = str.match(/\(([^)]+?)(?:\(으\))?로서\s*([0-9\.,]+)\s*([a-zA-Z가-힣㎍μµ]+)?\)/);
+  const bracketMatch = str.match(/\(([^)]+?)(?:\(으\)|으)?로서\s*([0-9\.,]+)\s*([a-zA-Z가-힣㎍μµ\.]+)?\)/);
   if (bracketMatch) {
     const rawTargetName = bracketMatch[1].trim();
     const amountVal = bracketMatch[2].trim();
     let unitVal = (bracketMatch[3] || '').trim();
-    if (unitVal === '㎍' || unitVal === 'μg' || unitVal === 'µg') unitVal = 'ug';
+    if (unitVal === '㎍' || unitVal === 'μg' || unitVal === 'µg' || unitVal === '마이크로그램') unitVal = 'ug';
+    else if (unitVal === '밀리그램') unitVal = 'mg';
+    else if (unitVal === '아이.유' || unitVal === '아이유') unitVal = 'IU';
 
     let englishTargetName = elementalNameMap[rawTargetName];
     if (!englishTargetName) {
@@ -1125,31 +1161,39 @@ export function formatKpaicSpecification(rawItem: string): string {
   }
 
   // 4. 본문에서 함량 분리 (예: "51.15mg", "10mg", "3mg")
-  const amountMatch = str.match(/([0-9\.,]+)\s*(mg|ug|㎍|μg|µg|IU|g|밀리그램|마이크로그램)?$/i);
+  const amountMatch = str.match(/([0-9\.,]+)\s*(mg|ug|㎍|μg|µg|IU|g|밀리그램|마이크로그램|아이\.유)?$/i);
   let mainAmount = '';
   if (amountMatch) {
     let u = amountMatch[2] || 'mg';
-    if (u === '㎍' || u === 'μg' || u === 'µg') u = 'ug';
+    if (u === '㎍' || u === 'μg' || u === 'µg' || u === '마이크로그램') u = 'ug';
+    else if (u === '밀리그램') u = 'mg';
+    else if (u === '아이.유') u = 'IU';
     mainAmount = `${amountMatch[1]}${u}`;
     str = str.substring(0, amountMatch.index).trim();
   }
 
   // 5. 한글 이름 제거하고 영문 이름만 추출
-  // 영문명이 앞에 있는 경우: "Ascorbic Acid Coated  제피아스코르브산" -> "Ascorbic Acid Coated"
-  const engPrefixMatch = str.match(/^([A-Za-z0-9\s\-\'\,\%\.\/]+?)(?:\s+[가-힣]+.*)?$/);
+  // 5-A. 약학정보원 표준 포맷: "벤포티아민 (Benfotiamine)" 처럼 괄호 안에 영문명이 있는 경우
+  const korWithEngParenMatch = str.match(/^([가-힣0-9\s·\-]+?)\s*\(([A-Za-zγ][A-Za-z0-9\s\-\'\,\%\.\/·]+)\)$/);
+  // 5-B. 영문명이 앞에 있는 경우: "Ascorbic Acid Coated  제피아스코르브산" -> "Ascorbic Acid Coated"
+  const engPrefixMatch = str.match(/^([A-Za-z][A-Za-z0-9\s\-\'\,\%\.\/]*?)(?:\s+[가-힣]+.*)?$/);
+
   let mainEngName = '';
-  if (engPrefixMatch && engPrefixMatch[1].trim()) {
+  if (korWithEngParenMatch && korWithEngParenMatch[2].trim()) {
+    mainEngName = korWithEngParenMatch[2].trim().replace(/^γ-Oryzanol$/i, 'Gamma Oryzanol');
+  } else if (engPrefixMatch && engPrefixMatch[1].trim()) {
     mainEngName = engPrefixMatch[1].trim();
   } else {
-    // 영문이 없고 한글만 있는 경우 사전을 통해 영문 INN 매핑
+    // 영문이 없고 한글만 있는 경우 사전을 통해 영문 INN 매핑 (긴 키 우선 매칭)
     let matchedDict: string | null = null;
-    for (const [k, meta] of Object.entries(INN_DICTIONARY)) {
+    const sortedKeys = Object.keys(INN_DICTIONARY).sort((a, b) => b.length - a.length);
+    for (const k of sortedKeys) {
       if (str.includes(k)) {
-        matchedDict = meta.englishInn;
+        matchedDict = INN_DICTIONARY[k].englishInn;
         break;
       }
     }
-    mainEngName = matchedDict || str;
+    mainEngName = (matchedDict || str).replace(/^γ-Oryzanol$/i, 'Gamma Oryzanol');
   }
 
   // 6. 최종 결합: "Ascorbic Acid Coated 51.15mg (Ascorbic Acid 50mg)"
@@ -1164,25 +1208,28 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
   if (!rawText || !rawText.trim()) return [];
 
   const results: ProductIngredientEntry[] = [];
-  // 쉼표, 세미콜론, 줄바꿈 단위로 항목 분리
-  const rawItems = rawText.split(/[,;\n\r]+/).map((s) => s.trim()).filter(Boolean);
+  // 줄바꿈, 세미콜론, 또는 숫자 천단위 쉼표(예: 1,000IU)가 아닌 쉼표 단위로 항목 분리
+  const rawItems = rawText
+    .split(/(?:[\r\n;]+|,(?![0-9]{3}))+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
 
   // 성분명 및 수치/단위 추출 정규식
-  // 예: "벤포티아민 100mg", "산화아연(KP) 30mg", "시아노코발라민1000배산 500㎍"
-  const regex = /([가-힣A-Za-z0-9\s\(\)·\-\'\_]+?)\s*[:：]?\s*([0-9\.]+)\s*(mg|ug|㎍|IU|g|밀리그램|마이크로그램)?/i;
+  // 예: "벤포티아민 (Benfotiamine) 100mg", "벤포티아민 100mg", "산화아연(KP) 30mg", "시아노코발라민1000배산 500㎍"
+  const regex = /([가-힣A-Za-z0-9γ\s\(\)·\-\'\_\%\/]+?)\s*[:：]?\s*([0-9\.,]+)\s*(mg|ug|㎍|μg|µg|IU|g|밀리그램|마이크로그램|아이\.유)?$/i;
 
   rawItems.forEach((item, index) => {
     // 영문 표준 간결 형식 성분표 규격 생성
     const formattedSpecification = formatKpaicSpecification(item);
 
-    // 1. 원소 환산량 괄호 추출 (예: "(아연(으)로서 15mg)", "(마그네슘(으)로서 60.3mg)", "(셀레늄(으)로서 25μg)")
+    // 1. 원소 환산량 괄호 추출 (예: "(아연(으)로서 15mg)", "(비타민D로서 1,000IU)", "(셀레늄으로서 22μg)")
     let elementalAmount: number | undefined = undefined;
-    const elementalMatch = item.match(/\([가-힣A-Za-z0-9\s]+로서\s*([0-9\.]+)\s*(mg|ug|㎍|IU|g)?\)/i);
+    const elementalMatch = item.match(/\([^)]*?로서\s*([0-9\.,]+)\s*(mg|ug|㎍|μg|µg|IU|g|밀리그램|마이크로그램|아이\.유)?\)/i);
     if (elementalMatch) {
-      elementalAmount = parseFloat(elementalMatch[1]);
+      elementalAmount = parseFloat(elementalMatch[1].replace(/,/g, ''));
     }
 
-    // 괄호 부분 제외한 본문
+    // 괄호 환산량 부분 제외한 본문
     const cleanItem = item.replace(/\([^\)]*로서[^\)]*\)/gi, '').trim();
 
     // 2. 수치 및 단위 추출 (예: "100mg", "0.5mg", "46.29mg")
@@ -1193,11 +1240,11 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
 
     if (match) {
       nameRaw = match[1].replace(/\(KP\)|\(별규\)|\(USP\)|\(EP\)|\(KHP\)/gi, '').trim();
-      amount = parseFloat(match[2]) || 0;
+      amount = parseFloat(match[2].replace(/,/g, '')) || 0;
       const matchedUnit = (match[3] || 'mg').toLowerCase();
-      if (matchedUnit === 'ug' || matchedUnit === '㎍' || matchedUnit === '마이크로그램') {
+      if (matchedUnit === 'ug' || matchedUnit === '㎍' || matchedUnit === 'μg' || matchedUnit === 'µg' || matchedUnit === '마이크로그램') {
         unit = 'ug';
-      } else if (matchedUnit === 'iu') {
+      } else if (matchedUnit === 'iu' || matchedUnit === '아이.유') {
         unit = 'IU';
       } else if (matchedUnit === 'g') {
         unit = 'g';
@@ -1206,11 +1253,16 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
       }
     }
 
-    // 약학정보원 포맷의 경우: "Benfotiamine 벤포티아민" 처럼 영문과 한글이 병기되어 있을 수 있음
-    // 영문명과 한글명 분리 감지
+    // 약학정보원 포맷 감지:
+    // Case A: "벤포티아민 (Benfotiamine)" (한글명 + 괄호 영문명)
+    // Case B: "Benfotiamine 벤포티아민" (영문명 + 한글명)
     let detectedInn = '';
-    const engKorMatch = nameRaw.match(/^([A-Za-z0-9\s\-\'\,\%]+)\s+([가-힣0-9\s\(\)·\-]+)$/);
-    if (engKorMatch) {
+    const korParenEngMatch = nameRaw.match(/^([가-힣0-9γ\s·\-\%]+?)\s*\(([A-Za-zγ][A-Za-z0-9\s\-\'\,\%\.\/·]+)\)$/);
+    const engKorMatch = nameRaw.match(/^([A-Za-z0-9γ\s\-\'\,\%\.]+)\s+([가-힣0-9\s\(\)·\-\%]+)$/);
+    if (korParenEngMatch) {
+      nameRaw = korParenEngMatch[1].trim();
+      detectedInn = korParenEngMatch[2].trim();
+    } else if (engKorMatch) {
       detectedInn = engKorMatch[1].trim();
       nameRaw = engKorMatch[2].trim();
     }
@@ -1220,12 +1272,18 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
     const combinedDict: Record<string, InnMappingMeta> = { ...INN_DICTIONARY, ...learnedDict };
 
     let matchedKey: string | null = null;
-    const lookupKey = (detectedInn || nameRaw).toLowerCase();
+    const lookupKey = (nameRaw || detectedInn).toLowerCase();
     const sortedDictKeys = Object.keys(combinedDict).sort((a, b) => b.length - a.length);
 
     for (const dictKey of sortedDictKeys) {
       const cleanDictKey = dictKey.toLowerCase();
-      if (lookupKey.includes(cleanDictKey) || cleanDictKey.includes(lookupKey) || nameRaw.includes(dictKey) || dictKey.includes(nameRaw)) {
+      if (
+        nameRaw === dictKey ||
+        nameRaw.includes(dictKey) ||
+        dictKey.includes(nameRaw) ||
+        lookupKey.includes(cleanDictKey) ||
+        cleanDictKey.includes(lookupKey)
+      ) {
         matchedKey = dictKey;
         break;
       }
@@ -1266,11 +1324,16 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
     if (matchedKey) {
       const meta = combinedDict[matchedKey];
       const finalElemental = elementalAmount ?? (meta.elementalRatio ? +(amount * meta.elementalRatio).toFixed(2) : undefined);
+      const resolvedCategory =
+        learnedDict[matchedKey]?.functionalCategory ||
+        (meta.functionalCategory && meta.functionalCategory !== '기타' ? meta.functionalCategory : undefined) ||
+        kpicCategory ||
+        '기타';
 
       results.push({
         ingredientId: `ing_auto_${Date.now()}_${index}`,
         englishInn: detectedInn || meta.englishInn,
-        functionalCategory: kpicCategory || meta.functionalCategory,
+        functionalCategory: resolvedCategory,
         chemicalFormName: meta.chemicalFormName,
         rawAmount: amount || 10,
         unit: (unit || meta.defaultUnit) as 'mg' | 'ug' | 'IU' | 'g',

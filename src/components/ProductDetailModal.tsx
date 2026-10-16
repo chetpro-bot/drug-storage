@@ -1,7 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ProductItem } from '../types/product';
 import { ProductIngredientEntry } from '../types/ingredient';
 import { useProductStore } from '../stores/useProductStore';
+import {
+  fetchMfdsDrugDetail,
+  searchPublicDrugDatabase,
+  convertMasterItemToFetchResult
+} from '../services/publicDataService';
 import { AttachedDocumentsModal } from './AttachedDocumentsModal';
 import {
   X,
@@ -10,7 +15,8 @@ import {
   Paperclip,
   MapPin,
   AlertCircle,
-  FileText
+  FileText,
+  RefreshCw
 } from 'lucide-react';
 
 interface ProductDetailModalProps {
@@ -21,116 +27,327 @@ interface ProductDetailModalProps {
 }
 
 /**
- * 영문 INN 또는 약효분류를 약국 상담용 한글 표시 성분명으로 변환
+ * 표시 함량 표기를 위한 순수 영문 성분명(English INN) 반환
+ * 한글명이 섞여 있더라도 표준 영문 성분명만 깔끔하게 표시
  */
-function getFriendlyKoreanIngredientName(ing: ProductIngredientEntry): {
-  title: string;
-  subtitle?: string;
-} {
-  // 1. koreanName이 명시되어 있으면 우선 사용
-  if (ing.koreanName && ing.koreanName.trim()) {
-    const kor = ing.koreanName.trim();
-    const cat = ing.functionalCategory?.trim();
-    if (cat && !kor.includes(cat) && /^비타민|^아연|^마그네슘|^셀레늄|^크롬|^철|^구리|^망간|^요오드|^칼슘|^엽산|^비오틴/.test(cat)) {
-      const cleanCat = cat.replace(/\([A-Za-z0-9]+\)$/, '');
-      return { title: `${cleanCat} (${kor})`, subtitle: ing.englishInn };
-    }
-    return { title: kor, subtitle: ing.englishInn };
-  }
+function getEnglishOnlyIngredientName(ing: ProductIngredientEntry): string {
+  const raw = (ing.englishInn || '').trim();
 
-  // 2. 약효 분류(functionalCategory)와 화학 형태(chemicalFormName) 조합
-  const cat = ing.functionalCategory?.trim() || '';
-  const cleanCat = cat.replace(/\([A-Za-z0-9]+\)$/, '');
-
-  const innMap: Record<string, string> = {
-    'benfotiamine': '비타민B1 (벤포티아민)',
-    'fursultiamine': '비타민B1 (푸르설티아민)',
-    'bisbenthiamine': '비타민B1 (비스벤티아민)',
-    'thiamine hydrochloride': '비타민B1 (티아민염산염)',
-    'thiamine mononitrate': '비타민B1 (티아민질산염)',
-    'riboflavin butyrate': '비타민B2 (리보플라빈부티레이트)',
-    "riboflavin 5'-phosphate sodium": '비타민B2 (리보플라빈인산나트륨)',
-    'riboflavin': '비타민B2',
-    'nicotinamide': '나이아신 (비타민B3)',
-    'calcium pantothenate': '판토텐산 (비타민B5)',
-    'pyridoxal phosphate hydrate': '비타민B6 (피리독살포스페이트)',
-    'pyridoxine hydrochloride': '비타민B6 (피리독신염산염)',
-    'biotin': '비오틴',
-    'folic acid': '엽산',
-    'mecobalamin': '비타민B12 (메코발라민)',
-    'cyanocobalamin': '비타민B12 (시아노코발라민)',
-    'ascorbic acid coated': '비타민C (제피아스코르브산)',
-    'ascorbic acid': '비타민C',
-    'cholecalciferol concentrate powder': '비타민D (콜레칼시페롤)',
-    'cholecalciferol': '비타민D',
-    'tocopherol acetate powder 50%': '비타민E (토코페롤아세테이트)',
-    'tocopherol': '비타민E',
-    'zinc oxide': '아연 (산화아연)',
-    'zinc gluconate': '아연 (글루콘산아연)',
-    'magnesium oxide': '마그네슘 (산화마그네슘)',
-    'selenium in dried yeast': '셀레늄 (건조효모)',
-    'chromium in dried yeast': '크롬 (건조효모)',
-    'ursodeoxycholic acid': '우르소데옥시콜산 (UDCA)',
-    'taurine': '타우린',
-    'choline bitartrate': '콜린타르타르산염',
-    'inositol': '이노시톨',
-    'gamma oryzanol': '감마오리자놀',
-    'silymarin': '밀크씨슬추출물 (실리마린)',
-    'lutein': '루테인 (마리골드꽃추출물)',
-    'probiotics': '프로바이오틱스 (유산균)'
+  // 한글 원료명이 들어있는 경우 영문 표준명으로 매핑
+  const korToEngMap: Record<string, string> = {
+    '벤포티아민': 'Benfotiamine',
+    '푸르설티아민': 'Fursultiamine',
+    '비스벤티아민': 'Bisbentiamine',
+    '티아민염산염': 'Thiamine hydrochloride',
+    '티아민질산염': 'Thiamine mononitrate',
+    '리보플라빈부티레이트': 'Riboflavin butyrate',
+    '리보플라빈': 'Riboflavin',
+    '니코틴산아미드': 'Nicotinamide',
+    '나이아신': 'Nicotinamide',
+    '판토텐산칼슘': 'Calcium pantothenate',
+    '피리독신염산염': 'Pyridoxine hydrochloride',
+    '피리독살포스페이트': 'Pyridoxal phosphate hydrate',
+    '비오틴': 'Biotin',
+    '엽산': 'Folic acid',
+    '메코발라민': 'Mecobalamin',
+    '시아노코발라민': 'Cyanocobalamin',
+    '아스코르브산': 'Ascorbic acid',
+    '비타민C': 'Ascorbic acid',
+    '콜레칼시페롤': 'Cholecalciferol',
+    '토코페롤아세테이트': 'Tocopherol acetate',
+    '산화아연': 'Zinc oxide',
+    '글루콘산아연': 'Zinc gluconate',
+    '산화마그네슘': 'Magnesium oxide',
+    '셀레늄': 'Selenium',
+    '우르소데옥시콜산': 'Ursodeoxycholic acid',
+    '타우린': 'Taurine',
+    '이노시톨': 'Inositol',
+    '감마오리자놀': 'Gamma-oryzanol',
+    '콜린타르타르산염': 'Choline bitartrate',
+    '실리마린': 'Silymarin',
+    '밀크씨슬추출물': 'Milk thistle extract (Silymarin)',
+    '루테인': 'Lutein',
+    '프로바이오틱스': 'Probiotics',
+    'L-아르기닌': 'L-Arginine',
+    '아르기닌': 'L-Arginine',
+    '글루타치온': 'L-Glutathione',
+    '코엔자임Q10': 'Coenzyme Q10 (Ubidecarenone)',
+    '홍삼': 'Korean Red Ginseng extract',
+    '오메가3': 'Omega-3 (EPA & DHA)',
+    '테아닌': 'L-Theanine',
+    '바나바잎추출물': 'Banaba leaf extract (Corosolic acid)'
   };
 
-  const lowerInn = ing.englishInn.trim().toLowerCase();
-  if (innMap[lowerInn]) {
-    return { title: innMap[lowerInn], subtitle: ing.englishInn };
+  if (korToEngMap[raw]) {
+    return korToEngMap[raw];
   }
 
-  if (cleanCat && cleanCat !== '기타' && cleanCat !== '일반성분') {
-    return { title: `${cleanCat} · ${ing.englishInn}` };
+  // 괄호 안이나 뒤에 한글 설명이 붙어 있다면 제거하고 순수 영문만 반환
+  const stripped = raw
+    .replace(/\([가-힣\s·,0-9]+\)/g, '')
+    .replace(/[가-힣]+/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  if (stripped && /[A-Za-z]/.test(stripped)) {
+    return stripped;
   }
 
-  return { title: ing.englishInn, subtitle: ing.chemicalFormName };
+  return raw || 'Active Ingredient';
 }
 
 /**
- * 기능성 / 효능·효과 문구 배열을 캡처 화면처럼 깔끔한 번호형 카드 리스트로 변환
+ * 건강기능식품(HEALTH_FUNCTIONAL_FOOD) 전용:
+ * 식약처 건강기능식품 공전 고시형/개별인정형 원료별 공식 고시 기능성 사전
  */
-function parseClaimsIntoNumberedCards(product: ProductItem): string[] {
-  const rawClaims =
-    product.classification === 'OTC_DRUG'
-      ? product.otcDetail?.indicationsKorean || []
-      : product.functionalFoodDetail?.functionalClaimsKorean || [];
+const MFDS_NOTIFIED_FUNCTIONALITY_DICTIONARY: {
+  matchKeys: string[];
+  koreanTitle: string;
+  functionality: string;
+}[] = [
+  {
+    matchKeys: ['benfotiamine', 'fursultiamine', 'bisbentiamine', 'bisbenthiamine', 'thiamine', 'vitamin b1', '비타민b1', '티아민'],
+    koreanTitle: '비타민B1',
+    functionality: '탄수화물과 에너지 대사에 필요.'
+  },
+  {
+    matchKeys: ['riboflavin', 'vitamin b2', '비타민b2', '리보플라빈'],
+    koreanTitle: '비타민B2',
+    functionality: '체내 에너지 생성에 필요.'
+  },
+  {
+    matchKeys: ['nicotinamide', 'niacin', 'nicotinic acid', 'vitamin b3', '나이아신', '니코틴산아미드'],
+    koreanTitle: '나이아신',
+    functionality: '체내 에너지 생성에 필요.'
+  },
+  {
+    matchKeys: ['pantothenate', 'pantothenic', 'vitamin b5', '판토텐산'],
+    koreanTitle: '판토텐산',
+    functionality: '지방, 탄수화물, 단백질 대사와 에너지 생성에 필요.'
+  },
+  {
+    matchKeys: ['pyridoxine', 'pyridoxal', 'vitamin b6', '비타민b6', '피리독신'],
+    koreanTitle: '비타민B6',
+    functionality: '단백질 및 아미노산 이용에 필요, 혈액의 호모시스테인 수준을 정상으로 유지하는데 필요.'
+  },
+  {
+    matchKeys: ['folic acid', 'folate', 'vitamin b9', '엽산'],
+    koreanTitle: '엽산',
+    functionality: '세포와 혈액생성에 필요, 태아 신경관의 정상 발달에 필요, 혈액의 호모시스테인 수준을 정상으로 유지하는데 필요.'
+  },
+  {
+    matchKeys: ['cobalamin', 'mecobalamin', 'cyanocobalamin', 'hydroxocobalamin', 'vitamin b12', '비타민b12', '코발라민'],
+    koreanTitle: '비타민B12',
+    functionality: '정상적인 엽산 대사에 필요.'
+  },
+  {
+    matchKeys: ['biotin', 'vitamin b7', '비오틴'],
+    koreanTitle: '비오틴',
+    functionality: '지방, 탄수화물, 단백질 대사와 에너지 생성에 필요.'
+  },
+  {
+    matchKeys: ['ascorbic', 'ascorbate', 'vitamin c', '비타민c', '아스코르브산'],
+    koreanTitle: '비타민C',
+    functionality: '결합조직 형성과 기능유지에 필요, 철의 흡수에 필요, 항산화 작용을 하여 유해산소로부터 세포를 보호하는데 필요.'
+  },
+  {
+    matchKeys: ['cholecalciferol', 'ergocalciferol', 'vitamin d', '비타민d', '콜레칼시페롤'],
+    koreanTitle: '비타민D',
+    functionality: '칼슘과 인이 흡수되고 이용되는데 필요, 뼈의 형성과 유지에 필요, 골다공증발생 위험 감소에 도움을 줌.'
+  },
+  {
+    matchKeys: ['tocopherol', 'vitamin e', '비타민e', '토코페롤'],
+    koreanTitle: '비타민E',
+    functionality: '항산화 작용을 하여 유해산소로부터 세포를 보호하는데 필요.'
+  },
+  {
+    matchKeys: ['retinol', 'retinyl', 'palmitate', 'vitamin a', '비타민a', '레티놀'],
+    koreanTitle: '비타민A',
+    functionality: '어두운 곳에서 시각 적응을 위해 필요, 피부와 점막을 형성하고 기능을 유지하는데 필요, 상피세포의 성장과 발달에 필요.'
+  },
+  {
+    matchKeys: ['beta-carotene', 'betacarotene', '베타카로틴'],
+    koreanTitle: '베타카로틴',
+    functionality: '어두운 곳에서 시각 적응을 위해 필요, 피부와 점막을 형성하고 기능을 유지하는데 필요, 상피세포의 성장과 발달에 필요.'
+  },
+  {
+    matchKeys: ['phylloquinone', 'menaquinone', 'vitamin k', '비타민k', '필로퀴논', '메나퀴논'],
+    koreanTitle: '비타민K',
+    functionality: '정상적인 혈액응고에 필요, 뼈의 구성에 필요.'
+  },
+  {
+    matchKeys: ['zinc', '아연', '산화아연', '글루콘산아연'],
+    koreanTitle: '아연',
+    functionality: '정상적인 면역기능에 필요, 정상적인 세포분열에 필요.'
+  },
+  {
+    matchKeys: ['magnesium', '마그네슘', '산화마그네슘'],
+    koreanTitle: '마그네슘',
+    functionality: '에너지 이용에 필요, 신경과 근육 기능 유지에 필요.'
+  },
+  {
+    matchKeys: ['calcium', '칼슘', '탄산칼슘', '구연산칼슘'],
+    koreanTitle: '칼슘',
+    functionality: '뼈와 치아 형성에 필요, 신경과 근육 기능 유지에 필요, 정상적인 혈액응고에 필요, 골다공증발생 위험 감소에 도움을 줌.'
+  },
+  {
+    matchKeys: ['selenium', 'selenite', '셀레늄', '셀렌'],
+    koreanTitle: '셀레늄(셀렌)',
+    functionality: '유해산소로부터 세포를 보호하는데 필요.'
+  },
+  {
+    matchKeys: ['iron', 'ferrous', 'ferric', '철', '푸마르산제일철'],
+    koreanTitle: '철',
+    functionality: '체내 산소운반과 혈액생성에 필요, 에너지 생성에 필요.'
+  },
+  {
+    matchKeys: ['copper', 'cupric', '구리', '황산동'],
+    koreanTitle: '구리',
+    functionality: '철의 운반과 이용에 필요, 유해산소로부터 세포를 보호하는데 필요.'
+  },
+  {
+    matchKeys: ['manganese', '망간', '황산망간'],
+    koreanTitle: '망간',
+    functionality: '뼈 형성에 필요, 에너지 이용에 필요, 유해산소로부터 세포를 보호하는데 필요.'
+  },
+  {
+    matchKeys: ['chromium', '크롬'],
+    koreanTitle: '크롬',
+    functionality: '체내 탄수화물, 지방, 단백질 대사에 관여.'
+  },
+  {
+    matchKeys: ['molybdenum', '몰리브덴'],
+    koreanTitle: '몰리브덴',
+    functionality: '산화·환원효소의 활성에 필요.'
+  },
+  {
+    matchKeys: ['iodine', 'iodide', '요오드'],
+    koreanTitle: '요오드',
+    functionality: '갑상선 호르몬의 합성에 필요, 에너지 생성에 필요, 신경발달에 필요.'
+  },
+  {
+    matchKeys: ['probiotics', 'lactobacillus', 'bifidobacterium', '프로바이오틱스', '유산균'],
+    koreanTitle: '프로바이오틱스',
+    functionality: '유산균 증식 및 유해균 억제에 도움을 줄 수 있음, 배변활동 원활에 도움을 줄 수 있음, 장 건강에 도움을 줄 수 있음.'
+  },
+  {
+    matchKeys: ['silymarin', 'milk thistle', '밀크씨슬', '실리마린', '카르두스마리아누스'],
+    koreanTitle: '밀크씨슬추출물(실리마린)',
+    functionality: '간 건강에 도움을 줄 수 있음.'
+  },
+  {
+    matchKeys: ['lutein', 'marigold', 'zeaxanthin', '루테인', '마리골드꽃추출물', '지아잔틴'],
+    koreanTitle: '마리골드꽃추출물(루테인)',
+    functionality: '노화로 인해 감소될 수 있는 황반색소밀도를 유지하여 눈 건강에 도움을 줄 수 있음.'
+  },
+  {
+    matchKeys: ['omega-3', 'epa', 'dha', '오메가3', '어유'],
+    koreanTitle: 'EPA 및 DHA 함유 유지',
+    functionality: '혈중 중성지질 개선·혈행 개선·기억력 개선·건조한 눈을 개선하여 눈 건강에 도움을 줄 수 있음.'
+  },
+  {
+    matchKeys: ['coenzyme q10', 'ubidecarenone', 'ubiquinone', '코엔자임q10', '유비데카레논'],
+    koreanTitle: '코엔자임Q10',
+    functionality: '항산화·높은 혈압 감소에 도움을 줄 수 있음.'
+  },
+  {
+    matchKeys: ['ginsenoside', 'red ginseng', '홍삼', '진세노사이드'],
+    koreanTitle: '홍삼',
+    functionality: '면역력 증진·피로개선·혈소판 응집억제를 통한 혈액흐름·기억력 개선·항산화에 도움을 줄 수 있음.'
+  },
+  {
+    matchKeys: ['theanine', '테아닌'],
+    koreanTitle: 'L-테아닌',
+    functionality: '스트레스로 인한 긴장완화에 도움을 줄 수 있음.'
+  },
+  {
+    matchKeys: ['banaba', 'corosolic', '바나바잎', '코로솔산'],
+    koreanTitle: '바나바잎추출물',
+    functionality: '식후 혈당상승 억제에 도움을 줄 수 있음.'
+  },
+  {
+    matchKeys: ['msm', 'methylsulfonylmethane', '디메틸설폰', '엠에스엠'],
+    koreanTitle: '엠에스엠(MSM)',
+    functionality: '관절 및 연골건강에 도움을 줄 수 있음.'
+  },
+  {
+    matchKeys: ['glucosamine', '글루코사민'],
+    koreanTitle: '글루코사민',
+    functionality: '관절 및 연골건강에 도움을 줄 수 있음.'
+  },
+  {
+    matchKeys: ['saw palmetto', 'lauric acid', '쏘팔메토', '로르산'],
+    koreanTitle: '쏘팔메토열매추출물',
+    functionality: '전립선 건강의 유지에 도움을 줄 수 있음.'
+  },
+  {
+    matchKeys: ['ginkgo', '은행잎'],
+    koreanTitle: '은행잎추출물',
+    functionality: '기억력 개선·혈행 개선에 도움을 줄 수 있음.'
+  },
+  {
+    matchKeys: ['propolis', '프로폴리스'],
+    koreanTitle: '프로폴리스추출물',
+    functionality: '항산화·구강에서의 항균작용에 도움을 줄 수 있음.'
+  }
+];
 
-  // 줄바꿈이나 [성분명] 단위로 쪼개어 카드화
-  const splitItems: string[] = [];
+/**
+ * 건강기능식품(건기식) 전용:
+ * 각 성분의 식약처 고시된 기능성을 추출하여 "1) 성분명 : 고시된 기능성" 리스트로 반환
+ */
+function buildHealthFunctionalFoodClaims(product: ProductItem): string[] {
+  const resultList: string[] = [];
+  const addedKeys = new Set<string>();
+
+  // 1. 제품의 실제 배합 성분(product.ingredients) 각각에 대해 고시된 기능성 매칭
+  product.ingredients.forEach((ing) => {
+    const searchTarget = `${ing.englishInn} ${ing.koreanName || ''} ${ing.functionalCategory || ''} ${ing.chemicalFormName || ''}`.toLowerCase();
+
+    const matched = MFDS_NOTIFIED_FUNCTIONALITY_DICTIONARY.find((entry) =>
+      entry.matchKeys.some((k) => searchTarget.includes(k))
+    );
+
+    if (matched && !addedKeys.has(matched.koreanTitle)) {
+      addedKeys.add(matched.koreanTitle);
+      resultList.push(`${matched.koreanTitle} : ${matched.functionality}`);
+    }
+  });
+
+  // 2. API 원문(PRIMARY_FNCLTY -> functionalClaimsKorean)에 [원료명] 또는 1) 형태로 들어있는 추가 고시 기능성 병합
+  const rawClaims = product.functionalFoodDetail?.functionalClaimsKorean || [];
   rawClaims.forEach((claim) => {
     const lines = claim
-      .split(/\r?\n|(?=\[\s*[가-힣A-Za-z0-9\s]+?\s*\])|(?=\d+\)\s*[가-힣A-Za-z])/)
+      .split(/\r?\n|(?=\[\s*[가-힣A-Za-z0-9\s,·]+?\s*\])|(?=\d+\)\s*[가-힣A-Za-z])|(?=①|②|③|④|⑤|⑥|⑦|⑧|⑨|⑩)/)
       .map((s) => s.trim())
       .filter(Boolean);
+
     lines.forEach((line) => {
-      // [비타민A] 어두운 곳에서... -> 비타민A : 어두운 곳에서...
-      const formatted = line.replace(/^\[([^\]]+)\]\s*/, '$1 : ');
-      splitItems.push(formatted);
+      const cleaned = line
+        .replace(/^\d+\)\s*/, '')
+        .replace(/^[①②③④⑤⑥⑦⑧⑨⑩]\s*/, '')
+        .replace(/^\[([^\]]+)\]\s*/, '$1 : ')
+        .trim();
+
+      if (!cleaned || cleaned === '정상적인 면역 및 에너지 대사') return;
+
+      // 이미 등록된 성분의 기능성과 중복되지 않는 경우만 추가
+      const prefix = cleaned.split(':')[0]?.trim();
+      if (prefix && addedKeys.has(prefix)) return;
+
+      const isAlreadyIncluded = resultList.some(
+        (existing) => existing.includes(cleaned) || (prefix && existing.startsWith(`${prefix} :`))
+      );
+      if (!isAlreadyIncluded) {
+        if (prefix && cleaned.includes(':')) {
+          addedKeys.add(prefix);
+        }
+        resultList.push(cleaned);
+      }
     });
   });
 
-  // 만약 기본 문구가 너무 짧거나 1개뿐이고 성분별 임상 요약이 풍부한 경우 보강
-  if (
-    splitItems.length <= 1 &&
-    (splitItems[0]?.includes('정상적인 면역 및 에너지 대사') || splitItems.length === 0)
-  ) {
-    product.ingredients.forEach((ing) => {
-      if (ing.clinicalSummary) {
-        const { title } = getFriendlyKoreanIngredientName(ing);
-        const cleanSummary = ing.clinicalSummary.replace(/^[•·\-]\s*/, '').replace(/\n[•·\-]\s*/g, ', ');
-        splitItems.push(`${title} : ${cleanSummary}`);
-      }
-    });
-  }
-
-  return splitItems.map((item, idx) => {
-    // 이미 "1) " 등으로 시작하면 그대로 유지, 아니면 번호 부여
+  return resultList.map((item, idx) => {
     if (/^\d+\)/.test(item)) return item;
     return `${idx + 1}) ${item}`;
   });
@@ -142,8 +359,148 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   onClose,
   onEditProduct
 }) => {
-  const { deleteProduct } = useProductStore();
+  const { deleteProduct, updateProduct } = useProductStore();
   const [isDocsModalOpen, setIsDocsModalOpen] = useState(false);
+  const [isFetchingFullApiText, setIsFetchingFullApiText] = useState(false);
+
+  // 기존 DB에 저장된 제품의 주의사항이나 의약품 효능·효과가 요약본(placeholder)인 경우,
+  // 모달 오픈 시 오픈API에서 전문(Full Text)을 자동으로 가져와 즉시 표시 및 DB 업데이트
+  useEffect(() => {
+    if (!isOpen || !product) return;
+
+    let isMounted = true;
+
+    const checkAndFetchFullText = async () => {
+      if (product.classification === 'OTC_DRUG') {
+        const currentPrecautions = product.otcDetail?.precautionsSummaryKorean || [];
+        const currentIndications = product.otcDetail?.indicationsKorean || [];
+        const isPlaceholderPrecautions =
+          currentPrecautions.length === 0 ||
+          (currentPrecautions.length <= 2 &&
+            currentPrecautions.some((p) => p.includes('복용 전 설명서 참조')));
+        const isShortIndications =
+          currentIndications.length === 0 ||
+          (currentIndications.length === 1 && currentIndications[0].length < 45);
+
+        if (!isPlaceholderPrecautions && !isShortIndications) return;
+
+        setIsFetchingFullApiText(true);
+        try {
+          let itemSeq = product.otcDetail?.itemSeq || '';
+          // itemSeq가 없거나 임시 번호인 경우 제품명으로 먼저 검색
+          if (!itemSeq || itemSeq.startsWith('수동') || itemSeq.length < 8) {
+            const found = await searchPublicDrugDatabase(product.productName, {
+              classification: 'OTC_DRUG'
+            });
+            if (found.length > 0) {
+              itemSeq = found[0].regulatoryCode;
+            }
+          }
+
+          if (itemSeq) {
+            const detail = await fetchMfdsDrugDetail(itemSeq);
+            if (isMounted && detail) {
+              const newIndications =
+                detail.indicationsSummary.length > 0 &&
+                !detail.indicationsSummary[0].includes('첨부문서 참조')
+                  ? detail.indicationsSummary
+                  : currentIndications;
+              const newPrecautions =
+                detail.precautionsSummary.length > 0 &&
+                !detail.precautionsSummary[0].includes('첨부문서 참조')
+                  ? detail.precautionsSummary
+                  : currentPrecautions;
+
+              if (
+                newPrecautions !== currentPrecautions ||
+                newIndications !== currentIndications
+              ) {
+                await updateProduct(product.id, {
+                  otcDetail: {
+                    ...product.otcDetail,
+                    itemSeq,
+                    permitDate: product.otcDetail?.permitDate || new Date().toISOString().slice(0, 10),
+                    indicationsKorean: newIndications,
+                    dosageAndAdministrationKorean:
+                      detail.dosageInstruction && !detail.dosageInstruction.includes('첨부문서 참조')
+                        ? detail.dosageInstruction
+                        : product.otcDetail?.dosageAndAdministrationKorean || '',
+                    storageMethodKorean:
+                      detail.storageMethod ||
+                      product.otcDetail?.storageMethodKorean ||
+                      '기밀용기, 실온(1~30℃)보관',
+                    precautionsSummaryKorean: newPrecautions
+                  }
+                });
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('의약품 전문 자동 조회 실패:', e);
+        } finally {
+          if (isMounted) setIsFetchingFullApiText(false);
+        }
+      } else if (product.classification === 'HEALTH_FUNCTIONAL_FOOD') {
+        const currentPrecautions = product.functionalFoodDetail?.safetyPrecautionsKorean || [];
+        const isPlaceholderPrecautions =
+          currentPrecautions.length === 0 ||
+          (currentPrecautions.length === 1 &&
+            (currentPrecautions[0].includes('특이체질 시 성분 확인') ||
+              currentPrecautions[0].includes('라벨 주의사항 참조')));
+
+        if (!isPlaceholderPrecautions) return;
+
+        setIsFetchingFullApiText(true);
+        try {
+          const found = await searchPublicDrugDatabase(product.productName, {
+            classification: 'HEALTH_FUNCTIONAL_FOOD',
+            regulatoryCode: product.functionalFoodDetail?.reportNo
+          });
+          if (isMounted && found.length > 0) {
+            const converted = await convertMasterItemToFetchResult(found[0]);
+            if (
+              isMounted &&
+              converted.precautionsSummary &&
+              converted.precautionsSummary.length > 0 &&
+              !converted.precautionsSummary[0].includes('라벨 주의사항 참조')
+            ) {
+              await updateProduct(product.id, {
+                functionalFoodDetail: {
+                  ...product.functionalFoodDetail,
+                  reportNo:
+                    converted.regulatoryCode ||
+                    product.functionalFoodDetail?.reportNo ||
+                    '',
+                  functionalClaimsKorean:
+                    converted.indicationsSummary.length > 0
+                      ? converted.indicationsSummary
+                      : product.functionalFoodDetail?.functionalClaimsKorean || [],
+                  suggestedUseKorean:
+                    converted.dosageInstruction ||
+                    product.functionalFoodDetail?.suggestedUseKorean ||
+                    '',
+                  safetyPrecautionsKorean: converted.precautionsSummary,
+                  standardSpecificationKorean:
+                    converted.standardSpecificationText ||
+                    product.functionalFoodDetail?.standardSpecificationKorean
+                }
+              });
+            }
+          }
+        } catch (e) {
+          console.warn('건기식 전문 자동 조회 실패:', e);
+        } finally {
+          if (isMounted) setIsFetchingFullApiText(false);
+        }
+      }
+    };
+
+    checkAndFetchFullText();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, product?.id]);
 
   if (!isOpen || !product) return null;
 
@@ -160,12 +517,20 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     `1일 ${product.dailyServings}회, 1회 ${product.amountPerServing}${product.servingUnitKorean}을(를) 충분한 물과 함께 섭취하십시오.`;
 
   const servingUnitLabel = `${product.amountPerServing || 1}${product.servingUnitKorean || '개'}`;
-  const numberedClaims = parseClaimsIntoNumberedCards(product);
 
+  // 일반의약품: 식약처 효능·효과 전문 텍스트
+  const otcIndicationsFullText = (product.otcDetail?.indicationsKorean || []).join('\n');
+
+  // 건강기능식품: 각 성분의 식약처 고시 기능성 번호형 카드 목록
+  const hffIngredientClaims =
+    product.classification !== 'OTC_DRUG' ? buildHealthFunctionalFoodClaims(product) : [];
+
+  // 주의사항 API 전문 텍스트
   const precautionsList =
     product.classification === 'OTC_DRUG'
       ? product.otcDetail?.precautionsSummaryKorean || []
       : product.functionalFoodDetail?.safetyPrecautionsKorean || [];
+  const precautionsFullText = precautionsList.join('\n');
 
   const regulatoryCode =
     product.otcDetail?.itemSeq || product.functionalFoodDetail?.reportNo || '';
@@ -192,6 +557,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 {product.classification === 'OTC_DRUG' ? '품목코드' : '품목제조번호'}: {regulatoryCode}
               </span>
             )}
+            {isFetchingFullApiText && (
+              <span className="text-[11px] text-sky-400 flex items-center gap-1 shrink-0">
+                <RefreshCw className="w-3 h-3 animate-spin" />
+                <span>API 전문 동기화 중...</span>
+              </span>
+            )}
           </div>
 
           <button
@@ -209,7 +580,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           {/* 상단 액션 알약 버튼 & 제약회사 · 분류 · 가격 · 약 위치 요약 */}
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div className="space-y-3 flex-1 min-w-[240px]">
-              {/* 액션 버튼 그룹 (캡처 화면의 알약형 버튼 스타일) */}
+              {/* 액션 버튼 그룹 */}
               <div className="flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
@@ -303,12 +674,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           {/* SECTION 1: 복용 방법 */}
           <div className="space-y-1.5">
             <h3 className="text-xs font-bold text-slate-400">복용 방법</h3>
-            <p className="text-sm font-semibold text-slate-100 leading-relaxed">
+            <p className="text-sm font-semibold text-slate-100 leading-relaxed whitespace-pre-line">
               {dosageMethodText}
             </p>
           </div>
 
-          {/* SECTION 2: 표시 함량 */}
+          {/* SECTION 2: 표시 함량 (영문 성분명 전용) */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold text-slate-400">표시 함량</h3>
@@ -319,7 +690,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
             <div className="divide-y divide-slate-700/70 border-t border-b border-slate-700/70">
               {product.ingredients.map((ing, idx) => {
-                const { title, subtitle } = getFriendlyKoreanIngredientName(ing);
+                const englishName = getEnglishOnlyIngredientName(ing);
                 const hasElemental =
                   ing.elementalAmount !== undefined &&
                   ing.elementalAmount > 0 &&
@@ -330,15 +701,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     key={ing.ingredientId || idx}
                     className="py-2.5 px-1 flex items-center justify-between gap-4 hover:bg-slate-800/60 transition-colors"
                   >
-                    <div className="flex items-baseline gap-2 min-w-0">
-                      <span className="text-xs font-bold text-slate-200 truncate">
-                        {title}
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-slate-100 font-mono truncate block">
+                        {englishName}
                       </span>
-                      {subtitle && subtitle.toLowerCase() !== title.toLowerCase() && (
-                        <span className="text-[11px] text-slate-400 truncate hidden sm:inline">
-                          {subtitle}
-                        </span>
-                      )}
                     </div>
 
                     <div className="text-right shrink-0 font-mono">
@@ -347,7 +713,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       </span>
                       {hasElemental && (
                         <span className="text-[11px] font-semibold text-emerald-400 ml-1.5">
-                          (순수 {ing.elementalAmount?.toLocaleString()} {ing.unit})
+                          ({ing.elementalAmount?.toLocaleString()} {ing.unit})
                         </span>
                       )}
                       <span className="text-xs font-semibold text-slate-400 ml-1">
@@ -373,52 +739,67 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             )}
           </div>
 
-          {/* SECTION 3: 기능성 (건기식) / 효능·효과 (일반의약품) - 3열 카드 그리드 */}
-          {numberedClaims.length > 0 && (
-            <div className="space-y-2.5">
-              <div className="flex items-center gap-1.5">
-                <h3 className="text-xs font-bold text-slate-400">
-                  {product.classification === 'OTC_DRUG' ? '효능·효과' : '기능성'}
-                </h3>
-                <span className="text-[10px] font-semibold text-slate-400 bg-slate-800 border border-slate-700 px-1.5 py-0.2 rounded">
-                  원문
-                </span>
-              </div>
+          {/* SECTION 3: 효능·효과 (의약품 전문) vs 기능성 (건기식 성분별 고시 기능성) */}
+          {product.classification === 'OTC_DRUG' ? (
+            otcIndicationsFullText && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <h3 className="text-xs font-bold text-slate-400">효능·효과</h3>
+                  <span className="text-[10px] font-semibold text-sky-300 bg-sky-950/70 border border-sky-800/80 px-1.5 py-0.2 rounded">
+                    식약처 허가 전문
+                  </span>
+                </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                {numberedClaims.map((claimText, idx) => (
-                  <div
-                    key={idx}
-                    className="bg-slate-900/70 border border-slate-700/70 rounded-xl p-4 text-xs text-slate-200 leading-relaxed shadow-inner"
-                  >
-                    {claimText}
-                  </div>
-                ))}
+                <div className="bg-slate-900/70 border border-slate-700/70 rounded-xl p-4 text-xs text-slate-200 leading-relaxed whitespace-pre-line">
+                  {otcIndicationsFullText}
+                </div>
               </div>
-            </div>
+            )
+          ) : (
+            hffIngredientClaims.length > 0 && (
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-1.5">
+                  <h3 className="text-xs font-bold text-slate-400">기능성</h3>
+                  <span className="text-[10px] font-semibold text-emerald-300 bg-emerald-950/70 border border-emerald-800/80 px-1.5 py-0.2 rounded">
+                    성분별 고시 기능성
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {hffIngredientClaims.map((claimText, idx) => (
+                    <div
+                      key={idx}
+                      className="bg-slate-900/70 border border-slate-700/70 rounded-xl p-4 text-xs text-slate-200 leading-relaxed shadow-inner"
+                    >
+                      {claimText}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
           )}
 
-          {/* SECTION 4: 주의사항 (섭취 시 주의사항 / 사용상의 주의사항) */}
-          {precautionsList.length > 0 && (
+          {/* SECTION 4: 주의사항 (API 전문 표시) */}
+          {precautionsFullText && (
             <div className="space-y-2">
-              <h3 className="text-xs font-bold text-slate-400 flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5">
                 <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
-                <span>
+                <h3 className="text-xs font-bold text-slate-400">
                   {product.classification === 'OTC_DRUG'
-                    ? '사용상의 주의사항 및 복약지도'
+                    ? '사용상의 주의사항'
                     : '섭취 시 주의사항'}
+                </h3>
+                <span className="text-[10px] font-semibold text-amber-300 bg-amber-950/60 border border-amber-800/70 px-1.5 py-0.2 rounded">
+                  API 전문
                 </span>
-              </h3>
+              </div>
 
-              <div className="bg-slate-900/70 border border-slate-700/70 rounded-xl p-4 space-y-1.5">
-                {precautionsList.map((precaution, idx) => (
-                  <p key={idx} className="text-xs text-slate-300 leading-relaxed flex items-start gap-2">
-                    <span className="text-amber-400 font-bold shrink-0">•</span>
-                    <span>{precaution.replace(/^[•·\-]\s*/, '')}</span>
-                  </p>
-                ))}
+              <div className="bg-slate-900/70 border border-slate-700/70 rounded-xl p-4 space-y-2 max-h-72 overflow-y-auto">
+                <div className="text-xs text-slate-200 leading-relaxed whitespace-pre-line">
+                  {precautionsFullText}
+                </div>
                 {product.otcDetail?.storageMethodKorean && (
-                  <p className="text-xs text-slate-400 pt-1 border-t border-slate-800 mt-2">
+                  <p className="text-xs text-slate-400 pt-2 border-t border-slate-800 mt-2">
                     보관방법: {product.otcDetail.storageMethodKorean}
                   </p>
                 )}

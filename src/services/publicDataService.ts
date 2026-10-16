@@ -33,6 +33,7 @@ export interface PublicDataFetchResult {
   capRawMaterialText?: string; // I0030 캡슐기제 (CAP_RAWMTRL_NM)
   foodTypeCategory?: string; // 품목유형 (PRDLST_CDNM / PRDLST_DCNM)
   shelfLifeText?: string; // 소비기한 (POG_DAYCNT)
+  storageMethod?: string; // 보관방법 (STORAGE_METHOD)
 }
 
 export interface PublicDrugMasterItem {
@@ -1114,18 +1115,26 @@ const FOOD_SAFETY_API_KEY = '3c5e594cc12141d897fe';
 const FOOD_SAFETY_BASE_URL = 'https://openapi.foodsafetykorea.go.kr/api';
 
 /**
- * XML/HTML 태그 및 CDATA 안전 제거 유틸리티
+ * 식약처 XML 문서(EE_DOC_DATA, UD_DOC_DATA, NB_DOC_DATA)에서 ARTICLE 제목과 PARAGRAPH 줄바꿈을 보존하며 전문 추출
  */
 function cleanXmlDocText(xmlStr?: string | null): string {
   if (!xmlStr) return '';
   return xmlStr
-    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1 ')
+    // ARTICLE title="..." 속성 추출 (의미 있는 소제목 보존)
+    .replace(/<ARTICLE[^>]*title="([^"]+)"[^>]*>/gi, '\n$1\n')
+    // PARAGRAPH, br, tr 태그를 줄바꿈으로 변환
+    .replace(/<\/PARAGRAPH>|<br\s*\/?>|<\/tr>/gi, '\n')
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
     .replace(/<[^>]+>/g, ' ')
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
-    .replace(/\s+/g, ' ')
+    .replace(/&#x[0-9a-fA-F]+;/g, ' ')
+    .split(/\r?\n/)
+    .map((line) => line.replace(/[ \t]+/g, ' ').trim())
+    .filter((line) => line.length > 0 && !/^(효능효과|용법용량|사용상의주의사항)$/.test(line.replace(/\s+/g, '')))
+    .join('\n')
     .trim();
 }
 
@@ -1238,7 +1247,7 @@ function parseServingFromInstruction(instruction: string, fallbackShape: string 
 }
 
 /**
- * 식품안전나라 기능성 문구(PRIMARY_FNCLTY)를 깔끔한 배열로 정제
+ * 식품안전나라 기능성 문구(PRIMARY_FNCLTY)를 누락 없이 정제
  */
 function parseFunctionalClaims(rawFnclty?: string): string[] {
   if (!rawFnclty) return [];
@@ -1258,32 +1267,32 @@ function parseFunctionalClaims(rawFnclty?: string): string[] {
     const subParts = line
       .split(/[①②③④⑤⑥⑦⑧⑨⑩]|(?:\([0-9]+\))/)
       .map(s => s.trim())
-      .filter(s => s.length > 2);
+      .filter(s => s.length > 1);
 
     if (subParts.length > 1 && line.startsWith('[')) {
       const prefix = subParts[0]; // e.g., "[아연]"
       const rest = subParts.slice(1).join(', ');
       claims.push(`${prefix} ${rest}`);
-    } else if (subParts.length > 0) {
+    } else if (subParts.length > 0 && !line.startsWith('[')) {
       claims.push(...subParts);
     } else {
       claims.push(line);
     }
   }
 
-  return Array.from(new Set(claims)).slice(0, 8);
+  return Array.from(new Set(claims));
 }
 
 /**
- * 식품안전나라 주의사항(IFTKN_ATNT_MATR_CN) 정제
+ * 식품안전나라 주의사항(IFTKN_ATNT_MATR_CN) 전문 보존 정제 (잘림 없이 전체 보존)
  */
 function parsePrecautionsText(rawPrecautions?: string): string[] {
   if (!rawPrecautions) return ['특이체질 및 알레르기 체질의 경우 성분을 확인 후 섭취하십시오.'];
   const items = rawPrecautions
-    .split(/[\r\n]+|(?:\([0-9]+\))|(?:[0-9]+\))/)
-    .map(s => s.replace(/^[-\s·•]+/, '').trim())
-    .filter(s => s.length > 3);
-  return Array.from(new Set(items)).slice(0, 6);
+    .split(/[\r\n]+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 1);
+  return items.length > 0 ? items : [rawPrecautions.trim()];
 }
 
 /**
@@ -1806,12 +1815,14 @@ export async function searchFoodSafetyGeneralFoods(
 }
 
 /**
- * 식약처 실시간 공공데이터 API 품목 상세 조회 (단일 품목 기준코드 기반)
+ * 식약처 실시간 공공데이터 API 품목 상세 조회 (단일 품목 기준코드 기반 — 효능·효과 전문 및 사용상의 주의사항 전문 수집)
  */
 export async function fetchMfdsDrugDetail(itemSeq: string): Promise<{
   rawIngredientsText: string;
   dosageInstruction: string;
   indicationsSummary: string[];
+  precautionsSummary: string[];
+  storageMethod: string;
   packagingUnit: string;
   dosageForm: DosageForm;
   chartText: string;
@@ -1828,8 +1839,15 @@ export async function fetchMfdsDrugDetail(itemSeq: string): Promise<{
     const dosageInstruction = cleanXmlDocText(item.UD_DOC_DATA) || '용법용량 첨부문서 참조';
     const cleanEffects = cleanXmlDocText(item.EE_DOC_DATA);
     const indicationsSummary = cleanEffects
-      ? cleanEffects.split(/[○·\n\r]+/).map(s => s.trim()).filter(s => s.length > 2).slice(0, 5)
+      ? cleanEffects.split(/\r?\n/).map(s => s.trim()).filter(s => s.length > 0)
       : ['효능·효과 첨부문서 참조'];
+
+    const cleanPrecautions = cleanXmlDocText(item.NB_DOC_DATA);
+    const precautionsSummary = cleanPrecautions
+      ? cleanPrecautions.split(/\r?\n/).map(s => s.trim()).filter(s => s.length > 0)
+      : ['사용상의 주의사항 첨부문서 참조'];
+
+    const storageMethod = (item.STORAGE_METHOD || '기밀용기, 실온(1~30℃) 보관').replace(/\s+/g, ' ').trim();
     const packagingUnit = item.PACK_UNIT ? item.PACK_UNIT.split(/[\n,]/)[0].trim() : '120정';
     const dosageForm = inferDosageForm(item.CHART, item.ITEM_NAME);
     const rawIngredientsText = formatMaterialNameToRawIngredients(item.MATERIAL_NAME, item.MAIN_INGR_ENG);
@@ -1838,6 +1856,8 @@ export async function fetchMfdsDrugDetail(itemSeq: string): Promise<{
       rawIngredientsText,
       dosageInstruction,
       indicationsSummary: indicationsSummary.length > 0 ? indicationsSummary : ['효능·효과 첨부문서 참조'],
+      precautionsSummary,
+      storageMethod,
       packagingUnit,
       dosageForm,
       chartText: item.CHART || ''
@@ -2020,11 +2040,12 @@ export async function convertMasterItemToFetchResult(item: PublicDrugMasterItem)
   let targetRawText = item.rawIngredientsText || '';
   let targetDosageInstruction = item.dosageInstruction;
   let targetIndicationsSummary = item.indicationsSummary;
+  let targetPrecautionsSummary = item.precautionsSummary;
   let targetPackagingUnit = item.packagingUnit;
   let targetDosageForm = item.dosageForm;
   let { dailyServings, amountPerServing, servingUnitKorean } = parseServingFromInstruction(targetDosageInstruction);
 
-  // 식약처 실시간 데이터(id가 mfds_로 시작)인 경우 품목 상세(getDrugPrdtPrmsnDtlInq08)를 실시간 호출하여 정확한 성분/분량/용법 수집
+  // 식약처 실시간 데이터(id가 mfds_로 시작) 또는 품목기준코드가 있는 일반의약품인 경우 품목 상세(getDrugPrdtPrmsnDtlInq08)를 실시간 호출하여 효능효과 전문 및 주의사항 전문 수집
   if (item.id.startsWith('mfds_') || (item.classification === 'OTC_DRUG' && item.regulatoryCode)) {
     const detail = await fetchMfdsDrugDetail(item.regulatoryCode);
     if (detail) {
@@ -2040,6 +2061,9 @@ export async function convertMasterItemToFetchResult(item: PublicDrugMasterItem)
       }
       if (detail.indicationsSummary.length > 0) {
         targetIndicationsSummary = detail.indicationsSummary;
+      }
+      if (detail.precautionsSummary && detail.precautionsSummary.length > 0) {
+        targetPrecautionsSummary = detail.precautionsSummary;
       }
       if (detail.packagingUnit) {
         targetPackagingUnit = detail.packagingUnit;
@@ -2063,6 +2087,7 @@ export async function convertMasterItemToFetchResult(item: PublicDrugMasterItem)
     rawIngredientsText: targetRawText,
     dosageInstruction: targetDosageInstruction,
     indicationsSummary: targetIndicationsSummary,
+    precautionsSummary: targetPrecautionsSummary,
     parsedIngredients,
     sourceOrigin: item.sourceOrigin || '약학정보원(KPAIC) DB'
   };

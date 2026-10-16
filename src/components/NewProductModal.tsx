@@ -78,6 +78,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
   const [regulatoryCode, setRegulatoryCode] = useState('');
   const [dosageInstruction, setDosageInstruction] = useState('');
   const [indicationsText, setIndicationsText] = useState('');
+  const [precautionsText, setPrecautionsText] = useState('');
 
   // 검수 중인 성분 테이블 목록
   const [verifiedIngredients, setVerifiedIngredients] = useState<ProductIngredientEntry[]>([]);
@@ -159,6 +160,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
     setRegulatoryCode('');
     setDosageInstruction('');
     setIndicationsText('');
+    setPrecautionsText('');
     setVerifiedIngredients([]);
     setIsSubmitting(false);
     setShowOcrPanel(false);
@@ -201,7 +203,13 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
       p.otcDetail?.indicationsKorean ||
       p.functionalFoodDetail?.functionalClaimsKorean ||
       [];
-    setIndicationsText(indications.join(', '));
+    setIndicationsText(indications.join('\n'));
+
+    const precautions =
+      p.otcDetail?.precautionsSummaryKorean ||
+      p.functionalFoodDetail?.safetyPrecautionsKorean ||
+      [];
+    setPrecautionsText(precautions.join('\n'));
 
     setVerifiedIngredients(
       p.ingredients ? JSON.parse(JSON.stringify(p.ingredients)) : []
@@ -219,6 +227,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
       regulatoryCode: regCode,
       rawIngredientsText: `${p.productName} 등록 규격 데이터`,
       indicationsSummary: indications,
+      precautionsSummary: precautions,
       dosageInstruction: doseInst,
       parsedIngredients: p.ingredients || [],
       sourceOrigin: '약국 등록 품목 DB'
@@ -281,7 +290,8 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
     setServingUnitKorean(result.servingUnitKorean);
     setRegulatoryCode(result.regulatoryCode);
     setDosageInstruction(result.dosageInstruction);
-    setIndicationsText(result.indicationsSummary.join(', '));
+    setIndicationsText(result.indicationsSummary.join('\n'));
+    setPrecautionsText((result.precautionsSummary || []).join('\n'));
     setVerifiedIngredients(result.parsedIngredients);
 
     if (!isEditMode) {
@@ -638,6 +648,13 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
 
     setIsSubmitting(true);
     try {
+      const parsedIndications = indicationsText
+        ? indicationsText.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)
+        : [];
+      const parsedPrecautions = precautionsText
+        ? precautionsText.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)
+        : publicDataFetched?.precautionsSummary || [];
+
       if (isEditMode && productToEdit) {
         const updatedProduct: Partial<ProductItem> = {
           productName: productName.trim(),
@@ -659,22 +676,25 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                   ...productToEdit.otcDetail,
                   itemSeq: regulatoryCode || productToEdit.otcDetail?.itemSeq || `${Math.floor(202000000 + Math.random() * 4000000)}`,
                   permitDate: productToEdit.otcDetail?.permitDate || new Date().toISOString().slice(0, 10),
-                  indicationsKorean: indicationsText ? indicationsText.split(',').map((s) => s.trim()).filter(Boolean) : productToEdit.otcDetail?.indicationsKorean || ['피로회복 및 신경통 완화'],
+                  indicationsKorean: parsedIndications.length > 0 ? parsedIndications : productToEdit.otcDetail?.indicationsKorean || ['피로회복 및 신경통 완화'],
                   dosageAndAdministrationKorean: dosageInstruction || `1일 ${dailyServings}회, 1회 ${amountPerServing}${servingUnitKorean} 복용`,
-                  storageMethodKorean: productToEdit.otcDetail?.storageMethodKorean || '기밀용기, 실온(1~30℃)보관',
-                  precautionsSummaryKorean: productToEdit.otcDetail?.precautionsSummaryKorean || ['복용 전 설명서 참조', '항생제 복용 시 2시간 간격 유지']
+                  storageMethodKorean: publicDataFetched?.storageMethod || productToEdit.otcDetail?.storageMethodKorean || '기밀용기, 실온(1~30℃)보관',
+                  precautionsSummaryKorean:
+                    parsedPrecautions.length > 0
+                      ? parsedPrecautions
+                      : productToEdit.otcDetail?.precautionsSummaryKorean || ['복용 전 설명서 참조']
                 }
               }
             : {
                 functionalFoodDetail: {
                   ...productToEdit.functionalFoodDetail,
                   reportNo: regulatoryCode || productToEdit.functionalFoodDetail?.reportNo || `202400${Math.floor(10000 + Math.random() * 90000)}`,
-                  functionalClaimsKorean: indicationsText ? indicationsText.split(',').map((s) => s.trim()).filter(Boolean) : productToEdit.functionalFoodDetail?.functionalClaimsKorean || ['정상적인 면역 및 에너지 대사'],
+                  functionalClaimsKorean: parsedIndications.length > 0 ? parsedIndications : productToEdit.functionalFoodDetail?.functionalClaimsKorean || ['정상적인 면역 및 에너지 대사'],
                   suggestedUseKorean: dosageInstruction || `1일 ${dailyServings}회, 1회 ${amountPerServing}${servingUnitKorean} 섭취`,
                   safetyPrecautionsKorean:
-                    publicDataFetched?.precautionsSummary ||
-                    productToEdit.functionalFoodDetail?.safetyPrecautionsKorean ||
-                    ['특이체질 시 성분 확인'],
+                    parsedPrecautions.length > 0
+                      ? parsedPrecautions
+                      : productToEdit.functionalFoodDetail?.safetyPrecautionsKorean || ['특이체질 시 성분 확인'],
                   standardSpecificationKorean:
                     publicDataFetched?.standardSpecificationText ||
                     productToEdit.functionalFoodDetail?.standardSpecificationKorean
@@ -711,18 +731,18 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                otcDetail: {
                 itemSeq: regulatoryCode || `${Math.floor(202000000 + Math.random() * 4000000)}`,
                 permitDate: new Date().toISOString().slice(0, 10),
-                indicationsKorean: indicationsText ? indicationsText.split(',').map((s) => s.trim()).filter(Boolean) : ['피로회복 및 신경통 완화'],
+                indicationsKorean: parsedIndications.length > 0 ? parsedIndications : ['피로회복 및 신경통 완화'],
                 dosageAndAdministrationKorean: dosageInstruction || `1일 ${dailyServings}회, 1회 ${amountPerServing}${servingUnitKorean} 복용`,
-                storageMethodKorean: '기밀용기, 실온(1~30℃)보관',
-                precautionsSummaryKorean: ['복용 전 설명서 참조', '항생제 복용 시 2시간 간격 유지']
+                storageMethodKorean: publicDataFetched?.storageMethod || '기밀용기, 실온(1~30℃)보관',
+                precautionsSummaryKorean: parsedPrecautions.length > 0 ? parsedPrecautions : ['복용 전 설명서 참조']
               }
             }
           : {
               functionalFoodDetail: {
                 reportNo: regulatoryCode || `202400${Math.floor(10000 + Math.random() * 90000)}`,
-                functionalClaimsKorean: indicationsText ? indicationsText.split(',').map((s) => s.trim()).filter(Boolean) : ['정상적인 면역 및 에너지 대사'],
+                functionalClaimsKorean: parsedIndications.length > 0 ? parsedIndications : ['정상적인 면역 및 에너지 대사'],
                 suggestedUseKorean: dosageInstruction || `1일 ${dailyServings}회, 1회 ${amountPerServing}${servingUnitKorean} 섭취`,
-                safetyPrecautionsKorean: publicDataFetched?.precautionsSummary || ['특이체질 시 성분 확인'],
+                safetyPrecautionsKorean: parsedPrecautions.length > 0 ? parsedPrecautions : ['특이체질 시 성분 확인'],
                 standardSpecificationKorean: publicDataFetched?.standardSpecificationText
               }
             })
@@ -1506,9 +1526,9 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                 </div>
               </div>
 
-              {/* 제품 대표 사진 등록 및 표준 복용·섭취 기준 / 효능 문구 */}
-              <div className="grid grid-cols-12 gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl items-center">
-                <div className="col-span-3">
+              {/* 제품 대표 사진 등록 및 표준 복용·섭취 기준 / 효능·효과 전문 / 주의사항 전문 */}
+              <div className="grid grid-cols-12 gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl items-start">
+                <div className="col-span-4">
                   <label className="block font-bold text-slate-700 mb-1 text-xs flex items-center gap-1">
                     <Camera className="w-3.5 h-3.5 text-sky-600" />
                     <span>카탈로그 대표 사진</span>
@@ -1544,7 +1564,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                   </div>
                 </div>
 
-                <div className="col-span-4">
+                <div className="col-span-8">
                   <label className="block font-bold text-slate-700 mb-1 text-xs">
                     표준 복용·섭취 기준 문구
                   </label>
@@ -1556,16 +1576,30 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                     className="w-full p-2 border border-slate-300 rounded-lg bg-white text-xs font-medium"
                   />
                 </div>
-                <div className="col-span-5">
+
+                <div className="col-span-6">
                   <label className="block font-bold text-slate-700 mb-1 text-xs">
-                    효능·효과 / 기능성 요약 문구
+                    {classification === 'OTC_DRUG' ? '효능·효과 전문 (API 원문)' : '기능성 내용 (API 원문)'}
                   </label>
-                  <input
-                    type="text"
+                  <textarea
+                    rows={3}
                     value={indicationsText}
                     onChange={(e) => setIndicationsText(e.target.value)}
-                    placeholder="예: 육체피로, 체력저하, 신경통, 근육통 완화"
-                    className="w-full p-2 border border-slate-300 rounded-lg bg-white text-xs font-medium"
+                    placeholder="공공API 조회 시 효능·효과 / 기능성 전문이 자동으로 입력됩니다."
+                    className="w-full p-2 border border-slate-300 rounded-lg bg-white text-xs font-medium leading-relaxed"
+                  />
+                </div>
+
+                <div className="col-span-6">
+                  <label className="block font-bold text-slate-700 mb-1 text-xs">
+                    주의사항 전문 (API 원문)
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={precautionsText}
+                    onChange={(e) => setPrecautionsText(e.target.value)}
+                    placeholder="공공API 조회 시 사용상의 주의사항 / 섭취 시 주의사항 전문이 자동으로 입력됩니다."
+                    className="w-full p-2 border border-slate-300 rounded-lg bg-white text-xs font-medium leading-relaxed"
                   />
                 </div>
               </div>

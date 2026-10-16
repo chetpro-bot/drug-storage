@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { ProductItem } from '../types/product';
 import { ProductClassification } from '../types/classification';
 import { MOCK_PRODUCTS } from '../constants/mockProducts';
+import { doesProductMatchEfficacyTag } from '../constants/efficacyTags';
 import { resolveKpicCategory, saveLearnedIngredientMapping } from '../utils/innMapper';
 import { normalizeCategory } from '../utils/categoryColors';
 import { 
@@ -11,9 +12,12 @@ import {
 } from '../services/firestoreService';
 import { isLiveFirebaseConfigured } from '../services/firebase';
 
+export type MainViewMode = 'CATALOG' | 'DETAIL';
+
 interface ProductState {
   products: ProductItem[];
   selectedProductId: string | null;
+  viewMode: MainViewMode;
   searchQuery: string;
   classificationFilter: ProductClassification | 'ALL';
   selectedTag: string | null;
@@ -22,6 +26,7 @@ interface ProductState {
 
   // Actions
   setSelectedProductId: (id: string | null) => void;
+  setViewMode: (mode: MainViewMode) => void;
   setSearchQuery: (query: string) => void;
   setClassificationFilter: (filter: ProductClassification | 'ALL') => void;
   setSelectedTag: (tag: string | null) => void;
@@ -186,6 +191,7 @@ export const useProductStore = create<ProductState>((set, get) => {
   return {
     products: initialProducts,
     selectedProductId: initialProducts[0]?.id || null,
+    viewMode: 'CATALOG',
     searchQuery: '',
     classificationFilter: 'ALL',
     selectedTag: null,
@@ -193,6 +199,7 @@ export const useProductStore = create<ProductState>((set, get) => {
     isSyncing: false,
 
     setSelectedProductId: (id) => set({ selectedProductId: id }),
+    setViewMode: (mode) => set({ viewMode: mode }),
     setSearchQuery: (query) => set({ searchQuery: query }),
     setClassificationFilter: (filter) => set({ classificationFilter: filter }),
     setSelectedTag: (tag) => set({ selectedTag: tag }),
@@ -397,21 +404,31 @@ export const useProductStore = create<ProductState>((set, get) => {
       if (classificationFilter !== 'ALL' && item.classification !== classificationFilter) {
         return false;
       }
-      if (selectedTag && !item.tags.includes(selectedTag)) {
+      if (selectedTag && !doesProductMatchEfficacyTag(item, selectedTag)) {
         return false;
       }
       if (!query) return true;
 
       const matchName = item.productName.toLowerCase().includes(query);
       const matchManufacturer = item.manufacturer.toLowerCase().includes(query);
+      const matchLocation = item.storageLocation?.toLowerCase().includes(query);
+      const matchTags = item.tags.some((t) => t.toLowerCase().includes(query));
       const matchIngredients = item.ingredients.some(
         (ing) =>
           ing.englishInn.toLowerCase().includes(query) ||
+          ing.koreanName?.toLowerCase().includes(query) ||
           ing.noteKorean?.toLowerCase().includes(query)
       );
       const matchBarcode = item.barcode?.includes(query);
 
-      return matchName || matchManufacturer || matchIngredients || Boolean(matchBarcode);
+      return (
+        matchName ||
+        matchManufacturer ||
+        Boolean(matchLocation) ||
+        matchTags ||
+        matchIngredients ||
+        Boolean(matchBarcode)
+      );
     });
   },
 

@@ -2,6 +2,15 @@ import { ProductClassification, DosageForm } from '../types/classification';
 import { ProductIngredientEntry } from '../types/ingredient';
 import { parseRawIngredientString } from '../utils/innMapper';
 
+export type PublicDataSourceOrigin =
+  | '약학정보원(KPAIC) DB'
+  | '공공데이터포털 식약처 의약품 API'
+  | '식품안전나라 건기식 API (I0030)'
+  | '식품안전나라 건기식 API (C003)'
+  | '식품안전나라 일반식품 API (I1250)'
+  | '패키지 라벨 AI OCR 추출'
+  | '약국 등록 품목 DB';
+
 export interface PublicDataFetchResult {
   productName: string;
   manufacturer: string;
@@ -11,12 +20,19 @@ export interface PublicDataFetchResult {
   dailyServings: number;
   amountPerServing: number;
   servingUnitKorean: string;
-  regulatoryCode: string; // 약학정보원 / 식약처 품목기준코드
-  rawIngredientsText: string; // 약학정보원(KPAIC) 성분/분량 표준 원문
+  regulatoryCode: string; // 약학정보원 / 식약처 품목기준코드 / 품목제조보고번호
+  rawIngredientsText: string; // 약학정보원(KPAIC) 또는 식품안전나라 성분/분량 표준 원문
   indicationsSummary: string[];
   dosageInstruction: string;
   parsedIngredients: ProductIngredientEntry[];
-  sourceOrigin: '약학정보원(KPAIC) DB' | '패키지 라벨 AI OCR 추출' | '약국 등록 품목 DB';
+  sourceOrigin: PublicDataSourceOrigin;
+  precautionsSummary?: string[];
+  standardSpecificationText?: string; // STDR_STND 기준 및 규격 원문
+  indivRawMaterialText?: string; // I0030 기능성 주원료 (INDIV_RAWMTRL_NM)
+  etcRawMaterialText?: string; // I0030 기타원료/부원료 (ETC_RAWMTRL_NM)
+  capRawMaterialText?: string; // I0030 캡슐기제 (CAP_RAWMTRL_NM)
+  foodTypeCategory?: string; // 품목유형 (PRDLST_CDNM / PRDLST_DCNM)
+  shelfLifeText?: string; // 소비기한 (POG_DAYCNT)
 }
 
 export interface PublicDrugMasterItem {
@@ -34,6 +50,16 @@ export interface PublicDrugMasterItem {
   dosageInstruction: string;
   indicationsSummary: string[];
   searchKeywords?: string[];
+  sourceOrigin?: PublicDataSourceOrigin;
+  apiSourceBadge?: string;
+  precautionsSummary?: string[];
+  standardSpecificationText?: string;
+  indivRawMaterialText?: string;
+  etcRawMaterialText?: string;
+  capRawMaterialText?: string;
+  foodTypeCategory?: string;
+  shelfLifeText?: string;
+  parsedIngredientsCache?: ProductIngredientEntry[];
 }
 
 /**
@@ -1077,11 +1103,15 @@ Simethicone 시메티콘 30mg`,
 ];
 
 /**
- * 공공데이터포털(식약처 의약품 허가 상세 정보) 오픈 API 연동 서비스
+ * 1) 공공데이터포털(식약처 의약품 허가 상세 정보) 오픈 API
+ * 2) 식품안전나라(건강기능식품 I0030 · C003 / 일반식품 I1250) 오픈 API 연동 서비스
  */
 const DATA_GO_KR_API_KEY = '864de6190645216e2e968761319f76898e0ac8da5200fe1def929646b0c7df9f';
 const MFDS_INQ_URL = 'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService08/getDrugPrdtPrmsnInq08';
 const MFDS_DTL_URL = 'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService08/getDrugPrdtPrmsnDtlInq08';
+
+const FOOD_SAFETY_API_KEY = '3c5e594cc12141d897fe';
+const FOOD_SAFETY_BASE_URL = 'https://openapi.foodsafetykorea.go.kr/api';
 
 /**
  * XML/HTML 태그 및 CDATA 안전 제거 유틸리티
@@ -1100,18 +1130,28 @@ function cleanXmlDocText(xmlStr?: string | null): string {
 }
 
 /**
- * 제형 판별 유틸리티 (CHART 성상 텍스트 및 제품명 기반)
+ * 제형 판별 유틸리티 (CHART/DISPOS 성상 텍스트, PRDT_SHAP_CD_NM 및 제품명 기반)
  */
-function inferDosageForm(chartText: string = '', prodName: string = ''): DosageForm {
-  const combined = `${chartText} ${prodName}`.toLowerCase();
-  if (combined.includes('연질캡슐') || combined.includes('소프트캡슐')) return 'SOFT_CAPSULE';
-  if (combined.includes('경질캡슐') || combined.includes('캡슐')) return 'HARD_CAPSULE';
+function inferDosageForm(chartText: string = '', prodName: string = '', shapeCodeName: string = ''): DosageForm {
+  const combined = `${chartText} ${prodName} ${shapeCodeName}`.toLowerCase();
+  if (combined.includes('연질캡슐') || combined.includes('연질캅셀') || combined.includes('소프트캡슐')) return 'SOFT_CAPSULE';
+  if (combined.includes('경질캡슐') || combined.includes('경질캅셀') || combined.includes('캡슐') || combined.includes('캅셀')) return 'HARD_CAPSULE';
   if (combined.includes('장용')) return 'ENTERIC_TABLET';
-  if (combined.includes('필름코팅')) return 'FILM_COATED_TABLET';
-  if (combined.includes('시럽') || combined.includes('액제') || combined.includes('액상') || combined.includes('현탁액')) return 'LIQUID_ORAL';
+  if (combined.includes('필름코팅') || combined.includes('제피정')) return 'FILM_COATED_TABLET';
+  if (
+    combined.includes('시럽') ||
+    combined.includes('액제') ||
+    combined.includes('액상') ||
+    combined.includes('현탁액') ||
+    combined.includes('음료') ||
+    combined.includes('겔') ||
+    combined.includes('앰플')
+  ) {
+    return 'LIQUID_ORAL';
+  }
   if (combined.includes('과립')) return 'GRANULE';
-  if (combined.includes('산제') || combined.includes('가루')) return 'POWDER';
-  if (combined.includes('젤리') || combined.includes('츄어블')) return 'JELLY';
+  if (combined.includes('산제') || combined.includes('가루') || combined.includes('분말')) return 'POWDER';
+  if (combined.includes('젤리') || combined.includes('츄어블') || combined.includes('구미')) return 'JELLY';
   return 'TABLET';
 }
 
@@ -1157,28 +1197,612 @@ function formatMaterialNameToRawIngredients(materialName?: string, mainIngrEng?:
 }
 
 /**
- * 용법용량 텍스트에서 1일 섭취 횟수와 1회 복용량 추정
+ * 용법용량 / 섭취방법 텍스트에서 1일 섭취 횟수와 1회 복용량 추정
  */
-function parseServingFromInstruction(instruction: string): { dailyServings: number; amountPerServing: number; servingUnitKorean: string } {
+function parseServingFromInstruction(instruction: string, fallbackShape: string = ''): {
+  dailyServings: number;
+  amountPerServing: number;
+  servingUnitKorean: string;
+} {
   let dailyServings = 1;
   let amountPerServing = 1;
   let servingUnitKorean = '정';
 
-  if (instruction.includes('캡슐')) servingUnitKorean = '캡슐';
-  else if (instruction.includes('포')) servingUnitKorean = '포';
-  else if (instruction.includes('정')) servingUnitKorean = '정';
+  const combined = `${instruction} ${fallbackShape}`;
+  if (combined.includes('캡슐') || combined.includes('캅셀')) servingUnitKorean = '캡슐';
+  else if (combined.includes('포') || combined.includes('스틱')) servingUnitKorean = '포';
+  else if (combined.includes('병') || combined.includes('바이알') || combined.includes('앰플')) servingUnitKorean = '병';
+  else if (combined.includes('스푼') || combined.includes('스쿱')) servingUnitKorean = '스푼';
+  else if (combined.includes('정')) servingUnitKorean = '정';
 
-  const dailyMatch = instruction.match(/1일\s*([0-9]+)\s*회/);
+  const dailyMatch = instruction.match(/1일\s*([0-9]+)\s*(?:~\s*([0-9]+))?\s*회/);
   if (dailyMatch) {
-    dailyServings = parseInt(dailyMatch[1], 10) || 1;
+    dailyServings = parseInt(dailyMatch[2] || dailyMatch[1], 10) || 1;
   }
 
-  const servingMatch = instruction.match(/1회\s*([0-9]+)\s*[정포캡슐]/);
+  const servingMatch = instruction.match(/1회\s*([0-9]+)\s*(?:~\s*([0-9]+))?\s*(정|포|캡슐|캅셀|스틱|병|알|매)/);
   if (servingMatch) {
-    amountPerServing = parseInt(servingMatch[1], 10) || 1;
+    amountPerServing = parseInt(servingMatch[2] || servingMatch[1], 10) || 1;
+    servingUnitKorean = servingMatch[3] === '캅셀' ? '캡슐' : servingMatch[3];
+  } else {
+    // "1일 1포", "1일 2캡슐" 형태
+    const directDailyUnit = instruction.match(/1일\s*([0-9]+)\s*(정|포|캡슐|캅셀|스틱|병)/);
+    if (directDailyUnit && !dailyMatch) {
+      dailyServings = parseInt(directDailyUnit[1], 10) || 1;
+      amountPerServing = 1;
+      servingUnitKorean = directDailyUnit[2] === '캅셀' ? '캡슐' : directDailyUnit[2];
+    }
   }
 
   return { dailyServings, amountPerServing, servingUnitKorean };
+}
+
+/**
+ * 식품안전나라 기능성 문구(PRIMARY_FNCLTY)를 깔끔한 배열로 정제
+ */
+function parseFunctionalClaims(rawFnclty?: string): string[] {
+  if (!rawFnclty) return [];
+  const cleaned = rawFnclty
+    .replace(/\(국문\)/g, '')
+    .replace(/\(영문\)\s*[A-Za-z0-9\s,\.\(\)\-\/]+/g, '')
+    .trim();
+
+  const lines = cleaned
+    .split(/[\r\n]+/)
+    .map(l => l.trim())
+    .filter(Boolean);
+
+  const claims: string[] = [];
+  for (const line of lines) {
+    // [아연] ①정상적인 면역기능에 필요②정상적인 세포분열에 필요
+    const subParts = line
+      .split(/[①②③④⑤⑥⑦⑧⑨⑩]|(?:\([0-9]+\))/)
+      .map(s => s.trim())
+      .filter(s => s.length > 2);
+
+    if (subParts.length > 1 && line.startsWith('[')) {
+      const prefix = subParts[0]; // e.g., "[아연]"
+      const rest = subParts.slice(1).join(', ');
+      claims.push(`${prefix} ${rest}`);
+    } else if (subParts.length > 0) {
+      claims.push(...subParts);
+    } else {
+      claims.push(line);
+    }
+  }
+
+  return Array.from(new Set(claims)).slice(0, 8);
+}
+
+/**
+ * 식품안전나라 주의사항(IFTKN_ATNT_MATR_CN) 정제
+ */
+function parsePrecautionsText(rawPrecautions?: string): string[] {
+  if (!rawPrecautions) return ['특이체질 및 알레르기 체질의 경우 성분을 확인 후 섭취하십시오.'];
+  const items = rawPrecautions
+    .split(/[\r\n]+|(?:\([0-9]+\))|(?:[0-9]+\))/)
+    .map(s => s.replace(/^[-\s·•]+/, '').trim())
+    .filter(s => s.length > 3);
+  return Array.from(new Set(items)).slice(0, 6);
+}
+
+/**
+ * 식품안전나라(I0030 / C003)의 기준 및 규격(STDR_STND) + 기능성 주원료(INDIV_RAWMTRL_NM) + 기타원료(ETC_RAWMTRL_NM)를
+ * 결합하여 약사 검수용 표준 성분 텍스트 및 ProductIngredientEntry 리스트 생성
+ * - 계획서 기준: "건기식의 공식 신고 정보와 기능성 문구를 확인합니다. 함량은 규격(STDR_STND)에 명시된 경우만 해석합니다."
+ * - I0030 장점 활용: INDIV_RAWMTRL_NM(주원료 염 형태)과 ETC_RAWMTRL_NM(부원료), CAP_RAWMTRL_NM(캡슐기제)이 분리되어 있어
+ *   부형제 오염 없이 정확한 원료 염 형태와 표시량 함량을 매칭합니다.
+ */
+export function parseFunctionalFoodRecordToIngredients(
+  row: any,
+  dailyServings: number = 1
+): {
+  rawIngredientsText: string;
+  parsedIngredients: ProductIngredientEntry[];
+} {
+  const stdrText: string = row.STDR_STND || '';
+  const indivRawText: string = row.INDIV_RAWMTRL_NM || '';
+  const rawMtrlText: string = row.RAWMTRL_NM || '';
+  const etcRawText: string = row.ETC_RAWMTRL_NM || '';
+
+  // 1. INDIV_RAWMTRL_NM (또는 C003의 경우 RAWMTRL_NM 앞부분)에서 원료 화학적 형태 목록 추출
+  const cleanRawMaterialItem = (str: string) =>
+    str
+      .replace(/\(고시형\)/g, '')
+      .replace(/\(기능성원료[^)]*\)/g, '')
+      .replace(/\(제[0-9\-]+호\)/g, '')
+      .trim();
+
+  const indivMaterials = (indivRawText || rawMtrlText)
+    .split(/[,;\n\r]+/)
+    .map(cleanRawMaterialItem)
+    .filter(Boolean);
+
+  // 2. STDR_STND(기준 및 규격)에서 '표시량'이 명시된 기능성분 및 수치 추출
+  interface SpecExtracted {
+    specName: string;
+    amount: number;
+    unit: 'mg' | 'ug' | 'IU' | 'g';
+    displayUnitNote?: string;
+    isPerSingleUnit?: boolean;
+  }
+
+  const extractedSpecs = new Map<string, SpecExtracted>();
+  const ignoreSpecPattern = /^(성상|대장균|세균|붕해|납|카드뮴|수은|총수은|비소|총비소|헥산|진균|수분|타르색소|보존료|산가|과산화물가|잔류용매|회분|산불용성)/;
+
+  const stdrLines = stdrText.split(/[\r\n]+/).map(l => l.trim()).filter(Boolean);
+  for (const line of stdrLines) {
+    const cleaned = line.replace(/^(?:\([0-9]+\)|[0-9]+[\.\)]|[①-⑳]|[-·•])\s*/, '').trim();
+    if (!cleaned || !cleaned.includes('표시량')) continue;
+
+    const colonIdx = cleaned.indexOf(':');
+    if (colonIdx === -1) continue;
+
+    let leftPart = cleaned.slice(0, colonIdx).trim();
+    const rightPart = cleaned.slice(colonIdx + 1).trim();
+
+    // 좌측에 단위가 괄호로 적힌 형태: 예 "실리마린(mg/900 mg)", "셀레늄(μg/900 mg)", "비타민A(μg RE/900 mg)"
+    let unitFromLeft = '';
+    const leftUnitMatch = leftPart.match(/\(\s*(mg|ug|㎍|μg|µg|IU|g|CFU)/i);
+    if (leftUnitMatch) {
+      unitFromLeft = leftUnitMatch[1];
+      leftPart = leftPart.replace(/\([^)]*\)/g, '').trim();
+    }
+
+    if (ignoreSpecPattern.test(leftPart)) continue;
+
+    // 우측에서 표시량 추출: 예 "표시량(1.2mg/40g)", "표시량(130)의 80~120%", "표시량{10,000,000,000CFU/400mg(1캡슐)}"
+    const pyosiMatch = rightPart.match(
+      /표시량\s*[\(\{｛\[]?\s*([0-9,]+(?:\.[0-9]+)?)\s*(?:\([0-9,]+억\))?\s*(mg|ug|㎍|μg|µg|IU|g|CFU|억\s*CFU|억)?/i
+    );
+    if (!pyosiMatch) continue;
+
+    const rawVal = parseFloat(pyosiMatch[1].replace(/,/g, ''));
+    if (isNaN(rawVal) || rawVal <= 0) continue;
+
+    const rawUnitStr = (pyosiMatch[2] || unitFromLeft || 'mg').trim();
+    let normUnit: 'mg' | 'ug' | 'IU' | 'g' = 'mg';
+    let finalAmount = rawVal;
+    let displayUnitNote: string | undefined = undefined;
+
+    if (/cfu|억/i.test(rawUnitStr) || /프로바이오틱스|유산균/.test(leftPart)) {
+      // 프로바이오틱스 CFU 처리 (예: 10,000,000,000 CFU -> 100억 CFU)
+      const eokVal = rawVal >= 100000000 ? Math.round(rawVal / 100000000) : rawVal;
+      finalAmount = eokVal;
+      normUnit = 'mg';
+      displayUnitNote = `${eokVal.toLocaleString()}억 CFU`;
+    } else if (/^(ug|㎍|μg|µg)$/i.test(rawUnitStr)) {
+      normUnit = 'ug';
+    } else if (/^iu$/i.test(rawUnitStr)) {
+      normUnit = 'IU';
+    } else if (/^g$/i.test(rawUnitStr)) {
+      normUnit = 'g';
+    } else {
+      normUnit = 'mg';
+    }
+
+    const isPerSingleUnit = /\/\s*[0-9\.,]+\s*(?:mg|g)?\s*\(\s*1\s*(?:캡슐|캅셀|정|포)\s*\)/.test(rightPart);
+    const normKey = leftPart.replace(/\s+/g, '').toLowerCase();
+
+    // 멀티팩 등에서 동일 성분이 여러 정제에 나뉘어 있으면 더 큰 함량(또는 합산) 보존
+    const existing = extractedSpecs.get(normKey);
+    if (!existing || finalAmount > existing.amount) {
+      extractedSpecs.set(normKey, {
+        specName: leftPart.replace(/\s*수$/, '').trim(),
+        amount: finalAmount,
+        unit: normUnit,
+        displayUnitNote,
+        isPerSingleUnit
+      });
+    }
+  }
+
+  // 3. 규격 성분명(STDR_STND)과 실제 원료 염 형태(INDIV_RAWMTRL_NM) 매칭 규칙
+  const saltMatchRules: { specKeyword: RegExp; rawKeyword: RegExp }[] = [
+    { specKeyword: /비타민\s*b1(?!2)|티아민/i, rawKeyword: /비타민\s*b1|티아민|벤포티아민|푸르설티아민/i },
+    { specKeyword: /비타민\s*b2|리보플라빈/i, rawKeyword: /비타민\s*b2|리보플라빈/i },
+    { specKeyword: /나이아신|니코틴산/i, rawKeyword: /니코틴산아미드|나이아신|니코틴산/i },
+    { specKeyword: /판토텐산/i, rawKeyword: /판토텐산칼슘|판토텐산/i },
+    { specKeyword: /비타민\s*b6|피리독신/i, rawKeyword: /비타민\s*b6|피리독신|피리독살/i },
+    { specKeyword: /비타민\s*b12|코발라민/i, rawKeyword: /비타민\s*b12|코발라민/i },
+    { specKeyword: /비타민\s*c|아스코르브산/i, rawKeyword: /비타민\s*c|아스코르브산/i },
+    { specKeyword: /비타민\s*d/i, rawKeyword: /비타민\s*d|콜레칼시페롤|에르고칼시페롤/i },
+    { specKeyword: /비타민\s*e|토코페롤/i, rawKeyword: /토코페롤|토코페릴|비타민\s*e/i },
+    { specKeyword: /비타민\s*a|레티놀|베타카로틴/i, rawKeyword: /비타민\s*a|레티놀|베타카로틴/i },
+    { specKeyword: /비타민\s*k/i, rawKeyword: /비타민\s*k|피토메나디온|메나퀴논/i },
+    { specKeyword: /엽산|폴산/i, rawKeyword: /엽산|폴산/i },
+    { specKeyword: /비오틴/i, rawKeyword: /비오틴/i },
+    { specKeyword: /아연/i, rawKeyword: /산화아연|글루콘산아연|황산아연|건조효모.*아연|아연/i },
+    { specKeyword: /셀레늄|셀렌/i, rawKeyword: /셀렌|셀레늄|아셀렌산/i },
+    { specKeyword: /마그네슘/i, rawKeyword: /산화마그네슘|글루콘산마그네슘|수산화마그네슘|마그네슘/i },
+    { specKeyword: /칼슘/i, rawKeyword: /해조칼슘|탄산칼슘|구연산칼슘|젖산칼슘| 유청칼슘|칼슘/i },
+    { specKeyword: /철/i, rawKeyword: /푸마르산제일철|피로인산제이철|글루콘산철|유산철|철/i },
+    { specKeyword: /구리|동/i, rawKeyword: /글루콘산동|황산동|구리/i },
+    { specKeyword: /망간/i, rawKeyword: /황산망간|글루콘산망간|망간/i },
+    { specKeyword: /크롬/i, rawKeyword: /크롬/i },
+    { specKeyword: /몰리브덴/i, rawKeyword: /몰리브덴/i },
+    { specKeyword: /실리마린|밀크씨슬/i, rawKeyword: /밀크씨슬|카르두스|실리마린/i },
+    { specKeyword: /루테인|지아잔틴|마리골드/i, rawKeyword: /루테인|마리골드|지아잔틴/i },
+    { specKeyword: /epa|dha|오메가/i, rawKeyword: /epa|dha|정제어유|유지/i },
+    { specKeyword: /프로바이오틱스|유산균/i, rawKeyword: /프로바이오틱스|유산균|lactobacillus|bifidobacterium|lacticaseibacillus/i },
+    { specKeyword: /테아닌/i, rawKeyword: /테아닌/i },
+    { specKeyword: /진세노사이드|홍삼/i, rawKeyword: /홍삼/i },
+    { specKeyword: /코로솔산|바나바/i, rawKeyword: /바나바/i },
+    { specKeyword: /로르산|쏘팔메토/i, rawKeyword: /쏘팔메토/i }
+  ];
+
+  const usedIndivIndices = new Set<number>();
+  const formattedLines: string[] = [];
+
+  for (const spec of extractedSpecs.values()) {
+    let matchedRawSalt = '';
+    const rule = saltMatchRules.find(r => r.specKeyword.test(spec.specName));
+    if (rule) {
+      const idx = indivMaterials.findIndex((m, i) => !usedIndivIndices.has(i) && rule.rawKeyword.test(m));
+      if (idx !== -1) {
+        matchedRawSalt = indivMaterials[idx];
+        usedIndivIndices.add(idx);
+      }
+    }
+
+    // 1일 섭취량 기준 표시량인 경우 1회 섭취량으로 환산 (ClinicalSafetyPanel에서 dailyServings를 곱하므로 정확히 일치)
+    const perServingAmount =
+      !spec.isPerSingleUnit && dailyServings > 1
+        ? +(spec.amount / dailyServings).toFixed(2)
+        : spec.amount;
+
+    const targetName = matchedRawSalt || spec.specName;
+
+    // 미네랄 염(글루콘산아연, 산화아연, 산화마그네슘 등)인 경우 표시량은 순수 원소량이므로 "(아연으로서 Xmg)" 병기
+    if (
+      /산화아연|글루콘산아연|산화마그네슘|글루콘산마그네슘|해조칼슘|탄산칼슘|구연산칼슘|젖산칼슘|푸마르산제일철|건조효모\(셀렌/i.test(
+        targetName
+      )
+    ) {
+      formattedLines.push(`${targetName} ${perServingAmount}${spec.unit} (${spec.specName}으로서 ${perServingAmount}${spec.unit})`);
+    } else if (spec.displayUnitNote) {
+      formattedLines.push(`${ spec.specName } ${perServingAmount}${spec.unit}`);
+    } else {
+      formattedLines.push(`${targetName} ${perServingAmount}${spec.unit}`);
+    }
+  }
+
+  // 4. 만약 STDR_STND에서 매칭되지 않은 기능성 주원료(INDIV_RAWMTRL_NM)가 남아있다면 누락 없이 추가
+  if (indivRawText) {
+    indivMaterials.forEach((mat, idx) => {
+      if (usedIndivIndices.has(idx)) return;
+      if (/혼합제제|기타가공품|캡슐류|정제수|덱스트린|올리브유|대두유/.test(mat) && mat.length < 10) return;
+      formattedLines.push(mat);
+    });
+  } else if (formattedLines.length === 0 && rawMtrlText) {
+    // C003 폴백 시 STDR_STND에 수치가 없는 경우 상위 기능성 원재료만 추출
+    rawMtrlText
+      .split(/[,;\n\r]+/)
+      .map(cleanRawMaterialItem)
+      .filter(m => m && !/정제수|결정셀룰로스|스테아린산마그네슘|이산화규소|향료|젤라틴|글리세린|포도당|덱스트린/.test(m))
+      .slice(0, 8)
+      .forEach(m => formattedLines.push(m));
+  }
+
+  const rawIngredientsText = formattedLines.join('\n');
+  const parsedIngredients = parseRawIngredientString(rawIngredientsText);
+
+  // 프로바이오틱스 CFU 표기 보정 및 미네랄 원소량 동기화
+  parsedIngredients.forEach(ing => {
+    if (ing.englishInn === 'Probiotics') {
+      const cfuSpec = Array.from(extractedSpecs.values()).find(s => s.displayUnitNote);
+      if (cfuSpec?.displayUnitNote) {
+        ing.formattedSpecification = `Probiotics ${cfuSpec.displayUnitNote}`;
+        ing.noteKorean = `기준규격 표시량: ${cfuSpec.displayUnitNote} 이상`;
+      }
+    }
+  });
+
+  // 5. I0030의 ETC_RAWMTRL_NM(기타원료/부원료)에서 약국 상담용 핵심 유효 부원료 자동 감지 추가
+  if (etcRawText) {
+    const notableSubRules: { pattern: RegExp; label: string; inn: string; category: string }[] = [
+      { pattern: /L-아르지닌|L-아르기닌|아르기닌/i, label: 'L-아르기닌', inn: 'L-Arginine', category: '간보호제' },
+      { pattern: /타우린/i, label: '타우린', inn: 'Taurine', category: '비필수 아미노산제제' },
+      { pattern: /이노시톨/i, label: '이노시톨', inn: 'Inositol', category: '기타 비타민B' },
+      { pattern: /브로멜라인/i, label: '브로멜라인', inn: 'Bromelain', category: '소염효소' },
+      { pattern: /파파인|파파야추출/i, label: '파파인(파파야추출물)', inn: 'Papain', category: '소화효소제' },
+      { pattern: /글루콘산마그네슘/i, label: '글루콘산마그네슘', inn: 'Magnesium gluconate', category: '마그네슘(Mg)' },
+      { pattern: /젖산칼슘/i, label: '젖산칼슘', inn: 'Calcium lactate', category: '칼슘(Ca)' },
+      { pattern: /해조칼슘/i, label: '해조칼슘', inn: 'Seaweed calcium', category: '칼슘(Ca)' },
+      { pattern: /헛개나무/i, label: '헛개나무열매추출분말', inn: 'Hovenia dulcis extract', category: '간보호제' },
+      { pattern: /울금추출|강황추출|커큐민/i, label: '강황/울금추출물(커큐민)', inn: 'Curcumin (Turmeric extract)', category: '간보호제' },
+      { pattern: /아쉬아간다/i, label: '아쉬아간다추출물', inn: 'Withania somnifera (Ashwagandha)', category: '자양강장' },
+      { pattern: /홍경천/i, label: '홍경천추출물', inn: 'Rhodiola rosea extract', category: '자양강장' },
+      { pattern: /주석산수소콜린|콜린/i, label: '주석산수소콜린', inn: 'Choline bitartrate', category: '기타 비타민B' }
+    ];
+
+    const existingInns = new Set(parsedIngredients.map(p => p.englishInn.toLowerCase()));
+    notableSubRules.forEach((sub, idx) => {
+      if (sub.pattern.test(etcRawText) && !existingInns.has(sub.inn.toLowerCase())) {
+        existingInns.add(sub.inn.toLowerCase());
+        parsedIngredients.push({
+          ingredientId: `ing_fsk_sub_${Date.now()}_${idx}`,
+          englishInn: sub.inn,
+          functionalCategory: sub.category,
+          chemicalFormName: `부원료 (${sub.label}) — 함량 미고시`,
+          rawAmount: 0,
+          unit: 'mg',
+          isMainActive: false,
+          clinicalSummary: `• 식품안전나라 기타원료(부원료) 등재 성분 (${sub.label})\n• 건기식 부원료는 규격상 함량이 미고시되므로 필요 시 실물 라벨 함량을 입력하세요.`,
+          formattedSpecification: `${sub.inn} (부원료)`
+        });
+      }
+    });
+  }
+
+  return {
+    rawIngredientsText: rawIngredientsText || indivRawText || rawMtrlText || '기준 및 규격 원문 참조',
+    parsedIngredients
+  };
+}
+
+/**
+ * 식품안전나라 건강기능식품 API (I0030 우선 조회 + C003 보조 조회)
+ */
+export async function searchFoodSafetyFunctionalFoods(
+  keyword: string,
+  manufacturer?: string,
+  reportNo?: string
+): Promise<PublicDrugMasterItem[]> {
+  const fetchService = async (serviceId: 'I0030' | 'C003', paramSegment: string): Promise<any[]> => {
+    try {
+      const url = `${FOOD_SAFETY_BASE_URL}/${FOOD_SAFETY_API_KEY}/${serviceId}/json/1/30/${paramSegment}`;
+      const res = await fetch(url);
+      if (!res.ok) return [];
+      const data = await res.json();
+      const rows = data?.[serviceId]?.row;
+      return Array.isArray(rows) ? rows : [];
+    } catch (e) {
+      console.warn(`식품안전나라 ${serviceId} 호출 실패:`, e);
+      return [];
+    }
+  };
+
+  // 조회 파라미터 구성 (품목제조번호 / 제품명 / 제조사명)
+  const cleanKw = keyword.trim();
+  const cleanMfg = (manufacturer || '').trim();
+  const cleanReport = (reportNo || '').trim().replace(/[^0-9]/g, '');
+
+  const paramCandidates: string[] = [];
+  if (cleanReport.length >= 8) {
+    paramCandidates.push(`PRDLST_REPORT_NO=${encodeURIComponent(cleanReport)}`);
+  }
+  if (cleanKw) {
+    if (/^[0-9]{8,}$/.test(cleanKw.replace(/-/g, ''))) {
+      paramCandidates.push(`PRDLST_REPORT_NO=${encodeURIComponent(cleanKw.replace(/-/g, ''))}`);
+    } else {
+      // 공백 유무 차이로 검색이 안 되는 경우(예: "마이타민 업" vs "마이타민업")를 위해 원본 및 공백제거 키워드 모두 준비
+      paramCandidates.push(`PRDLST_NM=${encodeURIComponent(cleanKw)}`);
+      const noSpaceKw = cleanKw.replace(/\s+/g, '');
+      if (noSpaceKw !== cleanKw && noSpaceKw.length >= 2) {
+        paramCandidates.push(`PRDLST_NM=${encodeURIComponent(noSpaceKw)}`);
+      }
+    }
+  }
+  if (cleanMfg && !cleanKw) {
+    paramCandidates.push(`BSSH_NM=${encodeURIComponent(cleanMfg)}`);
+  }
+
+  let rows: any[] = [];
+  let usedService: 'I0030' | 'C003' = 'I0030';
+
+  // 1차: I0030 (건강기능식품 품목제조 신고사항 현황 - 주원료/부원료/캡슐기제 분리형)
+  for (const param of paramCandidates) {
+    const found = await fetchService('I0030', param);
+    if (found.length > 0) {
+      rows = [...rows, ...found];
+    }
+    if (rows.length >= 15) break;
+  }
+
+  // 2차: 만약 I0030에서 결과가 없으면 C003 (건강기능식품 품목제조신고 원재료) 보조 조회
+  if (rows.length === 0) {
+    usedService = 'C003';
+    for (const param of paramCandidates) {
+      const found = await fetchService('C003', param);
+      if (found.length > 0) {
+        rows = [...rows, ...found];
+      }
+      if (rows.length >= 15) break;
+    }
+  }
+
+  // 품목제조보고번호 기준 중복 제거
+  const uniqueMap = new Map<string, any>();
+  for (const r of rows) {
+    const key = r.PRDLST_REPORT_NO || `${r.PRDLST_NM}_${r.BSSH_NM}`;
+    if (!uniqueMap.has(key)) {
+      uniqueMap.set(key, r);
+    }
+  }
+
+  let dedupedRows = Array.from(uniqueMap.values());
+
+  // 제조사 필터가 함께 입력된 경우 일치하는 제조사를 상단으로 정렬
+  if (cleanMfg) {
+    const normMfg = cleanMfg.replace(/\s+/g, '').toLowerCase();
+    dedupedRows.sort((a, b) => {
+      const aMatch = (a.BSSH_NM || '').replace(/\s+/g, '').toLowerCase().includes(normMfg) ? 0 : 1;
+      const bMatch = (b.BSSH_NM || '').replace(/\s+/g, '').toLowerCase().includes(normMfg) ? 0 : 1;
+      return aMatch - bMatch;
+    });
+  }
+
+  return dedupedRows.map((row: any) => {
+    const prodName = (row.PRDLST_NM || '').trim();
+    const mfgName = (row.BSSH_NM || '건강기능식품제조원').trim();
+    const reportNoStr = (row.PRDLST_REPORT_NO || '').trim();
+    const instruction = (row.NTK_MTHD || '1일 1회, 1회 1정(포/캡슐)을 물과 함께 섭취하십시오.').replace(/\s+/g, ' ').trim();
+    const { dailyServings, amountPerServing, servingUnitKorean } = parseServingFromInstruction(
+      instruction,
+      row.PRDT_SHAP_CD_NM || ''
+    );
+    const dosageForm = inferDosageForm(row.DISPOS || '', prodName, row.PRDT_SHAP_CD_NM || '');
+    const claims = parseFunctionalClaims(row.PRIMARY_FNCLTY);
+    const precautions = parsePrecautionsText(row.IFTKN_ATNT_MATR_CN);
+    const { rawIngredientsText, parsedIngredients } = parseFunctionalFoodRecordToIngredients(row, dailyServings);
+
+    const packagingUnit = row.FRMLC_MTHD
+      ? `${row.PRDT_SHAP_CD_NM || servingUnitKorean} (${row.FRMLC_MTHD.slice(0, 22)})`
+      : `${dailyServings * 30}${servingUnitKorean} (1개월분 규격)`;
+
+    return {
+      id: `fsk_${usedService}_${reportNoStr}`,
+      productName: prodName,
+      manufacturer: mfgName,
+      classification: 'HEALTH_FUNCTIONAL_FOOD' as ProductClassification,
+      dosageForm,
+      packagingUnit,
+      dailyServings,
+      amountPerServing,
+      servingUnitKorean,
+      regulatoryCode: reportNoStr,
+      rawIngredientsText,
+      dosageInstruction: instruction,
+      indicationsSummary: claims.length > 0 ? claims : ['건강기능식품 공식 신고 기능성'],
+      searchKeywords: [prodName, mfgName, reportNoStr],
+      sourceOrigin: usedService === 'I0030' ? '식품안전나라 건기식 API (I0030)' : '식품안전나라 건기식 API (C003)',
+      apiSourceBadge: usedService === 'I0030' ? '식품안전나라 I0030 (건기식)' : '식품안전나라 C003 (건기식)',
+      precautionsSummary: precautions,
+      standardSpecificationText: row.STDR_STND || '',
+      indivRawMaterialText: row.INDIV_RAWMTRL_NM || row.RAWMTRL_NM || '',
+      etcRawMaterialText: row.ETC_RAWMTRL_NM || '',
+      capRawMaterialText: row.CAP_RAWMTRL_NM || '',
+      foodTypeCategory: row.PRDLST_CDNM || '건강기능식품',
+      shelfLifeText: row.POG_DAYCNT || '',
+      parsedIngredientsCache: parsedIngredients
+    };
+  });
+}
+
+/**
+ * 식품안전나라 식품(첨가물)품목제조보고 API (I1250 — 일반식품/기타가공품 조회 및 건기식 미검색 시 보조 조회)
+ */
+export async function searchFoodSafetyGeneralFoods(
+  keyword: string,
+  manufacturer?: string,
+  reportNo?: string
+): Promise<PublicDrugMasterItem[]> {
+  const fetchI1250 = async (paramSegment: string): Promise<any[]> => {
+    try {
+      const url = `${FOOD_SAFETY_BASE_URL}/${FOOD_SAFETY_API_KEY}/I1250/json/1/30/${paramSegment}`;
+      const res = await fetch(url);
+      if (!res.ok) return [];
+      const data = await res.json();
+      const rows = data?.I1250?.row;
+      return Array.isArray(rows) ? rows : [];
+    } catch (e) {
+      console.warn('식품안전나라 I1250 호출 실패:', e);
+      return [];
+    }
+  };
+
+  const cleanKw = keyword.trim();
+  const cleanMfg = (manufacturer || '').trim();
+  const cleanReport = (reportNo || '').trim().replace(/[^0-9]/g, '');
+
+  const paramCandidates: string[] = [];
+  if (cleanReport.length >= 8) {
+    paramCandidates.push(`PRDLST_REPORT_NO=${encodeURIComponent(cleanReport)}`);
+  }
+  if (cleanKw) {
+    if (/^[0-9]{8,}$/.test(cleanKw.replace(/-/g, ''))) {
+      paramCandidates.push(`PRDLST_REPORT_NO=${encodeURIComponent(cleanKw.replace(/-/g, ''))}`);
+    } else {
+      paramCandidates.push(`PRDLST_NM=${encodeURIComponent(cleanKw)}`);
+    }
+  }
+  if (cleanMfg && !cleanKw) {
+    paramCandidates.push(`BSSH_NM=${encodeURIComponent(cleanMfg)}`);
+  }
+
+  let rows: any[] = [];
+  for (const param of paramCandidates) {
+    const found = await fetchI1250(param);
+    if (found.length > 0) {
+      rows = [...rows, ...found];
+      break;
+    }
+  }
+
+  const uniqueMap = new Map<string, any>();
+  for (const r of rows) {
+    const key = r.PRDLST_REPORT_NO || `${r.PRDLST_NM}_${r.BSSH_NM}`;
+    if (!uniqueMap.has(key)) {
+      uniqueMap.set(key, r);
+    }
+  }
+
+  return Array.from(uniqueMap.values()).map((row: any) => {
+    const prodName = (row.PRDLST_NM || '').trim();
+    const mfgName = (row.BSSH_NM || '식품제조가공업소').trim();
+    const reportNoStr = (row.PRDLST_REPORT_NO || '').trim();
+    const foodType = (row.PRDLST_DCNM || '기타가공품').trim();
+    const usageRaw = (row.USAGE || '').replace(/\s+/g, ' ').trim();
+    const dispos = (row.DISPOS || '').trim();
+    const shelfLife = (row.POG_DAYCNT || '').trim();
+
+    const instruction = usageRaw || '1일 1~2회, 1회 1포(정)를 물과 함께 또는 그대로 섭취하십시오.';
+    const { dailyServings, amountPerServing, servingUnitKorean } = parseServingFromInstruction(
+      instruction,
+      `${prodName} ${dispos}`
+    );
+    const dosageForm = inferDosageForm(dispos, prodName, foodType);
+
+    // 일반식품(I1250)은 제품명에서 대표 성분을 추론하여 초기 검수 행 구성
+    let inferredRaw = '';
+    if (/아르기닌|아르지닌/.test(prodName)) inferredRaw = 'L-아르기닌 1000mg';
+    else if (/글루타치온|글루타티온/.test(prodName)) inferredRaw = '글루타치온 100mg';
+    else if (/브로멜라인/.test(prodName)) inferredRaw = '브로멜라인 100mg';
+    else if (/카무트|효소/.test(prodName)) inferredRaw = '판크레아틴 100mg';
+    else if (/타우린/.test(prodName)) inferredRaw = '타우린 500mg';
+    else if (/비타민\s*C/i.test(prodName)) inferredRaw = '아스코르브산 500mg';
+    else if (/마그네슘/.test(prodName)) inferredRaw = '글루콘산마그네슘 100mg';
+    else if (/칼슘/.test(prodName)) inferredRaw = '해조칼슘 200mg';
+
+    const parsedIngredients = inferredRaw
+      ? parseRawIngredientString(inferredRaw)
+      : [
+          {
+            ingredientId: `ing_i1250_${Date.now()}`,
+            englishInn: `${prodName} 주원료`,
+            functionalCategory: '기타',
+            chemicalFormName: `${foodType} 원료 (실물 라벨 또는 직접 함량 입력)`,
+            rawAmount: 100,
+            unit: 'mg' as const,
+            isMainActive: true,
+            clinicalSummary: `• 식품안전나라 품목제조보고(I1250) 등록 일반식품 (${foodType})\n• 성상: ${dispos || '고유의 색택과 향미를 가진 식품'}`
+          }
+        ];
+
+    return {
+      id: `fsk_I1250_${reportNoStr}`,
+      productName: prodName,
+      manufacturer: mfgName,
+      classification: 'GENERAL_FOOD' as ProductClassification,
+      dosageForm,
+      packagingUnit: `${foodType} (${shelfLife ? `소비기한: ${shelfLife}` : '품목보고 규격'})`,
+      dailyServings,
+      amountPerServing,
+      servingUnitKorean,
+      regulatoryCode: reportNoStr,
+      rawIngredientsText: `품목유형: ${foodType} | 성상: ${dispos || '정보 없음'} | 소비기한: ${shelfLife || '정보 없음'}`,
+      dosageInstruction: instruction,
+      indicationsSummary: [`일반식품 (${foodType})`, ...(dispos ? [`성상: ${dispos}`] : [])],
+      searchKeywords: [prodName, mfgName, reportNoStr, foodType],
+      sourceOrigin: '식품안전나라 일반식품 API (I1250)',
+      apiSourceBadge: `식품안전나라 I1250 (${foodType})`,
+      precautionsSummary: ['일반식품(기타가공품 등)은 질병의 예방 및 치료를 위한 의약품이나 건강기능식품이 아닙니다.'],
+      foodTypeCategory: foodType,
+      shelfLifeText: shelfLife,
+      parsedIngredientsCache: parsedIngredients
+    };
+  });
 }
 
 /**
@@ -1225,15 +1849,86 @@ export async function fetchMfdsDrugDetail(itemSeq: string): Promise<{
 }
 
 /**
- * 식약처 공공데이터포털 실시간 API 검색 (메인) + 로컬 마스터 DB 폴백
+ * 식약처 의약품(DrugPrdtPrmsnInfoService08) + 식품안전나라 건기식(I0030/C003) + 일반식품(I1250) 통합 실시간 검색
+ * - 선택된 분류(classification)에 맞는 공공API를 최우선 호출하고,
+ *   후보가 없을 경우 자동으로 다음 단계 API(건기식 I0030/C003 ➔ 일반식품 I1250)를 보조 조회합니다.
  */
-export async function searchPublicDrugDatabase(keyword: string): Promise<PublicDrugMasterItem[]> {
+export async function searchPublicDrugDatabase(
+  keyword: string,
+  options?: {
+    classification?: ProductClassification;
+    manufacturer?: string;
+    regulatoryCode?: string;
+  }
+): Promise<PublicDrugMasterItem[]> {
+  const targetClass = options?.classification || 'OTC_DRUG';
   const cleanQuery = keyword.trim().replace(/\s+/g, '');
-  if (!cleanQuery) return [];
+  const cleanMfg = (options?.manufacturer || '').trim();
+  const cleanReg = (options?.regulatoryCode || '').trim();
 
-  // 1. 식약처 의약품 공공데이터포털 실시간 검색 (최대 30건 조회)
+  if (!cleanQuery && !cleanMfg && !cleanReg) return [];
+
+  // 로컬 마스터 DB 검색 헬퍼
+  const searchLocalDb = (filterClass?: ProductClassification) => {
+    const qLower = (cleanQuery || cleanMfg || cleanReg).toLowerCase();
+    return PUBLIC_DRUG_DATABASE.filter(item => {
+      if (filterClass && item.classification !== filterClass) return false;
+      const cleanName = item.productName.replace(/\s+/g, '').toLowerCase();
+      const mfg = item.manufacturer.replace(/\s+/g, '').toLowerCase();
+      const cleanKeywords = item.searchKeywords?.map(k => k.replace(/\s+/g, '').toLowerCase()) || [];
+      return (
+        cleanName.includes(qLower) ||
+        qLower.includes(cleanName) ||
+        mfg.includes(qLower) ||
+        cleanKeywords.some(k => k.includes(qLower) || qLower.includes(k)) ||
+        item.regulatoryCode.includes(qLower)
+      );
+    }).map(item => ({
+      ...item,
+      apiSourceBadge: item.classification === 'OTC_DRUG' ? '약학정보원(KPAIC) 표준 DB' : '내장 건기식 마스터 DB'
+    }));
+  };
+
+  // --- CASE 1: 건강기능식품 (HEALTH_FUNCTIONAL_FOOD) 선택 시 ---
+  if (targetClass === 'HEALTH_FUNCTIONAL_FOOD') {
+    // 1순위: 식품안전나라 I0030 (및 C003 폴백) 실시간 조회
+    const hffResults = await searchFoodSafetyFunctionalFoods(keyword, cleanMfg, cleanReg);
+    const localHff = searchLocalDb('HEALTH_FUNCTIONAL_FOOD');
+    const combinedHff = [...hffResults, ...localHff.filter(l => !hffResults.some(r => r.productName === l.productName))];
+    if (combinedHff.length > 0) {
+      return combinedHff;
+    }
+
+    // 2순위 보조 조회: 건기식 조회에 후보가 없을 때 식품(첨가물)품목제조보고(I1250) 자동 보조 조회
+    const generalFoodFallback = await searchFoodSafetyGeneralFoods(keyword, cleanMfg, cleanReg);
+    if (generalFoodFallback.length > 0) {
+      return generalFoodFallback;
+    }
+    return [];
+  }
+
+  // --- CASE 2: 기타가공품 / 일반식품 (GENERAL_FOOD) 선택 시 ---
+  if (targetClass === 'GENERAL_FOOD') {
+    // 1순위: 식품안전나라 I1250 실시간 조회
+    const genResults = await searchFoodSafetyGeneralFoods(keyword, cleanMfg, cleanReg);
+    if (genResults.length > 0) {
+      return genResults;
+    }
+
+    // 2순위 보조 조회: 일반식품에 없으면 건기식(I0030/C003) 확인
+    return await searchFoodSafetyFunctionalFoods(keyword, cleanMfg, cleanReg);
+  }
+
+  // --- CASE 3: 일반의약품 (OTC_DRUG) 선택 시 ---
+  // 1순위: 공공데이터포털 식약처 의약품 제품 허가정보 실시간 검색
   try {
-    const url = `${MFDS_INQ_URL}?serviceKey=${encodeURIComponent(DATA_GO_KR_API_KEY)}&item_name=${encodeURIComponent(keyword.trim())}&type=json&pageNo=1&numOfRows=30`;
+    const queryParam = cleanReg
+      ? `item_seq=${encodeURIComponent(cleanReg)}`
+      : cleanQuery
+      ? `item_name=${encodeURIComponent(keyword.trim())}`
+      : `entp_name=${encodeURIComponent(cleanMfg)}`;
+
+    const url = `${MFDS_INQ_URL}?serviceKey=${encodeURIComponent(DATA_GO_KR_API_KEY)}&${queryParam}&type=json&pageNo=1&numOfRows=30`;
     const res = await fetch(url);
     if (res.ok) {
       const data = await res.json();
@@ -1248,7 +1943,7 @@ export async function searchPublicDrugDatabase(keyword: string): Promise<PublicD
             id: `mfds_${mfdsItem.ITEM_SEQ}`,
             productName: cleanProdName,
             manufacturer: mfgName || '제약사',
-            classification: 'OTC_DRUG',
+            classification: 'OTC_DRUG' as ProductClassification,
             dosageForm: inferDosageForm(mfdsItem.CHART, cleanProdName),
             packagingUnit: '규격 포장 단위 (상세 확인)',
             dailyServings: 1,
@@ -1258,7 +1953,9 @@ export async function searchPublicDrugDatabase(keyword: string): Promise<PublicD
             rawIngredientsText: ingrListText,
             dosageInstruction: '용법용량 첨부문서 참조 (상세 연동 시 자동 세팅)',
             indicationsSummary: [mfdsItem.PRDUCT_TYPE || '일반의약품 효능·효과'],
-            searchKeywords: [cleanProdName, mfgName]
+            searchKeywords: [cleanProdName, mfgName],
+            sourceOrigin: '공공데이터포털 식약처 의약품 API',
+            apiSourceBadge: '식약처 의약품 허가정보'
           };
         });
       }
@@ -1267,28 +1964,59 @@ export async function searchPublicDrugDatabase(keyword: string): Promise<PublicD
     console.warn('식약처 실시간 API 통신 오류, 내장 DB로 폴백합니다:', apiErr);
   }
 
-  // 2. 오프라인 또는 API 미검색 시 로컬 마스터 데이터베이스 검색
-  const cleanQueryLower = cleanQuery.toLowerCase();
-  return PUBLIC_DRUG_DATABASE.filter((item) => {
-    const cleanName = item.productName.replace(/\s+/g, '').toLowerCase();
-    const cleanMfg = item.manufacturer.replace(/\s+/g, '').toLowerCase();
-    const cleanKeywords = item.searchKeywords?.map((k) => k.replace(/\s+/g, '').toLowerCase()) || [];
+  // 2순위: 로컬 의약품 마스터 DB 확인
+  const localOtc = searchLocalDb('OTC_DRUG');
+  if (localOtc.length > 0) {
+    return localOtc;
+  }
 
-    return (
-      cleanName.includes(cleanQueryLower) ||
-      cleanQueryLower.includes(cleanName) ||
-      cleanMfg.includes(cleanQueryLower) ||
-      cleanKeywords.some((k) => k.includes(cleanQueryLower) || cleanQueryLower.includes(k)) ||
-      item.regulatoryCode.includes(cleanQueryLower)
-    );
-  });
+  // 3순위 스마트 보조 조회: 사용자가 분류를 '일반의약품'으로 둔 채 건기식/일반식품을 검색했을 때 자동 탐색
+  const hffFallback = await searchFoodSafetyFunctionalFoods(keyword, cleanMfg, cleanReg);
+  if (hffFallback.length > 0) {
+    return hffFallback;
+  }
+
+  const genFallback = await searchFoodSafetyGeneralFoods(keyword, cleanMfg, cleanReg);
+  if (genFallback.length > 0) {
+    return genFallback;
+  }
+
+  return searchLocalDb();
 }
 
 /**
  * 마스터 품목 객체를 검수 및 제품 등록용 PublicDataFetchResult 형식으로 변환
- * (식약처 실시간 API 품목인 경우 상세 스펙 및 성분/분량을 비동기로 완벽 동기화)
+ * - 식약처 의약품(mfds_)인 경우 상세 스펙 및 성분/분량을 비동기로 완벽 동기화
+ * - 식품안전나라 건기식(fsk_I0030 / fsk_C003) 및 일반식품(fsk_I1250)인 경우 파싱된 규격/원재료 데이터를 즉시 반환
  */
 export async function convertMasterItemToFetchResult(item: PublicDrugMasterItem): Promise<PublicDataFetchResult> {
+  // 식품안전나라(I0030 / C003 / I1250) 데이터인 경우 이미 상세 규격과 성분이 모두 파싱되어 있음
+  if (item.id.startsWith('fsk_')) {
+    return {
+      productName: item.productName,
+      manufacturer: item.manufacturer,
+      classification: item.classification,
+      dosageForm: item.dosageForm,
+      packagingUnit: item.packagingUnit,
+      dailyServings: item.dailyServings,
+      amountPerServing: item.amountPerServing,
+      servingUnitKorean: item.servingUnitKorean,
+      regulatoryCode: item.regulatoryCode,
+      rawIngredientsText: item.rawIngredientsText,
+      dosageInstruction: item.dosageInstruction,
+      indicationsSummary: item.indicationsSummary,
+      parsedIngredients: item.parsedIngredientsCache || parseRawIngredientString(item.rawIngredientsText),
+      sourceOrigin: item.sourceOrigin || '식품안전나라 건기식 API (I0030)',
+      precautionsSummary: item.precautionsSummary,
+      standardSpecificationText: item.standardSpecificationText,
+      indivRawMaterialText: item.indivRawMaterialText,
+      etcRawMaterialText: item.etcRawMaterialText,
+      capRawMaterialText: item.capRawMaterialText,
+      foodTypeCategory: item.foodTypeCategory,
+      shelfLifeText: item.shelfLifeText
+    };
+  }
+
   let targetRawText = item.rawIngredientsText || '';
   let targetDosageInstruction = item.dosageInstruction;
   let targetIndicationsSummary = item.indicationsSummary;
@@ -1297,7 +2025,7 @@ export async function convertMasterItemToFetchResult(item: PublicDrugMasterItem)
   let { dailyServings, amountPerServing, servingUnitKorean } = parseServingFromInstruction(targetDosageInstruction);
 
   // 식약처 실시간 데이터(id가 mfds_로 시작)인 경우 품목 상세(getDrugPrdtPrmsnDtlInq08)를 실시간 호출하여 정확한 성분/분량/용법 수집
-  if (item.id.startsWith('mfds_') || item.regulatoryCode) {
+  if (item.id.startsWith('mfds_') || (item.classification === 'OTC_DRUG' && item.regulatoryCode)) {
     const detail = await fetchMfdsDrugDetail(item.regulatoryCode);
     if (detail) {
       if (detail.rawIngredientsText) {
@@ -1336,12 +2064,12 @@ export async function convertMasterItemToFetchResult(item: PublicDrugMasterItem)
     dosageInstruction: targetDosageInstruction,
     indicationsSummary: targetIndicationsSummary,
     parsedIngredients,
-    sourceOrigin: '약학정보원(KPAIC) DB'
+    sourceOrigin: item.sourceOrigin || '약학정보원(KPAIC) DB'
   };
 }
 
 /**
- * 약학정보원(KPAIC) DB 기반 제품 단일 조회 (레거시 및 자동 매핑 호환용)
+ * 공공데이터 기반 제품 단일 조회 (레거시 및 자동 매핑 호환용)
  */
 export async function fetchAndNormalizePublicDrugData(
   productName: string,
@@ -1349,7 +2077,10 @@ export async function fetchAndNormalizePublicDrugData(
   classification: ProductClassification = 'OTC_DRUG'
 ): Promise<PublicDataFetchResult> {
   const query = (productName || manufacturer).trim();
-  const searchResults = await searchPublicDrugDatabase(query);
+  const searchResults = await searchPublicDrugDatabase(query, {
+    classification,
+    manufacturer
+  });
 
   if (searchResults.length > 0) {
     return await convertMasterItemToFetchResult(searchResults[0]);
@@ -1393,6 +2124,7 @@ export async function fetchAndNormalizePublicDrugData(
       : `1일 ${dailyServings}회, 1회 1${servingUnitKorean}를 식후 섭취하십시오.`,
     indicationsSummary: ['정상적인 면역기능 및 에너지 대사 지원'],
     parsedIngredients: dynamicParsed,
-    sourceOrigin: '약학정보원(KPAIC) DB'
+    sourceOrigin: '식품안전나라 건기식 API (I0030)'
   };
 }
+

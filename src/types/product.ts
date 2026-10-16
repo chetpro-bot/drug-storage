@@ -66,9 +66,11 @@ export interface ProductItem {
   functionalFoodDetail?: FunctionalFoodRegulatoryDetail;
 
   // 약국 관리 속성
+  imageUrl?: string;                    // 제품 대표 사진 (Base64 데이터 URL 또는 외부 이미지 URL)
+  storageLocation?: string;             // 약국 내 진열/보관 위치 (예: "상담석 우측 2단", "영양제 매대 A-1")
   priceRetailKrw?: number;              // 약국 소비자 판매가 (KRW)
   inventoryCount?: number;              // 현재 재고 수량
-  tags: string[];                       // 태그 (예: ["만성피로", "신경통", "고함량B군", "수험생"])
+  tags: string[];                       // 효능 및 검색 태그 (예: ["피로", "간", "신경통", "고함량B군"])
   isActive: boolean;                    // 취급 활성화 여부
   createdAt: string;
   updatedAt: string;

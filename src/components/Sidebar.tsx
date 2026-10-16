@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Plus, Filter, Package, AlertCircle } from 'lucide-react';
+import { Search, Plus, Filter, Package, AlertCircle, LayoutGrid, MapPin } from 'lucide-react';
 import { useProductStore } from '../stores/useProductStore';
 import { ProductClassification } from '../types/classification';
 
@@ -11,10 +11,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenNewProductModal }) => {
   const {
     selectedProductId,
     setSelectedProductId,
+    viewMode,
+    setViewMode,
     searchQuery,
     setSearchQuery,
     classificationFilter,
     setClassificationFilter,
+    selectedTag,
+    setSelectedTag,
     getFilteredProducts
   } = useProductStore();
 
@@ -31,19 +35,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenNewProductModal }) => {
     switch (classification) {
       case 'OTC_DRUG':
         return (
-          <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-200">
+          <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 border border-blue-200 shrink-0">
             일반의약품
           </span>
         );
       case 'HEALTH_FUNCTIONAL_FOOD':
         return (
-          <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+          <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 shrink-0">
             건기식
           </span>
         );
       case 'GENERAL_FOOD':
         return (
-          <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
+          <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
             기타식품
           </span>
         );
@@ -53,15 +57,32 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenNewProductModal }) => {
   return (
     <aside className="w-[320px] h-full bg-white border-r border-slate-200 flex flex-col shrink-0">
       {/* 상단 컨트롤 영역 */}
-      <div className="p-3.5 border-b border-slate-200 space-y-3 bg-slate-50/70">
-        {/* 신규 제품 등록 버튼 */}
-        <button
-          onClick={onOpenNewProductModal}
-          className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors active:scale-[0.99]"
-        >
-          <Plus className="w-4 h-4" />
-          <span>신규 품목(영양제/OTC) 등록</span>
-        </button>
+      <div className="p-3.5 border-b border-slate-200 space-y-2.5 bg-slate-50/70">
+        {/* 카탈로그 그리드 보기 & 신규 제품 등록 버튼 */}
+        <div className="grid grid-cols-12 gap-1.5">
+          <button
+            type="button"
+            onClick={() => setViewMode('CATALOG')}
+            className={`col-span-5 flex items-center justify-center gap-1.5 py-2 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+              viewMode === 'CATALOG'
+                ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+            }`}
+            title="효능 태그별 전체 제품 카탈로그 그리드 화면 보기"
+          >
+            <LayoutGrid className="w-3.5 h-3.5 text-sky-500" />
+            <span>카탈로그 뷰</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onOpenNewProductModal}
+            className="col-span-7 flex items-center justify-center gap-1.5 py-2 px-2.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors active:scale-[0.99] cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>신규 품목 등록</span>
+          </button>
+        </div>
 
         {/* 검색창 */}
         <div className="relative">
@@ -70,7 +91,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenNewProductModal }) => {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="제품명, INN 성분명, 제조사 검색"
+            placeholder="제품명, 성분명, 제조사, 약 위치 검색"
             className="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 placeholder:text-slate-400"
           />
           {searchQuery && (
@@ -93,7 +114,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenNewProductModal }) => {
                 <button
                   key={chip.id}
                   onClick={() => setClassificationFilter(chip.id)}
-                  className={`flex-1 py-1 text-[11px] font-medium rounded-md transition-all text-center ${
+                  className={`flex-1 py-1 text-[11px] font-medium rounded-md transition-all text-center cursor-pointer ${
                     active
                       ? 'bg-slate-800 text-white shadow-xs font-semibold'
                       : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
@@ -107,9 +128,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenNewProductModal }) => {
         </div>
       </div>
 
-      {/* 리스트 요약 카운트 */}
+      {/* 리스트 요약 카운트 및 활성 효능 태그 표시 */}
       <div className="px-3.5 py-1.5 bg-slate-100/70 border-b border-slate-200 text-[11px] text-slate-500 flex justify-between items-center">
-        <span>취급 목록 ({filteredProducts.length}건)</span>
+        <div className="flex items-center gap-1.5">
+          <span>취급 목록 ({filteredProducts.length}건)</span>
+          {selectedTag && (
+            <span className="px-1.5 py-0.2 rounded bg-sky-100 text-sky-800 font-bold text-[10px] flex items-center gap-1">
+              #{selectedTag}
+              <button
+                onClick={() => setSelectedTag(null)}
+                className="hover:text-rose-600 cursor-pointer"
+              >
+                ✕
+              </button>
+            </span>
+          )}
+        </div>
         <span className="text-[10px] text-slate-400">클릭 시 상세 조회</span>
       </div>
 
@@ -122,11 +156,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenNewProductModal }) => {
           </div>
         ) : (
           filteredProducts.map((product) => {
-            const isSelected = selectedProductId === product.id;
+            const isSelected = selectedProductId === product.id && viewMode === 'DETAIL';
             return (
               <div
                 key={product.id}
-                onClick={() => setSelectedProductId(product.id)}
+                onClick={() => {
+                  setSelectedProductId(product.id);
+                  setViewMode('DETAIL');
+                }}
                 className={`p-3 cursor-pointer transition-all border-l-4 ${
                   isSelected
                     ? 'bg-sky-50/80 border-sky-600 shadow-inner'
@@ -145,31 +182,31 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenNewProductModal }) => {
                 </div>
 
                 <div className="flex items-center justify-between text-[11px] text-slate-500">
-                  <span className="truncate max-w-[170px]">{product.manufacturer}</span>
-                  <span className="font-medium text-slate-600">
-                    {product.priceRetailKrw ? `₩${product.priceRetailKrw.toLocaleString()}` : ''}
+                  <span className="truncate max-w-[165px]">{product.manufacturer}</span>
+                  <span className="font-bold text-slate-700">
+                    {product.priceRetailKrw ? `${product.priceRetailKrw.toLocaleString()}원` : ''}
                   </span>
                 </div>
 
+                {product.storageLocation && (
+                  <div className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-sky-700">
+                    <MapPin className="w-3 h-3 text-sky-500 shrink-0" />
+                    <span className="truncate">{product.storageLocation}</span>
+                  </div>
+                )}
+
                 <div className="mt-1.5 flex flex-wrap gap-1">
-                  <span className="text-[10px] bg-slate-100 text-slate-600 px-1 rounded">
-                    {product.dosageForm === 'FILM_COATED_TABLET'
-                      ? '정제'
-                      : product.dosageForm === 'LIQUID_ORAL'
-                      ? '액제/스틱'
-                      : '연질캡슐'}
-                  </span>
-                  {product.ingredients.slice(0, 2).map((ing, i) => (
+                  {product.tags.slice(0, 3).map((tag, i) => (
                     <span
                       key={i}
-                      className="text-[10px] text-slate-500 bg-slate-50 border border-slate-200 px-1 rounded"
+                      className="text-[10px] text-sky-700 bg-sky-50 border border-sky-200/80 px-1.5 rounded-full font-medium"
                     >
-                      {ing.englishInn}
+                      #{tag}
                     </span>
                   ))}
-                  {product.ingredients.length > 2 && (
+                  {product.tags.length > 3 && (
                     <span className="text-[10px] text-slate-400 px-0.5">
-                      +{product.ingredients.length - 2}
+                      +{product.tags.length - 3}
                     </span>
                   )}
                 </div>
@@ -183,7 +220,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenNewProductModal }) => {
       <div className="p-2.5 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500 flex items-center justify-between">
         <span className="flex items-center gap-1.5">
           <Package className="w-3.5 h-3.5 text-slate-400" />
-          <span>KPAIC 식약처 매핑 완료</span>
+          <span>식약처 · 식품안전나라 연동</span>
         </span>
         <span className="text-sky-600 font-medium">안전모드 ON</span>
       </div>

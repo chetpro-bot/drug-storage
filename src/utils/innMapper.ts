@@ -553,6 +553,511 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '비프로피온산계 NSAID 소염진통제',
     defaultUnit: 'mg',
     clinicalSummary: '• 말초 COX-1/COX-2 억제, 염증·통증·발열 완화'
+  },
+
+  // 건강기능식품 및 일반식품 다빈도 기능성 원료 (식품안전나라 I0030 / C003 / I1250 호환)
+  '비타민B1염산염': {
+    englishInn: 'Thiamine hydrochloride',
+    functionalCategory: '비타민B1',
+    chemicalFormName: '염산염 (수용성 비타민 B1)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_B1',
+    clinicalSummary: '• 탄수화물과 에너지 대사에 필요, 피로 물질 축적 완화'
+  },
+  '비타민 B1염산염': {
+    englishInn: 'Thiamine hydrochloride',
+    functionalCategory: '비타민B1',
+    chemicalFormName: '염산염 (수용성 비타민 B1)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_B1',
+    clinicalSummary: '• 탄수화물과 에너지 대사에 필요, 피로 물질 축적 완화'
+  },
+  '비타민B1질산염': {
+    englishInn: 'Thiamine mononitrate',
+    functionalCategory: '비타민B1',
+    chemicalFormName: '질산염 (수용성 비타민 B1)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_B1',
+    clinicalSummary: '• 탄수화물과 에너지 대사에 필요'
+  },
+  '비타민B1': {
+    englishInn: 'Thiamine',
+    functionalCategory: '비타민B1',
+    chemicalFormName: '비타민 B1 (티아민)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_B1',
+    clinicalSummary: '• 탄수화물과 에너지 대사에 필요'
+  },
+  '비타민 B1': {
+    englishInn: 'Thiamine',
+    functionalCategory: '비타민B1',
+    chemicalFormName: '비타민 B1 (티아민)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_B1',
+    clinicalSummary: '• 탄수화물과 에너지 대사에 필요'
+  },
+  '비타민B2': {
+    englishInn: 'Riboflavin',
+    functionalCategory: '비타민B2',
+    chemicalFormName: '비타민 B2 (리보플라빈)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_B2',
+    clinicalSummary: '• 체내 에너지 생성에 필요, 구내염 및 점막 보호'
+  },
+  '비타민 B2': {
+    englishInn: 'Riboflavin',
+    functionalCategory: '비타민B2',
+    chemicalFormName: '비타민 B2 (리보플라빈)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_B2',
+    clinicalSummary: '• 체내 에너지 생성에 필요, 구내염 및 점막 보호'
+  },
+  '나이아신': {
+    englishInn: 'Nicotinamide',
+    functionalCategory: '비타민B3',
+    chemicalFormName: '나이아신 (니코틴산아미드)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_B3',
+    clinicalSummary: '• 체내 에너지 생성 및 NAD/NADP 산화환원 조효소 작용'
+  },
+  '판토텐산': {
+    englishInn: 'Calcium pantothenate',
+    functionalCategory: '비타민B5',
+    chemicalFormName: '판토텐산 (비타민 B5)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_B5',
+    clinicalSummary: '• 지방, 탄수화물, 단백질 대사와 에너지 생성에 필요'
+  },
+  '비타민B6염산염': {
+    englishInn: 'Pyridoxine hydrochloride',
+    functionalCategory: '비타민B6',
+    chemicalFormName: '염산염 (비타민 B6)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_B6',
+    clinicalSummary: '• 단백질 및 아미노산 이용에 필요, 혈액의 호모시스테인 수준을 정상으로 유지'
+  },
+  '비타민 B6 염산염': {
+    englishInn: 'Pyridoxine hydrochloride',
+    functionalCategory: '비타민B6',
+    chemicalFormName: '염산염 (비타민 B6)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_B6',
+    clinicalSummary: '• 단백질 및 아미노산 이용에 필요, 혈액의 호모시스테인 수준을 정상으로 유지'
+  },
+  '비타민B6': {
+    englishInn: 'Pyridoxine',
+    functionalCategory: '비타민B6',
+    chemicalFormName: '비타민 B6 (피리독신)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_B6',
+    clinicalSummary: '• 단백질 및 아미노산 이용에 필요, 혈액의 호모시스테인 수준을 정상으로 유지'
+  },
+  '비타민 B6': {
+    englishInn: 'Pyridoxine',
+    functionalCategory: '비타민B6',
+    chemicalFormName: '비타민 B6 (피리독신)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_B6',
+    clinicalSummary: '• 단백질 및 아미노산 이용에 필요, 혈액의 호모시스테인 수준을 정상으로 유지'
+  },
+  '비타민B12': {
+    englishInn: 'Cyanocobalamin',
+    functionalCategory: '비타민B12',
+    chemicalFormName: '비타민 B12 (코발라민)',
+    defaultUnit: 'ug',
+    standardKey: 'VITAMIN_B12',
+    clinicalSummary: '• 정상적인 엽산 대사에 필요, 신경 기능 유지'
+  },
+  '비타민 B12': {
+    englishInn: 'Cyanocobalamin',
+    functionalCategory: '비타민B12',
+    chemicalFormName: '비타민 B12 (코발라민)',
+    defaultUnit: 'ug',
+    standardKey: 'VITAMIN_B12',
+    clinicalSummary: '• 정상적인 엽산 대사에 필요, 신경 기능 유지'
+  },
+  '엽산': {
+    englishInn: 'Folic acid',
+    functionalCategory: '엽산',
+    chemicalFormName: '엽산 (비타민 B9)',
+    defaultUnit: 'ug',
+    standardKey: 'VITAMIN_B9',
+    clinicalSummary: '• 세포와 혈액 생성에 필요, 태아 신경관의 정상 발달에 필요'
+  },
+  '비타민A': {
+    englishInn: 'Retinol',
+    functionalCategory: '비타민A',
+    chemicalFormName: '비타민 A (레티놀/혼합제제)',
+    defaultUnit: 'ug',
+    clinicalSummary: '• 어두운 곳에서 시각 적응을 위해 필요, 피부와 점막을 형성하고 기능을 유지'
+  },
+  '비타민 A': {
+    englishInn: 'Retinol',
+    functionalCategory: '비타민A',
+    chemicalFormName: '비타민 A (레티놀/혼합제제)',
+    defaultUnit: 'ug',
+    clinicalSummary: '• 어두운 곳에서 시각 적응을 위해 필요, 피부와 점막을 형성하고 기능을 유지'
+  },
+  '비타민C': {
+    englishInn: 'Ascorbic acid',
+    functionalCategory: '비타민C',
+    chemicalFormName: '비타민 C (L-아스코르브산)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_C',
+    clinicalSummary: '• 결합조직 형성과 기능유지에 필요, 철의 흡수 및 항산화 작용'
+  },
+  '비타민 C': {
+    englishInn: 'Ascorbic acid',
+    functionalCategory: '비타민C',
+    chemicalFormName: '비타민 C (L-아스코르브산)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_C',
+    clinicalSummary: '• 결합조직 형성과 기능유지에 필요, 철의 흡수 및 항산화 작용'
+  },
+  '비타민D3': {
+    englishInn: 'Cholecalciferol',
+    functionalCategory: '비타민D3',
+    chemicalFormName: '활성 비타민 D3 (콜레칼시페롤)',
+    defaultUnit: 'ug',
+    standardKey: 'VITAMIN_D',
+    clinicalSummary: '• 칼슘과 인이 흡수되고 이용되는데 필요, 뼈의 형성과 유지 및 골다공증 발생 위험 감소'
+  },
+  '비타민D': {
+    englishInn: 'Cholecalciferol',
+    functionalCategory: '비타민D3',
+    chemicalFormName: '비타민 D (콜레칼시페롤)',
+    defaultUnit: 'ug',
+    standardKey: 'VITAMIN_D',
+    clinicalSummary: '• 칼슘과 인이 흡수되고 이용되는데 필요, 뼈의 형성과 유지'
+  },
+  'd-α-토코페롤': {
+    englishInn: 'd-alpha-Tocopherol',
+    functionalCategory: '비타민E',
+    chemicalFormName: '천연형 비타민 E (d-α-토코페롤)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_E',
+    clinicalSummary: '• 생체이용률이 높은 천연형 비타민 E, 유해산소로부터 세포막 보호'
+  },
+  '비타민E': {
+    englishInn: 'Tocopherol',
+    functionalCategory: '비타민E',
+    chemicalFormName: '비타민 E (토코페롤)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_E',
+    clinicalSummary: '• 항산화 작용을 하여 유해산소로부터 세포를 보호하는데 필요'
+  },
+  '아셀렌산나트륨': {
+    englishInn: 'Sodium selenite',
+    functionalCategory: '셀레늄(Se)',
+    chemicalFormName: '무기염 셀레늄 (아셀렌산나트륨)',
+    defaultUnit: 'ug',
+    standardKey: 'SELENIUM',
+    clinicalSummary: '• 글루타티온 과산화효소 활성화, 유해산소로부터 세포를 보호'
+  },
+  '건조효모(셀렌함유)': {
+    englishInn: 'Selenium in dried yeast',
+    functionalCategory: '셀레늄(Se)',
+    chemicalFormName: '유기 셀레늄 (건조효모 결합형)',
+    defaultUnit: 'ug',
+    standardKey: 'SELENIUM',
+    clinicalSummary: '• 생체이용률이 우수한 효모 유래 유기 셀레늄, 항산화 세포 보호'
+  },
+  '셀레늄': {
+    englishInn: 'Selenium',
+    functionalCategory: '셀레늄(Se)',
+    chemicalFormName: '셀레늄 (미량 미네랄)',
+    defaultUnit: 'ug',
+    standardKey: 'SELENIUM',
+    clinicalSummary: '• 유해산소로부터 세포를 보호하는데 필요'
+  },
+  '셀렌': {
+    englishInn: 'Selenium',
+    functionalCategory: '셀레늄(Se)',
+    chemicalFormName: '셀렌 (미량 미네랄)',
+    defaultUnit: 'ug',
+    standardKey: 'SELENIUM',
+    clinicalSummary: '• 유해산소로부터 세포를 보호하는데 필요'
+  },
+  '아연': {
+    englishInn: 'Zinc',
+    functionalCategory: '아연(Zn)',
+    chemicalFormName: '아연 (정상 면역·세포분열 미네랄)',
+    defaultUnit: 'mg',
+    standardKey: 'ZINC',
+    clinicalSummary: '• 정상적인 면역기능에 필요, 정상적인 세포분열에 필요'
+  },
+  '글루콘산마그네슘': {
+    englishInn: 'Magnesium gluconate',
+    functionalCategory: '마그네슘(Mg)',
+    chemicalFormName: '유기산염 (글루콘산마그네슘)',
+    defaultUnit: 'mg',
+    standardKey: 'MAGNESIUM',
+    clinicalSummary: '• 흡수율이 높고 위장 자극이 적은 유기염 마그네슘, 신경·근육 기능 유지'
+  },
+  '마그네슘': {
+    englishInn: 'Magnesium',
+    functionalCategory: '마그네슘(Mg)',
+    chemicalFormName: '마그네슘',
+    defaultUnit: 'mg',
+    standardKey: 'MAGNESIUM',
+    clinicalSummary: '• 에너지 이용에 필요, 신경과 근육 기능 유지에 필요'
+  },
+  '해조칼슘': {
+    englishInn: 'Seaweed calcium',
+    functionalCategory: '칼슘(Ca)',
+    chemicalFormName: '식물성 다공질 해조칼슘',
+    defaultUnit: 'mg',
+    standardKey: 'CALCIUM',
+    clinicalSummary: '• 소화 흡수가 용이한 식물성 해조류 유래 칼슘, 뼈와 치아 형성'
+  },
+  '젖산칼슘': {
+    englishInn: 'Calcium lactate',
+    functionalCategory: '칼슘(Ca)',
+    chemicalFormName: '유기산염 (젖산칼슘)',
+    defaultUnit: 'mg',
+    standardKey: 'CALCIUM',
+    clinicalSummary: '• 용해도와 흡수율이 우수한 유기염 칼슘'
+  },
+  '칼슘': {
+    englishInn: 'Calcium',
+    functionalCategory: '칼슘(Ca)',
+    chemicalFormName: '칼슘',
+    defaultUnit: 'mg',
+    standardKey: 'CALCIUM',
+    clinicalSummary: '• 뼈와 치아 형성에 필요, 신경과 근육 기능 유지 및 정상 혈액응고'
+  },
+  '철': {
+    englishInn: 'Iron',
+    functionalCategory: '제1철 (Ferrous)',
+    chemicalFormName: '철분 (체내 산소운반 미네랄)',
+    defaultUnit: 'mg',
+    standardKey: 'IRON',
+    clinicalSummary: '• 체내 산소운반과 혈액생성에 필요, 에너지 생성에 필요'
+  },
+  '밀크씨슬': {
+    englishInn: 'Silymarin (Milk thistle extract)',
+    functionalCategory: '간보호제',
+    chemicalFormName: '밀크씨슬(카르두스 마리아누스) 추출물 (실리마린)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 간세포막 안정화 및 글루타티온 생성 증가, 간 건강에 도움을 줄 수 있음'
+  },
+  '실리마린': {
+    englishInn: 'Silymarin (Milk thistle extract)',
+    functionalCategory: '간보호제',
+    chemicalFormName: '밀크씨슬 추출물 지표성분 (실리마린)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 간세포 항산화 보호 및 재생 촉진, 간 건강에 도움을 줄 수 있음'
+  },
+  '루테인': {
+    englishInn: 'Lutein (Marigold flower extract)',
+    functionalCategory: '기타 안과용제',
+    chemicalFormName: '마리골드꽃추출물 (루테인)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 노화로 인해 감소될 수 있는 황반색소밀도를 유지하여 눈 건강에 도움을 줄 수 있음'
+  },
+  '마리골드꽃추출물': {
+    englishInn: 'Lutein (Marigold flower extract)',
+    functionalCategory: '기타 안과용제',
+    chemicalFormName: '마리골드꽃추출물 (루테인)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 황반색소밀도 유지 및 청색광(블루라이트) 산화 손상 방어'
+  },
+  'EPA+DHA': {
+    englishInn: 'Omega-3 (EPA + DHA)',
+    functionalCategory: 'Omega-3 (어유)',
+    chemicalFormName: 'EPA 및 DHA 함유 유지 (정제어유)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 혈중 중성지질 개선·혈행 개선·건조한 눈을 개선하여 눈 건강에 도움을 줄 수 있음'
+  },
+  'EPA 및 DHA': {
+    englishInn: 'Omega-3 (EPA + DHA)',
+    functionalCategory: 'Omega-3 (어유)',
+    chemicalFormName: 'EPA 및 DHA 함유 유지 (정제어유)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 혈중 중성지질 개선·혈행 개선·건조한 눈 개선'
+  },
+  '정제어유': {
+    englishInn: 'Omega-3 (EPA + DHA)',
+    functionalCategory: 'Omega-3 (어유)',
+    chemicalFormName: '정제어유 (오메가-3 지방산)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 혈중 중성지질 개선 및 혈행 개선'
+  },
+  '프로바이오틱스': {
+    englishInn: 'Probiotics',
+    functionalCategory: '정장제 (생균제제)',
+    chemicalFormName: '복합 유산균 (Probiotics)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 유산균 증식 및 유해균 억제·배변활동 원활·장 건강에 도움을 줄 수 있음'
+  },
+  '유산균': {
+    englishInn: 'Probiotics',
+    functionalCategory: '정장제 (생균제제)',
+    chemicalFormName: '프로바이오틱스 생균',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 장내 미생물 균총 정상화 및 장 점막 면역 지원'
+  },
+  '홍삼': {
+    englishInn: 'Red ginseng extract (Ginsenosides)',
+    functionalCategory: '자양강장',
+    chemicalFormName: '홍삼농축액 (진세노사이드 Rg1+Rb1+Rg3)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 면역력 증진·피로개선·혈소판 응집억제를 통한 혈액흐름·기억력 개선·항산화'
+  },
+  '진세노사이드': {
+    englishInn: 'Red ginseng extract (Ginsenosides)',
+    functionalCategory: '자양강장',
+    chemicalFormName: '홍삼 지표성분 (진세노사이드)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 면역력 증진·피로개선·혈액흐름·기억력 개선·항산화에 도움을 줄 수 있음'
+  },
+  '코엔자임Q10': {
+    englishInn: 'Ubidecarenone (Coenzyme Q10)',
+    functionalCategory: '기타 심부전 치료제',
+    chemicalFormName: '코엔자임 Q10 (유비데카레논)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 항산화 작용 및 높은 혈압 감소에 도움을 줄 수 있음, 미토콘드리아 ATP 생성'
+  },
+  'L-테아닌': {
+    englishInn: 'L-Theanine',
+    functionalCategory: '자율신경제',
+    chemicalFormName: '녹차 유래 아미노산 (L-테아닌)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 뇌 알파(α)파 발생 증가, 스트레스로 인한 긴장 완화에 도움을 줄 수 있음'
+  },
+  'L-아르지닌': {
+    englishInn: 'L-Arginine',
+    functionalCategory: '간보호제',
+    chemicalFormName: '유리 L-아르기닌 (아미노산)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 산화질소(NO) 생성 전구체, 혈관 확장 및 에너지 대사 활력 지원'
+  },
+  '글루타치온': {
+    englishInn: 'Glutathione',
+    functionalCategory: '간보호제',
+    chemicalFormName: '환원형 글루타티온 (효모추출물)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 간 해독 2상 결합 반응 조효소 및 세포 내 항산화 환원 작용'
+  },
+  '엠에스엠': {
+    englishInn: 'Methylsulfonylmethane (MSM)',
+    functionalCategory: '기타 근골격계 약물',
+    chemicalFormName: '식이유황 (MSM)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 관절 및 연골 결합조직 구성 성분, 관절 및 연골 건강에 도움을 줄 수 있음'
+  },
+  'MSM': {
+    englishInn: 'Methylsulfonylmethane (MSM)',
+    functionalCategory: '기타 근골격계 약물',
+    chemicalFormName: '식이유황 (MSM)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 관절 및 연골 건강에 도움을 줄 수 있음'
+  },
+  '쏘팔메토': {
+    englishInn: 'Saw palmetto extract (Lauric acid)',
+    functionalCategory: '전립선비대증 치료제',
+    chemicalFormName: '쏘팔메토열매추출물 (로르산)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 남성 전립선 건강의 유지에 도움을 줄 수 있음'
+  },
+  '로르산': {
+    englishInn: 'Saw palmetto extract (Lauric acid)',
+    functionalCategory: '전립선비대증 치료제',
+    chemicalFormName: '쏘팔메토열매추출물 지표성분 (로르산)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 5-알파 환원효소 조절, 전립선 건강 유지에 도움을 줄 수 있음'
+  },
+  '은행잎추출물': {
+    englishInn: 'Ginkgo biloba leaf extract',
+    functionalCategory: '말초혈관 확장제',
+    chemicalFormName: '은행잎추출물 (플라보놀배당체)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 기억력 개선 및 혈행 개선에 도움을 줄 수 있음'
+  },
+  '바나바잎추출물': {
+    englishInn: 'Banaba leaf extract (Corosolic acid)',
+    functionalCategory: '혈당조절',
+    chemicalFormName: '바나바잎추출물 (코로솔산)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 식후 혈당 상승 억제에 도움을 줄 수 있음'
+  },
+  '코로솔산': {
+    englishInn: 'Banaba leaf extract (Corosolic acid)',
+    functionalCategory: '혈당조절',
+    chemicalFormName: '바나바잎추출물 지표성분 (코로솔산)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 포도당 세포 내 수송 촉진, 식후 혈당 상승 억제'
+  },
+  '차전자피식이섬유': {
+    englishInn: 'Psyllium husk fiber',
+    functionalCategory: '팽창성 하제',
+    chemicalFormName: '차전자피 식이섬유',
+    defaultUnit: 'g',
+    clinicalSummary: '• 혈중 콜레스테롤 개선·배변활동 원활에 도움을 줄 수 있음'
+  },
+  '난소화성말토덱스트린': {
+    englishInn: 'Indigestible maltodextrin',
+    functionalCategory: '혈당조절',
+    chemicalFormName: '수용성 식이섬유 (난소화성말토덱스트린)',
+    defaultUnit: 'g',
+    clinicalSummary: '• 식후 혈당 상승 억제·혈중 중성지질 개선·배변활동 원활'
+  },
+  '비타민K1': {
+    englishInn: 'Phytomenadione (Vitamin K1)',
+    functionalCategory: '비타민K',
+    chemicalFormName: '비타민 K1 (피토메나디온)',
+    defaultUnit: 'ug',
+    clinicalSummary: '• 정상적인 혈액응고에 필요, 뼈의 구성에 필요'
+  },
+  '비타민K': {
+    englishInn: 'Vitamin K',
+    functionalCategory: '비타민K',
+    chemicalFormName: '비타민 K',
+    defaultUnit: 'ug',
+    clinicalSummary: '• 정상적인 혈액응고에 필요, 뼈의 구성에 필요'
+  },
+  '글루콘산동': {
+    englishInn: 'Copper gluconate',
+    functionalCategory: '동(Cu)',
+    chemicalFormName: '유기산염 (글루콘산동)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 철의 운반과 이용에 필요, 유해산소로부터 세포를 보호하는데 필요'
+  },
+  '구리': {
+    englishInn: 'Copper',
+    functionalCategory: '동(Cu)',
+    chemicalFormName: '구리 (미량 미네랄)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 철의 운반과 이용에 필요, 유해산소로부터 세포를 보호하는데 필요'
+  },
+  '황산망간': {
+    englishInn: 'Manganese sulfate',
+    functionalCategory: '망간(Mn)',
+    chemicalFormName: '무기염 (황산망간)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 뼈 형성에 필요, 에너지 이용 및 유해산소로부터 세포를 보호'
+  },
+  '망간': {
+    englishInn: 'Manganese',
+    functionalCategory: '망간(Mn)',
+    chemicalFormName: '망간 (미량 미네랄)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 뼈 형성에 필요, 에너지 이용에 필요, 유해산소로부터 세포를 보호하는데 필요'
+  },
+  '몰리브덴': {
+    englishInn: 'Molybdenum',
+    functionalCategory: '기타 미네랄',
+    chemicalFormName: '몰리브덴 (산화·환원 효소 보조인자)',
+    defaultUnit: 'ug',
+    clinicalSummary: '• 산화·환원 효소의 활성에 필요'
+  },
+  '크롬': {
+    englishInn: 'Chromium',
+    functionalCategory: '크롬(Cr)',
+    chemicalFormName: '크롬 (미량 미네랄)',
+    defaultUnit: 'mg',
+    standardKey: 'CHROMIUM',
+    clinicalSummary: '• 체내 탄수화물, 지방, 단백질 대사에 관여'
   }
 };
 
@@ -716,8 +1221,9 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
 
     let matchedKey: string | null = null;
     const lookupKey = (detectedInn || nameRaw).toLowerCase();
+    const sortedDictKeys = Object.keys(combinedDict).sort((a, b) => b.length - a.length);
 
-    for (const dictKey of Object.keys(combinedDict)) {
+    for (const dictKey of sortedDictKeys) {
       const cleanDictKey = dictKey.toLowerCase();
       if (lookupKey.includes(cleanDictKey) || cleanDictKey.includes(lookupKey) || nameRaw.includes(dictKey) || dictKey.includes(nameRaw)) {
         matchedKey = dictKey;

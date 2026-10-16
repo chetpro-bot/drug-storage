@@ -6,7 +6,6 @@ import { ProductIngredientEntry } from '../types/ingredient';
 import { 
   searchPublicDrugDatabase, 
   convertMasterItemToFetchResult, 
-  fetchAndNormalizePublicDrugData, 
   PublicDataFetchResult, 
   PublicDrugMasterItem 
 } from '../services/publicDataService';
@@ -18,6 +17,7 @@ import {
 } from '../services/labelOcrService';
 import { saveLearnedIngredientMapping } from '../utils/innMapper';
 import { STANDARD_EFFICACY_CATEGORIES } from '../utils/categoryColors';
+import { STANDARD_EFFICACY_TAGS } from '../constants/efficacyTags';
 import { 
   X, 
   Search, 
@@ -34,7 +34,9 @@ import {
   RotateCcw,
   FileSearch,
   Paperclip,
-  Edit3
+  Edit3,
+  MapPin,
+  Camera
 } from 'lucide-react';
 
 interface NewProductModalProps {
@@ -70,7 +72,9 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
   const [amountPerServing, setAmountPerServing] = useState(1);
   const [servingUnitKorean, setServingUnitKorean] = useState('정');
   const [priceRetailKrw, setPriceRetailKrw] = useState(70000);
-  const [tags, setTags] = useState('만성피로, 활성비타민');
+  const [storageLocation, setStorageLocation] = useState('');
+  const [productImageUrl, setProductImageUrl] = useState('');
+  const [tags, setTags] = useState('피로, 활성비타민');
   const [regulatoryCode, setRegulatoryCode] = useState('');
   const [dosageInstruction, setDosageInstruction] = useState('');
   const [indicationsText, setIndicationsText] = useState('');
@@ -149,7 +153,9 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
     setAmountPerServing(1);
     setServingUnitKorean('정');
     setPriceRetailKrw(70000);
-    setTags('만성피로, 활성비타민');
+    setStorageLocation('');
+    setProductImageUrl('');
+    setTags('피로, 활성비타민');
     setRegulatoryCode('');
     setDosageInstruction('');
     setIndicationsText('');
@@ -178,6 +184,8 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
     setAmountPerServing(p.amountPerServing || 1);
     setServingUnitKorean(p.servingUnitKorean || '정');
     setPriceRetailKrw(p.priceRetailKrw || 0);
+    setStorageLocation(p.storageLocation || '');
+    setProductImageUrl(p.imageUrl || p.attachments?.[0]?.dataUrl || '');
     setTags(p.tags?.join(', ') || '');
 
     const regCode = p.otcDetail?.itemSeq || p.functionalFoodDetail?.reportNo || '';
@@ -451,29 +459,30 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
 
   if (!isOpen) return null;
 
-  // 약학정보원/식약처 검색 실행 (실시간 다중 결과 검색 지원)
+  // 약학정보원/식약처/식품안전나라 통합 검색 실행 (실시간 다중 결과 검색 지원)
   const handleFetchPublicData = async () => {
-    const query = productName.trim() || manufacturer.trim();
+    const query = productName.trim() || manufacturer.trim() || regulatoryCode.trim();
     if (!query) {
-      alert('조회할 제품명 또는 제약회사명을 입력해주세요.\n(예: "임팩타민", "비맥스", "베아제", "타이레놀", "대웅제약" 등)');
+      alert(
+        '조회할 제품명, 제조사명 또는 품목보고번호를 입력해주세요.\n• 일반의약품: "임팩타민", "비맥스", "베아제"\n• 건강기능식품: "락토핏", "마이타민", "밀크씨슬", "센트룸", "루테인"\n• 일반식품/기타가공품: "아르기닌", "카무트", "글루타치온"'
+      );
       return;
     }
 
     setIsLoadingPublicData(true);
     setSearchErrorMsg(null);
     try {
-      const results = await searchPublicDrugDatabase(query);
+      const results = await searchPublicDrugDatabase(productName.trim() || query, {
+        classification,
+        manufacturer: manufacturer.trim(),
+        regulatoryCode: regulatoryCode.trim()
+      });
 
       if (results.length === 0) {
-        if (classification === 'OTC_DRUG') {
-          setSearchErrorMsg(`"${query}"에 해당하는 식약처/약학정보원 공공데이터 등록 제품을 찾을 수 없습니다. 정확한 제품명을 입력해주세요.`);
-          setShowSearchResults(false);
-        } else {
-          // 건기식/일반식품 fallback
-          const fallback = await fetchAndNormalizePublicDrugData(productName, manufacturer, classification);
-          applyFetchResult(fallback);
-          setShowSearchResults(false);
-        }
+        setSearchErrorMsg(
+          `"${query}"에 해당하는 공공데이터(식약처 의약품 / 식품안전나라 I0030·C003·I1250) 등록 제품을 찾을 수 없습니다. 제품명 띄어쓰기를 줄이거나 핵심 단어로 다시 검색해보세요.`
+        );
+        setShowSearchResults(false);
       } else {
         setSearchResults(results);
         setShowSearchResults(true);
@@ -552,6 +561,53 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
     setVerifiedIngredients((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // 제품 대표 사진 업로드 핸들러 (최대 600px 리사이즈)
+  const handleProductPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxDim = 600;
+        let width = img.width;
+        let height = img.height;
+        if (width > height && width > maxDim) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else if (height > maxDim) {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, width, height);
+          ctx.drawImage(img, 0, 0, width, height);
+          setProductImageUrl(canvas.toDataURL('image/jpeg', 0.85));
+        }
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // 표준 효능 태그 칩 토글 핸들러
+  const handleToggleEfficacyTag = (tagToToggle: string) => {
+    const currentList = tags
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean);
+    if (currentList.includes(tagToToggle)) {
+      setTags(currentList.filter((t) => t !== tagToToggle).join(', '));
+    } else {
+      setTags([tagToToggle, ...currentList].join(', '));
+    }
+  };
+
   // 최종 Firestore 저장
   const handleSaveToCloud = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -582,6 +638,8 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
           amountPerServing,
           servingUnitKorean,
           priceRetailKrw,
+          storageLocation: storageLocation.trim() || undefined,
+          imageUrl: productImageUrl || undefined,
           tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
           ingredients: verifiedIngredients,
           ...(classification === 'OTC_DRUG'
@@ -602,7 +660,13 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                   reportNo: regulatoryCode || productToEdit.functionalFoodDetail?.reportNo || `202400${Math.floor(10000 + Math.random() * 90000)}`,
                   functionalClaimsKorean: indicationsText ? indicationsText.split(',').map((s) => s.trim()).filter(Boolean) : productToEdit.functionalFoodDetail?.functionalClaimsKorean || ['정상적인 면역 및 에너지 대사'],
                   suggestedUseKorean: dosageInstruction || `1일 ${dailyServings}회, 1회 ${amountPerServing}${servingUnitKorean} 섭취`,
-                  safetyPrecautionsKorean: productToEdit.functionalFoodDetail?.safetyPrecautionsKorean || ['특이체질 시 성분 확인']
+                  safetyPrecautionsKorean:
+                    publicDataFetched?.precautionsSummary ||
+                    productToEdit.functionalFoodDetail?.safetyPrecautionsKorean ||
+                    ['특이체질 시 성분 확인'],
+                  standardSpecificationKorean:
+                    publicDataFetched?.standardSpecificationText ||
+                    productToEdit.functionalFoodDetail?.standardSpecificationKorean
                 }
               })
         };
@@ -624,6 +688,8 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
         amountPerServing,
         servingUnitKorean,
         priceRetailKrw,
+        storageLocation: storageLocation.trim() || undefined,
+        imageUrl: productImageUrl || undefined,
         tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
         isActive: true,
         createdAt: new Date().toISOString(),
@@ -631,7 +697,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
         ingredients: verifiedIngredients,
         ...(classification === 'OTC_DRUG'
           ? {
-              otcDetail: {
+               otcDetail: {
                 itemSeq: regulatoryCode || `${Math.floor(202000000 + Math.random() * 4000000)}`,
                 permitDate: new Date().toISOString().slice(0, 10),
                 indicationsKorean: indicationsText ? indicationsText.split(',').map((s) => s.trim()).filter(Boolean) : ['피로회복 및 신경통 완화'],
@@ -645,7 +711,8 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                 reportNo: regulatoryCode || `202400${Math.floor(10000 + Math.random() * 90000)}`,
                 functionalClaimsKorean: indicationsText ? indicationsText.split(',').map((s) => s.trim()).filter(Boolean) : ['정상적인 면역 및 에너지 대사'],
                 suggestedUseKorean: dosageInstruction || `1일 ${dailyServings}회, 1회 ${amountPerServing}${servingUnitKorean} 섭취`,
-                safetyPrecautionsKorean: ['특이체질 시 성분 확인']
+                safetyPrecautionsKorean: publicDataFetched?.precautionsSummary || ['특이체질 시 성분 확인'],
+                standardSpecificationKorean: publicDataFetched?.standardSpecificationText
               }
             })
       };
@@ -673,12 +740,16 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
             </div>
             <div>
               <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <span>{isEditMode ? `등록 품목 정보 및 성분 수정 — ${productToEdit?.productName}` : '약학정보원(KPAIC) DB 연동 & 신규 품목 등록 모듈'}</span>
+                <span>
+                  {isEditMode
+                    ? `등록 품목 정보 및 성분 수정 — ${productToEdit?.productName}`
+                    : '공공데이터(식약처 의약품 · 식품안전나라 건기식/식품) 연동 & 신규 품목 등록'}
+                </span>
               </h3>
               <p className="text-xs text-slate-500">
                 {isEditMode
                   ? '제품 기본 정보, 제형, 복용법, 규격 및 유효 성분/함량 수정 ➔ 실시간 클라우드 동기화'
-                  : '약학정보원(KPAIC) 정밀 성분 DB 조회 ➔ 영문 INN 표준 매핑 ➔ 약사 검수(Verification) ➔ 실시간 클라우드 동기화'}
+                  : '일반의약품(식약처 허가정보) · 건강기능식품(I0030/C003) · 일반식품(I1250) 조회 ➔ 영문 INN 매핑 ➔ 약사 검수'}
               </p>
             </div>
           </div>
@@ -703,28 +774,52 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
 
         {/* 모달 본문 (스크롤 영역) */}
         <div className="p-6 overflow-y-auto flex-1 space-y-5">
-          {/* STEP 1. 제품 기본 정보 및 약학정보원 조회 */}
+          {/* STEP 1. 제품 기본 정보 및 공공API 조회 */}
           <div className="p-4 bg-slate-50/70 border border-slate-200 rounded-xl space-y-3.5">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <span className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
                 <FileSearch className="w-4 h-4 text-sky-600" />
-                <span>[1단계] 제품 기본 정보 및 공공 규격 확인</span>
+                <span>[1단계] 제품 기본 정보 및 식약처 · 식품안전나라 공공 규격 조회</span>
               </span>
-              <span className="text-[11px] text-sky-700 bg-sky-100/80 px-2 py-0.5 rounded font-medium">
-                약학정보원(KPAIC) 표준 규격 DB 연동
-              </span>
+              <div className="flex items-center gap-1.5">
+                {classification === 'OTC_DRUG' && (
+                  <span className="text-[11px] text-blue-700 bg-blue-100/80 border border-blue-200 px-2 py-0.5 rounded font-semibold">
+                    공공데이터포털 · 의약품 제품 허가정보 API
+                  </span>
+                )}
+                {classification === 'HEALTH_FUNCTIONAL_FOOD' && (
+                  <span className="text-[11px] text-emerald-800 bg-emerald-100/90 border border-emerald-200 px-2 py-0.5 rounded font-semibold">
+                    식품안전나라 · 건강기능식품 I0030 / C003 API (+ I1250 보조)
+                  </span>
+                )}
+                {classification === 'GENERAL_FOOD' && (
+                  <span className="text-[11px] text-slate-700 bg-slate-200/80 border border-slate-300 px-2 py-0.5 rounded font-semibold">
+                    식품안전나라 · 식품(첨가물)품목제조보고 I1250 API
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-12 gap-2.5 items-end">
               <div className="col-span-3">
                 <label className="block font-bold text-slate-700 mb-1 text-xs">
-                  제약회사 / 제조사
+                  제약회사 / 제조업소
                 </label>
                 <input
                   type="text"
                   value={manufacturer}
                   onChange={(e) => setManufacturer(e.target.value)}
-                  placeholder="예: 대웅제약, 종근당, GC녹십자"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleFetchPublicData();
+                    }
+                  }}
+                  placeholder={
+                    classification === 'OTC_DRUG'
+                      ? '예: 대웅제약, 종근당, GC녹십자'
+                      : '예: 콜마비앤에이치, 서흥, 알피바이오'
+                  }
                   className="w-full p-2 bg-white border border-slate-300 rounded-lg font-medium text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none"
                 />
               </div>
@@ -743,7 +838,13 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                       handleFetchPublicData();
                     }
                   }}
-                  placeholder="예: 임팩타민, 비맥스, 벤포벨"
+                  placeholder={
+                    classification === 'OTC_DRUG'
+                      ? '예: 임팩타민, 비맥스, 벤포벨'
+                      : classification === 'HEALTH_FUNCTIONAL_FOOD'
+                      ? '예: 락토핏, 마이타민업, 밀크씨슬, 루테인'
+                      : '예: 아르기닌, 카무트, 글루타치온'
+                  }
                   className="w-full p-2 bg-white border border-slate-300 rounded-lg font-medium text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none"
                 />
               </div>
@@ -765,13 +866,19 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
 
               <div className="col-span-2">
                 <label className="block font-bold text-slate-700 mb-1 text-xs">
-                  품목기준코드 / 허가번호
+                  품목기준코드 / 품목제조번호
                 </label>
                 <input
                   type="text"
                   value={regulatoryCode}
                   onChange={(e) => setRegulatoryCode(e.target.value)}
-                  placeholder="예: 202300436"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleFetchPublicData();
+                    }
+                  }}
+                  placeholder={classification === 'OTC_DRUG' ? '예: 202300072' : '예: 20190004553197'}
                   className="w-full p-2 bg-white border border-slate-300 rounded-lg font-mono text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none"
                 />
               </div>
@@ -781,15 +888,27 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                   type="button"
                   onClick={handleFetchPublicData}
                   disabled={isLoadingPublicData}
-                  className="flex-1 flex items-center justify-center gap-1 py-2 px-2 bg-sky-600 hover:bg-sky-700 disabled:bg-sky-400 text-white rounded-lg font-bold shadow-xs transition-all active:scale-[0.99] text-[11px] cursor-pointer"
-                  title="약학정보원(KPAIC) DB에서 제품 검색 및 후보 선택"
+                  className={`flex-1 flex items-center justify-center gap-1 py-2 px-2 text-white rounded-lg font-bold shadow-xs transition-all active:scale-[0.99] text-[11px] cursor-pointer ${
+                    classification === 'HEALTH_FUNCTIONAL_FOOD'
+                      ? 'bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400'
+                      : classification === 'GENERAL_FOOD'
+                      ? 'bg-slate-700 hover:bg-slate-800 disabled:bg-slate-400'
+                      : 'bg-sky-600 hover:bg-sky-700 disabled:bg-sky-400'
+                  }`}
+                  title="식약처 / 식품안전나라 오픈API에서 제품 실시간 검색 및 후보 선택"
                 >
                   {isLoadingPublicData ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   ) : (
                     <Search className="w-3.5 h-3.5" />
                   )}
-                  <span>{isEditMode ? 'DB 조회' : 'KPAIC 조회'}</span>
+                  <span>
+                    {classification === 'OTC_DRUG'
+                      ? '의약품 조회'
+                      : classification === 'HEALTH_FUNCTIONAL_FOOD'
+                      ? '건기식 조회'
+                      : '식품 조회'}
+                  </span>
                 </button>
 
                 <button
@@ -816,7 +935,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                   <div>
                     <span className="font-bold">{searchErrorMsg}</span>
                     <p className="text-[11px] text-amber-700 mt-0.5">
-                      약학정보원 사전 DB에 없는 품목이라도, 아래 버튼을 눌러 성분을 직접 입력하여 즉시 등록하실 수 있습니다.
+                      공공API에 아직 등재되지 않은 품목이라도 아래 버튼을 눌러 성분을 직접 입력하거나 [자료 첨부]로 라벨을 촬영해 등록할 수 있습니다.
                     </p>
                   </div>
                 </div>
@@ -831,14 +950,14 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
               </div>
             )}
 
-            {/* 약학정보원 검색 결과 다중 후보 선택 리스트 */}
+            {/* 공공API 검색 결과 다중 후보 선택 리스트 */}
             {showSearchResults && (
               <div className="p-4 bg-sky-50/80 border-2 border-sky-300 rounded-xl space-y-3 animate-in fade-in">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Search className="w-4 h-4 text-sky-700" />
                     <span className="font-bold text-xs text-sky-950">
-                      약학정보원(KPAIC) 검색 결과 ({searchResults.length}건) — 등록할 제품을 선택하세요
+                      공공데이터 실시간 검색 결과 ({searchResults.length}건) — 등록할 제품을 선택하세요
                     </span>
                   </div>
                   <button
@@ -850,9 +969,22 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                   </button>
                 </div>
 
-                <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                   {searchResults.map((item) => {
                     const isDup = !!findDuplicateProduct(item.productName, item.regulatoryCode);
+                    const classLabel =
+                      item.classification === 'OTC_DRUG'
+                        ? '일반의약품'
+                        : item.classification === 'HEALTH_FUNCTIONAL_FOOD'
+                        ? '건강기능식품'
+                        : `일반식품(${item.foodTypeCategory || '기타가공품'})`;
+                    const classBadgeColor =
+                      item.classification === 'OTC_DRUG'
+                        ? 'bg-blue-100 text-blue-800 border-blue-200'
+                        : item.classification === 'HEALTH_FUNCTIONAL_FOOD'
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                        : 'bg-slate-200 text-slate-800 border-slate-300';
+
                     return (
                       <div
                         key={item.id}
@@ -863,19 +995,32 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                             : 'bg-white border-slate-200 hover:border-sky-500 hover:shadow-xs'
                         }`}
                       >
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
+                        <div className="space-y-1 min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${classBadgeColor}`}>
+                              {classLabel}
+                            </span>
+                            {item.apiSourceBadge && (
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                {item.apiSourceBadge}
+                              </span>
+                            )}
                             <span className="font-bold text-xs text-slate-900">{item.productName}</span>
                             <span className="text-[11px] font-medium text-sky-800 bg-sky-100 px-1.5 py-0.2 rounded">
                               {item.manufacturer}
                             </span>
                             <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-mono">
-                              허가코드: {item.regulatoryCode}
+                              {item.classification === 'OTC_DRUG' ? '품목기준코드' : '품목제조번호'}: {item.regulatoryCode}
                             </span>
                           </div>
-                          <p className="text-[11px] text-slate-500">
+                          <p className="text-[11px] text-slate-600 truncate">
                             {item.packagingUnit} • {item.dosageInstruction}
                           </p>
+                          {(item.indivRawMaterialText || item.rawIngredientsText) && (
+                            <p className="text-[10px] text-slate-500 truncate font-mono bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
+                              주원료: {(item.indivRawMaterialText || item.rawIngredientsText).replace(/\n/g, ', ')}
+                            </p>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
@@ -1054,24 +1199,68 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
             )}
 
             {publicDataFetched && (
-              <div className="p-3 bg-white border border-emerald-300 rounded-lg flex items-start justify-between gap-3 text-slate-700 animate-in fade-in">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span className="font-bold text-emerald-950 text-xs">
-                      공식 규격 수집 완료 ({publicDataFetched.sourceOrigin})
-                    </span>
-                    <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded font-mono">
-                      허가코드: {publicDataFetched.regulatoryCode}
-                    </span>
+              <div className="p-3.5 bg-white border border-emerald-300 rounded-xl space-y-2 text-slate-700 animate-in fade-in">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-1 flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span className="font-bold text-emerald-950 text-xs">
+                        공식 규격 수집 완료 ({publicDataFetched.sourceOrigin})
+                      </span>
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded font-mono">
+                        {publicDataFetched.classification === 'OTC_DRUG' ? '품목기준코드' : '품목제조번호'}: {publicDataFetched.regulatoryCode}
+                      </span>
+                      {publicDataFetched.foodTypeCategory && (
+                        <span className="text-[10px] bg-sky-100 text-sky-800 px-1.5 py-0.2 rounded font-semibold">
+                          유형: {publicDataFetched.foodTypeCategory}
+                        </span>
+                      )}
+                      {publicDataFetched.shelfLifeText && (
+                        <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded">
+                          소비기한: {publicDataFetched.shelfLifeText}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-600 font-mono bg-slate-50 p-1.5 rounded border border-slate-200 line-clamp-2">
+                      규격 파싱 원문: {publicDataFetched.rawIngredientsText.replace(/\n/g, ' / ')}
+                    </p>
                   </div>
-                  <p className="text-[11px] text-slate-500 font-mono bg-slate-50 p-1.5 rounded border border-slate-200 line-clamp-2">
-                    원문: {publicDataFetched.rawIngredientsText}
-                  </p>
+                  <span className="text-emerald-700 font-bold shrink-0 text-right text-xs">
+                    {publicDataFetched.parsedIngredients.length}종 성분 매핑됨
+                  </span>
                 </div>
-                <span className="text-emerald-700 font-bold shrink-0 text-right text-xs">
-                  {publicDataFetched.parsedIngredients.length}종 성분 매핑됨
-                </span>
+
+                {/* 식품안전나라 I0030 분리 원재료(주원료 / 부원료 / 캡슐기제) 및 기준규격(STDR_STND) 상세 표시 */}
+                {(publicDataFetched.indivRawMaterialText || publicDataFetched.etcRawMaterialText || publicDataFetched.standardSpecificationText) && (
+                  <div className="grid grid-cols-12 gap-2 pt-1 text-[11px]">
+                    {publicDataFetched.indivRawMaterialText && (
+                      <div className="col-span-6 p-2 bg-emerald-50/60 border border-emerald-200/80 rounded-lg">
+                        <span className="font-bold text-emerald-900 block mb-0.5">
+                          ✔ 기능성 주원료 (INDIV_RAWMTRL_NM):
+                        </span>
+                        <p className="text-slate-700 line-clamp-2">{publicDataFetched.indivRawMaterialText}</p>
+                      </div>
+                    )}
+                    {publicDataFetched.etcRawMaterialText && (
+                      <div className="col-span-6 p-2 bg-slate-50 border border-slate-200 rounded-lg">
+                        <span className="font-bold text-slate-700 block mb-0.5">
+                          • 기타원료 / 부원료 (ETC_RAWMTRL_NM):
+                        </span>
+                        <p className="text-slate-600 line-clamp-2">{publicDataFetched.etcRawMaterialText}</p>
+                      </div>
+                    )}
+                    {publicDataFetched.standardSpecificationText && (
+                      <details className="col-span-12 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5">
+                        <summary className="cursor-pointer font-bold text-slate-700 hover:text-sky-700 select-none">
+                          📋 식약처 기준 및 규격 (STDR_STND 표시량 원문) 펼쳐보기
+                        </summary>
+                        <pre className="mt-1.5 text-[10px] text-slate-600 whitespace-pre-wrap font-mono max-h-36 overflow-y-auto bg-white p-2 rounded border border-slate-200">
+                          {publicDataFetched.standardSpecificationText}
+                        </pre>
+                      </details>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1220,9 +1409,9 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                 </datalist>
               </div>
 
-              {/* 기본 규격 및 복용 스케줄 세부 정보 */}
-              <div className="grid grid-cols-5 gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
-                <div>
+              {/* 기본 규격, 복용 스케줄, 소비자 판매가, 약 위치, 대표 사진 */}
+              <div className="grid grid-cols-12 gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl items-end">
+                <div className="col-span-2">
                   <label className="block font-bold text-slate-700 mb-1 text-xs">제형</label>
                   <select
                     value={dosageForm}
@@ -1231,13 +1420,17 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                   >
                     <option value="FILM_COATED_TABLET">필름코팅정</option>
                     <option value="TABLET">일반정제</option>
+                    <option value="ENTERIC_TABLET">장용정</option>
                     <option value="SOFT_CAPSULE">연질캡슐</option>
                     <option value="HARD_CAPSULE">경질캡슐</option>
-                    <option value="LIQUID_ORAL">액제/스틱시럽</option>
+                    <option value="LIQUID_ORAL">액제/스틱시럽/겔</option>
+                    <option value="POWDER">분말/산제</option>
+                    <option value="GRANULE">과립</option>
+                    <option value="JELLY">젤리/츄어블</option>
                   </select>
                 </div>
 
-                <div>
+                <div className="col-span-2">
                   <label className="block font-bold text-slate-700 mb-1 text-xs">포장 규격</label>
                   <input
                     type="text"
@@ -1247,8 +1440,8 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                   />
                 </div>
 
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1 text-xs">1일 복용 횟수</label>
+                <div className="col-span-1">
+                  <label className="block font-bold text-slate-700 mb-1 text-xs">1일 횟수</label>
                   <input
                     type="number"
                     min={1}
@@ -1258,26 +1451,26 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                   />
                 </div>
 
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1 text-xs">1회 복용량 (단위)</label>
+                <div className="col-span-2">
+                  <label className="block font-bold text-slate-700 mb-1 text-xs">1회량 (단위)</label>
                   <div className="flex gap-1">
                     <input
                       type="number"
                       min={1}
                       value={amountPerServing}
                       onChange={(e) => setAmountPerServing(parseInt(e.target.value) || 1)}
-                      className="w-14 p-1.5 border border-slate-300 rounded-md bg-white text-right text-xs"
+                      className="w-12 p-1.5 border border-slate-300 rounded-md bg-white text-right text-xs"
                     />
                     <input
                       type="text"
                       value={servingUnitKorean}
                       onChange={(e) => setServingUnitKorean(e.target.value)}
-                      className="w-14 p-1.5 border border-slate-300 rounded-md bg-white text-center text-xs"
+                      className="flex-1 min-w-0 p-1.5 border border-slate-300 rounded-md bg-white text-center text-xs"
                     />
                   </div>
                 </div>
 
-                <div>
+                <div className="col-span-2">
                   <label className="block font-bold text-slate-700 mb-1 text-xs">소비자 판매가 (원)</label>
                   <input
                     type="number"
@@ -1286,11 +1479,61 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                     className="w-full p-1.5 border border-slate-300 rounded-md bg-white font-mono text-xs"
                   />
                 </div>
+
+                <div className="col-span-3">
+                  <label className="block font-bold text-slate-700 mb-1 text-xs flex items-center gap-1">
+                    <MapPin className="w-3.5 h-3.5 text-sky-600" />
+                    <span>약 위치 (진열대 / 보관 위치)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={storageLocation}
+                    onChange={(e) => setStorageLocation(e.target.value)}
+                    placeholder="예: 상담석 우측 2단, 영양제 매대 A-1"
+                    className="w-full p-1.5 border border-sky-300 rounded-md bg-white text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                  />
+                </div>
               </div>
 
-              {/* 표준 복용·섭취 기준 및 효능 문구 */}
-              <div className="grid grid-cols-12 gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl">
-                <div className="col-span-6">
+              {/* 제품 대표 사진 등록 및 표준 복용·섭취 기준 / 효능 문구 */}
+              <div className="grid grid-cols-12 gap-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl items-center">
+                <div className="col-span-3">
+                  <label className="block font-bold text-slate-700 mb-1 text-xs flex items-center gap-1">
+                    <Camera className="w-3.5 h-3.5 text-sky-600" />
+                    <span>카탈로그 대표 사진</span>
+                  </label>
+                  <div className="flex items-center gap-2">
+                    {productImageUrl ? (
+                      <div className="relative w-11 h-11 rounded-lg bg-white border border-slate-300 flex items-center justify-center overflow-hidden shrink-0">
+                        <img
+                          src={productImageUrl}
+                          alt="제품 대표 사진"
+                          className="max-w-full max-h-full object-contain"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setProductImageUrl('')}
+                          className="absolute top-0 right-0 bg-rose-600 text-white text-[9px] px-1 rounded-bl"
+                          title="사진 제거"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : null}
+                    <label className="flex-1 flex items-center justify-center gap-1.5 py-2 px-2.5 bg-white hover:bg-sky-50 text-sky-700 border border-sky-300 rounded-lg text-xs font-bold cursor-pointer transition-colors">
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>{productImageUrl ? '사진 변경' : '제품 사진 선택'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleProductPhotoUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="col-span-4">
                   <label className="block font-bold text-slate-700 mb-1 text-xs">
                     표준 복용·섭취 기준 문구
                   </label>
@@ -1302,7 +1545,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                     className="w-full p-2 border border-slate-300 rounded-lg bg-white text-xs font-medium"
                   />
                 </div>
-                <div className="col-span-6">
+                <div className="col-span-5">
                   <label className="block font-bold text-slate-700 mb-1 text-xs">
                     효능·효과 / 기능성 요약 문구
                   </label>
@@ -1316,18 +1559,55 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                 </div>
               </div>
 
-              {/* 임상 태그 */}
-              <div>
-                <label className="block font-bold text-slate-700 mb-1 text-xs">
-                  임상 검색 태그 (쉼표로 구분)
-                </label>
-                <input
-                  type="text"
-                  value={tags}
-                  onChange={(e) => setTags(e.target.value)}
-                  placeholder="예: 고함량활성B군, 메코발라민, 신경통, 만성피로"
-                  className="w-full p-2 border border-slate-300 rounded-lg bg-white text-xs"
-                />
+              {/* 효능·증상 태그 프리셋 & 임상 검색 태그 */}
+              <div className="p-3.5 bg-sky-50/50 border border-sky-200 rounded-xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="block font-bold text-slate-800 text-xs flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-sky-600" />
+                    <span>효능·증상 태그 설정 (클릭하여 카탈로그 필터 태그 ON/OFF)</span>
+                  </label>
+                  <span className="text-[11px] text-slate-500">
+                    선택한 효능 버튼을 누르면 카탈로그에서 해당 영양제가 즉시 필터링됩니다
+                  </span>
+                </div>
+
+                {/* 표준 효능 태그 원클릭 토글 버튼 */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {STANDARD_EFFICACY_TAGS.map((stdTag) => {
+                    const currentTagList = tags
+                      .split(',')
+                      .map((t) => t.trim())
+                      .filter(Boolean);
+                    const isActive = currentTagList.includes(stdTag);
+                    return (
+                      <button
+                        key={stdTag}
+                        type="button"
+                        onClick={() => handleToggleEfficacyTag(stdTag)}
+                        className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border ${
+                          isActive
+                            ? 'bg-sky-600 text-white border-sky-700 shadow-xs'
+                            : 'bg-white text-slate-600 border-slate-300 hover:border-sky-400 hover:text-sky-700'
+                        }`}
+                      >
+                        {isActive ? `✓ ${stdTag}` : `+ ${stdTag}`}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-600 mb-1 text-[11px]">
+                    적용된 효능 및 검색 태그 직접 편집 (쉼표로 구분)
+                  </label>
+                  <input
+                    type="text"
+                    value={tags}
+                    onChange={(e) => setTags(e.target.value)}
+                    placeholder="예: 피로, 간, 관절, 고함량활성B군, 메코발라민"
+                    className="w-full p-2 border border-slate-300 rounded-lg bg-white text-xs font-medium"
+                  />
+                </div>
               </div>
             </div>
           )}

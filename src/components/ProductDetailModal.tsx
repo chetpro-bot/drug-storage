@@ -234,10 +234,9 @@ const MFDS_NOTIFIED_FUNCTIONALITY_DICTIONARY: {
 
 export interface PediatricUlReferenceItem {
   id: string;
-  category: 'WATER_SOLUBLE' | 'FAT_SOLUBLE' | 'MINERAL';
+  category: 'VITAMIN' | 'MINERAL';
   categoryTitle: string;
   nutrientName: string;
-  subName?: string;
   age1_2: string;
   age3_5: string;
   age6_8: string;
@@ -252,16 +251,28 @@ export interface PediatricUlReferenceItem {
 /**
  * 2025 보건복지부 · 한국영양학회 한국인 영양소 섭취기준(KDRIs)
  * 소아·청소년 연령별 1일 상한섭취량(UL) 기준표
-  * 정렬 기준: 1) 수용성 비타민(B1~B12 -> C) -> 2) 지용성 비타민(A -> D -> E -> K) -> 3) 미네랄 (성분명 abc 알파벳순)
-  */
+ * 정렬 기준: 1) 비타민(A -> B1~B12 -> 콜린 -> C -> D -> E -> K) -> 2) 미네랄 (성분명 abc 알파벳순)
+ */
 export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
-  // 1. 수용성 비타민 (B1 -> B2 -> B3 -> B5 -> B6 -> B7 -> B9 -> B12 -> C 순)
+  // 1. 비타민 (A -> B1 -> B2 -> B3 -> B5 -> B6 -> B7 -> B9 -> B12 -> 콜린 -> C -> D -> E -> K)
+  {
+    id: 'vitA',
+    category: 'VITAMIN',
+    categoryTitle: '비타민',
+    nutrientName: '비타민 A',
+    age1_2: '600 μg',
+    age3_5: '750 μg',
+    age6_8: '1,100 μg',
+    age9_11: '1,600 μg',
+    age12_14: '2,300 μg',
+    age15_18: '2,800 μg',
+    adult: '3,000 μg (10,000 IU)'
+  },
   {
     id: 'thiamine',
-    category: 'WATER_SOLUBLE',
-    categoryTitle: '수용성 비타민',
-    nutrientName: '티아민 (Thiamine, B1)',
-    subName: '비타민B1',
+    category: 'VITAMIN',
+    categoryTitle: '비타민',
+    nutrientName: '비타민 B₁',
     age1_2: '-',
     age3_5: '-',
     age6_8: '-',
@@ -269,15 +280,13 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
     age12_14: '-',
     age15_18: '-',
     adult: '-',
-    isNoUl: true,
-    note: 'UL 미설정'
+    isNoUl: true
   },
   {
     id: 'riboflavin',
-    category: 'WATER_SOLUBLE',
-    categoryTitle: '수용성 비타민',
-    nutrientName: '리보플라빈 (Riboflavin, B2)',
-    subName: '비타민B2',
+    category: 'VITAMIN',
+    categoryTitle: '비타민',
+    nutrientName: '비타민 B₂',
     age1_2: '-',
     age3_5: '-',
     age6_8: '-',
@@ -285,29 +294,26 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
     age12_14: '-',
     age15_18: '-',
     adult: '-',
-    isNoUl: true,
-    note: 'UL 미설정'
+    isNoUl: true
   },
   {
     id: 'nicotinamide',
-    category: 'WATER_SOLUBLE',
-    categoryTitle: '수용성 비타민',
-    nutrientName: '나이아신 / 니코틴산아미드 (B3)',
-    subName: '아미드 형태',
+    category: 'VITAMIN',
+    categoryTitle: '비타민',
+    nutrientName: '비타민 B₃ (나이아신)',
     age1_2: '150 mg',
     age3_5: '200 mg',
     age6_8: '300 mg',
     age9_11: '450 mg',
     age12_14: '600 mg',
     age15_18: '650 mg',
-    adult: '850 mg',
-    note: '아미드 기준 (산 형태 35mg)'
+    adult: '850 mg'
   },
   {
     id: 'pantothenic_acid',
-    category: 'WATER_SOLUBLE',
-    categoryTitle: '수용성 비타민',
-    nutrientName: '판토텐산 (Pantothenic acid, B5)',
+    category: 'VITAMIN',
+    categoryTitle: '비타민',
+    nutrientName: '비타민 B₅ (판토텐산)',
     age1_2: '-',
     age3_5: '-',
     age6_8: '-',
@@ -315,15 +321,13 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
     age12_14: '-',
     age15_18: '-',
     adult: '-',
-    isNoUl: true,
-    note: 'UL 미설정'
+    isNoUl: true
   },
   {
     id: 'pyridoxine',
-    category: 'WATER_SOLUBLE',
-    categoryTitle: '수용성 비타민',
-    nutrientName: '피리독신 (Pyridoxine, B6)',
-    subName: '비타민B6',
+    category: 'VITAMIN',
+    categoryTitle: '비타민',
+    nutrientName: '비타민 B₆',
     age1_2: '10 mg',
     age3_5: '15 mg',
     age6_8: '20 mg',
@@ -334,9 +338,9 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
   },
   {
     id: 'biotin',
-    category: 'WATER_SOLUBLE',
-    categoryTitle: '수용성 비타민',
-    nutrientName: '비오틴 (Biotin, B7)',
+    category: 'VITAMIN',
+    categoryTitle: '비타민',
+    nutrientName: '비타민 B₇ (비오틴)',
     age1_2: '-',
     age3_5: '-',
     age6_8: '-',
@@ -344,30 +348,26 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
     age12_14: '-',
     age15_18: '-',
     adult: '-',
-    isNoUl: true,
-    note: 'UL 미설정'
+    isNoUl: true
   },
   {
     id: 'folic_acid',
-    category: 'WATER_SOLUBLE',
-    categoryTitle: '수용성 비타민',
-    nutrientName: '엽산 (Folic acid, B9)',
-    subName: '합성 폴산 기준',
+    category: 'VITAMIN',
+    categoryTitle: '비타민',
+    nutrientName: '비타민 B₉ (엽산)',
     age1_2: '300 μg',
     age3_5: '400 μg',
     age6_8: '500 μg',
     age9_11: '700 μg',
     age12_14: '800 μg',
     age15_18: '900 μg',
-    adult: '1,000 μg',
-    note: '합성 보충제 기준'
+    adult: '1,000 μg'
   },
   {
     id: 'cyanocobalamin',
-    category: 'WATER_SOLUBLE',
-    categoryTitle: '수용성 비타민',
-    nutrientName: '코발라민 (Cobalamin, B12)',
-    subName: '시아노코발라민 등',
+    category: 'VITAMIN',
+    categoryTitle: '비타민',
+    nutrientName: '비타민 B₁₂',
     age1_2: '-',
     age3_5: '-',
     age6_8: '-',
@@ -375,15 +375,26 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
     age12_14: '-',
     age15_18: '-',
     adult: '-',
-    isNoUl: true,
-    note: 'UL 미설정'
+    isNoUl: true
+  },
+  {
+    id: 'choline',
+    category: 'VITAMIN',
+    categoryTitle: '비타민',
+    nutrientName: '콜린 (Choline)',
+    age1_2: '700 mg',
+    age3_5: '1,000 mg',
+    age6_8: '1,000 mg',
+    age9_11: '1,500 mg',
+    age12_14: '2,000 mg',
+    age15_18: '2,000 mg',
+    adult: '2,500 mg'
   },
   {
     id: 'ascorbic_acid',
-    category: 'WATER_SOLUBLE',
-    categoryTitle: '수용성 비타민',
-    nutrientName: '비타민 C (Ascorbic acid)',
-    subName: '아스코르브산',
+    category: 'VITAMIN',
+    categoryTitle: '비타민',
+    nutrientName: '비타민 C',
     age1_2: '400 mg',
     age3_5: '600 mg',
     age6_8: '900 mg',
@@ -392,29 +403,11 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
     age15_18: '1,800 mg',
     adult: '2,000 mg'
   },
-
-  // 2. 지용성 비타민 (A -> D -> E -> K 순)
-  {
-    id: 'vitA',
-    category: 'FAT_SOLUBLE',
-    categoryTitle: '지용성 비타민',
-    nutrientName: '비타민 A (Retinol)',
-    subName: '레티놀/레티닐에스테르',
-    age1_2: '600 μg',
-    age3_5: '750 μg',
-    age6_8: '1,100 μg',
-    age9_11: '1,600 μg',
-    age12_14: '2,300 μg',
-    age15_18: '2,800 μg',
-    adult: '3,000 μg (10,000 IU)',
-    note: '베타카로틴 제외'
-  },
   {
     id: 'vitD',
-    category: 'FAT_SOLUBLE',
-    categoryTitle: '지용성 비타민',
-    nutrientName: '비타민 D (Cholecalciferol)',
-    subName: 'D3 / D2',
+    category: 'VITAMIN',
+    categoryTitle: '비타민',
+    nutrientName: '비타민 D',
     age1_2: '1,200 IU (30μg)',
     age3_5: '1,400 IU (35μg)',
     age6_8: '1,600 IU (40μg)',
@@ -425,10 +418,9 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
   },
   {
     id: 'vitE',
-    category: 'FAT_SOLUBLE',
-    categoryTitle: '지용성 비타민',
-    nutrientName: '비타민 E (Tocopherol)',
-    subName: 'α-토코페롤',
+    category: 'VITAMIN',
+    categoryTitle: '비타민',
+    nutrientName: '비타민 E',
     age1_2: '100 mg (150 IU)',
     age3_5: '150 mg (220 IU)',
     age6_8: '250 mg (370 IU)',
@@ -439,10 +431,9 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
   },
   {
     id: 'vitK',
-    category: 'FAT_SOLUBLE',
-    categoryTitle: '지용성 비타민',
-    nutrientName: '비타민 K (Phylloquinone, K1/K2)',
-    subName: '필로퀴논, 메나퀴논',
+    category: 'VITAMIN',
+    categoryTitle: '비타민',
+    nutrientName: '비타민 K',
     age1_2: '-',
     age3_5: '-',
     age6_8: '-',
@@ -450,16 +441,15 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
     age12_14: '-',
     age15_18: '-',
     adult: '-',
-    isNoUl: true,
-    note: 'UL 미설정'
+    isNoUl: true
   },
 
-  // 3. 미네랄 (Minerals - abc순)
+  // 2. 미네랄 (영문 성분명 abc 순서: Calcium -> Copper -> Iodine -> Iron -> Magnesium -> Manganese -> Molybdenum -> Selenium -> Zinc)
   {
     id: 'calcium',
     category: 'MINERAL',
     categoryTitle: '미네랄',
-    nutrientName: '칼슘 (Calcium, Ca)',
+    nutrientName: '칼슘 (Calcium)',
     age1_2: '1,500 mg',
     age3_5: '2,000 mg',
     age6_8: '2,500 mg',
@@ -472,7 +462,7 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
     id: 'copper',
     category: 'MINERAL',
     categoryTitle: '미네랄',
-    nutrientName: '구리 (Copper, Cu)',
+    nutrientName: '구리 (Copper)',
     age1_2: '1 mg',
     age3_5: '2 mg',
     age6_8: '3 mg',
@@ -485,7 +475,7 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
     id: 'iodine',
     category: 'MINERAL',
     categoryTitle: '미네랄',
-    nutrientName: '요오드 (Iodine, I)',
+    nutrientName: '요오드 (Iodine)',
     age1_2: '250 μg',
     age3_5: '300 μg',
     age6_8: '450 μg',
@@ -498,8 +488,7 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
     id: 'iron',
     category: 'MINERAL',
     categoryTitle: '미네랄',
-    nutrientName: '철 (Iron, Fe)',
-    subName: '원소철 기준',
+    nutrientName: '철 (Iron)',
     age1_2: '40 mg',
     age3_5: '40 mg',
     age6_8: '40 mg',
@@ -512,22 +501,20 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
     id: 'magnesium',
     category: 'MINERAL',
     categoryTitle: '미네랄',
-    nutrientName: '마그네슘 (Magnesium, Mg)',
-    subName: '식품 외 보충제 기준',
+    nutrientName: '마그네슘 (Magnesium)',
     age1_2: '65 mg',
     age3_5: '110 mg',
     age6_8: '160 mg',
     age9_11: '230 mg',
     age12_14: '310 mg',
     age15_18: '350 mg',
-    adult: '350 mg',
-    note: '식품 외 보충제 급원'
+    adult: '350 mg'
   },
   {
     id: 'manganese',
     category: 'MINERAL',
     categoryTitle: '미네랄',
-    nutrientName: '망간 (Manganese, Mn)',
+    nutrientName: '망간 (Manganese)',
     age1_2: '2 mg',
     age3_5: '3 mg',
     age6_8: '4 mg',
@@ -540,7 +527,7 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
     id: 'molybdenum',
     category: 'MINERAL',
     categoryTitle: '미네랄',
-    nutrientName: '몰리브덴 (Molybdenum, Mo)',
+    nutrientName: '몰리브덴 (Molybdenum)',
     age1_2: '60 μg',
     age3_5: '100 μg',
     age6_8: '150 μg',
@@ -553,7 +540,7 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
     id: 'selenium',
     category: 'MINERAL',
     categoryTitle: '미네랄',
-    nutrientName: '셀레늄 (Selenium, Se)',
+    nutrientName: '셀레늄 (Selenium)',
     age1_2: '60 μg',
     age3_5: '90 μg',
     age6_8: '150 μg',
@@ -566,7 +553,7 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
     id: 'zinc',
     category: 'MINERAL',
     categoryTitle: '미네랄',
-    nutrientName: '아연 (Zinc, Zn)',
+    nutrientName: '아연 (Zinc)',
     age1_2: '6 mg',
     age3_5: '9 mg',
     age6_8: '13 mg',
@@ -932,7 +919,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   // 소아 연령별 상한섭취량 기준표 모달 팝업 상태 및 카테고리 필터
   const [isChildUlModalOpen, setIsChildUlModalOpen] = useState(false);
   const [childUlTableCategory, setChildUlTableCategory] = useState<
-    'ALL' | 'MINERAL' | 'FAT_SOLUBLE' | 'WATER_SOLUBLE'
+    'ALL' | 'VITAMIN' | 'MINERAL'
   >('ALL');
 
   // 복용 방법(용법) 직접 수정 모드 및 입력값 상태 (줄바꿈 지원)
@@ -2639,25 +2626,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setChildUlTableCategory('WATER_SOLUBLE')}
+                    onClick={() => setChildUlTableCategory('VITAMIN')}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                      childUlTableCategory === 'WATER_SOLUBLE'
+                      childUlTableCategory === 'VITAMIN'
                         ? 'bg-amber-600 text-white shadow-2xs'
                         : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                     }`}
                   >
-                    <span>💧 수용성 비타민 (9종)</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setChildUlTableCategory('FAT_SOLUBLE')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                      childUlTableCategory === 'FAT_SOLUBLE'
-                        ? 'bg-amber-600 text-white shadow-2xs'
-                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                    }`}
-                  >
-                    <span>🥑 지용성 비타민 (4종)</span>
+                    <span>💊 비타민 (14종)</span>
                   </button>
                   <button
                     type="button"
@@ -2673,18 +2649,17 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </div>
 
                 <div className="border border-slate-200 rounded-xl overflow-x-auto shadow-2xs">
-                  <table className="w-full text-xs text-left border-collapse min-w-[700px]">
+                  <table className="w-full text-xs text-left border-collapse min-w-[620px]">
                     <thead>
                       <tr className="bg-slate-100 text-slate-700 font-extrabold text-[11px] border-b border-slate-200">
-                        <th className="px-3.5 py-2.5 border-r border-slate-200 min-w-[160px]">영양소 성분명</th>
+                        <th className="px-3.5 py-2.5 border-r border-slate-200 min-w-[150px]">영양소 성분명</th>
                         <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[65px]">1~2세</th>
                         <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[65px]">3~5세</th>
                         <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[65px]">6~8세</th>
                         <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[65px]">9~11세</th>
                         <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[70px]">12~14세</th>
                         <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[70px]">15~18세</th>
-                        <th className="px-2.5 py-2 text-center border-r border-slate-200 bg-slate-50 min-w-[85px]">성인 (19세+)</th>
-                        <th className="px-3 py-2 text-slate-600 min-w-[120px]">비고</th>
+                        <th className="px-2.5 py-2 text-center bg-slate-50 min-w-[85px]">성인 (19세+)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -2710,13 +2685,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                               {showCategoryHeader && (
                                 <tr className="bg-slate-100/90 border-y border-slate-200">
                                   <td
-                                    colSpan={9}
+                                    colSpan={8}
                                     className="px-3.5 py-1.5 text-[11px] font-black text-slate-800 tracking-tight"
                                   >
-                                    {row.categoryTitle === '수용성 비타민'
-                                      ? '💧 수용성 비타민'
-                                      : row.categoryTitle === '지용성 비타민'
-                                      ? '🥑 지용성 비타민'
+                                    {row.categoryTitle === '비타민'
+                                      ? '💊 비타민'
                                       : '🧪 미네랄'}
                                   </td>
                                 </tr>
@@ -2724,16 +2697,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                               <tr className="hover:bg-amber-50/30 transition-colors">
                                 <td className="px-3.5 py-2.5 font-bold text-slate-900 border-r border-slate-200 align-middle">
                                   <div className="font-extrabold text-slate-900">{row.nutrientName}</div>
-                                  {row.subName && (
-                                    <div className="text-[10px] text-slate-400 font-normal leading-tight">
-                                      {row.subName}
-                                    </div>
-                                  )}
                                 </td>
                                 {row.isNoUl ? (
                                   <td
                                     colSpan={7}
-                                    className="px-3 py-2.5 text-center text-slate-400 font-medium border-r border-slate-200 bg-slate-50/60 align-middle text-[11px]"
+                                    className="px-3 py-2.5 text-center text-slate-400 font-medium bg-slate-50/60 align-middle text-[11px]"
                                   >
                                     공식 상한섭취량(UL) 미설정
                                   </td>
@@ -2757,14 +2725,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                     <td className="px-2 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200 align-middle">
                                       {row.age15_18}
                                     </td>
-                                    <td className="px-2.5 py-2.5 text-center font-semibold text-rose-600 border-r border-slate-200 bg-slate-50 align-middle">
+                                    <td className="px-2.5 py-2.5 text-center font-semibold text-rose-600 bg-slate-50 align-middle">
                                       {row.adult}
                                     </td>
                                   </>
                                 )}
-                                <td className="px-3 py-2.5 text-slate-500 text-[11px] align-middle">
-                                  {row.note || '-'}
-                                </td>
                               </tr>
                             </React.Fragment>
                           );

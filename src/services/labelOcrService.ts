@@ -13,7 +13,7 @@ export interface OcrParseResult {
   unmappedIngredients: string[];
 }
 
-export async function fileToDataUrl(file: File | Blob, maxWidth = 1600): Promise<string> {
+export async function fileToDataUrl(file: File | Blob, maxWidth = 1280): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -21,16 +21,15 @@ export async function fileToDataUrl(file: File | Blob, maxWidth = 1600): Promise
       const img = new Image();
       img.onload = () => {
         let { width, height } = img;
-        if (width <= maxWidth && height <= maxWidth) {
-          resolve(dataUrl);
-          return;
-        }
-        if (width > height) {
-          height = Math.round((height * maxWidth) / width);
-          width = maxWidth;
-        } else {
-          width = Math.round((width * maxWidth) / height);
-          height = maxWidth;
+        const maxDim = maxWidth;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
         }
         const canvas = document.createElement('canvas');
         canvas.width = width;
@@ -38,7 +37,8 @@ export async function fileToDataUrl(file: File | Blob, maxWidth = 1600): Promise
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', 0.85));
+          // 항상 고화질 압축 JPEG(0.78)로 변환하여 80~120KB 경량화 (Firestore/로컬스토리지 용량 초과 방지)
+          resolve(canvas.toDataURL('image/jpeg', 0.78));
         } else {
           resolve(dataUrl);
         }
@@ -615,6 +615,223 @@ export function extractPrecautionsFromOcrText(rawText: string): {
 }
 
 /**
+ * 일반식품(혼합음료, 기타가공품 등) 영양성분표 및 원재료명 맞춤 파서
+ * - 영양성분표에서 의미 있는 미네랄(마그네슘, 칼슘, 아연 등) 및 비타민 추출
+ * - 원재료명 및 함량에서 해당 영양소의 실제 염 형태(글루콘산마그네슘, 젖산칼슘 등)를 추출하여 성분명으로 결합
+ * - 당알코올 주의사항 등 경고 문구를 주의사항으로 분리 (성분표 유입 차단)
+ */
+export function parseFoodNutritionLabel(rawText: string): {
+  ingredients: ProductIngredientEntry[];
+  precautions: string[];
+} {
+  const ingredients: ProductIngredientEntry[] = [];
+  const precautions: string[] = [];
+
+  if (!rawText || !rawText.trim()) {
+    return { ingredients, precautions };
+  }
+
+  // 1. 주의사항 / 당알코올 경고 문구 추출
+  const lines = rawText.split(/[\r\n]+/).map((l) => l.trim()).filter(Boolean);
+  lines.forEach((line) => {
+    if (
+      /당알코올|과량\s*섭취\s*시\s*설사|설사를\s*일으킬|어린이\s*손에\s*닿지|개봉\s*후\s*냉장|직사광선을\s*피해/i.test(
+        line
+      )
+    ) {
+      const cleanLine = line.replace(/^[※\*\-\•\s]+/, '').trim();
+      if (cleanLine.length >= 8 && !precautions.includes(cleanLine)) {
+        precautions.push(cleanLine);
+      }
+    }
+  });
+
+  // 2. 원료명 및 함량 섹션 추출
+  let rawMaterialsText = '';
+  const rawMatMatch = rawText.match(
+    /(?:원료명|원재료명)(?:\s*및\s*함량)?\s*[:：]?\s*([\s\S]+?)(?=\n\s*(?:※|\[|1일\s*영양|주의사항|보관|소비자|$))/i
+  );
+  if (rawMatMatch) {
+    rawMaterialsText = rawMatMatch[1].trim();
+  } else {
+    rawMaterialsText = rawText;
+  }
+
+  // 원료들을 콤마/줄바꿈/세미콜론 단위로 분리 (괄호 부가설명 임시 제외)
+  const rawMaterialTokens = rawMaterialsText
+    .split(/[,;\n\r]+/)
+    .map((s) => s.replace(/\([^)]*\)/g, '').trim())
+    .filter(Boolean);
+
+  // 3. 주요 미네랄 및 비타민 정의
+  interface NutrientRuleDef {
+    key: string;
+    nutrientName: string;
+    standardKey: NutrientStandardKey;
+    unit: 'mg' | 'ug' | 'IU' | 'g';
+    detectRegex: RegExp;
+    rawMaterialMatchRegex: RegExp;
+    defaultClinicalSummary: string;
+  }
+
+  const NUTRIENT_DEFS: NutrientRuleDef[] = [
+    {
+      key: 'MAGNESIUM',
+      nutrientName: '마그네슘',
+      standardKey: 'MAGNESIUM',
+      unit: 'mg',
+      detectRegex: /(?:마그네[슘슴]|magnesium)\s*[:：]?\s*([0-9\.,]+)\s*(?:mg|밀리그램)?/i,
+      rawMaterialMatchRegex: /마그네[슘슴]/i,
+      defaultClinicalSummary: '• 에너지 이용 및 신경·근육 기능 유지에 관여 (복합 마그네슘 급원)'
+    },
+    {
+      key: 'CALCIUM',
+      nutrientName: '칼슘',
+      standardKey: 'CALCIUM',
+      unit: 'mg',
+      detectRegex: /(?:칼[슘슴]|calcium)\s*[:：]?\s*([0-9\.,]+)\s*(?:mg|밀리그램)?/i,
+      rawMaterialMatchRegex: /칼[슘슴]/i,
+      defaultClinicalSummary: '• 뼈와 치아 형성, 신경과 근육 기능 유지에 관여 (복합 칼슘 급원)'
+    },
+    {
+      key: 'ZINC',
+      nutrientName: '아연',
+      standardKey: 'ZINC',
+      unit: 'mg',
+      detectRegex: /(?:아연|zinc)\s*[:：]?\s*([0-9\.,]+)\s*(?:mg|밀리그램)?/i,
+      rawMaterialMatchRegex: /아연/i,
+      defaultClinicalSummary: '• 정상적인 면역기능 및 정상적인 세포분열에 필요'
+    },
+    {
+      key: 'IRON',
+      nutrientName: '철',
+      standardKey: 'IRON',
+      unit: 'mg',
+      detectRegex: /(?:철분?|iron)\s*[:：]?\s*([0-9\.,]+)\s*(?:mg|밀리그램)?/i,
+      rawMaterialMatchRegex: /철|fumarate|ferrous/i,
+      defaultClinicalSummary: '• 체내 산소운반과 혈액생성에 필요'
+    },
+    {
+      key: 'SELENIUM',
+      nutrientName: '셀레늄',
+      standardKey: 'SELENIUM',
+      unit: 'ug',
+      detectRegex: /(?:셀레늄|셀렌|selenium)\s*[:：]?\s*([0-9\.,]+)\s*(?:ug|㎍|μg|µg)?/i,
+      rawMaterialMatchRegex: /셀레/i,
+      defaultClinicalSummary: '• 유해산소로부터 세포를 보호하는데 필요'
+    },
+    {
+      key: 'COPPER',
+      nutrientName: '구리',
+      standardKey: 'COPPER',
+      unit: 'ug',
+      detectRegex: /(?:구리|copper)\s*[:：]?\s*([0-9\.,]+)\s*(?:ug|㎍|μg|µg|mg)?/i,
+      rawMaterialMatchRegex: /구리|copper/i,
+      defaultClinicalSummary: '• 철의 운반과 이용, 결합조직 형성에 관여'
+    },
+    {
+      key: 'MANGANESE',
+      nutrientName: '망간',
+      standardKey: 'MANGANESE',
+      unit: 'mg',
+      detectRegex: /(?:망간|manganese)\s*[:：]?\s*([0-9\.,]+)\s*(?:mg|밀리그램)?/i,
+      rawMaterialMatchRegex: /망간/i,
+      defaultClinicalSummary: '• 뼈 형성 및 에너지 이용, 유해산소 보호'
+    },
+    {
+      key: 'IODINE',
+      nutrientName: '요오드',
+      standardKey: 'IODINE',
+      unit: 'ug',
+      detectRegex: /(?:요오드|iodine)\s*[:：]?\s*([0-9\.,]+)\s*(?:ug|㎍|μg|µg)?/i,
+      rawMaterialMatchRegex: /요오드/i,
+      defaultClinicalSummary: '• 갑상선 호르몬 합성 및 에너지 생성에 관여'
+    },
+    {
+      key: 'VITAMIN_C',
+      nutrientName: '비타민C',
+      standardKey: 'VITAMIN_C',
+      unit: 'mg',
+      detectRegex: /(?:비타민\s*C|아스코르브산)\s*[:：]?\s*([0-9\.,]+)\s*(?:mg|밀리그램)?/i,
+      rawMaterialMatchRegex: /아스코르브|비타민\s*C/i,
+      defaultClinicalSummary: '• 결합조직 형성과 기능유지, 항산화 작용'
+    },
+    {
+      key: 'VITAMIN_D',
+      nutrientName: '비타민D',
+      standardKey: 'VITAMIN_D',
+      unit: 'ug',
+      detectRegex: /(?:비타민\s*D|콜레칼시페롤)\s*[:：]?\s*([0-9\.,]+)\s*(?:ug|㎍|μg|µg|IU)?/i,
+      rawMaterialMatchRegex: /비타민\s*D|콜레칼시페롤/i,
+      defaultClinicalSummary: '• 칼슘과 인 흡수 이용 및 뼈 형성과 유지'
+    }
+  ];
+
+  // 한국어 원료명 띄어쓰기 정돈 헬퍼
+  const formatRawMaterialSpacing = (name: string): string => {
+    return name
+      .replace(/글루콘산마그네[슘슴]/g, '글루콘산 마그네슘')
+      .replace(/염화마그네[슘슴]/g, '염화 마그네슘')
+      .replace(/산화마그네[슘슴]/g, '산화 마그네슘')
+      .replace(/젖산칼[슘슴]/g, '젖산 칼슘')
+      .replace(/황산칼[슘슴]/g, '황산 칼슘')
+      .replace(/탄산칼[슘슴]/g, '탄산 칼슘')
+      .replace(/구연산칼[슘슴]/g, '구연산 칼슘')
+      .replace(/글루콘산아연/g, '글루콘산 아연')
+      .replace(/산화아연/g, '산화 아연')
+      .replace(/황산아연/g, '황산 아연')
+      .trim();
+  };
+
+  NUTRIENT_DEFS.forEach((def) => {
+    let matchedAmount: number | null = null;
+
+    for (const line of lines) {
+      const m = line.match(def.detectRegex);
+      if (m) {
+        const val = parseFloat(m[1].replace(/,/g, ''));
+        if (!isNaN(val) && val > 0) {
+          matchedAmount = val;
+          break;
+        }
+      }
+    }
+
+    if (matchedAmount !== null) {
+      const matchedMaterials: string[] = [];
+      rawMaterialTokens.forEach((mat) => {
+        if (def.rawMaterialMatchRegex.test(mat)) {
+          const formatted = formatRawMaterialSpacing(mat);
+          if (!matchedMaterials.includes(formatted)) {
+            matchedMaterials.push(formatted);
+          }
+        }
+      });
+
+      const ingredientTitle =
+        matchedMaterials.length > 0 ? matchedMaterials.join(', ') : def.nutrientName;
+
+      ingredients.push({
+        ingredientId: `ing_food_${def.key.toLowerCase()}_${Date.now()}_${ingredients.length}`,
+        englishInn: ingredientTitle,
+        koreanName: ingredientTitle,
+        functionalCategory: def.nutrientName,
+        rawAmount: matchedAmount,
+        unit: def.unit,
+        standardKey: def.standardKey,
+        chemicalFormName: '-',
+        formattedSpecification: `${ingredientTitle} ${matchedAmount}${def.unit}`,
+        isMainActive: true,
+        clinicalSummary: def.defaultClinicalSummary,
+        noteKorean: `1포당 ${matchedAmount}${def.unit} (${def.nutrientName} 급원)`
+      });
+    }
+  });
+
+  return { ingredients, precautions };
+}
+
+/**
  * 자료 첨부 (약학정보원 캡처, 제약사 브로슈어, 라벨 사진) 범용 OCR 분석기
  */
 export async function recognizeUniversalDocument(
@@ -625,6 +842,10 @@ export async function recognizeUniversalDocument(
   isKpicFormat: boolean;
   kpicMappings: KpicEfficacyMapping[];
   nutritionParsed: OcrParseResult;
+  foodParsed: {
+    ingredients: ProductIngredientEntry[];
+    precautions: string[];
+  };
   extractedPrecautions: {
     precautionsFullText: string;
     precautionsList: string[];
@@ -644,7 +865,19 @@ export async function recognizeUniversalDocument(
     if (onProgress) onProgress(85, '약효분류, 성분 스펙 및 주의사항 구조화 중...');
     const kpicMappings = parseKpicEfficacyText(rawText);
     const nutritionParsed = parseNutritionLabelText(rawText);
+    const foodParsed = parseFoodNutritionLabel(rawText);
     const extractedPrecautions = extractPrecautionsFromOcrText(rawText);
+
+    // 식품 파서에서 감지된 당알코올/주의사항 병합
+    if (foodParsed.precautions.length > 0) {
+      extractedPrecautions.precautionsList = Array.from(
+        new Set([...extractedPrecautions.precautionsList, ...foodParsed.precautions])
+      );
+      if (!extractedPrecautions.precautionsFullText) {
+        extractedPrecautions.precautionsFullText = foodParsed.precautions.join('\n');
+      }
+    }
+
     const isKpicFormat = kpicMappings.length > 0 || rawText.includes('약효분류') || rawText.includes('소화기계');
 
     if (onProgress) onProgress(100, '자료 판독 완료!');
@@ -654,6 +887,7 @@ export async function recognizeUniversalDocument(
       isKpicFormat,
       kpicMappings,
       nutritionParsed,
+      foodParsed,
       extractedPrecautions
     };
   })();

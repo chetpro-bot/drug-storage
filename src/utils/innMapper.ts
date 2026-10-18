@@ -1311,6 +1311,15 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
   const regex = /([가-힣A-Za-z0-9γ\s\(\)·\-\'\_\%\/]+?)\s*[:：]?\s*([0-9\.,]+)\s*(mg|ug|㎍|μg|µg|IU|g|밀리그램|마이크로그램|아이\.유)?$/i;
 
   rawItems.forEach((item, index) => {
+    // 주의사항, 경고문, 보관방법, 당알코올 설사 안내 등 비성분 문장 유입 원천 배제
+    if (
+      /(?:과량\s*섭취|설사를\s*일으킬|당알코올|주의사항|보관방법|유통기한|소비기한|직사광선|질병의\s*예방|부정\s*불량식품|개봉\s*후|이상사례|특이체질|알레르기|포장재질|기준치에\s*대한\s*비율|열량에\s*따라)/i.test(
+        item
+      )
+    ) {
+      return;
+    }
+
     // 영문 표준 간결 형식 성분표 규격 생성
     const formattedSpecification = formatKpaicSpecification(item);
 

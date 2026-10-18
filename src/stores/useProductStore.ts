@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { ProductItem } from '../types/product';
+import { ProductIngredientEntry } from '../types/ingredient';
 import { ProductClassification } from '../types/classification';
 import { MOCK_PRODUCTS } from '../constants/mockProducts';
 import { doesProductMatchEfficacyTag } from '../constants/efficacyTags';
@@ -108,6 +109,88 @@ function migrateAndEnsureKpic(products: ProductItem[]): ProductItem[] {
       }
       return ing;
     });
+
+    // 5. '리퀴드씨엠키즈' 등 일반식품 영양성분 및 경고 문구 정돈
+    if (prod.productName.includes('리퀴드씨엠') || prod.functionalFoodDetail?.reportNo === '20090435035193') {
+      const hasGarbage = prod.ingredients.some(i => /(?:과량\s*섭취|설사를\s*일으킬|당알코올)/i.test(i.englishInn || ''));
+      const hasMg = prod.ingredients.some(i => i.functionalCategory === '마그네슘' || (i.englishInn || '').includes('마그네슘'));
+      const hasCa = prod.ingredients.some(i => i.functionalCategory === '칼슘' || (i.englishInn || '').includes('칼슘'));
+      
+      if (hasGarbage || !hasMg || !hasCa) {
+        hasChanges = true;
+        const cleanIngs: ProductIngredientEntry[] = [
+          {
+            ingredientId: 'ing_liquidcm_mg',
+            englishInn: '글루콘산 마그네슘, 염화 마그네슘',
+            koreanName: '글루콘산 마그네슘, 염화 마그네슘',
+            functionalCategory: '마그네슘',
+            chemicalFormName: '-',
+            rawAmount: 35,
+            unit: 'mg',
+            standardKey: 'MAGNESIUM',
+            isMainActive: true,
+            formattedSpecification: '글루콘산 마그네슘, 염화 마그네슘 35mg',
+            clinicalSummary: '• 에너지 이용에 필요, 신경과 근육 기능 유지에 필요 (복합 마그네슘 급원)',
+            noteKorean: '1포당 35mg'
+          },
+          {
+            ingredientId: 'ing_liquidcm_ca',
+            englishInn: '젖산 칼슘, 황산 칼슘',
+            koreanName: '젖산 칼슘, 황산 칼슘',
+            functionalCategory: '칼슘',
+            chemicalFormName: '-',
+            rawAmount: 55,
+            unit: 'mg',
+            standardKey: 'CALCIUM',
+            isMainActive: true,
+            formattedSpecification: '젖산 칼슘, 황산 칼슘 55mg',
+            clinicalSummary: '• 뼈와 치아 형성에 필요, 신경과 근육 기능 유지에 필요 (복합 칼슘 급원)',
+            noteKorean: '1포당 55mg'
+          }
+        ];
+        
+        let attachments = prod.attachments || [];
+        if (attachments.length === 0) {
+          attachments = [
+            {
+              id: 'doc_liquidcm_label_01',
+              fileName: '리퀴드씨엠키즈_영양기능정보_성분표.jpg',
+              fileSize: 112851,
+              uploadedAt: new Date().toISOString(),
+              dataUrl: '/attachments/liquid_cm_kids_label.jpg',
+              status: 'ANALYZED',
+              analysisSummary: '영양성분 2건(마그네슘 35mg, 칼슘 55mg) 및 원료명 매핑 완료',
+              extractedText: '1포당: 마그네슘 35mg, 칼슘 55mg\n원료명 및 함량: 정제수, 자일리톨(감미료), D-말티톨(감미료), 글루콘산마그네슘, 젖산칼슘, 사과과즙분말, 시클로덱스트린액, 향료(사과향), 나한과추출농축액, DL-사과산, 염화마그네슘, 잔탄검, 무수구연산, LJG해양심층수미네랄농축액, 황산칼슘, 구연산삼나트륨, 울금추출분말, 글루콘산아연\n※당알코올(자일리톨 9 %, D-말티톨 4 %) 당알코올 함유 제품으로 과량 섭취 시 설사를 일으킬 수 있습니다.'
+            }
+          ];
+        }
+
+        const functionalFoodDetail = {
+          ...(prod.functionalFoodDetail || {
+            reportNo: '20090435035193',
+            functionalClaimsKorean: [],
+            suggestedUseKorean: '',
+            safetyPrecautionsKorean: []
+          }),
+          safetyPrecautionsKorean: [
+            '당알코올(자일리톨 9 %, D-말티톨 4 %) 함유 제품으로 과량 섭취 시 설사를 일으킬 수 있습니다.',
+            '일반식품(기타가공품 등)은 질병의 예방 및 치료를 위한 의약품이나 건강기능식품이 아닙니다.'
+          ],
+          labelPrecautionsText: '당알코올(자일리톨 9 %, D-말티톨 4 %) 당알코올 함유 제품으로 과량 섭취 시 설사를 일으킬 수 있습니다.',
+          rawMaterialsText: '정제수, 자일리톨(감미료), D-말티톨(감미료), 글루콘산마그네슘, 젖산칼슘, 사과과즙분말(사과농축액 : 국산), 시클로덱스트린액, 향료(사과향), 나한과추출농축액(중국산), DL-사과산, 염화마그네슘, 잔탄검, 무수구연산, LJG해양심층수미네랄농축액, 황산칼슘, 구연산삼나트륨, 울금추출분말(울금 : 인도네시아산), 글루콘산아연'
+        };
+
+        const updated = {
+          ...prod,
+          ingredients: cleanIngs,
+          attachments,
+          functionalFoodDetail,
+          updatedAt: new Date().toISOString()
+        };
+        saveProductToFirestore(updated).catch(() => {});
+        return updated;
+      }
+    }
 
     if (hasChanges) {
       const updated = {
@@ -233,9 +316,14 @@ export const useProductStore = create<ProductState>((set, get) => {
           }
         });
 
-        // Firestore에서 온 제품들 반영 (최신 변경사항 반영)
+        // Firestore에서 온 제품들 반영 (최신 변경사항 반영하되, 첨부자료는 로컬 데이터 안전 보존)
         validFromFirestore.forEach((p) => {
-          mergedMap.set(p.id, p);
+          const localP = mergedMap.get(p.id);
+          if (localP && localP.attachments && localP.attachments.length > 0 && (!p.attachments || p.attachments.length < localP.attachments.length)) {
+            mergedMap.set(p.id, { ...p, attachments: localP.attachments });
+          } else {
+            mergedMap.set(p.id, p);
+          }
         });
 
         // 등록/수정일시 최신순으로 정렬 및 KPIC 약효분류 체계 자동 마이그레이션 적용

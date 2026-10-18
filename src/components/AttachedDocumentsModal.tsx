@@ -4,6 +4,7 @@ import { ProductIngredientEntry } from '../types/ingredient';
 import { 
   recognizeUniversalDocument, 
   parseKpicEfficacyText, 
+  parseFoodNutritionLabel,
   fileToDataUrl,
   isMeaningfulKoreanText
 } from '../services/labelOcrService';
@@ -42,6 +43,10 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
   product
 }) => {
   const { updateProduct } = useProductStore();
+  // 항상 스토어의 최신 제품 데이터를 조회하여 stale closure로 인한 첨부파일 유실 방지
+  const currentProduct = useProductStore((state) => state.products.find((p) => p.id === product.id)) || product;
+  const attachments: AttachedDocument[] = currentProduct.attachments || [];
+
   const [activeTab, setActiveTab] = useState<'FILES' | 'TEXT_INPUT'>('FILES');
   
   // 분석 상태 관리
@@ -89,8 +94,6 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
 
   if (!isOpen) return null;
 
-  const attachments: AttachedDocument[] = product.attachments || [];
-
   // 파일 업로드 처리 (다중 파일 지원)
   const handleAddFiles = async (files: FileList | File[]) => {
     const fileArray = Array.from(files).filter(f => f.type.startsWith('image/'));
@@ -114,7 +117,9 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
       }
     }
 
-    const updated = [...attachments, ...newDocs];
+    const latest = useProductStore.getState().products.find((p) => p.id === product.id) || product;
+    const currentList = latest.attachments || [];
+    const updated = [...currentList, ...newDocs];
     await updateProduct(product.id, { attachments: updated });
 
     // 첫 번째 파일이 업로드되면 자동으로 분석 시작
@@ -126,8 +131,10 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
   // 첨부 자료 삭제 (뒷면 라벨 사진 삭제 시 실물 라벨 주의사항 텍스트도 자동 동기화 삭제)
   const handleDeleteDocument = async (docId: string) => {
     if (!window.confirm('이 첨부 자료를 삭제하시겠습니까?')) return;
-    const docToDelete = attachments.find((d) => d.id === docId);
-    const filtered = attachments.filter((d) => d.id !== docId);
+    const latest = useProductStore.getState().products.find((p) => p.id === product.id) || product;
+    const currentList = latest.attachments || [];
+    const docToDelete = currentList.find((d) => d.id === docId);
+    const filtered = currentList.filter((d) => d.id !== docId);
 
     const isBackLabelDoc = docToDelete && isBackLabelAttachment(docToDelete);
     const remainingBackLabels = filtered.filter((d) => isBackLabelAttachment(d));
@@ -174,11 +181,57 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
       // 3. 건기식 라벨 파싱 성분
       const nutritionIngredients = result.nutritionParsed.parsedIngredients || [];
 
+      // 4. 일반식품(혼합음료, 기타가공품) 영양성분표 및 원재료명 맞춤 파싱 성분
+      const foodParsed = result.foodParsed || parseFoodNutritionLabel(rawText);
+      const foodIngredients = foodParsed?.ingredients || [];
+
       // 성분표 반영 추적
       const appliedList: string[] = [];
-      const updatedIngredients = [...product.ingredients];
 
-      // A) 기존 성분들에 대해 KPIC 약효분류 및 규격 갱신
+      // 기존 성분 중 경고문구나 비성분 텍스트 필터링
+      const validExisting = (product.ingredients || []).filter((i) => {
+        const checkStr = `${i.englishInn || ''} ${i.koreanName || ''}`;
+        return !/(?:과량\s*섭취|설사를\s*일으킬|당알코올|주의사항|보관방법|유통기한|소비기한)/i.test(checkStr);
+      });
+      const updatedIngredients = [...validExisting];
+
+      // A) 일반식품 영양성분표(마그네슘 35mg, 칼슘 55mg 등 원료 결합 형태) 최우선 매핑
+      if (foodIngredients.length > 0) {
+        foodIngredients.forEach((fi) => {
+          const fiNameClean = fi.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+          const fiCatClean = (fi.functionalCategory || '').toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+
+          const existingIdx = updatedIngredients.findIndex((ing) => {
+            const ingCatClean = (ing.functionalCategory || '').toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+            const ingNameClean = (ing.englishInn || '').toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+            return (
+              (fiCatClean && ingCatClean === fiCatClean) ||
+              ingNameClean.includes(fiNameClean) ||
+              fiNameClean.includes(ingNameClean)
+            );
+          });
+
+          if (existingIdx >= 0) {
+            updatedIngredients[existingIdx] = {
+              ...updatedIngredients[existingIdx],
+              englishInn: fi.englishInn,
+              koreanName: fi.koreanName,
+              functionalCategory: fi.functionalCategory,
+              rawAmount: fi.rawAmount,
+              unit: fi.unit,
+              standardKey: fi.standardKey,
+              chemicalFormName: fi.chemicalFormName,
+              formattedSpecification: fi.formattedSpecification
+            };
+            appliedList.push(`[영양소 갱신] ${fi.functionalCategory}: ${fi.englishInn} ${fi.rawAmount}${fi.unit}`);
+          } else {
+            updatedIngredients.push(fi);
+            appliedList.push(`[영양소 등록] ${fi.functionalCategory}: ${fi.englishInn} ${fi.rawAmount}${fi.unit}`);
+          }
+        });
+      }
+
+      // B) 기존 성분들에 대해 KPIC 약효분류 및 규격 갱신
       updatedIngredients.forEach((ing) => {
         const ingNameClean = ing.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
 
@@ -226,7 +279,7 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
         }
       });
 
-      // B) 기존 성분표에 없던 새로운 성분이 문서에서 감지된 경우 성분표에 자동 추가
+      // C) 기존 성분표에 없던 새로운 성분이 문서에서 감지된 경우 성분표에 자동 추가 (식품 파서 미적용 성분 대상)
       const existingNames = new Set(
         updatedIngredients.map((i) => i.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, ''))
       );
@@ -234,7 +287,11 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
 
       [...parsedIngredients, ...nutritionIngredients].forEach((pe) => {
         const peName = pe.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
-        if (peName.length >= 2 && !existingNames.has(peName)) {
+        if (
+          peName.length >= 2 &&
+          !existingNames.has(peName) &&
+          !/(?:과량\s*섭취|설사를\s*일으킬|당알코올|주의사항|보관방법|유통기한|소비기한)/i.test(pe.englishInn)
+        ) {
           existingNames.add(peName);
           newItemsToAdd.push(pe);
           appliedList.push(`[신규 성분] ${pe.englishInn} (${pe.rawAmount}${pe.unit}) - ${pe.functionalCategory}`);
@@ -249,7 +306,7 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
       let updatedOtcDetail = product.otcDetail ? { ...product.otcDetail } : undefined;
 
       if (extractedPrecautions && extractedPrecautions.precautionsFullText && isMeaningfulKoreanText(extractedPrecautions.precautionsFullText)) {
-        if (product.classification === 'HEALTH_FUNCTIONAL_FOOD' || updatedFunctionalDetail) {
+        if (product.classification === 'HEALTH_FUNCTIONAL_FOOD' || product.classification === 'GENERAL_FOOD' || updatedFunctionalDetail) {
           updatedFunctionalDetail = {
             ...(updatedFunctionalDetail || {
               reportNo: '',
@@ -258,7 +315,6 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
               safetyPrecautionsKorean: []
             }),
             labelPrecautionsText: extractedPrecautions.precautionsFullText
-            // 식약처 API 신고사항(safetyPrecautionsKorean)은 제품 사진 첨부로 인해 절대 변경되지 않음
           };
         } else if (updatedOtcDetail) {
           if (extractedPrecautions.precautionsList.length > 0) {
@@ -282,8 +338,11 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
         summaryText += ` (주의사항 ${extractedPrecautions.precautionsList.length}건)`;
       }
 
-      // 문서 상태 및 추출 텍스트 저장
-      const updatedDocs = attachments.map((d) => {
+      // 문서 상태 및 추출 텍스트 저장 (stale closure 방지: 최신 store 첨부 목록 기준)
+      const latestProduct = useProductStore.getState().products.find((p) => p.id === product.id) || product;
+      const latestAttachments = latestProduct.attachments || [];
+
+      let updatedDocs = latestAttachments.map((d) => {
         if (d.id === doc.id) {
           return {
             ...d,
@@ -294,6 +353,15 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
         }
         return d;
       });
+
+      if (!updatedDocs.some((d) => d.id === doc.id)) {
+        updatedDocs.push({
+          ...doc,
+          status: 'ANALYZED' as const,
+          analysisSummary: summaryText,
+          extractedText: rawText
+        });
+      }
 
       // 데이터베이스(로컬 & Firestore)에 즉시 저장
       await updateProduct(product.id, {
@@ -360,9 +428,52 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
 
     const kpicMappings = parseKpicEfficacyText(directText);
     const parsedIngredients = parseRawIngredientString(directText);
+    const foodParsed = parseFoodNutritionLabel(directText);
+    const foodIngredients = foodParsed.ingredients || [];
 
-    const updatedIngredients = [...product.ingredients];
+    // 기존 성분 중 유효하지 않은 경고문구 제외
+    const validExisting = (product.ingredients || []).filter((i) => {
+      const checkStr = `${i.englishInn || ''} ${i.koreanName || ''}`;
+      return !/(?:과량\s*섭취|설사를\s*일으킬|당알코올|주의사항|보관방법|유통기한|소비기한)/i.test(checkStr);
+    });
+    const updatedIngredients = [...validExisting];
     const appliedList: string[] = [];
+
+    // 식품 영양성분 우선 매핑
+    if (foodIngredients.length > 0) {
+      foodIngredients.forEach((fi) => {
+        const fiNameClean = fi.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+        const fiCatClean = (fi.functionalCategory || '').toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+
+        const existingIdx = updatedIngredients.findIndex((ing) => {
+          const ingCatClean = (ing.functionalCategory || '').toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+          const ingNameClean = (ing.englishInn || '').toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+          return (
+            (fiCatClean && ingCatClean === fiCatClean) ||
+            ingNameClean.includes(fiNameClean) ||
+            fiNameClean.includes(ingNameClean)
+          );
+        });
+
+        if (existingIdx >= 0) {
+          updatedIngredients[existingIdx] = {
+            ...updatedIngredients[existingIdx],
+            englishInn: fi.englishInn,
+            koreanName: fi.koreanName,
+            functionalCategory: fi.functionalCategory,
+            rawAmount: fi.rawAmount,
+            unit: fi.unit,
+            standardKey: fi.standardKey,
+            chemicalFormName: fi.chemicalFormName,
+            formattedSpecification: fi.formattedSpecification
+          };
+          appliedList.push(`[영양소 갱신] ${fi.functionalCategory}: ${fi.englishInn} ${fi.rawAmount}${fi.unit}`);
+        } else {
+          updatedIngredients.push(fi);
+          appliedList.push(`[영양소 등록] ${fi.functionalCategory}: ${fi.englishInn} ${fi.rawAmount}${fi.unit}`);
+        }
+      });
+    }
 
     updatedIngredients.forEach((ing) => {
       const ingNameClean = ing.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
@@ -401,7 +512,11 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
     const newItems: ProductIngredientEntry[] = [];
     parsedIngredients.forEach((pe) => {
       const peName = pe.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
-      if (peName.length >= 2 && !existingNames.has(peName)) {
+      if (
+        peName.length >= 2 &&
+        !existingNames.has(peName) &&
+        !/(?:과량\s*섭취|설사를\s*일으킬|당알코올|주의사항|보관방법|유통기한|소비기한)/i.test(pe.englishInn)
+      ) {
         existingNames.add(peName);
         newItems.push(pe);
         appliedList.push(`[신규] ${pe.englishInn} (${pe.rawAmount}${pe.unit}) - ${pe.functionalCategory}`);
@@ -409,7 +524,27 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
     });
 
     const finalIngredients = [...updatedIngredients, ...newItems];
-    await updateProduct(product.id, { ingredients: finalIngredients });
+
+    // 주의사항 업데이트
+    let updatedFunctionalDetail = product.functionalFoodDetail ? { ...product.functionalFoodDetail } : undefined;
+    if (foodParsed.precautions.length > 0) {
+      if (product.classification === 'HEALTH_FUNCTIONAL_FOOD' || product.classification === 'GENERAL_FOOD' || updatedFunctionalDetail) {
+        updatedFunctionalDetail = {
+          ...(updatedFunctionalDetail || {
+            reportNo: '',
+            functionalClaimsKorean: [],
+            suggestedUseKorean: '',
+            safetyPrecautionsKorean: []
+          }),
+          labelPrecautionsText: foodParsed.precautions.join('\n')
+        };
+      }
+    }
+
+    await updateProduct(product.id, {
+      ingredients: finalIngredients,
+      ...(updatedFunctionalDetail ? { functionalFoodDetail: updatedFunctionalDetail } : {})
+    });
 
     alert(
       `🎉 텍스트 분석 내용이 성분표에 반영되었습니다!\n\n` +

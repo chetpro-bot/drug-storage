@@ -470,5 +470,81 @@ export const MOCK_PRODUCTS: ProductItem[] = [
         '개봉 후 냉장 보관하거나 빨리 드십시오.'
       ]
     }
+  },
+  {
+    id: 'prod_liquid_cm_kids',
+    barcode: '8809043503519',
+    productName: '리퀴드씨엠키즈',
+    classification: 'GENERAL_FOOD',
+    manufacturer: '주식회사 아리너스',
+    distributor: '주식회사 아리너스',
+    dosageForm: 'LIQUID_ORAL',
+    packagingUnit: '20mL x 60포 (총 1,200mL / 1개월분)',
+    dailyServings: 2,
+    amountPerServing: 1,
+    servingUnitKorean: '포(20mL)',
+    priceRetailKrw: 70000,
+    storageLocation: '어린이 영양제 진열대 1단',
+    inventoryCount: 20,
+    tags: ['어린이', '성장/어린이', '마그네슘', '칼슘', '혼합음료', '기타가공품'],
+    isActive: true,
+    createdAt: '2026-04-01T09:00:00Z',
+    updatedAt: new Date().toISOString(),
+    ingredients: [
+      {
+        ingredientId: 'ing_liquidcm_mg',
+        englishInn: '글루콘산 마그네슘, 염화 마그네슘',
+        koreanName: '글루콘산 마그네슘, 염화 마그네슘',
+        functionalCategory: '마그네슘',
+        chemicalFormName: '-',
+        rawAmount: 35,
+        unit: 'mg',
+        standardKey: 'MAGNESIUM',
+        isMainActive: true,
+        formattedSpecification: '글루콘산 마그네슘, 염화 마그네슘 35mg',
+        clinicalSummary: '• 에너지 이용에 필요, 신경과 근육 기능 유지에 필요 (복합 마그네슘 급원)',
+        noteKorean: '1포당 35mg'
+      },
+      {
+        ingredientId: 'ing_liquidcm_ca',
+        englishInn: '젖산 칼슘, 황산 칼슘',
+        koreanName: '젖산 칼슘, 황산 칼슘',
+        functionalCategory: '칼슘',
+        chemicalFormName: '-',
+        rawAmount: 55,
+        unit: 'mg',
+        standardKey: 'CALCIUM',
+        isMainActive: true,
+        formattedSpecification: '젖산 칼슘, 황산 칼슘 55mg',
+        clinicalSummary: '• 뼈와 치아 형성에 필요, 신경과 근육 기능 유지에 필요 (복합 칼슘 급원)',
+        noteKorean: '1포당 55mg'
+      }
+    ],
+    functionalFoodDetail: {
+      reportNo: '20090435035193',
+      functionalClaimsKorean: [
+        '마그네슘 : 에너지 이용에 필요, 신경과 근육 기능 유지에 필요',
+        '칼슘 : 뼈와 치아 형성에 필요, 신경과 근육 기능 유지에 필요'
+      ],
+      suggestedUseKorean: '100일 이상 ~ 6개월 이하 : 2.5mL, 1일 2회\n6개월 이상 ~ 12개월 이하 : 5mL, 1일 2회\n12개월 이상 ~ 2세 이하 : 10mL, 1일 2회 또는 20mL(1포), 1일 1회\n2세 이상 ~ 10세 이하 : 20mL(1포), 1일 2회\n10세 이상 : 40mL(2포), 1일 2회',
+      safetyPrecautionsKorean: [
+        '당알코올(자일리톨 9 %, D-말티톨 4 %) 함유 제품으로 과량 섭취 시 설사를 일으킬 수 있습니다.',
+        '일반식품(기타가공품 등)은 질병의 예방 및 치료를 위한 의약품이나 건강기능식품이 아닙니다.'
+      ],
+      labelPrecautionsText: '당알코올(자일리톨 9 %, D-말티톨 4 %) 당알코올 함유 제품으로 과량 섭취 시 설사를 일으킬 수 있습니다.',
+      rawMaterialsText: '정제수, 자일리톨(감미료), D-말티톨(감미료), 글루콘산마그네슘, 젖산칼슘, 사과과즙분말(사과농축액 : 국산), 시클로덱스트린액, 향료(사과향), 나한과추출농축액(중국산), DL-사과산, 염화마그네슘, 잔탄검, 무수구연산, LJG해양심층수미네랄농축액, 황산칼슘, 구연산삼나트륨, 울금추출분말(울금 : 인도네시아산), 글루콘산아연'
+    },
+    attachments: [
+      {
+        id: 'doc_liquidcm_label_01',
+        fileName: '리퀴드씨엠키즈_영양기능정보_성분표.jpg',
+        fileSize: 112851,
+        uploadedAt: '2026-10-18T10:00:00Z',
+        dataUrl: '/attachments/liquid_cm_kids_label.jpg',
+        status: 'ANALYZED',
+        analysisSummary: '영양성분 2건(마그네슘 35mg, 칼슘 55mg) 및 원료명 매핑 완료',
+        extractedText: '1포당: 마그네슘 35mg, 칼슘 55mg\n원료명 및 함량: 정제수, 자일리톨(감미료), D-말티톨(감미료), 글루콘산마그네슘, 젖산칼슘, 사과과즙분말, 시클로덱스트린액, 향료(사과향), 나한과추출농축액, DL-사과산, 염화마그네슘, 잔탄검, 무수구연산, LJG해양심층수미네랄농축액, 황산칼슘, 구연산삼나트륨, 울금추출분말, 글루콘산아연\n※당알코올(자일리톨 9 %, D-말티톨 4 %) 당알코올 함유 제품으로 과량 섭취 시 설사를 일으킬 수 있습니다.'
+      }
+    ]
   }
 ];

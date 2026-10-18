@@ -2053,8 +2053,8 @@ export function resolveIngredientDisplayInfo(
         { ageLabel: '15세 이상', ulText: '45mg', ulValue: 45 }
       ];
     } else if (standardKey === 'MAGNESIUM') {
-      childUlText = '65~230mg (식품외, 1~11세)';
-      childUlNote = '2025 KDRIs 마그네슘(식품 외 급원) 연령별 상한섭취량: 1~2세 65mg, 3~5세 110mg, 6~8세 160mg, 9~11세 230mg, 12~14세 310mg (성인 350mg)';
+      childUlText = '65~230mg (1~11세)';
+      childUlNote = '2025 KDRIs 마그네슘 연령별 상한섭취량: 1~2세 65mg, 3~5세 110mg, 6~8세 160mg, 9~11세 230mg, 12~14세 310mg (성인 350mg)';
       childAgeRows = [
         { ageLabel: '1~2세', ulText: '65mg', ulValue: 65 },
         { ageLabel: '3~5세', ulText: '110mg', ulValue: 110 },

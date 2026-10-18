@@ -1855,14 +1855,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 text-[11px] font-extrabold text-slate-600 border-b border-slate-200">
-                    <th className="w-[90px] px-2 py-2 text-center border-r border-slate-200">약효분류</th>
+                    <th className="w-[100px] px-2 py-2 text-center border-r border-slate-200">약효분류</th>
                     <th className="px-4 py-2 text-center border-r border-slate-200">
                       성분 함량
                     </th>
-                    <th className="w-[200px] px-3 py-2 text-center border-r border-slate-200">
-                      원료 형태
-                    </th>
-                    <th className="w-[160px] px-2.5 py-2 text-center">
+                    <th className="w-[170px] sm:w-[210px] px-2.5 py-2 text-center">
                       {ulViewMode === 'CHILD' ? (
                         <span className="text-amber-700">상한섭취량 (소아)</span>
                       ) : (
@@ -1948,14 +1945,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                             </div>
                           </td>
 
-                          {/* 3열: 원료 형태 (태그 배지를 제외한 깔끔한 본문 텍스트 표기) */}
-                          <td className="px-3 py-2.5 border-r border-slate-200 align-middle">
-                            <span className="text-xs text-slate-800 font-medium leading-snug">
-                              {item.info.chemicalFormFeature.displayText || item.ing.chemicalFormName || '-'}
-                            </span>
-                          </td>
-
-                          {/* 4열: 상한섭취량 (소아/성인 모드 대응) */}
+                          {/* 3열: 상한섭취량 (소아/성인 모드 대응) */}
                           <td className="px-3 py-2.5 text-center align-middle">
                             {ulViewMode === 'CHILD' ? (
                               item.info.childUlText ? (

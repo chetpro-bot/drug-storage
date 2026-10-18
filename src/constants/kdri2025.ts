@@ -796,7 +796,7 @@ export const KDRI_2025_FULL_SPECIFICATIONS: Kdri2025NutrientSpec[] = [
     nameKorean: '마그네슘',
     nameEnglish: 'Magnesium',
     unit: 'mg',
-    ulScopeNote: '상한섭취량(성인 350mg/일)은 "식품 외 급원(영양제·보충제·의약품)"으로 섭취한 마그네슘에만 적용',
+    ulScopeNote: '상한섭취량: 성인 350mg/일',
     clinicalExcessNote: '삼투성 설사(Osmotic Diarrhea), 복통 등 위장관 증상 및 신기능 저하 시 고마그네슘혈증',
     rows: [
       { gender: 'ALL', ageGroup: 'INFANT_0_5M', ageLabel: '0-5개월', ai: 25 },
@@ -1456,8 +1456,8 @@ export const KDRI_2025_ADULT_STANDARDS: KdriReferenceValue[] = [
     maxAge: 64,
     ear: 300, // 남 300~310 / 여 240
     rni: 360, // 남 360~380 / 여 280
-    ul: 350,  // 식품 외 급원(영양제/보충제) 상한섭취량 350mg
-    clinicalWarningThresholdNote: '식품 외 급원(영양제) 350mg/일 초과 시 삼투성 설사 및 신기능 저하 환자 고마그네슘혈증 위험'
+    ul: 350,  // 상한섭취량 350mg
+    clinicalWarningThresholdNote: '350mg/일 초과 시 삼투성 설사 및 신기능 저하 환자 고마그네슘혈증 주의'
   },
   {
     nutrientKey: 'IRON',

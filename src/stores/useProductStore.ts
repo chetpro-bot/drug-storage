@@ -238,110 +238,7 @@ function migrateAndEnsureKpic(products: ProductItem[]): ProductItem[] {
       }
     }
 
-    // 6. '엠-드림 리퀴드 키즈' (엔큐엔에이) 영양성분 및 유기산염 원료 정돈
-    if (prod.productName.includes('엠드림') || prod.productName.includes('엠-드림') || prod.productName.includes('M-Dream')) {
-      const hasGarbage = prod.ingredients.some(i => /(?:과량\s*섭취|설사를\s*일으킬|당알코올|나트륨|탄수화물|당류|지방|단백질|열량|콜레스테롤|내용량)/i.test(i.englishInn || i.koreanName || ''));
-      const hasCa = prod.ingredients.some(i => i.functionalCategory === '칼슘' || (i.englishInn || '').includes('칼슘'));
-      const hasMg = prod.ingredients.some(i => i.functionalCategory === '마그네슘' || (i.englishInn || '').includes('마그네슘'));
-      const hasZn = prod.ingredients.some(i => i.functionalCategory === '아연' || (i.englishInn || '').includes('아연'));
-
-      if (hasGarbage || !hasCa || !hasMg || !hasZn || prod.ingredients.length > 3) {
-        hasChanges = true;
-        const cleanIngs: ProductIngredientEntry[] = [
-          {
-            ingredientId: 'ing_mdream_ca',
-            englishInn: '칼슘',
-            koreanName: '칼슘',
-            functionalCategory: '칼슘',
-            chemicalFormName: '젖산 칼슘, 해조 칼슘',
-            rawAmount: 220,
-            unit: 'mg',
-            standardKey: 'CALCIUM',
-            isMainActive: true,
-            formattedSpecification: '칼슘 220mg (젖산 칼슘, 해조 칼슘)',
-            clinicalSummary: '• 뼈와 치아 형성에 필요, 신경과 근육 기능 유지에 관여 (유기산염 칼슘 급원)',
-            noteKorean: '1포당 220mg'
-          },
-          {
-            ingredientId: 'ing_mdream_mg',
-            englishInn: '마그네슘',
-            koreanName: '마그네슘',
-            functionalCategory: '마그네슘',
-            chemicalFormName: '글루콘산 마그네슘',
-            rawAmount: 220,
-            unit: 'mg',
-            standardKey: 'MAGNESIUM',
-            isMainActive: true,
-            formattedSpecification: '마그네슘 220mg (글루콘산 마그네슘)',
-            clinicalSummary: '• 에너지 이용에 필요, 신경과 근육 기능 유지에 관여 (유기산염 마그네슘 급원)',
-            noteKorean: '1포당 220mg'
-          },
-          {
-            ingredientId: 'ing_mdream_zn',
-            englishInn: '아연',
-            koreanName: '아연',
-            functionalCategory: '아연',
-            chemicalFormName: '글루콘산 아연',
-            rawAmount: 15,
-            unit: 'mg',
-            standardKey: 'ZINC',
-            isMainActive: true,
-            formattedSpecification: '아연 15mg (글루콘산 아연)',
-            clinicalSummary: '• 정상적인 면역 기능 및 정상적인 세포 분열에 관여 (유기산염 아연 급원)',
-            noteKorean: '1포당 15mg'
-          }
-        ];
-
-        let attachments = prod.attachments || [];
-        if (attachments.length === 0) {
-          attachments = [
-            {
-              id: 'doc_mdream_label_01',
-              fileName: '엠드림리퀴드키즈_영양정보_원료명.jpg',
-              fileSize: 118200,
-              uploadedAt: new Date().toISOString(),
-              dataUrl: '/attachments/liquid_cm_kids_label.jpg',
-              status: 'ANALYZED',
-              analysisSummary: '영양성분 3건(칼슘 220mg, 마그네슘 220mg, 아연 15mg) 및 유기염 원료 매핑 완료',
-              extractedText: '1포(25g)당: 칼슘 220mg, 마그네슘 220mg, 아연 15mg\n원료명 및 함량: 정제수, 백포도농축액, 프락토올리고당, 글루콘산마그네슘, 젖산칼슘, 글루콘산아연, 아쿠아민솔루블(해조칼슘), 흑효모배양액분말(폴리칸), 구연산, 천연청포도향, 효소처리스테비아'
-            }
-          ];
-        }
-
-        const functionalFoodDetail = {
-          ...(prod.functionalFoodDetail || {
-            reportNo: '2019036235129',
-            functionalClaimsKorean: [],
-            suggestedUseKorean: '',
-            safetyPrecautionsKorean: []
-          }),
-          functionalClaimsKorean: [
-            '칼슘 : 뼈와 치아 형성에 필요, 신경과 근육 기능 유지에 필요',
-            '마그네슘 : 에너지 이용에 필요, 신경과 근육 기능 유지에 필요',
-            '아연 : 정상적인 면역기능에 필요, 정상적인 세포분열에 필요'
-          ],
-          suggestedUseKorean: '1일 1~2회, 1회 1포(25g)를 직접 또는 물/음료에 타서 섭취하십시오.',
-          safetyPrecautionsKorean: [
-            '일반식품(기타가공품/혼합음료)은 질병의 예방 및 치료를 위한 의약품이나 건강기능식품이 아닙니다.',
-            '특이체질, 알레르기 체질의 경우 원료 성분을 확인 후 섭취하십시오.'
-          ],
-          labelPrecautionsText: '특이체질, 알레르기 체질의 경우 원료 성분을 확인 후 섭취하십시오. 개봉 후에는 변질될 수 있으므로 바로 섭취하십시오.',
-          rawMaterialsText: '정제수, 백포도농축액, 프락토올리고당, 글루콘산마그네슘, 젖산칼슘, 글루콘산아연, 아쿠아민솔루블(해조칼슘), 흑효모배양액분말(폴리칸), 구연산, 천연청포도향, 효소처리스테비아'
-        };
-
-        const updated = {
-          ...prod,
-          ingredients: cleanIngs,
-          attachments,
-          functionalFoodDetail,
-          updatedAt: new Date().toISOString()
-        };
-        saveProductToFirestore(updated).catch(() => {});
-        return updated;
-      }
-    }
-
-    // 7. 일반 식품/음료류에서 유입된 영양정보 비성분(나트륨, 탄수화물, 당류, 지방, 단백질, 칼로리 등) 자동 정돈
+    // 6. 일반 식품/음료류에서 유입된 영양정보 비성분(나트륨, 탄수화물, 당류, 지방, 단백질, 칼로리 등) 자동 정돈
     const hasFoodGarbage = prod.ingredients.some(i =>
       /(?:나트륨|탄수화물|당류|지방|트랜스지방|포화지방|콜레스테롤|단백질|열량|칼로리|kcal|내용량|총내용량|정제수)/i.test(
         i.englishInn || i.koreanName || ''
@@ -377,7 +274,7 @@ function migrateAndEnsureKpic(products: ProductItem[]): ProductItem[] {
   });
 }
 
-function getDeletedIds(): Set<string> {
+export function getDeletedIds(): Set<string> {
   try {
     const saved = localStorage.getItem(DELETED_IDS_KEY);
     if (saved) {
@@ -389,7 +286,7 @@ function getDeletedIds(): Set<string> {
   return new Set();
 }
 
-function markDeletedId(id: string) {
+export function markDeletedId(id: string) {
   try {
     const ids = getDeletedIds();
     ids.add(id);
@@ -399,7 +296,7 @@ function markDeletedId(id: string) {
   }
 }
 
-function unmarkDeletedId(id: string) {
+export function unmarkDeletedId(id: string) {
   try {
     const ids = getDeletedIds();
     if (ids.has(id)) {
@@ -422,7 +319,9 @@ function getInitialProducts(): ProductItem[] {
     if (saved) {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        loadedProducts = parsed.filter((p: ProductItem) => !deletedIds.has(p.id));
+        loadedProducts = parsed.filter(
+          (p: ProductItem) => p.id !== 'prod_mdream_liquid_kids' && !deletedIds.has(p.id)
+        );
       }
     }
   } catch (e) {
@@ -432,7 +331,7 @@ function getInitialProducts(): ProductItem[] {
   // 기본 목업 제품은 아직 등록된 적 없는 신규 환경에서만 초기 시드로 추가
   const existingIds = new Set(loadedProducts.map((p) => p.id));
   MOCK_PRODUCTS.forEach((mock) => {
-    if (!deletedIds.has(mock.id) && !existingIds.has(mock.id)) {
+    if (mock.id !== 'prod_mdream_liquid_kids' && !deletedIds.has(mock.id) && !existingIds.has(mock.id)) {
       loadedProducts.push(mock);
     }
   });
@@ -486,15 +385,22 @@ export const useProductStore = create<ProductState>((set, get) => {
         const deletedIds = getDeletedIds();
         const currentProducts = get().products;
 
-        // 1. Firestore에서 들어온 목록 중 사용자가 명시적으로 삭제한 ID 제외
-        const validFromFirestore = firestoreList.filter((p) => !deletedIds.has(p.id));
+        // 1. Firestore에서 들어온 목록 중 사용자가 명시적으로 삭제한 ID 및 과거 목업 잔재 제외
+        const validFromFirestore = firestoreList.filter(
+          (p) => p.id !== 'prod_mdream_liquid_kids' && !deletedIds.has(p.id)
+        );
+
+        // Firestore에 과거 등록되었던 prod_mdream_liquid_kids 가 남아있다면 백그라운드로 안전하게 삭제
+        if (firestoreList.some((p) => p.id === 'prod_mdream_liquid_kids')) {
+          deleteProductFromFirestore('prod_mdream_liquid_kids').catch(() => {});
+        }
 
         // 2. 현재 로컬에 등록되어 있는 제품들과 안전하게 병합 (클라우드 단일 조회로 로컬 품목이 유실되는 현상 원천 방지)
         const mergedMap = new Map<string, ProductItem>();
 
         // 우선 현재 로컬 제품들을 맵에 등록
         currentProducts.forEach((p) => {
-          if (!deletedIds.has(p.id)) {
+          if (p.id !== 'prod_mdream_liquid_kids' && !deletedIds.has(p.id)) {
             mergedMap.set(p.id, p);
           }
         });
@@ -567,19 +473,76 @@ export const useProductStore = create<ProductState>((set, get) => {
     },
 
     deleteProduct: async (id) => {
-      markDeletedId(id);
-      const next = get().products.filter((p) => p.id !== id);
+      const currentProducts = get().products;
+      const target = currentProducts.find((p) => p.id === id);
+
+      // 이름 및 규격 코드 정규화 (유령/중복 레코드 일괄 정리)
+      const targetNormName = target
+        ? target.productName
+            .replace(/\s+/g, '')
+            .replace(/정$|연질캡슐$|경질캡슐$|캡슐$|액$|산$/, '')
+            .toLowerCase()
+        : '';
+      const targetCode = target?.otcDetail?.itemSeq || target?.functionalFoodDetail?.reportNo;
+
+      const itemsToDelete = currentProducts.filter((p) => {
+        if (p.id === id) return true;
+        // 엠-드림 관련 시드 목업 또는 유령 데이터 자동 정리
+        if (
+          target &&
+          (target.productName.includes('엠드림') ||
+            target.productName.includes('엠-드림') ||
+            target.productName.includes('M-Dream'))
+        ) {
+          if (
+            p.id === 'prod_mdream_liquid_kids' ||
+            p.productName.includes('엠드림') ||
+            p.productName.includes('엠-드림') ||
+            p.productName.includes('M-Dream')
+          ) {
+            return true;
+          }
+        }
+        if (targetCode) {
+          const pCode = p.otcDetail?.itemSeq || p.functionalFoodDetail?.reportNo;
+          if (pCode && pCode.trim() === targetCode.trim()) return true;
+        }
+        if (targetNormName && targetNormName.length >= 3) {
+          const pNorm = p.productName
+            .replace(/\s+/g, '')
+            .replace(/정$|연질캡슐$|경질캡슐$|캡슐$|액$|산$/, '')
+            .toLowerCase();
+          if (pNorm === targetNormName) return true;
+        }
+        return false;
+      });
+
+      const idsToDelete = Array.from(new Set([id, ...itemsToDelete.map((p) => p.id)]));
+      idsToDelete.forEach((dId) => markDeletedId(dId));
+      if (
+        target &&
+        (target.productName.includes('엠드림') ||
+          target.productName.includes('엠-드림') ||
+          target.productName.includes('M-Dream'))
+      ) {
+        markDeletedId('prod_mdream_liquid_kids');
+      }
+
+      const next = currentProducts.filter((p) => !idsToDelete.includes(p.id));
       persistToLocal(next);
       set((state) => ({
         products: next,
-        selectedProductId:
-          state.selectedProductId === id ? next[0]?.id || null : state.selectedProductId
+        selectedProductId: idsToDelete.includes(state.selectedProductId || '')
+          ? next[0]?.id || null
+          : state.selectedProductId
       }));
 
-      try {
-        await deleteProductFromFirestore(id);
-      } catch (e) {
-        console.warn('Firestore 삭제 비동기 처리 알림:', e);
+      for (const dId of idsToDelete) {
+        try {
+          await deleteProductFromFirestore(dId);
+        } catch (e) {
+          console.warn('Firestore 삭제 비동기 처리 알림:', e);
+        }
       }
     },
 

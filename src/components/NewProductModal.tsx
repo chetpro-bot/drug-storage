@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { useProductStore } from '../stores/useProductStore';
+import { useProductStore, getDeletedIds } from '../stores/useProductStore';
 import { ProductClassification, DosageForm } from '../types/classification';
-import { ProductItem, getProductThumbnail } from '../types/product';
+import { ProductItem, AttachedDocument, getProductThumbnail } from '../types/product';
 import { ProductIngredientEntry } from '../types/ingredient';
 import { 
   searchPublicDrugDatabase, 
@@ -12,8 +12,10 @@ import {
 import { 
   recognizeUniversalDocument,
   parseNutritionLabelText, 
+  parseFoodNutritionLabel,
   parseKpicEfficacyText,
   extractPrecautionsFromOcrText,
+  fileToDataUrl,
   OcrParseResult 
 } from '../services/labelOcrService';
 import { saveLearnedIngredientMapping } from '../utils/innMapper';
@@ -51,7 +53,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
   onClose,
   productToEdit
 }) => {
-  const { products, addProduct, updateProduct, setSelectedProductId } = useProductStore();
+  const { products, addProduct, updateProduct, deleteProduct, setSelectedProductId } = useProductStore();
   const isEditMode = !!productToEdit;
 
   // 1단계 입력 상태
@@ -86,6 +88,9 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
   const [verifiedIngredients, setVerifiedIngredients] = useState<ProductIngredientEntry[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // 첨부된 문서(영양라벨, 약학정보원 캡처 등) 상태 보존
+  const [attachedDocuments, setAttachedDocuments] = useState<AttachedDocument[]>([]);
+
   // 건기식 전용 라벨 사진 AI OCR 상태
   const [showOcrPanel, setShowOcrPanel] = useState(false);
   const [ocrImagePreview, setOcrImagePreview] = useState<string | null>(null);
@@ -105,12 +110,16 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
 
   // 중복 제품 검사
   const findDuplicateProduct = (name: string, regCode?: string): ProductItem | undefined => {
+    const deletedIds = getDeletedIds();
     const trimmedName = name.trim();
     const trimmedCode = regCode?.trim();
     if (!trimmedName && !trimmedCode) return undefined;
     const normTarget = normalizeNameForDup(trimmedName);
 
     return products.find((p) => {
+      // 이미 삭제된 품목이나 과거 시드 잔재는 중복 대상에서 제외
+      if (deletedIds.has(p.id) || p.id === 'prod_mdream_liquid_kids') return false;
+
       // 수정 모드일 때 자기 자신은 중복 대상에서 제외
       if (productToEdit && p.id === productToEdit.id) return false;
 
@@ -165,6 +174,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
     setPrecautionsText('');
     setIngredientBasis('PER_UNIT');
     setVerifiedIngredients([]);
+    setAttachedDocuments([]);
     setIsSubmitting(false);
     setShowOcrPanel(false);
     setOcrImagePreview(null);
@@ -195,6 +205,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
     setStorageLocation(p.storageLocation || '');
     setProductImageUrl(p.imageUrl || getProductThumbnail(p) || '');
     setTags(p.tags?.join(', ') || '');
+    setAttachedDocuments(p.attachments ? JSON.parse(JSON.stringify(p.attachments)) : []);
 
     const regCode = p.otcDetail?.itemSeq || p.functionalFoodDetail?.reportNo || '';
     setRegulatoryCode(regCode);
@@ -424,19 +435,49 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
 
       setOcrRawText(docResult.rawText);
 
+      let summaryText = '자료 분석 완료';
+      let dataUrl = '';
+      try {
+        dataUrl = await fileToDataUrl(file);
+      } catch (e) {
+        dataUrl = previewUrl;
+      }
+
       // 1. 약학정보원 KPIC 약효분류 포맷인 경우: 기존 성분의 약효 분류를 즉시 자동 갱신 및 학습
       if (docResult.isKpicFormat && docResult.kpicMappings.length > 0) {
         applyKpicMappings(docResult.kpicMappings);
+        summaryText = `약학정보원(KPIC) 약효분류 ${docResult.kpicMappings.length}건 반영`;
         alert(`약학정보원(KPIC) 약효분류 ${docResult.kpicMappings.length}건이 성공적으로 인식되어 성분 분류에 반영되었습니다!`);
-        return;
       }
+      // 2. 일반식품(혼합음료/기타가공품) 라벨 영양성분표 파싱 (마그네슘, 칼슘, 아연 및 유기산염 결합 형태)
+      else if (docResult.foodParsed.ingredients.length > 0 || classification === 'GENERAL_FOOD') {
+        const foodIngs = docResult.foodParsed.ingredients;
+        if (foodIngs.length > 0) {
+          setVerifiedIngredients(foodIngs);
+          summaryText = `일반식품 영양성분 ${foodIngs.length}건(원료염 매핑 완료) 반영`;
 
-      // 2. 패키지 영양·기능정보표(건기식/식품)인 경우: 성분 및 섭취량 정규화 파싱
-      if (docResult.nutritionParsed.parsedIngredients.length > 0) {
+          if (docResult.nutritionParsed.servingInfo.servingUnit) {
+            setServingUnitKorean(docResult.nutritionParsed.servingInfo.servingUnit);
+          }
+          if (docResult.nutritionParsed.servingInfo.dailyServings > 0) {
+            setDailyServings(docResult.nutritionParsed.servingInfo.dailyServings);
+          }
+          if (docResult.nutritionParsed.servingInfo.amountPerServing > 0) {
+            setAmountPerServing(docResult.nutritionParsed.servingInfo.amountPerServing);
+          }
+          alert(`일반식품 영양성분표에서 유효 성분 ${foodIngs.length}건(원료염 결합 형태)을 성공적으로 추출하여 검수 테이블에 반영했습니다!`);
+        } else if (docResult.nutritionParsed.parsedIngredients.length > 0) {
+          applyOcrResult(docResult.nutritionParsed);
+          summaryText = `영양·기능정보 ${docResult.nutritionParsed.parsedIngredients.length}건 반영`;
+        }
+      }
+      // 3. 패키지 영양·기능정보표(건기식)인 경우: 성분 및 섭취량 정규화 파싱
+      else if (docResult.nutritionParsed.parsedIngredients.length > 0) {
         applyOcrResult(docResult.nutritionParsed);
+        summaryText = `영양·기능정보 ${docResult.nutritionParsed.parsedIngredients.length}건 반영`;
       }
 
-      // 3. 사진에서 [섭취 시 주의사항] 섹션이 감지된 경우 주의사항 텍스트에 자동 추가
+      // 4. 사진에서 [섭취 시 주의사항 / 당알코올 주의문구] 섹션이 감지된 경우 주의사항 텍스트에 자동 추가
       if (docResult.extractedPrecautions && docResult.extractedPrecautions.precautionsFullText) {
         setPrecautionsText(prev => {
           if (!prev.trim() || (prev.includes('이상사례') && prev.length < 50)) {
@@ -446,7 +487,25 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
         });
       }
 
-      if (docResult.nutritionParsed.parsedIngredients.length === 0 && (!docResult.extractedPrecautions || !docResult.extractedPrecautions.precautionsFullText)) {
+      // 5. 업로드된 자료를 제품의 첨부 문서 목록에 영구 보존
+      const newDoc: AttachedDocument = {
+        id: `doc_${Date.now()}`,
+        fileName: file.name || '라벨_첨부자료.jpg',
+        fileSize: file.size,
+        uploadedAt: new Date().toISOString(),
+        dataUrl,
+        status: 'ANALYZED',
+        analysisSummary: summaryText,
+        extractedText: docResult.rawText
+      };
+      setAttachedDocuments(prev => [newDoc, ...prev.filter(d => d.fileName !== newDoc.fileName)]);
+
+      if (
+        !docResult.isKpicFormat &&
+        docResult.foodParsed.ingredients.length === 0 &&
+        docResult.nutritionParsed.parsedIngredients.length === 0 &&
+        (!docResult.extractedPrecautions || !docResult.extractedPrecautions.precautionsFullText)
+      ) {
         alert('첨부 자료에서 약효분류, 영양성분표 또는 주의사항을 감지하지 못했습니다. 선명한 캡처 사진을 다시 선택해주세요.');
       }
     } catch (err: any) {
@@ -474,6 +533,22 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
       applyKpicMappings(kpicList);
       setShowRawTextEditor(false);
       alert(`약학정보원(KPIC) 약효분류 ${kpicList.length}건이 성분표에 반영되었습니다.`);
+      return;
+    }
+
+    // 일반식품(혼합음료/기타가공품) 라벨 영양성분표 검사
+    const foodParsed = parseFoodNutritionLabel(ocrRawText);
+    if (foodParsed.ingredients.length > 0) {
+      setVerifiedIngredients(foodParsed.ingredients);
+      if (foodParsed.precautions.length > 0) {
+        setPrecautionsText(prev =>
+          prev
+            ? `${prev}\n\n[실물 라벨 섭취 시 주의사항]\n${foodParsed.precautions.join('\n')}`
+            : foodParsed.precautions.join('\n')
+        );
+      }
+      setShowRawTextEditor(false);
+      alert(`일반식품 영양성분 ${foodParsed.ingredients.length}건(원료염 매핑 완료)이 성분표에 반영되었습니다.`);
       return;
     }
 
@@ -701,6 +776,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
           imageUrl: productImageUrl || undefined,
           tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
           ingredients: verifiedIngredients,
+          attachments: attachedDocuments.length > 0 ? attachedDocuments : productToEdit.attachments,
           ...(classification === 'OTC_DRUG'
             ? {
                 otcDetail: {
@@ -764,6 +840,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         ingredients: verifiedIngredients,
+        attachments: attachedDocuments.length > 0 ? attachedDocuments : undefined,
         ...(classification === 'OTC_DRUG'
           ? {
                otcDetail: {
@@ -1124,9 +1201,9 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
               </div>
             )}
 
-            {/* 중복 등록 차단 경고 배너 */}
+            {/* 중복 등록 차단 경고 배너 및 해결 액션 */}
             {currentDuplicate && (
-              <div className="p-3.5 bg-rose-50 border-2 border-rose-300 rounded-xl flex items-center justify-between gap-3 text-rose-900 animate-in fade-in">
+              <div className="p-3.5 bg-rose-50 border-2 border-rose-300 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-3 text-rose-900 animate-in fade-in">
                 <div className="flex items-start gap-2.5">
                   <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
                   <div>
@@ -1134,11 +1211,37 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                       <span>🚫 [중복 등록 불가] 이미 약국 취급 목록에 등록된 제품입니다</span>
                     </p>
                     <p className="text-[11px] text-rose-700 mt-0.5">
-                      현재 취급 목록에 <strong>"{currentDuplicate.productName}"</strong> ({currentDuplicate.manufacturer})이(가) 이미 존재하므로 중복 등록할 수 없습니다.
+                      현재 취급 목록에 <strong>"{currentDuplicate.productName}"</strong> ({currentDuplicate.manufacturer})이(가) 이미 존재합니다.
                     </p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (window.confirm(`'${currentDuplicate.productName}' 기존 품목을 완전히 삭제하고 새 품목으로 등록하시겠습니까?`)) {
+                            await deleteProduct(currentDuplicate.id);
+                          }
+                        }}
+                        className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-md shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
+                        title="기존 등록된 품목을 데이터베이스에서 삭제하여 신규 등록 차단을 해제합니다"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>기존 품목 삭제 후 새로 등록</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          populateFromProduct(currentDuplicate);
+                        }}
+                        className="px-2.5 py-1 bg-white hover:bg-rose-100 text-rose-800 border border-rose-300 text-xs font-bold rounded-md shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
+                        title="기존 품목의 내용을 현재 화면으로 불러와 수정·덮어쓰기 모드로 전환합니다"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        <span>기존 품목 정보 덮어쓰기 (수정 모드)</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
-                <span className="shrink-0 text-xs font-bold text-rose-700 bg-rose-100 border border-rose-300 px-2.5 py-1 rounded-md">
+                <span className="shrink-0 self-start md:self-center text-xs font-bold text-rose-700 bg-rose-100 border border-rose-300 px-2.5 py-1 rounded-md">
                   신규 등록 차단됨
                 </span>
               </div>

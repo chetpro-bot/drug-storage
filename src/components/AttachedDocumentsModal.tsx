@@ -190,7 +190,7 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
 
       // 기존 성분 중 경고문구나 일반 식품 매크로 비성분(나트륨, 탄수화물 등) 필터링
       const isMacroOrGarbage = (text: string) =>
-        /(?:과량\s*섭취|설사를\s*일으킬|당알코올|주의사항|보관방법|유통기한|소비기한|나트륨|탄수화물|당류|지방|트랜스지방|포화지방|콜레스테롤|단백질|열량|칼로리|kcal|내용량|총내용량|정제수)/i.test(
+        /(?:과량\s*섭취|설사를\s*일으킬|당알코올|주의사항|보관방법|유통기한|소비기한|나트륨|탄수화물|당류|지방|트랜스지방|포화지방|콜레스테롤|단백질|열량|칼로리|kcal|내용량|총내용량|정제수|주원료|부원료)/i.test(
           text
         );
 
@@ -441,7 +441,7 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
 
     // 기존 성분 중 유효하지 않은 경고문구 및 매크로 비성분 제외
     const isMacroOrGarbage = (text: string) =>
-      /(?:과량\s*섭취|설사를\s*일으킬|당알코올|주의사항|보관방법|유통기한|소비기한|나트륨|탄수화물|당류|지방|트랜스지방|포화지방|콜레스테롤|단백질|열량|칼로리|kcal|내용량|총내용량|정제수)/i.test(
+      /(?:과량\s*섭취|설사를\s*일으킬|당알코올|주의사항|보관방법|유통기한|소비기한|나트륨|탄수화물|당류|지방|트랜스지방|포화지방|콜레스테롤|단백질|열량|칼로리|kcal|내용량|총내용량|정제수|주원료|부원료)/i.test(
         text
       );
 

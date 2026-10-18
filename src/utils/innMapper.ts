@@ -1660,6 +1660,36 @@ const ENG_ALIAS_TO_DICT_KEY: Record<string, string> = {
  * - '주석산염 (콜린염)' -> '주석산수소콜린' 정규화
  * - '유기태' 표현 제거 및 효모 결합형태 정돈
  */
+/**
+ * 원료 형태 표기 정돈 함수:
+ * - "아미드형 (비타민 B3 ― 니코틴산아미드, 상한 850mg)" 등 불필요한 부가 설명/상한량 문구를 제거하고 "아미드형 (비타민 B3)"로 통일
+ */
+export function cleanChemicalFormName(
+  rawForm: string,
+  categoryTag?: string,
+  englishName?: string
+): string {
+  if (!rawForm || rawForm === '-') return '-';
+  let cleaned = rawForm.trim();
+
+  // 비타민 B3 아미드형의 경우: "아미드형 (비타민 B3)" 이후의 부가 설명 모두 제거
+  if (
+    /아미드형\s*\(비타민\s*B3/i.test(cleaned) ||
+    ((categoryTag === '비타민B3' || /nicotinamid|niacinamide/i.test(englishName || '')) &&
+      /아미드/.test(cleaned))
+  ) {
+    return '아미드형 (비타민 B3)';
+  }
+
+  // 상한섭취량이나 불필요한 설명 문구가 붙은 경우 정돈
+  cleaned = cleaned
+    .replace(/[―—-]\s*니코틴산아미드.*$/i, '')
+    .replace(/[,\s]*상한\s*\d+\s*(?:mg|ug|μg|IU)?.*$/i, '')
+    .trim();
+
+  return cleaned || '-';
+}
+
 export function analyzeChemicalFormFeature(
   rawForm: string,
   categoryTag: string,
@@ -1667,6 +1697,19 @@ export function analyzeChemicalFormFeature(
   rawInn: string
 ): ChemicalFormFeature {
   let formText = (rawForm || '').trim();
+
+  // 0. 비타민 B3 아미드형의 경우: "아미드형 (비타민 B3)" 이후 내용 제거하여 조기 반환
+  if (
+    /아미드형\s*\(비타민\s*B3/i.test(formText) ||
+    ((categoryTag === '비타민B3' || /nicotinamid|niacinamide/i.test(englishName || '')) &&
+      /아미드/.test(formText))
+  ) {
+    return {
+      badgeType: 'NONE',
+      detailLabel: '아미드형 (비타민 B3)',
+      displayText: '아미드형 (비타민 B3)'
+    };
+  }
 
   // 1. 이전 버전에서 감싸졌던 외곽 래퍼(활성형 (...), 유기태 (...), 무기염 (...), 유기염 (...), 아미드형 (...), 천연형 (...)) 안전하게 해제
   for (let i = 0; i < 2; i++) {
@@ -1676,14 +1719,15 @@ export function analyzeChemicalFormFeature(
       .replace(/^유기염\s*\((.+)\)$/, '$1')
       .replace(/^무기염\s*\((.+)\)$/, '$1')
       .replace(/^아미드형\s*\((.+)\)$/, '$1')
-      .replace(/^천연형\s*\((.+)\)$/, '$1')
+      .replace(/^천연형\s*\((.+)\)$/, '$1');
   }
 
   // 상한섭취량 문구 및 비타민 B3 접두어 정돈
   formText = formText
-    .replace(/^비타민\s*b3\s*—\s*/gi, '')
-    .replace(/,\s*상한\s*\d+mg/gi, '')
-    .replace(/상한\s*\d+mg/gi, '')
+    .replace(/^비타민\s*b3\s*[―—\-]\s*/gi, '')
+    .replace(/[―—\-]\s*니코틴산아미드.*$/gi, '')
+    .replace(/,\s*상한\s*\d+mg.*$/gi, '')
+    .replace(/상한\s*\d+mg.*$/gi, '')
     .replace(/\(\s*\)/g, '')
     .trim();
 

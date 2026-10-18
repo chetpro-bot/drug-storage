@@ -8,7 +8,7 @@ import {
   convertMasterItemToFetchResult
 } from '../services/publicDataService';
 import { AttachedDocumentsModal } from './AttachedDocumentsModal';
-import { resolveIngredientDisplayInfo, sortProductIngredients } from '../utils/innMapper';
+import { resolveIngredientDisplayInfo, sortProductIngredients, cleanChemicalFormName } from '../utils/innMapper';
 import { getDarkCategoryBadgeStyle } from '../utils/categoryColors';
 import { recognizeUniversalDocument, fileToDataUrl, isMeaningfulKoreanText } from '../services/labelOcrService';
 import {
@@ -2048,11 +2048,15 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                   {/* 3열: 원료 형태 (분리 열) */}
                                   <td className="px-3 py-2.5 border-r border-slate-200 align-middle">
                                     <span className="text-xs text-slate-800 font-medium leading-snug">
-                                      {item.ing.chemicalFormName && item.ing.chemicalFormName !== '-'
-                                        ? item.ing.chemicalFormName
-                                        : item.info.chemicalFormFeature?.displayText && item.info.chemicalFormFeature.displayText !== '-'
-                                        ? item.info.chemicalFormFeature.displayText
-                                        : '-'}
+                                      {(() => {
+                                        const raw =
+                                          item.ing.chemicalFormName && item.ing.chemicalFormName !== '-'
+                                            ? item.ing.chemicalFormName
+                                            : item.info.chemicalFormFeature?.displayText && item.info.chemicalFormFeature.displayText !== '-'
+                                            ? item.info.chemicalFormFeature.displayText
+                                            : '-';
+                                        return cleanChemicalFormName(raw, item.info.categoryTag, item.info.englishName);
+                                      })()}
                                     </span>
                                   </td>
                                 </>
@@ -2069,7 +2073,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
                                 let explicitSalt =
                                   item.ing.chemicalFormName && item.ing.chemicalFormName !== '-'
-                                    ? item.ing.chemicalFormName
+                                    ? cleanChemicalFormName(item.ing.chemicalFormName, item.info.categoryTag, item.info.englishName)
                                     : null;
 
                                 // 비타민K의 경우 기존 데이터에 원료염이 누락되었더라도 K2(메나퀴논-7) 자동 보정

@@ -51,12 +51,12 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="w-screen h-screen flex flex-col bg-slate-900 overflow-hidden select-none">
+    <div className="w-screen h-screen flex flex-col bg-[#f8fafc] text-slate-900 overflow-hidden select-none">
       {/* 1. 글로벌 네비게이션 헤더 */}
       <Header />
 
       {/* 2. 풀 와이드 메인 카탈로그 뷰 (좌측 사이드바 제거로 넓은 화면 활용) */}
-      <main className="flex-1 flex flex-col bg-slate-900 overflow-hidden">
+      <main className="flex-1 flex flex-col bg-[#f8fafc] overflow-hidden">
         <ProductCatalogGrid
           onOpenNewProductModal={handleOpenNewProductModal}
           onSelectProduct={(product) => setDetailProductId(product.id)}

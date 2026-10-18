@@ -497,25 +497,25 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   return (
     <div
       onClick={onClose}
-      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150 select-text"
+      className="fixed inset-0 z-50 bg-slate-900/45 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150 select-text"
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-[#1e293b] text-slate-100 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[88vh] flex flex-col border border-slate-700/90 overflow-hidden"
+        className="bg-white text-slate-900 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[88vh] flex flex-col border border-slate-200 overflow-hidden"
       >
         {/* 1. 상단 모달 헤더 (제품명 + 닫기 버튼) */}
-        <div className="px-6 py-4 border-b border-slate-700/80 flex items-center justify-between shrink-0 bg-slate-800/60">
+        <div className="px-6 py-4 border-b border-slate-200/90 flex items-center justify-between shrink-0 bg-[#f8fafc]">
           <div className="flex items-center gap-3 min-w-0">
-            <h2 className="text-lg font-extrabold text-white tracking-tight truncate">
+            <h2 className="text-lg font-extrabold text-slate-900 tracking-tight truncate">
               {product.productName}
             </h2>
             {regulatoryCode && (
-              <span className="text-[11px] font-mono text-slate-400 bg-slate-900/70 px-2 py-0.5 rounded border border-slate-700 shrink-0">
+              <span className="text-[11px] font-mono text-slate-500 bg-white px-2.5 py-0.5 rounded-md border border-slate-200 shrink-0">
                 {product.classification === 'OTC_DRUG' ? '품목코드' : '품목제조번호'}: {regulatoryCode}
               </span>
             )}
             {isFetchingFullApiText && (
-              <span className="text-[11px] text-sky-400 flex items-center gap-1 shrink-0">
+              <span className="text-[11px] text-sky-600 font-semibold flex items-center gap-1 shrink-0">
                 <RefreshCw className="w-3 h-3 animate-spin" />
                 <span>API 전문 동기화 중...</span>
               </span>
@@ -525,7 +525,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-700/70 hover:bg-slate-600 border border-slate-600 flex items-center justify-center text-slate-300 hover:text-white transition-colors cursor-pointer shrink-0"
+            className="w-8 h-8 rounded-full bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors cursor-pointer shrink-0 shadow-2xs"
             title="닫기 (ESC)"
           >
             <X className="w-4 h-4" />
@@ -533,7 +533,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         </div>
 
         {/* 2. 모달 본문 (스크롤 영역) */}
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
+        <div className="p-6 overflow-y-auto flex-1 space-y-6 bg-white">
           {/* 상단 액션 알약 버튼 & 제약회사 · 분류 · 가격 · 약 위치 요약 */}
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div className="space-y-3 flex-1 min-w-[240px]">
@@ -545,21 +545,21 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     onClose();
                     onEditProduct(product);
                   }}
-                  className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-700/80 hover:bg-slate-600 text-slate-100 border border-slate-600 transition-colors flex items-center gap-1.5 cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-white hover:bg-sky-50 text-slate-700 hover:text-sky-700 border border-slate-200 hover:border-sky-300 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
                 >
-                  <Edit3 className="w-3.5 h-3.5 text-sky-400" />
+                  <Edit3 className="w-3.5 h-3.5 text-sky-600" />
                   <span>제품 편집</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setIsDocsModalOpen(true)}
-                  className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-slate-700/80 hover:bg-slate-600 text-slate-100 border border-slate-600 transition-colors flex items-center gap-1.5 cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-white hover:bg-purple-50 text-slate-700 hover:text-purple-700 border border-slate-200 hover:border-purple-300 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
                 >
-                  <Paperclip className="w-3.5 h-3.5 text-purple-400" />
+                  <Paperclip className="w-3.5 h-3.5 text-purple-600" />
                   <span>자료 첨부/열람</span>
                   {product.attachments && product.attachments.length > 0 && (
-                    <span className="bg-purple-500/30 text-purple-200 px-1.5 rounded-full text-[10px]">
+                    <span className="bg-purple-100 text-purple-700 px-1.5 rounded-full text-[10px]">
                       {product.attachments.length}
                     </span>
                   )}
@@ -573,7 +573,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       onClose();
                     }
                   }}
-                  className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-800/70 transition-colors flex items-center gap-1.5 cursor-pointer"
+                  className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>제품 삭제</span>
@@ -582,20 +582,20 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
               {/* 제약회사 · 분류 · 가격 · 약 위치 */}
               <div className="flex items-center gap-2.5 flex-wrap text-sm">
-                <span className="font-bold text-slate-200">
+                <span className="font-extrabold text-slate-800">
                   {product.manufacturer} · {classificationShort}
                 </span>
                 {product.packagingUnit && (
-                  <span className="text-xs text-slate-400">({product.packagingUnit})</span>
+                  <span className="text-xs text-slate-500">({product.packagingUnit})</span>
                 )}
                 {product.priceRetailKrw ? (
-                  <span className="text-xs font-extrabold text-amber-300 bg-amber-950/50 border border-amber-700/60 px-2.5 py-0.5 rounded-full">
+                  <span className="text-xs font-extrabold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
                     {product.priceRetailKrw.toLocaleString()} 원
                   </span>
                 ) : null}
                 {product.storageLocation && (
-                  <span className="text-xs font-bold text-sky-300 bg-sky-950/60 border border-sky-800/70 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                    <MapPin className="w-3 h-3 text-sky-400" />
+                  <span className="text-xs font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                    <MapPin className="w-3 h-3 text-teal-600" />
                     <span>약 위치: {product.storageLocation}</span>
                   </span>
                 )}
@@ -607,7 +607,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   {product.tags.map((tag, idx) => (
                     <span
                       key={idx}
-                      className="text-[11px] font-semibold text-sky-300 bg-slate-900/70 border border-slate-700 px-2.5 py-0.5 rounded-full"
+                      className="text-[11px] font-bold text-sky-700 bg-sky-50 border border-sky-200 px-2.5 py-0.5 rounded-full"
                     >
                       #{tag}
                     </span>
@@ -618,7 +618,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
             {/* 우측: 제품 대표 사진이 있을 경우 깔끔한 썸네일 박스 표시 */}
             {thumbnail && (
-              <div className="w-24 h-24 rounded-xl bg-white p-2 flex items-center justify-center border border-slate-600 shrink-0 shadow-md">
+              <div className="w-24 h-24 rounded-xl bg-white p-2 flex items-center justify-center border border-slate-200 shrink-0 shadow-xs">
                 <img
                   src={thumbnail}
                   alt={product.productName}
@@ -630,22 +630,24 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
           {/* SECTION 1: 복용 방법 */}
           <div className="space-y-1.5">
-            <h3 className="text-xs font-bold text-slate-400">복용 방법</h3>
-            <p className="text-sm font-semibold text-slate-100 leading-relaxed whitespace-pre-line">
-              {dosageMethodText}
-            </p>
+            <h3 className="text-xs font-extrabold text-slate-500">복용 방법</h3>
+            <div className="bg-[#f8fafc] border border-slate-200/80 rounded-xl px-4 py-3">
+              <p className="text-sm font-bold text-slate-800 leading-relaxed whitespace-pre-line">
+                {dosageMethodText}
+              </p>
+            </div>
           </div>
 
           {/* SECTION 2: 표시 함량 (약효분류 태그 - 영문 성분명 - 함량(실제 환산량) - 상한섭취량 표기) */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold text-slate-400">표시 함량</h3>
-              <span className="text-[11px] text-slate-400">
+              <h3 className="text-xs font-extrabold text-slate-500">표시 함량</h3>
+              <span className="text-[11px] font-semibold text-slate-500">
                 1회 섭취량 ({servingUnitLabel}) 기준 · 총 {sortedIngredients.length}종
               </span>
             </div>
 
-            <div className="divide-y divide-slate-700/70 border-t border-b border-slate-700/70">
+            <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-white">
               {sortedIngredients.map((ing, idx) => {
                 const info = resolveIngredientDisplayInfo(ing, product.productName);
                 const badgeStyle = getDarkCategoryBadgeStyle(info.categoryTag);
@@ -653,7 +655,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 return (
                   <div
                     key={ing.ingredientId || idx}
-                    className="py-2.5 px-1.5 flex items-center justify-between gap-3 hover:bg-slate-800/60 transition-colors flex-wrap sm:flex-nowrap"
+                    className="py-2.5 px-3 flex items-center justify-between gap-3 hover:bg-sky-50/40 transition-colors flex-wrap sm:flex-nowrap"
                   >
                     {/* 좌측: [약효분류 태그] + [영문 성분명] */}
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -662,7 +664,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       >
                         {info.categoryTag}
                       </span>
-                      <span className="text-xs font-bold text-slate-100 font-mono truncate">
+                      <span className="text-xs font-bold text-slate-900 font-mono truncate">
                         {info.englishName}
                       </span>
                     </div>
@@ -670,11 +672,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     {/* 우측: [표시 함량] + [(실제 성분 환산량)] + [/ 1회 섭취량] + [상한량(UL) 배지] */}
                     <div className="flex items-center gap-2 shrink-0 ml-auto font-mono">
                       <div className="text-right">
-                        <span className="text-xs font-extrabold text-white">
+                        <span className="text-xs font-extrabold text-slate-900">
                           {ing.rawAmount.toLocaleString()} {ing.unit}
                         </span>
                         {info.convertedText && (
-                          <span className="text-[11px] font-semibold text-emerald-400 ml-1.5">
+                          <span className="text-[11px] font-bold text-emerald-600 ml-1.5">
                             ({info.convertedText})
                           </span>
                         )}
@@ -686,7 +688,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       {info.ulText && (
                         <span
                           title={info.ulNote || '2025 한국인 영양소 섭취기준(KDRIs) 성인 1일 상한섭취량(UL)'}
-                          className="text-[10px] font-bold text-amber-300 bg-amber-950/50 border border-amber-700/60 px-2 py-0.5 rounded-md whitespace-nowrap"
+                          className="text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md whitespace-nowrap"
                         >
                           {info.ulText}
                         </span>
@@ -699,12 +701,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
             {/* 식품안전나라 기준 및 규격(STDR_STND) 원문이 있을 경우 토글 제공 */}
             {product.functionalFoodDetail?.standardSpecificationKorean && (
-              <details className="bg-slate-900/60 border border-slate-700/80 rounded-xl px-3.5 py-2.5 mt-2">
-                <summary className="cursor-pointer text-xs font-bold text-slate-300 hover:text-sky-300 flex items-center gap-1.5 select-none">
-                  <FileText className="w-3.5 h-3.5 text-sky-400" />
+              <details className="bg-[#f8fafc] border border-slate-200 rounded-xl px-3.5 py-2.5 mt-2">
+                <summary className="cursor-pointer text-xs font-bold text-slate-700 hover:text-sky-600 flex items-center gap-1.5 select-none">
+                  <FileText className="w-3.5 h-3.5 text-sky-600" />
                   <span>식약처 기준 및 규격 (표시량 원문) 펼쳐보기</span>
                 </summary>
-                <pre className="mt-2 text-[11px] text-slate-300 whitespace-pre-wrap font-mono leading-relaxed max-h-48 overflow-y-auto bg-slate-950/60 p-3 rounded-lg border border-slate-800">
+                <pre className="mt-2 text-[11px] text-slate-700 whitespace-pre-wrap font-mono leading-relaxed max-h-48 overflow-y-auto bg-white p-3 rounded-lg border border-slate-200">
                   {product.functionalFoodDetail.standardSpecificationKorean}
                 </pre>
               </details>
@@ -716,13 +718,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             otcIndicationsFullText && (
               <div className="space-y-2">
                 <div className="flex items-center gap-1.5">
-                  <h3 className="text-xs font-bold text-slate-400">효능·효과</h3>
-                  <span className="text-[10px] font-semibold text-sky-300 bg-sky-950/70 border border-sky-800/80 px-1.5 py-0.2 rounded">
+                  <h3 className="text-xs font-extrabold text-slate-500">효능·효과</h3>
+                  <span className="text-[10px] font-bold text-sky-700 bg-sky-50 border border-sky-200 px-1.5 py-0.2 rounded">
                     식약처 허가 전문
                   </span>
                 </div>
 
-                <div className="bg-slate-900/70 border border-slate-700/70 rounded-xl p-4 text-xs text-slate-200 leading-relaxed whitespace-pre-line">
+                <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-4 text-xs text-slate-800 leading-relaxed whitespace-pre-line">
                   {otcIndicationsFullText}
                 </div>
               </div>
@@ -731,8 +733,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             hffIngredientClaims.length > 0 && (
               <div className="space-y-2.5">
                 <div className="flex items-center gap-1.5">
-                  <h3 className="text-xs font-bold text-slate-400">기능성</h3>
-                  <span className="text-[10px] font-semibold text-emerald-300 bg-emerald-950/70 border border-emerald-800/80 px-1.5 py-0.2 rounded">
+                  <h3 className="text-xs font-extrabold text-slate-500">기능성</h3>
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
                     성분별 고시 기능성
                   </span>
                 </div>
@@ -741,7 +743,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   {hffIngredientClaims.map((claimText, idx) => (
                     <div
                       key={idx}
-                      className="bg-slate-900/70 border border-slate-700/70 rounded-xl p-4 text-xs text-slate-200 leading-relaxed shadow-inner"
+                      className="bg-[#f8fafc] border border-slate-200 rounded-xl p-4 text-xs text-slate-800 leading-relaxed"
                     >
                       {claimText}
                     </div>
@@ -755,23 +757,23 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           {precautionsFullText && (
             <div className="space-y-2">
               <div className="flex items-center gap-1.5">
-                <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
-                <h3 className="text-xs font-bold text-slate-400">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                <h3 className="text-xs font-extrabold text-slate-500">
                   {product.classification === 'OTC_DRUG'
                     ? '사용상의 주의사항'
                     : '섭취 시 주의사항'}
                 </h3>
-                <span className="text-[10px] font-semibold text-amber-300 bg-amber-950/60 border border-amber-800/70 px-1.5 py-0.2 rounded">
+                <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
                   API 전문
                 </span>
               </div>
 
-              <div className="bg-slate-900/70 border border-slate-700/70 rounded-xl p-4 space-y-2 max-h-72 overflow-y-auto">
-                <div className="text-xs text-slate-200 leading-relaxed whitespace-pre-line">
+              <div className="bg-amber-50/40 border border-amber-200/80 rounded-xl p-4 space-y-2 max-h-72 overflow-y-auto">
+                <div className="text-xs text-slate-800 leading-relaxed whitespace-pre-line">
                   {precautionsFullText}
                 </div>
                 {product.otcDetail?.storageMethodKorean && (
-                  <p className="text-xs text-slate-400 pt-2 border-t border-slate-800 mt-2">
+                  <p className="text-xs text-slate-600 font-medium pt-2 border-t border-amber-200/60 mt-2">
                     보관방법: {product.otcDetail.storageMethodKorean}
                   </p>
                 )}

@@ -167,25 +167,25 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
       case 'OTC_DRUG':
         return {
           label: '일반의약품',
-          badgeClass: 'bg-blue-600 text-white border-blue-700',
+          badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
           subTextClass: 'text-blue-600',
-          boxBgClass: 'from-blue-50 via-white to-sky-50',
-          accentBorder: 'group-hover:border-blue-400'
+          boxBgClass: 'from-sky-50/70 via-white to-blue-50/50',
+          accentBorder: 'group-hover:border-sky-400'
         };
       case 'HEALTH_FUNCTIONAL_FOOD':
         return {
           label: '건강기능식품',
-          badgeClass: 'bg-emerald-600 text-white border-emerald-700',
+          badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
           subTextClass: 'text-emerald-600',
-          boxBgClass: 'from-emerald-50 via-white to-teal-50',
+          boxBgClass: 'from-emerald-50/70 via-white to-teal-50/50',
           accentBorder: 'group-hover:border-emerald-400'
         };
       case 'GENERAL_FOOD':
         return {
           label: '기타가공품/식품',
-          badgeClass: 'bg-slate-600 text-white border-slate-700',
+          badgeClass: 'bg-slate-100 text-slate-700 border-slate-200',
           subTextClass: 'text-slate-600',
-          boxBgClass: 'from-slate-50 via-white to-amber-50/40',
+          boxBgClass: 'from-slate-50 via-white to-amber-50/30',
           accentBorder: 'group-hover:border-slate-400'
         };
     }
@@ -217,7 +217,7 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-slate-900 text-slate-100 overflow-hidden">
+    <div className="flex-1 flex flex-col bg-[#f8fafc] text-slate-900 overflow-hidden">
       {/* 숨겨진 사진 업로드 input */}
       <input
         ref={fileInputRef}
@@ -227,8 +227,8 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
         onChange={handlePhotoFileChange}
       />
 
-      {/* 상단 검색창 & 효능 태그 필터 헤더 (사용자 캡처 스타일 다크 대시보드 테마) */}
-      <div className="px-6 pt-5 pb-4 bg-slate-900/95 border-b border-slate-800 space-y-4 shrink-0">
+      {/* 상단 검색창 & 효능 태그 필터 헤더 (클린 메디컬 화이트 테마) */}
+      <div className="px-6 pt-4 pb-4 bg-white border-b border-slate-200/90 space-y-3.5 shrink-0 shadow-2xs">
         {/* 1열: 검색창 + 총 개수 + 분류 필터 + 신규 품목 등록 */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3 flex-1 min-w-[280px] max-w-xl">
@@ -239,25 +239,25 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="제품명, 성분명, 제약회사, 약 위치 검색..."
-                className="w-full pl-10 pr-8 py-2 text-xs bg-slate-800/90 text-white border border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 placeholder:text-slate-400"
+                className="w-full pl-10 pr-8 py-2 text-xs bg-slate-50 text-slate-900 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 placeholder:text-slate-400 transition-all"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-white cursor-pointer"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-700 cursor-pointer"
                 >
                   ✕
                 </button>
               )}
             </div>
-            <span className="text-xs font-bold text-slate-300 whitespace-nowrap bg-slate-800 px-3 py-2 rounded-xl border border-slate-700/80">
+            <span className="text-xs font-bold text-slate-700 whitespace-nowrap bg-slate-100 px-3 py-2 rounded-xl border border-slate-200/80">
               {filteredProducts.length}개 제품
             </span>
           </div>
 
           {/* 우측: 분류 필터 + 신규 등록 버튼 */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/80">
               {(
                 [
                   { id: 'ALL', label: '전체 분류' },
@@ -273,8 +273,8 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
                     onClick={() => setClassificationFilter(tab.id)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                       active
-                        ? 'bg-sky-500 text-white shadow-xs'
-                        : 'text-slate-400 hover:text-slate-200'
+                        ? 'bg-white text-sky-700 shadow-xs border border-slate-200/60'
+                        : 'text-slate-500 hover:text-slate-800'
                     }`}
                   >
                     {tab.label}
@@ -285,7 +285,7 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
 
             <button
               onClick={onOpenNewProductModal}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer active:scale-[0.98]"
+              className="flex items-center gap-1.5 px-4 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer active:scale-[0.98]"
             >
               <Plus className="w-4 h-4" />
               <span>신규 품목 등록</span>
@@ -293,17 +293,17 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
           </div>
         </div>
 
-        {/* 2열: 효능·증상 태그 필터 바 (캡처 화면과 동일한 알약형 버튼 그리드) */}
+        {/* 2열: 효능·증상 태그 필터 바 */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+            <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-sky-600" />
               <span>효능·증상별 필터 (클릭 시 해당 효능의 영양제/의약품만 표시됩니다)</span>
             </span>
             {selectedTag && (
               <button
                 onClick={() => setSelectedTag(null)}
-                className="text-[11px] text-sky-400 hover:text-sky-300 font-semibold flex items-center gap-1 cursor-pointer"
+                className="text-[11px] text-sky-600 hover:text-sky-700 font-bold flex items-center gap-1 cursor-pointer"
               >
                 <span>필터 초기화 ({selectedTag})</span>
                 <X className="w-3 h-3" />
@@ -317,8 +317,8 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
               onClick={() => setSelectedTag(null)}
               className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer border ${
                 selectedTag === null
-                  ? 'bg-sky-500 text-white border-sky-400 shadow-md shadow-sky-500/20'
-                  : 'bg-slate-800/90 text-slate-300 border-slate-700 hover:bg-slate-700 hover:text-white'
+                  ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
+                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900'
               }`}
             >
               전체
@@ -334,10 +334,10 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
                   onClick={() => setSelectedTag(isSelected ? null : tag)}
                   className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer border flex items-center gap-1.5 ${
                     isSelected
-                      ? 'bg-sky-500 text-white border-sky-400 shadow-md shadow-sky-500/20 scale-[1.02]'
+                      ? 'bg-sky-600 text-white border-sky-600 shadow-xs scale-[1.02]'
                       : matchCount > 0
-                      ? 'bg-slate-800/90 text-slate-200 border-slate-700 hover:bg-slate-700 hover:border-slate-500 hover:text-white'
-                      : 'bg-slate-800/40 text-slate-500 border-slate-800 hover:bg-slate-800 hover:text-slate-300'
+                      ? 'bg-white text-slate-700 border-slate-200 hover:bg-sky-50/70 hover:border-sky-300 hover:text-sky-700'
+                      : 'bg-slate-50 text-slate-400 border-slate-200/70 hover:bg-white hover:text-slate-600'
                   }`}
                 >
                   <span>{tag}</span>
@@ -346,7 +346,7 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
                       className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
                         isSelected
                           ? 'bg-white/25 text-white'
-                          : 'bg-slate-700 text-sky-300'
+                          : 'bg-sky-50 text-sky-700 border border-sky-200/70'
                       }`}
                     >
                       {matchCount}
@@ -365,8 +365,8 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
                   onClick={() => setSelectedTag(isSelected ? null : tag)}
                   className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer border flex items-center gap-1 ${
                     isSelected
-                      ? 'bg-indigo-500 text-white border-indigo-400 shadow-md'
-                      : 'bg-slate-800/70 text-slate-300 border-slate-700/80 hover:bg-slate-700 hover:text-white'
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-indigo-50 hover:text-indigo-700'
                   }`}
                 >
                   <Tag className="w-3 h-3 opacity-70" />
@@ -381,21 +381,21 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
       {/* 메인 제품 카드 그리드 영역 */}
       <div className="flex-1 overflow-y-auto p-6">
         {filteredProducts.length === 0 ? (
-          <div className="h-72 flex flex-col items-center justify-center text-center bg-slate-800/40 border border-dashed border-slate-700 rounded-2xl p-8">
-            <Package className="w-12 h-12 text-slate-500 mb-3 stroke-1" />
-            <p className="text-sm font-bold text-slate-300 mb-1">
+          <div className="h-72 flex flex-col items-center justify-center text-center bg-white border border-dashed border-slate-300 rounded-2xl p-8 shadow-2xs">
+            <Package className="w-12 h-12 text-slate-400 mb-3 stroke-1" />
+            <p className="text-sm font-bold text-slate-700 mb-1">
               {selectedTag
                 ? `'${selectedTag}' 효능 태그에 해당하는 제품이 아직 없습니다.`
                 : '검색 조건에 일치하는 제품이 없습니다.'}
             </p>
-            <p className="text-xs text-slate-400 mb-4">
+            <p className="text-xs text-slate-500 mb-4">
               신규 품목을 등록하거나 기존 품목 수정에서 '{selectedTag || '효능'}' 태그를 추가해보세요.
             </p>
             <div className="flex items-center gap-2">
               {selectedTag && (
                 <button
                   onClick={() => setSelectedTag(null)}
-                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-xl text-xs font-bold cursor-pointer"
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold cursor-pointer"
                 >
                   전체 제품 보기
                 </button>
@@ -422,23 +422,23 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
                 <div
                   key={product.id}
                   onClick={() => handleSelectProductCard(product)}
-                  className={`group bg-slate-800/90 hover:bg-slate-800 border border-slate-700/90 ${classInfo.accentBorder} rounded-2xl p-3.5 flex flex-col justify-between transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-black/40 cursor-pointer`}
+                  className={`group bg-white border border-slate-200/90 ${classInfo.accentBorder} rounded-2xl p-3.5 flex flex-col justify-between transition-all duration-200 hover:-translate-y-0.5 shadow-2xs hover:shadow-lg hover:shadow-slate-200/80 cursor-pointer`}
                 >
                   <div>
-                    {/* 1. 상단 제품 사진 박스 (캡처 화면처럼 깔끔한 화이트 라운드 박스) */}
+                    {/* 1. 상단 제품 사진 박스 */}
                     <div
-                      className={`w-full h-44 rounded-xl bg-gradient-to-br ${classInfo.boxBgClass} flex items-center justify-center p-3 relative overflow-hidden border border-slate-200/90 mb-3.5`}
+                      className={`w-full h-44 rounded-xl bg-gradient-to-br ${classInfo.boxBgClass} flex items-center justify-center p-3 relative overflow-hidden border border-slate-100 mb-3.5`}
                     >
                       {thumbnail ? (
                         <img
                           src={thumbnail}
                           alt={product.productName}
-                          className="max-h-full max-w-full object-contain drop-shadow-sm transition-transform duration-300 group-hover:scale-105"
+                          className="max-h-full max-w-full object-contain drop-shadow-xs transition-transform duration-300 group-hover:scale-105"
                         />
                       ) : (
                         /* 사진 미등록 시 패키지 일러스트 플레이스홀더 */
                         <div className="flex flex-col items-center justify-center text-center px-3 select-none">
-                          <div className="w-14 h-16 rounded-xl bg-white shadow-md border border-slate-200 flex flex-col items-center justify-center mb-2 relative">
+                          <div className="w-14 h-16 rounded-xl bg-white shadow-sm border border-slate-200 flex flex-col items-center justify-center mb-2 relative">
                             <div
                               className={`w-full h-3 rounded-t-xl absolute top-0 left-0 ${
                                 product.classification === 'OTC_DRUG'
@@ -458,7 +458,7 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
                               }`}
                             />
                           </div>
-                          <span className="text-xs font-black text-slate-800 line-clamp-1">
+                          <span className="text-xs font-extrabold text-slate-800 line-clamp-1">
                             {product.productName}
                           </span>
                           <span className="text-[10px] text-slate-500 mt-0.5">
@@ -471,15 +471,15 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
                       <button
                         type="button"
                         onClick={(e) => handleTriggerPhotoUpload(e, product.id)}
-                        className="absolute top-2 right-2 px-2 py-1 rounded-lg bg-slate-900/75 hover:bg-slate-900 text-white text-[10px] font-bold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-sm cursor-pointer"
+                        className="absolute top-2 right-2 px-2 py-1 rounded-lg bg-white/95 hover:bg-white text-slate-700 border border-slate-200 text-[10px] font-bold flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-xs cursor-pointer"
                         title="제품 대표 사진 업로드 / 변경"
                       >
-                        <Camera className="w-3 h-3 text-sky-400" />
+                        <Camera className="w-3 h-3 text-sky-600" />
                         <span>{thumbnail ? '사진 변경' : '사진 등록'}</span>
                       </button>
 
                       {/* 좌측 상단: 제형 미니 배지 */}
-                      <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-slate-900/70 text-white text-[10px] font-semibold backdrop-blur-xs">
+                      <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-white/90 text-slate-600 border border-slate-200/80 text-[10px] font-bold shadow-2xs">
                         {getDosageShortKorean(product.dosageForm)}
                       </span>
                     </div>
@@ -487,7 +487,7 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
                     {/* 2. 분류 (일반의약품 / 건강기능식품 / 기타가공품) & 수정 버튼 */}
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <span
-                        className={`text-[11px] font-extrabold px-2 py-0.5 rounded-md border ${classInfo.badgeClass}`}
+                        className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${classInfo.badgeClass}`}
                       >
                         {classInfo.label}
                       </span>
@@ -499,7 +499,7 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
                             e.stopPropagation();
                             onEditProduct(product);
                           }}
-                          className="p-1 text-slate-400 hover:text-white hover:bg-slate-700 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="p-1 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-md opacity-0 group-hover:opacity-100 transition-opacity"
                           title="품목 정보 전체 수정"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
@@ -508,12 +508,12 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
                     </div>
 
                     {/* 3. 제품명 */}
-                    <h3 className="text-base font-black text-white leading-snug line-clamp-1 group-hover:text-sky-300 transition-colors">
+                    <h3 className="text-base font-extrabold text-slate-900 leading-snug line-clamp-1 group-hover:text-sky-600 transition-colors">
                       {product.productName}
                     </h3>
 
                     {/* 4. 제약회사 / 판매원 */}
-                    <p className="text-xs font-medium text-slate-400 truncate mt-0.5">
+                    <p className="text-xs font-medium text-slate-500 truncate mt-0.5">
                       {product.manufacturer}
                       {product.distributor && product.distributor !== product.manufacturer
                         ? ` · ${product.distributor}`
@@ -536,7 +536,7 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
                               if (e.key === 'Escape') setEditingPriceId(null);
                             }}
                             placeholder="판매가(원)"
-                            className="w-28 px-2 py-1 text-xs bg-slate-900 text-white border border-sky-500 rounded-md font-mono focus:outline-none"
+                            className="w-28 px-2 py-1 text-xs bg-white text-slate-900 border border-sky-500 rounded-md font-mono focus:outline-none"
                             autoFocus
                           />
                           <button
@@ -552,7 +552,7 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
                               e.stopPropagation();
                               setEditingPriceId(null);
                             }}
-                            className="p-1 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-md"
+                            className="p-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-md"
                           >
                             <X className="w-3.5 h-3.5" />
                           </button>
@@ -565,7 +565,7 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
                               setEditingPriceId(product.id);
                               setPriceDraft(String(product.priceRetailKrw || ''));
                             }}
-                            className="text-sm font-black text-amber-300 hover:text-amber-200 transition-colors"
+                            className="text-sm font-black text-blue-700 hover:text-sky-600 transition-colors"
                             title="클릭하여 가격 빠른 수정"
                           >
                             {product.priceRetailKrw
@@ -581,7 +581,7 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
                   </div>
 
                   {/* 6. 하단: 약 위치(진열 위치) 배지 & 효능 태그 */}
-                  <div className="mt-3 pt-2.5 border-t border-slate-700/80 space-y-2">
+                  <div className="mt-3 pt-2.5 border-t border-slate-100 space-y-2">
                     {/* 약 위치 표시 및 원클릭 인라인 편집 */}
                     {isEditingLoc ? (
                       <div
@@ -597,7 +597,7 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
                             if (e.key === 'Escape') setEditingLocationId(null);
                           }}
                           placeholder="예: 상담석 우측 2단, 매대 A-1"
-                          className="flex-1 px-2 py-1 text-[11px] bg-slate-900 text-white border border-sky-500 rounded-md focus:outline-none"
+                          className="flex-1 px-2 py-1 text-[11px] bg-white text-slate-900 border border-sky-500 rounded-md focus:outline-none"
                           autoFocus
                         />
                         <button
@@ -614,7 +614,7 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
                             e.stopPropagation();
                             setEditingLocationId(null);
                           }}
-                          className="p-1 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-md"
+                          className="p-1 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-md"
                         >
                           <X className="w-3.5 h-3.5" />
                         </button>
@@ -628,13 +628,13 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
                         }}
                         className={`flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
                           product.storageLocation
-                            ? 'bg-slate-900/90 text-sky-300 border border-slate-700 hover:border-sky-500/60'
-                            : 'bg-slate-900/50 text-slate-400 border border-dashed border-slate-700 hover:text-slate-200 hover:border-slate-500'
+                            ? 'bg-sky-50/70 text-sky-800 border border-sky-200/80 hover:border-sky-400'
+                            : 'bg-slate-50 text-slate-400 border border-dashed border-slate-200 hover:text-slate-600 hover:border-slate-300'
                         }`}
                         title="클릭하여 약 위치(진열장/매대 번호) 입력 또는 수정"
                       >
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <MapPin className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                          <MapPin className="w-3.5 h-3.5 text-sky-600 shrink-0" />
                           <span className="truncate">
                             {product.storageLocation
                               ? `약 위치: ${product.storageLocation}`
@@ -656,8 +656,8 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
                             key={idx}
                             className={`text-[10px] font-bold px-1.5 py-0.2 rounded ${
                               selectedTag === t
-                                ? 'bg-sky-500 text-white'
-                                : 'bg-slate-700/80 text-slate-300'
+                                ? 'bg-sky-600 text-white'
+                                : 'bg-slate-100 text-slate-600 border border-slate-200/70'
                             }`}
                           >
                             #{t}
@@ -665,7 +665,7 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
                         ))}
                       </div>
 
-                      <span className="text-[11px] font-bold text-sky-400 group-hover:translate-x-0.5 transition-transform flex items-center shrink-0">
+                      <span className="text-[11px] font-bold text-sky-600 group-hover:translate-x-0.5 transition-transform flex items-center shrink-0">
                         <span>상세보기</span>
                         <ChevronRight className="w-3.5 h-3.5" />
                       </span>

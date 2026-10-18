@@ -1944,7 +1944,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     <th className="px-4 py-2 text-center border-r border-slate-200">
                       성분 함량
                     </th>
-                    <th className="w-[170px] sm:w-[210px] px-2.5 py-2 text-center">
+                    {product.classification === 'OTC_DRUG' && (
+                      <th className="w-[180px] sm:w-[220px] px-3 py-2 text-center border-r border-slate-200">
+                        원료 형태
+                      </th>
+                    )}
+                    <th className={`${product.classification === 'OTC_DRUG' ? 'w-[150px] sm:w-[180px]' : 'w-[170px] sm:w-[210px]'} px-2.5 py-2 text-center`}>
                       {ulViewMode === 'CHILD' ? (
                         <span className="text-amber-700">상한섭취량 (소아)</span>
                       ) : (
@@ -1955,6 +1960,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs text-slate-800">
                   {(() => {
+                    const isOtcDrug = product.classification === 'OTC_DRUG';
+
                     // 성분 표시 정보 사전 계산 (선택된 기준에 따라 배율 적용)
                     const itemsWithInfo = sortedIngredients.map((ing) => {
                       const scaledIng: ProductIngredientEntry =
@@ -2013,74 +2020,17 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                             </td>
                           )}
 
-                          {/* 2열: 성분 함량 (단일/복합 원료염 지원: 예: 칼슘 220mg (젖산 칼슘), 칼슘 55mg (젖산 칼슘, 황산 칼슘), 비타민K 25µg (비타민 K2(메나퀴논-7))) */}
-                          <td className="px-4 py-2.5 border-r border-slate-200 align-middle">
-                            {(() => {
-                              const nutrientCategory =
-                                item.info.categoryTag && item.info.categoryTag !== '기타'
-                                  ? item.info.categoryTag
-                                  : item.ing.functionalCategory && item.ing.functionalCategory !== '기타'
-                                  ? item.ing.functionalCategory
-                                  : null;
-
-                              let explicitSalt =
-                                item.ing.chemicalFormName && item.ing.chemicalFormName !== '-'
-                                  ? item.ing.chemicalFormName
-                                  : null;
-
-                              // 비타민K의 경우 기존 데이터에 원료염이 누락되었더라도 K2(메나퀴논-7) 자동 보정
-                              if (!explicitSalt && (nutrientCategory === '비타민K' || /vitamin\s*k/i.test(item.info.englishName))) {
-                                explicitSalt = '비타민 K2(메나퀴논-7)';
-                              }
-
-                              const displayUnit = item.ing.unit === 'ug' ? 'µg' : item.ing.unit;
-
-                              // 원료염이 명시되어 있거나, 성분명 자체가 원료염(예: 글루콘산 마그네슘, 젖산 칼슘 등)인 경우 포맷 적용
-                              const hasSaltDetail =
-                                Boolean(explicitSalt) ||
-                                item.info.englishName.includes(',') ||
-                                Boolean(
-                                  nutrientCategory &&
-                                    item.info.englishName !== nutrientCategory &&
-                                    /(?:글루콘산|젖산|황산|탄산|구연산|산화|염화|해조|푸마르산|락트산|메나퀴|메나큐)/.test(
-                                      item.info.englishName
-                                    )
-                                );
-
-                              if (hasSaltDetail) {
-                                const nutrientTitle = nutrientCategory || item.info.englishName;
-                                const saltsText =
-                                  explicitSalt ||
-                                  (item.info.englishName.includes(',') || item.info.englishName !== nutrientTitle
-                                    ? item.info.englishName
-                                    : null);
-
-                                return (
-                                  <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                                    <span className="font-semibold text-slate-900 tracking-tight">
-                                      {nutrientTitle}
-                                    </span>
-                                    <span className="font-bold text-slate-900 tracking-tight">
-                                      {item.ing.rawAmount.toLocaleString()}{displayUnit}
-                                    </span>
-                                    {saltsText && (
-                                      <span className="font-normal text-slate-600 text-[11px] tracking-tight">
-                                        ({saltsText})
-                                      </span>
-                                    )}
-                                  </div>
-                                );
-                              }
-
-                              const fallbackTitle = nutrientCategory || item.info.englishName;
-
-                              return (
+                          {/* 의약품(OTC_DRUG): 실제 영문성분명 + 함량 및 별도 분리된 원료형태 열 */}
+                          {isOtcDrug ? (
+                            <>
+                              {/* 2열: 성분 함량 (실제 영문 성분명 + 함량) */}
+                              <td className="px-4 py-2.5 border-r border-slate-200 align-middle">
                                 <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
                                   <span className="font-semibold text-slate-900 tracking-tight">
-                                    {fallbackTitle}
+                                    {item.info.englishName || item.ing.englishInn}
                                   </span>
                                   <span className="font-bold text-slate-900 tracking-tight">
-                                    {item.ing.rawAmount.toLocaleString()}{displayUnit}
+                                    {item.ing.rawAmount.toLocaleString()}{item.ing.unit === 'ug' ? 'µg' : item.ing.unit}
                                   </span>
                                   {item.info.convertedText && (
                                     <span className="font-medium text-emerald-600 text-[11px]">
@@ -2088,11 +2038,101 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                     </span>
                                   )}
                                 </div>
-                              );
-                            })()}
-                          </td>
+                              </td>
 
-                          {/* 3열: 상한섭취량 (소아/성인 모드 대응) */}
+                              {/* 3열: 원료 형태 (의약품 분리 열) */}
+                              <td className="px-3 py-2.5 border-r border-slate-200 align-middle">
+                                <span className="text-xs text-slate-800 font-medium leading-snug">
+                                  {item.ing.chemicalFormName && item.ing.chemicalFormName !== '-'
+                                    ? item.ing.chemicalFormName
+                                    : item.info.chemicalFormFeature?.displayText && item.info.chemicalFormFeature.displayText !== '-'
+                                    ? item.info.chemicalFormFeature.displayText
+                                    : '-'}
+                                </span>
+                              </td>
+                            </>
+                          ) : (
+                            /* 건기식 및 일반식품: 기존 표시 설정 유지 */
+                            <td className="px-4 py-2.5 border-r border-slate-200 align-middle">
+                              {(() => {
+                                const nutrientCategory =
+                                  item.info.categoryTag && item.info.categoryTag !== '기타'
+                                    ? item.info.categoryTag
+                                    : item.ing.functionalCategory && item.ing.functionalCategory !== '기타'
+                                    ? item.ing.functionalCategory
+                                    : null;
+
+                                let explicitSalt =
+                                  item.ing.chemicalFormName && item.ing.chemicalFormName !== '-'
+                                    ? item.ing.chemicalFormName
+                                    : null;
+
+                                // 비타민K의 경우 기존 데이터에 원료염이 누락되었더라도 K2(메나퀴논-7) 자동 보정
+                                if (!explicitSalt && (nutrientCategory === '비타민K' || /vitamin\s*k/i.test(item.info.englishName))) {
+                                  explicitSalt = '비타민 K2(메나퀴논-7)';
+                                }
+
+                                const displayUnit = item.ing.unit === 'ug' ? 'µg' : item.ing.unit;
+
+                                // 원료염이 명시되어 있거나, 성분명 자체가 원료염(예: 글루콘산 마그네슘, 젖산 칼슘 등)인 경우 포맷 적용
+                                const hasSaltDetail =
+                                  Boolean(explicitSalt) ||
+                                  item.info.englishName.includes(',') ||
+                                  Boolean(
+                                    nutrientCategory &&
+                                      item.info.englishName !== nutrientCategory &&
+                                      /(?:글루콘산|젖산|황산|탄산|구연산|산화|염화|해조|푸마르산|락트산|메나퀴|메나큐)/.test(
+                                        item.info.englishName
+                                      )
+                                  );
+
+                                if (hasSaltDetail) {
+                                  const nutrientTitle = nutrientCategory || item.info.englishName;
+                                  const saltsText =
+                                    explicitSalt ||
+                                    (item.info.englishName.includes(',') || item.info.englishName !== nutrientTitle
+                                      ? item.info.englishName
+                                      : null);
+
+                                  return (
+                                    <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
+                                      <span className="font-semibold text-slate-900 tracking-tight">
+                                        {nutrientTitle}
+                                      </span>
+                                      <span className="font-bold text-slate-900 tracking-tight">
+                                        {item.ing.rawAmount.toLocaleString()}{displayUnit}
+                                      </span>
+                                      {saltsText && (
+                                        <span className="font-normal text-slate-600 text-[11px] tracking-tight">
+                                          ({saltsText})
+                                        </span>
+                                      )}
+                                    </div>
+                                  );
+                                }
+
+                                const fallbackTitle = nutrientCategory || item.info.englishName;
+
+                                return (
+                                  <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
+                                    <span className="font-semibold text-slate-900 tracking-tight">
+                                      {fallbackTitle}
+                                    </span>
+                                    <span className="font-bold text-slate-900 tracking-tight">
+                                      {item.ing.rawAmount.toLocaleString()}{displayUnit}
+                                    </span>
+                                    {item.info.convertedText && (
+                                      <span className="font-medium text-emerald-600 text-[11px]">
+                                        ({item.info.convertedText})
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                            </td>
+                          )}
+
+                          {/* 3열(의약품은 4열): 상한섭취량 (소아/성인 모드 대응) */}
                           <td className="px-3 py-2.5 text-center align-middle">
                             {ulViewMode === 'CHILD' ? (
                               item.info.childUlText ? (

@@ -232,6 +232,307 @@ const MFDS_NOTIFIED_FUNCTIONALITY_DICTIONARY: {
   }
 ];
 
+export interface PediatricUlReferenceItem {
+  id: string;
+  category: 'MINERAL' | 'FAT_SOLUBLE' | 'WATER_SOLUBLE';
+  categoryTitle: string;
+  nutrientName: string;
+  subName?: string;
+  age1_2: string;
+  age3_5: string;
+  age6_8: string;
+  age9_11: string;
+  age12_14: string;
+  age15_18: string;
+  adult: string;
+  preventionNote: string;
+  isNoUl?: boolean;
+}
+
+/**
+ * 2025 보건복지부 · 한국영양학회 한국인 영양소 섭취기준(KDRIs)
+ * 소아·청소년 연령별 1일 상한섭취량(UL) 전체 종합 기준표 (무기질 9종 + 지용성 4종 + 수용성 5종)
+ */
+export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
+  // 1. 무기질 (미네랄)
+  {
+    id: 'iron',
+    category: 'MINERAL',
+    categoryTitle: '무기질 (미네랄)',
+    nutrientName: '철 (Iron, Fe)',
+    subName: '철분제, 푸마르산제일철, 헴철 등',
+    age1_2: '40 mg',
+    age3_5: '40 mg',
+    age6_8: '40 mg',
+    age9_11: '40 mg',
+    age12_14: '40 mg',
+    age15_18: '45 mg',
+    adult: '45 mg',
+    preventionNote: '급성 철 중독, 소화장애(오심, 구토, 변비, 복통) 및 체내 철 축적 예방 (철분제 과량 복용 주의)'
+  },
+  {
+    id: 'calcium',
+    category: 'MINERAL',
+    categoryTitle: '무기질 (미네랄)',
+    nutrientName: '칼슘 (Calcium, Ca)',
+    subName: '탄산칼슘, 구연산칼슘, 유청칼슘 등',
+    age1_2: '1,500 mg',
+    age3_5: '2,000 mg',
+    age6_8: '2,500 mg',
+    age9_11: '3,000 mg',
+    age12_14: '3,000 mg',
+    age15_18: '3,000 mg',
+    adult: '2,500 mg',
+    preventionNote: '고칼슘혈증, 고칼슘뇨증, 신장결석 및 아연·철 등 타 미네랄 흡수 방해 예방'
+  },
+  {
+    id: 'magnesium',
+    category: 'MINERAL',
+    categoryTitle: '무기질 (미네랄)',
+    nutrientName: '마그네슘 (Magnesium, Mg)',
+    subName: '영양제/보충제 등 식품 외 급원 기준',
+    age1_2: '65 mg',
+    age3_5: '110 mg',
+    age6_8: '160 mg',
+    age9_11: '230 mg',
+    age12_14: '310 mg',
+    age15_18: '350 mg',
+    adult: '350 mg',
+    preventionNote: '삼투성 설사 및 위장관 경련 예방 (일반 식사 식품 속 마그네슘은 제외)'
+  },
+  {
+    id: 'zinc',
+    category: 'MINERAL',
+    categoryTitle: '무기질 (미네랄)',
+    nutrientName: '아연 (Zinc, Zn)',
+    subName: '산화아연, 글루콘산아연 등',
+    age1_2: '6 mg',
+    age3_5: '9 mg',
+    age6_8: '13 mg',
+    age9_11: '19 mg',
+    age12_14: '27 mg',
+    age15_18: '33 mg',
+    adult: '35 mg',
+    preventionNote: '구리 흡수 저해로 인한 빈혈, 백혈구 감소 및 면역 기능 저하 예방'
+  },
+  {
+    id: 'selenium',
+    category: 'MINERAL',
+    categoryTitle: '무기질 (미네랄)',
+    nutrientName: '셀레늄 (Selenium, Se)',
+    subName: '건조효모셀레늄, 아셀렌산나트륨 등',
+    age1_2: '60 μg',
+    age3_5: '90 μg',
+    age6_8: '150 μg',
+    age9_11: '230 μg',
+    age12_14: '320 μg',
+    age15_18: '380 μg',
+    adult: '400 μg',
+    preventionNote: '셀레늄 중독증(탈모, 손톱 부스러짐, 마늘 냄새 구취, 신경계 이상) 예방'
+  },
+  {
+    id: 'copper',
+    category: 'MINERAL',
+    categoryTitle: '무기질 (미네랄)',
+    nutrientName: '구리 (Copper, Cu)',
+    subName: '황산동, 글루콘산동 등',
+    age1_2: '1 mg',
+    age3_5: '2 mg',
+    age6_8: '3 mg',
+    age9_11: '4 mg',
+    age12_14: '6 mg',
+    age15_18: '8 mg',
+    adult: '10 mg',
+    preventionNote: '간독성 및 간세포 손상, 위장관 자극 예방'
+  },
+  {
+    id: 'manganese',
+    category: 'MINERAL',
+    categoryTitle: '무기질 (미네랄)',
+    nutrientName: '망간 (Manganese, Mn)',
+    subName: '황산망간, 염화망간 등',
+    age1_2: '2 mg',
+    age3_5: '3 mg',
+    age6_8: '4 mg',
+    age9_11: '6 mg',
+    age12_14: '8 mg',
+    age15_18: '10 mg',
+    adult: '11 mg',
+    preventionNote: '중추신경계 신경독성 및 파킨슨 유사 운동장애 증상 예방'
+  },
+  {
+    id: 'iodine',
+    category: 'MINERAL',
+    categoryTitle: '무기질 (미네랄)',
+    nutrientName: '요오드 (Iodine, I)',
+    subName: '요오드화칼륨 등',
+    age1_2: '250 μg',
+    age3_5: '300 μg',
+    age6_8: '450 μg',
+    age9_11: '700 μg',
+    age12_14: '1,200 μg',
+    age15_18: '1,800 μg',
+    adult: '2,400 μg',
+    preventionNote: '갑상선 기능 저하증, 갑상선종 및 자가면역 갑상선 질환 악화 예방'
+  },
+  {
+    id: 'molybdenum',
+    category: 'MINERAL',
+    categoryTitle: '무기질 (미네랄)',
+    nutrientName: '몰리브덴 (Molybdenum, Mo)',
+    subName: '몰리브덴산나트륨 등',
+    age1_2: '60 μg',
+    age3_5: '100 μg',
+    age6_8: '150 μg',
+    age9_11: '220 μg',
+    age12_14: '350 μg',
+    age15_18: '450 μg',
+    adult: '600 μg',
+    preventionNote: '혈중 요산치 상승 및 통풍성 증상, 구리 배설 증가 예방'
+  },
+
+  // 2. 지용성 비타민
+  {
+    id: 'vitA',
+    category: 'FAT_SOLUBLE',
+    categoryTitle: '지용성 비타민',
+    nutrientName: '비타민 A (레티놀)',
+    subName: '레티놀/레티닐에스테르 (베타카로틴 제외)',
+    age1_2: '600 μg',
+    age3_5: '750 μg',
+    age6_8: '1,100 μg',
+    age9_11: '1,600 μg',
+    age12_14: '2,300 μg',
+    age15_18: '2,800 μg',
+    adult: '3,000 μg (10,000 IU)',
+    preventionNote: '간 비대, 골밀도 저하, 두개내압 상승 및 기형아 유발(가임기/임부) 예방'
+  },
+  {
+    id: 'vitD',
+    category: 'FAT_SOLUBLE',
+    categoryTitle: '지용성 비타민',
+    nutrientName: '비타민 D (콜레칼시페롤)',
+    subName: 'D3/D2 보충제',
+    age1_2: '1,200 IU (30μg)',
+    age3_5: '1,400 IU (35μg)',
+    age6_8: '1,600 IU (40μg)',
+    age9_11: '2,400 IU (60μg)',
+    age12_14: '4,000 IU (100μg)',
+    age15_18: '4,000 IU (100μg)',
+    adult: '4,000 IU (100μg)',
+    preventionNote: '고칼슘혈증, 고칼슘뇨증, 연조직 및 혈관 석회화, 신장결석 예방'
+  },
+  {
+    id: 'vitE',
+    category: 'FAT_SOLUBLE',
+    categoryTitle: '지용성 비타민',
+    nutrientName: '비타민 E (α-토코페롤)',
+    subName: '합성 d-α-TE / dl-α-TE',
+    age1_2: '100 mg (150 IU)',
+    age3_5: '150 mg (220 IU)',
+    age6_8: '250 mg (370 IU)',
+    age9_11: '350 mg (520 IU)',
+    age12_14: '540 mg (800 IU)',
+    age15_18: '540 mg (800 IU)',
+    adult: '540 mg (800 IU)',
+    preventionNote: '혈소판 응집 저해 및 출혈 경향 증가 예방 (항응고제 복용 환아 주의)'
+  },
+  {
+    id: 'vitK',
+    category: 'FAT_SOLUBLE',
+    categoryTitle: '지용성 비타민',
+    nutrientName: '비타민 K (K1 / K2)',
+    subName: '필로퀴논, 메나퀴논-7',
+    age1_2: '-',
+    age3_5: '-',
+    age6_8: '-',
+    age9_11: '-',
+    age12_14: '-',
+    age15_18: '-',
+    adult: '-',
+    isNoUl: true,
+    preventionNote: '일반 천연 비타민 K1, K2는 과량 복용 시에도 독성이 보고되지 않아 공식 UL 미설정 (안전)'
+  },
+
+  // 3. 수용성 비타민
+  {
+    id: 'vitC',
+    category: 'WATER_SOLUBLE',
+    categoryTitle: '수용성 비타민',
+    nutrientName: '비타민 C (아스코르브산)',
+    subName: '아스코르브산, 아스코르브산나트륨 등',
+    age1_2: '400 mg',
+    age3_5: '600 mg',
+    age6_8: '900 mg',
+    age9_11: '1,200 mg',
+    age12_14: '1,600 mg',
+    age15_18: '1,800 mg',
+    adult: '2,000 mg',
+    preventionNote: '삼투성 설사, 복통, 고옥살산뇨증(신장결석) 및 위장관 자극 예방'
+  },
+  {
+    id: 'vitB6',
+    category: 'WATER_SOLUBLE',
+    categoryTitle: '수용성 비타민',
+    nutrientName: '비타민 B6 (피리독신)',
+    subName: '피리독신염산염 등',
+    age1_2: '10 mg',
+    age3_5: '15 mg',
+    age6_8: '20 mg',
+    age9_11: '30 mg',
+    age12_14: '40 mg',
+    age15_18: '45 mg',
+    adult: '50 mg',
+    preventionNote: '말초 감각신경병증 및 신경 손상 예방 (2025 KDRIs 기준 성인 50mg으로 하향 정밀화)'
+  },
+  {
+    id: 'folate',
+    category: 'WATER_SOLUBLE',
+    categoryTitle: '수용성 비타민',
+    nutrientName: '엽산 (합성 폴산, Folic Acid)',
+    subName: '합성 보충제 및 강화식품 기준',
+    age1_2: '300 μg',
+    age3_5: '400 μg',
+    age6_8: '500 μg',
+    age9_11: '700 μg',
+    age12_14: '800 μg',
+    age15_18: '900 μg',
+    adult: '1,000 μg',
+    preventionNote: '비타민B12 결핍성 빈혈 마스킹으로 인한 비가역적 신경 손상 방지'
+  },
+  {
+    id: 'niacin',
+    category: 'WATER_SOLUBLE',
+    categoryTitle: '수용성 비타민',
+    nutrientName: '나이아신 (니코틴산아미드)',
+    subName: '아미드 형태 (국내 비타민제/건기식 대다수)',
+    age1_2: '150 mg',
+    age3_5: '200 mg',
+    age6_8: '300 mg',
+    age9_11: '450 mg',
+    age12_14: '600 mg',
+    age15_18: '650 mg',
+    adult: '850 mg',
+    preventionNote: '간독성 및 간 효소치 상승 예방 (참고: 산 형태인 니코틴산은 홍조 유발로 성인 35mg, 소아 10~25mg)'
+  },
+  {
+    id: 'vitB_safe',
+    category: 'WATER_SOLUBLE',
+    categoryTitle: '수용성 비타민',
+    nutrientName: '비타민 B1·B2·B5·B7·B12',
+    subName: '티아민, 리보플라빈, 판토텐산, 비오틴, 코발라민',
+    age1_2: '-',
+    age3_5: '-',
+    age6_8: '-',
+    age9_11: '-',
+    age12_14: '-',
+    age15_18: '-',
+    adult: '-',
+    isNoUl: true,
+    preventionNote: '수용성 비타민으로 체내 필요량 외에는 소변으로 신속히 배설되어 공식 상한섭취량(UL) 미설정 (과량 복용 시에도 안전)'
+  }
+];
+
 /**
  * 건강기능식품 기준 및 규격(STDR_STND) 텍스트에서 각 기능성분별 식약처 공식 1일 표시량을 파싱
  */
@@ -584,8 +885,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   // 상한섭취량 표시 기준 (성인 UL vs 소아 UL)
   const [ulViewMode, setUlViewMode] = useState<'ADULT' | 'CHILD'>('ADULT');
-  // 소아 연령별 상한섭취량 기준표 모달 팝업 상태
+  // 소아 연령별 상한섭취량 기준표 모달 팝업 상태 및 카테고리 필터
   const [isChildUlModalOpen, setIsChildUlModalOpen] = useState(false);
+  const [childUlTableCategory, setChildUlTableCategory] = useState<
+    'ALL' | 'MINERAL' | 'FAT_SOLUBLE' | 'WATER_SOLUBLE'
+  >('ALL');
 
   // 복용 방법(용법) 직접 수정 모드 및 입력값 상태 (줄바꿈 지원)
   const [isEditingDosage, setIsEditingDosage] = useState(false);
@@ -2282,105 +2586,155 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     <span>상한섭취량(UL, Tolerable Upper Intake Level)이란?</span>
                   </div>
                   <p className="leading-relaxed text-amber-800">
-                    인체 건강에 유해한 영향이 나타나지 않는 일일 최대 섭취 수준입니다. 어린이 영양제 복용 시 연령대별 상한섭취량을 초과하지 않도록 지도하는 것이 안전합니다.
+                    인체 건강에 유해한 영향이 나타나지 않는 일일 최대 섭취 수준입니다. 소아 영양제 복용 시 연령대별 상한섭취량을 초과하지 않도록 지도하는 것이 안전합니다.
                   </p>
                 </div>
 
+                {/* 카테고리 필터 탭 버튼 */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setChildUlTableCategory('ALL')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      childUlTableCategory === 'ALL'
+                        ? 'bg-amber-600 text-white shadow-2xs'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                    }`}
+                  >
+                    전체 영양소 (18종)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChildUlTableCategory('MINERAL')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                      childUlTableCategory === 'MINERAL'
+                        ? 'bg-amber-600 text-white shadow-2xs'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                    }`}
+                  >
+                    <span>🧪 무기질/미네랄 (9종)</span>
+                    <span className="text-[10px] opacity-80">(철·칼슘·마그네슘·아연 등)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChildUlTableCategory('FAT_SOLUBLE')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                      childUlTableCategory === 'FAT_SOLUBLE'
+                        ? 'bg-amber-600 text-white shadow-2xs'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                    }`}
+                  >
+                    <span>🥑 지용성 비타민 (4종)</span>
+                    <span className="text-[10px] opacity-80">(A·D·E·K)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setChildUlTableCategory('WATER_SOLUBLE')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                      childUlTableCategory === 'WATER_SOLUBLE'
+                        ? 'bg-amber-600 text-white shadow-2xs'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                    }`}
+                  >
+                    <span>🍋 수용성 비타민 (5종)</span>
+                    <span className="text-[10px] opacity-80">(C·B6·엽산·니아신 등)</span>
+                  </button>
+                </div>
+
                 <div className="border border-slate-200 rounded-xl overflow-x-auto shadow-2xs">
-                  <table className="w-full text-xs text-left border-collapse min-w-[700px]">
+                  <table className="w-full text-xs text-left border-collapse min-w-[760px]">
                     <thead>
                       <tr className="bg-slate-100 text-slate-700 font-extrabold text-[11px] border-b border-slate-200">
-                        <th className="px-3 py-2.5 border-r border-slate-200">영양소 성분명</th>
-                        <th className="px-2.5 py-2 text-center border-r border-slate-200">1~2세</th>
-                        <th className="px-2.5 py-2 text-center border-r border-slate-200">3~5세</th>
-                        <th className="px-2.5 py-2 text-center border-r border-slate-200">6~8세</th>
-                        <th className="px-2.5 py-2 text-center border-r border-slate-200">9~11세</th>
-                        <th className="px-2.5 py-2 text-center border-r border-slate-200">12~14세</th>
-                        <th className="px-2.5 py-2 text-center border-r border-slate-200 bg-slate-50">성인 (19세+)</th>
-                        <th className="px-3 py-2 text-slate-600">주요 예방 목적 및 주의</th>
+                        <th className="px-3 py-2.5 border-r border-slate-200 min-w-[150px]">영양소 성분명</th>
+                        <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[65px]">1~2세</th>
+                        <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[65px]">3~5세</th>
+                        <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[65px]">6~8세</th>
+                        <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[65px]">9~11세</th>
+                        <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[70px]">12~14세</th>
+                        <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[70px]">15~18세</th>
+                        <th className="px-2.5 py-2 text-center border-r border-slate-200 bg-slate-50 min-w-[85px]">성인 (19세+)</th>
+                        <th className="px-3 py-2 text-slate-600 min-w-[200px]">주요 예방 목적 및 주의사항</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      <tr className="hover:bg-amber-50/30">
-                        <td className="px-3 py-2.5 font-bold text-slate-900 border-r border-slate-200">아연 (Zinc)</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">6 mg</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">9 mg</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">13 mg</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">19 mg</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">27 mg</td>
-                        <td className="px-2.5 py-2.5 text-center font-semibold text-rose-600 border-r border-slate-200 bg-slate-50">35 mg</td>
-                        <td className="px-3 py-2.5 text-slate-600 text-[11px]">구리 흡수 저해 및 면역 기능 저하 예방</td>
-                      </tr>
-                      <tr className="hover:bg-amber-50/30">
-                        <td className="px-3 py-2.5 font-bold text-slate-900 border-r border-slate-200">비타민B6 (피리독신)</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">10 mg</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">15 mg</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">20 mg</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">30 mg</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">40 mg</td>
-                        <td className="px-2.5 py-2.5 text-center font-semibold text-rose-600 border-r border-slate-200 bg-slate-50">50 mg</td>
-                        <td className="px-3 py-2.5 text-slate-600 text-[11px]">말초 감각신경병증 및 신경 손상 예방</td>
-                      </tr>
-                      <tr className="hover:bg-amber-50/30">
-                        <td className="px-3 py-2.5 font-bold text-slate-900 border-r border-slate-200">
-                          <div>나이아신 / 니코틴산아미드</div>
-                          <div className="text-[10px] text-slate-400 font-normal">니코틴산(산 형태)은 성인 35mg</div>
-                        </td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">150 mg</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">200 mg</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">300 mg</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">450 mg</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">600 mg</td>
-                        <td className="px-2.5 py-2.5 text-center font-semibold text-rose-600 border-r border-slate-200 bg-slate-50">850 mg</td>
-                        <td className="px-3 py-2.5 text-slate-600 text-[11px]">간독성 예방 (영양제는 대부분 안전한 아미드 형태)</td>
-                      </tr>
-                      <tr className="hover:bg-amber-50/30">
-                        <td className="px-3 py-2.5 font-bold text-slate-900 border-r border-slate-200">비타민A (레티놀)</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">600 μg</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">700 μg</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">1,000 μg</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">1,400 μg</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">1,750 μg</td>
-                        <td className="px-2.5 py-2.5 text-center font-semibold text-rose-600 border-r border-slate-200 bg-slate-50">3,000 μg</td>
-                        <td className="px-3 py-2.5 text-slate-600 text-[11px]">간 비대 및 골절 위험 예방 (베타카로틴은 제외)</td>
-                      </tr>
-                      <tr className="hover:bg-amber-50/30">
-                        <td className="px-3 py-2.5 font-bold text-slate-900 border-r border-slate-200">비타민D (콜레칼시페롤)</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">1,200 IU</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">1,400 IU</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">1,600 IU</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">2,400 IU</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">4,000 IU</td>
-                        <td className="px-2.5 py-2.5 text-center font-semibold text-rose-600 border-r border-slate-200 bg-slate-50">4,000 IU</td>
-                        <td className="px-3 py-2.5 text-slate-600 text-[11px]">고칼슘혈증 및 신장 결석 예방</td>
-                      </tr>
-                      <tr className="hover:bg-amber-50/30">
-                        <td className="px-3 py-2.5 font-bold text-slate-900 border-r border-slate-200">비타민C (아스코르브산)</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">400 mg</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">500 mg</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">700 mg</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">1,200 mg</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">1,600 mg</td>
-                        <td className="px-2.5 py-2.5 text-center font-semibold text-rose-600 border-r border-slate-200 bg-slate-50">2,000 mg</td>
-                        <td className="px-3 py-2.5 text-slate-600 text-[11px]">삼투성 설사 및 위장관 자극 예방</td>
-                      </tr>
-                      <tr className="hover:bg-amber-50/30">
-                        <td className="px-3 py-2.5 font-bold text-slate-900 border-r border-slate-200">엽산 (Folic Acid)</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">300 μg</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">400 μg</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">600 μg</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">800 μg</td>
-                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">800 μg</td>
-                        <td className="px-2.5 py-2.5 text-center font-semibold text-rose-600 border-r border-slate-200 bg-slate-50">1,000 μg</td>
-                        <td className="px-3 py-2.5 text-slate-600 text-[11px]">비타민B12 결핍성 신경 손상 은폐 방지</td>
-                      </tr>
-                      <tr className="hover:bg-amber-50/30">
-                        <td className="px-3 py-2.5 font-bold text-slate-900 border-r border-slate-200">비타민B1 · B2</td>
-                        <td colSpan={6} className="px-2.5 py-2.5 text-center text-slate-400 font-semibold border-r border-slate-200 bg-slate-50/60">
-                          수용성 비타민으로 체내 축적 없이 소변으로 배설되어 공식 상한섭취량(UL) 미설정 (안전)
-                        </td>
-                        <td className="px-3 py-2.5 text-slate-600 text-[11px]">소아 권장량 이상 섭취해도 체외 배출됨</td>
-                      </tr>
+                      {(() => {
+                        const items =
+                          childUlTableCategory === 'ALL'
+                            ? KDRI_2025_PEDIATRIC_REFERENCE_TABLE
+                            : KDRI_2025_PEDIATRIC_REFERENCE_TABLE.filter(
+                                (r) => r.category === childUlTableCategory
+                              );
+
+                        let currentCategory = '';
+
+                        return items.map((row) => {
+                          const showCategoryHeader =
+                            childUlTableCategory === 'ALL' && row.categoryTitle !== currentCategory;
+                          if (showCategoryHeader) {
+                            currentCategory = row.categoryTitle;
+                          }
+
+                          return (
+                            <React.Fragment key={row.id}>
+                              {showCategoryHeader && (
+                                <tr className="bg-slate-100/80 border-y border-slate-200">
+                                  <td
+                                    colSpan={9}
+                                    className="px-3 py-1.5 text-[11px] font-black text-slate-800 tracking-tight"
+                                  >
+                                    {row.categoryTitle === '무기질 (미네랄)' ? '🧪 무기질 (미네랄)' : row.categoryTitle === '지용성 비타민' ? '🥑 지용성 비타민' : '🍋 수용성 비타민'}
+                                  </td>
+                                </tr>
+                              )}
+                              <tr className="hover:bg-amber-50/30 transition-colors">
+                                <td className="px-3 py-2.5 font-bold text-slate-900 border-r border-slate-200 align-middle">
+                                  <div className="font-extrabold text-slate-900">{row.nutrientName}</div>
+                                  {row.subName && (
+                                    <div className="text-[10px] text-slate-400 font-normal leading-tight">
+                                      {row.subName}
+                                    </div>
+                                  )}
+                                </td>
+                                {row.isNoUl ? (
+                                  <td
+                                    colSpan={7}
+                                    className="px-3 py-2.5 text-center text-slate-400 font-medium border-r border-slate-200 bg-slate-50/60 align-middle text-[11px]"
+                                  >
+                                    공식 상한섭취량(UL) 미설정 (과량 섭취 시에도 안전하게 배설/체내 조절됨)
+                                  </td>
+                                ) : (
+                                  <>
+                                    <td className="px-2 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200 align-middle">
+                                      {row.age1_2}
+                                    </td>
+                                    <td className="px-2 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200 align-middle">
+                                      {row.age3_5}
+                                    </td>
+                                    <td className="px-2 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200 align-middle">
+                                      {row.age6_8}
+                                    </td>
+                                    <td className="px-2 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200 align-middle">
+                                      {row.age9_11}
+                                    </td>
+                                    <td className="px-2 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200 align-middle">
+                                      {row.age12_14}
+                                    </td>
+                                    <td className="px-2 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200 align-middle">
+                                      {row.age15_18}
+                                    </td>
+                                    <td className="px-2.5 py-2.5 text-center font-semibold text-rose-600 border-r border-slate-200 bg-slate-50 align-middle">
+                                      {row.adult}
+                                    </td>
+                                  </>
+                                )}
+                                <td className="px-3 py-2.5 text-slate-600 text-[11px] leading-relaxed align-middle">
+                                  {row.preventionNote}
+                                </td>
+                              </tr>
+                            </React.Fragment>
+                          );
+                        });
+                      })()}
                     </tbody>
                   </table>
                 </div>

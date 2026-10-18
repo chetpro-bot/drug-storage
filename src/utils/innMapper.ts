@@ -2061,9 +2061,57 @@ export function resolveIngredientDisplayInfo(
         { ageLabel: '1~2세', ulText: '60μg', ulValue: 60 },
         { ageLabel: '3~5세', ulText: '90μg', ulValue: 90 },
         { ageLabel: '6~8세', ulText: '150μg', ulValue: 150 },
-        { ageLabel: '9~11세', ulText: '230mg', ulValue: 230 },
+        { ageLabel: '9~11세', ulText: '230μg', ulValue: 230 },
         { ageLabel: '12~14세', ulText: '320μg', ulValue: 320 },
         { ageLabel: '성인 (19세+)', ulText: '400μg', ulValue: 400 }
+      ];
+    } else if (standardKey === 'COPPER') {
+      childUlText = '1~4mg (1~11세)';
+      childUlNote = '2025 KDRIs 구리 연령별 상한섭취량: 1~2세 1mg, 3~5세 2mg, 6~8세 3mg, 9~11세 4mg, 12~14세 6mg, 15~18세 8mg (성인 10mg)';
+      childAgeRows = [
+        { ageLabel: '1~2세', ulText: '1mg', ulValue: 1 },
+        { ageLabel: '3~5세', ulText: '2mg', ulValue: 2 },
+        { ageLabel: '6~8세', ulText: '3mg', ulValue: 3 },
+        { ageLabel: '9~11세', ulText: '4mg', ulValue: 4 },
+        { ageLabel: '12~14세', ulText: '6mg', ulValue: 6 },
+        { ageLabel: '15~18세', ulText: '8mg', ulValue: 8 },
+        { ageLabel: '성인 (19세+)', ulText: '10mg', ulValue: 10 }
+      ];
+    } else if (standardKey === 'MANGANESE') {
+      childUlText = '2~6mg (1~11세)';
+      childUlNote = '2025 KDRIs 망간 연령별 상한섭취량: 1~2세 2mg, 3~5세 3mg, 6~8세 4mg, 9~11세 6mg, 12~14세 8mg, 15~18세 10mg (성인 11mg)';
+      childAgeRows = [
+        { ageLabel: '1~2세', ulText: '2mg', ulValue: 2 },
+        { ageLabel: '3~5세', ulText: '3mg', ulValue: 3 },
+        { ageLabel: '6~8세', ulText: '4mg', ulValue: 4 },
+        { ageLabel: '9~11세', ulText: '6mg', ulValue: 6 },
+        { ageLabel: '12~14세', ulText: '8mg', ulValue: 8 },
+        { ageLabel: '15~18세', ulText: '10mg', ulValue: 10 },
+        { ageLabel: '성인 (19세+)', ulText: '11mg', ulValue: 11 }
+      ];
+    } else if (standardKey === 'IODINE') {
+      childUlText = '250~700μg (1~11세)';
+      childUlNote = '2025 KDRIs 요오드 연령별 상한섭취량: 1~2세 250μg, 3~5세 300μg, 6~8세 450μg, 9~11세 700μg, 12~14세 1,200μg, 15~18세 1,800μg (성인 2,400μg)';
+      childAgeRows = [
+        { ageLabel: '1~2세', ulText: '250μg', ulValue: 250 },
+        { ageLabel: '3~5세', ulText: '300μg', ulValue: 300 },
+        { ageLabel: '6~8세', ulText: '450μg', ulValue: 450 },
+        { ageLabel: '9~11세', ulText: '700μg', ulValue: 700 },
+        { ageLabel: '12~14세', ulText: '1,200μg', ulValue: 1200 },
+        { ageLabel: '15~18세', ulText: '1,800μg', ulValue: 1800 },
+        { ageLabel: '성인 (19세+)', ulText: '2,400μg', ulValue: 2400 }
+      ];
+    } else if (standardKey === 'MOLYBDENUM') {
+      childUlText = '60~220μg (1~11세)';
+      childUlNote = '2025 KDRIs 몰리브덴 연령별 상한섭취량: 1~2세 60μg, 3~5세 100μg, 6~8세 150μg, 9~11세 220μg, 12~14세 350μg, 15~18세 450μg (성인 600μg)';
+      childAgeRows = [
+        { ageLabel: '1~2세', ulText: '60μg', ulValue: 60 },
+        { ageLabel: '3~5세', ulText: '100μg', ulValue: 100 },
+        { ageLabel: '6~8세', ulText: '150μg', ulValue: 150 },
+        { ageLabel: '9~11세', ulText: '220μg', ulValue: 220 },
+        { ageLabel: '12~14세', ulText: '350μg', ulValue: 350 },
+        { ageLabel: '15~18세', ulText: '450μg', ulValue: 450 },
+        { ageLabel: '성인 (19세+)', ulText: '600μg', ulValue: 600 }
       ];
     } else if (standardKey === 'VITAMIN_E') {
       childUlText = '100~350mg (1~11세)';

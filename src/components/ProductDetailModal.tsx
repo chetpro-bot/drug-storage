@@ -421,6 +421,106 @@ function summarizePrecautions(rawLines: string[]): PrecautionsSummaryResult {
   return result;
 }
 
+/**
+ * 전문(Full Text)을 들여쓰기 구조화 및 핵심 요약 키워드 형광펜 하이라이트 렌더링 헬퍼
+ */
+function renderFormattedApiText(fullText: string, highlightKeywords: string[]) {
+  if (!fullText) return <span className="text-slate-400">전문 내용이 없습니다.</span>;
+
+  // 하이라이트 대상 키워드 정규식 구성
+  const validKeywords = highlightKeywords
+    .map((k) => k.trim())
+    .filter((k) => k.length >= 2);
+
+  // 긴 키워드부터 매칭
+  validKeywords.sort((a, b) => b.length - a.length);
+
+  const highlightRegex =
+    validKeywords.length > 0
+      ? new RegExp(`(${validKeywords.map((k) => k.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|')})`, 'gi')
+      : null;
+
+  const renderHighlightedLine = (text: string) => {
+    if (!highlightRegex) return text;
+    const parts = text.split(highlightRegex);
+    return parts.map((part, i) => {
+      const isMatch = validKeywords.some((kw) => kw.toLowerCase() === part.toLowerCase());
+      if (isMatch) {
+        return (
+          <mark
+            key={i}
+            className="bg-amber-200/90 text-amber-950 font-bold px-1 py-0.5 rounded shadow-2xs"
+          >
+            {part}
+          </mark>
+        );
+      }
+      return part;
+    });
+  };
+
+  const lines = fullText.split(/\r?\n/);
+
+  return (
+    <div className="space-y-1.5 text-xs text-slate-800 leading-relaxed font-sans">
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          return <div key={idx} className="h-2" />;
+        }
+
+        // 1단계 대항목: "1.", "2.", "1)", "[1]" 등 숫자+점
+        const isLevel1 = /^\d+\.\s+/.test(trimmed) || /^\[\s*\d+\s*\]/.test(trimmed);
+        // 2단계 중항목: "1)", "2)", "(1)", "①", "②" 등
+        const isLevel2 = /^\d+\)\s*/.test(trimmed) || /^\(\d+\)\s*/.test(trimmed) || /^[①-⑳]\s*/.test(trimmed);
+        // 3단계 소항목/불릿: "-", "•", "·", "가.", "나." 등
+        const isLevel3 = /^[-\•\·]\s*/.test(trimmed) || /^[가-힣]\.\s*/.test(trimmed);
+
+        if (isLevel1) {
+          return (
+            <div
+              key={idx}
+              className="font-extrabold text-slate-900 pt-3 pb-0.5 border-b border-slate-100 flex items-start gap-1.5 text-[13px]"
+            >
+              <span className="text-sky-600 font-black">■</span>
+              <span>{renderHighlightedLine(trimmed)}</span>
+            </div>
+          );
+        }
+
+        if (isLevel2) {
+          return (
+            <div key={idx} className="pl-4 py-0.5 flex items-start gap-2">
+              <span className="text-slate-400 font-bold shrink-0 text-[11px] mt-0.5">↳</span>
+              <div className="flex-1 text-slate-800 font-medium">
+                {renderHighlightedLine(trimmed)}
+              </div>
+            </div>
+          );
+        }
+
+        if (isLevel3) {
+          return (
+            <div key={idx} className="pl-8 py-0.5 flex items-start gap-2 text-slate-700">
+              <span className="text-slate-300 font-bold shrink-0">•</span>
+              <div className="flex-1 font-normal">
+                {renderHighlightedLine(trimmed)}
+              </div>
+            </div>
+          );
+        }
+
+        // 일반 텍스트 줄
+        return (
+          <div key={idx} className="pl-4 py-0.5 text-slate-700">
+            {renderHighlightedLine(trimmed)}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   product,
   isOpen,
@@ -630,6 +730,44 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       : product.functionalFoodDetail?.safetyPrecautionsKorean || [];
   const precautionsFullText = precautionsList.join('\n');
   const summarizedPrecautions = summarizePrecautions(precautionsList);
+
+  // 전문보기 팝업 내 형광펜 하이라이트용 키워드 추출
+  const precautionHighlightKeywords = React.useMemo(() => {
+    const list: string[] = [];
+    if (summarizedPrecautions.ageContraindication) {
+      const m = summarizedPrecautions.ageContraindication.match(/만\s*\d+\s*(?:개월|세)\s*(?:미만|이하)/);
+      if (m) list.push(m[0]);
+    }
+    list.push('임부', '수유부', '레보도파', 'Levodopa', '테트라사이클린', '제산제', '와파린');
+    if (summarizedPrecautions.generalWarning) {
+      if (summarizedPrecautions.generalWarning.includes('고칼슘혈증')) list.push('고칼슘혈증');
+      if (summarizedPrecautions.generalWarning.includes('신장결석')) list.push('신장결석');
+      if (summarizedPrecautions.generalWarning.includes('신부전')) list.push('신부전');
+    }
+    return list;
+  }, [summarizedPrecautions]);
+
+  const indicationHighlightKeywords = React.useMemo(() => {
+    return [
+      '육체피로',
+      '체력저하',
+      '신경통',
+      '근육통',
+      '관절통',
+      '눈의 피로',
+      '눈의피로',
+      '구내염',
+      '설염',
+      '피부염',
+      '습진',
+      '구루병',
+      '뼈',
+      '치아',
+      '아연',
+      '면역',
+      '간기능'
+    ];
+  }, []);
 
   const regulatoryCode =
     product.otcDetail?.itemSeq || product.functionalFoodDetail?.reportNo || '';
@@ -1096,10 +1234,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
-              <div className="p-5 overflow-y-auto text-xs text-slate-800 leading-relaxed whitespace-pre-line font-mono bg-white select-text">
-                {otcIndicationsFullText ||
-                  product.functionalFoodDetail?.functionalClaimsKorean?.join('\n\n') ||
-                  '전문 내용이 없습니다.'}
+              <div className="p-6 overflow-y-auto max-h-[72vh] bg-white select-text">
+                {renderFormattedApiText(
+                  otcIndicationsFullText ||
+                    product.functionalFoodDetail?.functionalClaimsKorean?.join('\n\n') ||
+                    '',
+                  indicationHighlightKeywords
+                )}
               </div>
             </div>
           </div>
@@ -1116,10 +1257,15 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col border border-slate-200 overflow-hidden"
             >
               <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0">
-                <h4 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-rose-600" />
-                  <span>사용상의 주의사항 API 전문</span>
-                </h4>
+                <div className="flex items-center gap-2.5">
+                  <h4 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-rose-600" />
+                    <span>사용상의 주의사항 API 전문</span>
+                  </h4>
+                  <span className="text-[10px] font-bold text-amber-900 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full">
+                    형광펜: 복약 요약 항목
+                  </span>
+                </div>
                 <button
                   type="button"
                   onClick={() => setIsPrecautionsFullModalOpen(false)}
@@ -1128,8 +1274,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <X className="w-3.5 h-3.5" />
                 </button>
               </div>
-              <div className="p-5 overflow-y-auto text-xs text-slate-800 leading-relaxed whitespace-pre-line font-mono bg-white select-text">
-                {precautionsFullText || '주의사항 전문 내용이 없습니다.'}
+              <div className="p-6 overflow-y-auto max-h-[72vh] bg-white select-text">
+                {renderFormattedApiText(precautionsFullText, precautionHighlightKeywords)}
               </div>
             </div>
           </div>

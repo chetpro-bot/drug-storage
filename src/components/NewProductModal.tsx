@@ -35,7 +35,6 @@ import {
   AlertTriangle,
   Check,
   RotateCcw,
-  FileSearch,
   Paperclip,
   Edit3,
   MapPin,
@@ -887,18 +886,11 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
               {isEditMode ? <Edit3 className="w-5 h-5" /> : <Database className="w-5 h-5" />}
             </div>
             <div>
-              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <span>
-                  {isEditMode
-                    ? `등록 품목 정보 및 성분 수정 — ${productToEdit?.productName}`
-                    : '공공데이터(식약처 의약품 · 식품안전나라 건기식/식품) 연동 & 신규 품목 등록'}
-                </span>
-              </h3>
-              <p className="text-xs text-slate-500">
+              <h3 className="font-bold text-slate-900 text-base">
                 {isEditMode
-                  ? '제품 기본 정보, 제형, 복용법, 규격 및 유효 성분/함량 수정 ➔ 실시간 클라우드 동기화'
-                  : '일반의약품(식약처 허가정보) · 건강기능식품(I0030/C003) · 일반식품(I1250) 조회 ➔ 영문 INN 매핑 ➔ 약사 검수'}
-              </p>
+                  ? `품목 정보 수정 — ${productToEdit?.productName}`
+                  : '신규 품목 등록'}
+              </h3>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -922,35 +914,11 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
 
         {/* 모달 본문 (스크롤 영역) */}
         <div className="p-6 overflow-y-auto flex-1 space-y-5">
-          {/* STEP 1. 제품 기본 정보 및 공공API 조회 */}
+          {/* 제품 기본 정보 및 공공API 조회 */}
           <div className="p-4 bg-slate-50/70 border border-slate-200 rounded-xl space-y-3.5">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <span className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
-                <FileSearch className="w-4 h-4 text-sky-600" />
-                <span>[1단계] 제품 기본 정보 및 식약처 · 식품안전나라 공공 규격 조회</span>
-              </span>
-              <div className="flex items-center gap-1.5">
-                {classification === 'OTC_DRUG' && (
-                  <span className="text-[11px] text-blue-700 bg-blue-100/80 border border-blue-200 px-2 py-0.5 rounded font-semibold">
-                    공공데이터포털 · 의약품 제품 허가정보 API
-                  </span>
-                )}
-                {classification === 'HEALTH_FUNCTIONAL_FOOD' && (
-                  <span className="text-[11px] text-emerald-800 bg-emerald-100/90 border border-emerald-200 px-2 py-0.5 rounded font-semibold">
-                    식품안전나라 · 건강기능식품 I0030 / C003 API (+ I1250 보조)
-                  </span>
-                )}
-                {classification === 'GENERAL_FOOD' && (
-                  <span className="text-[11px] text-slate-700 bg-slate-200/80 border border-slate-300 px-2 py-0.5 rounded font-semibold">
-                    식품안전나라 · 식품(첨가물)품목제조보고 I1250 API
-                  </span>
-                )}
-              </div>
-            </div>
-
             <div className="grid grid-cols-12 gap-2.5 items-end">
               <div className="col-span-3">
-                <label className="block font-bold text-slate-700 mb-1 text-xs">
+                <label className="block font-bold text-slate-700 mb-1 text-xs text-center">
                   제약회사 / 제조업소
                 </label>
                 <input
@@ -973,7 +941,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
               </div>
 
               <div className="col-span-3">
-                <label className="block font-bold text-slate-700 mb-1 text-xs">
+                <label className="block font-bold text-slate-700 mb-1 text-xs text-center">
                   제품명 *
                 </label>
                 <input
@@ -998,7 +966,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
               </div>
 
               <div className="col-span-2">
-                <label className="block font-bold text-slate-700 mb-1 text-xs">
+                <label className="block font-bold text-slate-700 mb-1 text-xs text-center">
                   분류 체계
                 </label>
                 <select
@@ -1017,7 +985,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
               </div>
 
               <div className="col-span-2">
-                <label className="block font-bold text-slate-700 mb-1 text-xs">
+                <label className="block font-bold text-slate-700 mb-1 text-xs text-center">
                   품목기준코드 / 품목제조번호
                 </label>
                 <input
@@ -1035,12 +1003,12 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                 />
               </div>
 
-              <div className="col-span-2 flex gap-1.5">
+              <div className="col-span-2">
                 <button
                   type="button"
                   onClick={handleFetchPublicData}
                   disabled={isLoadingPublicData}
-                  className={`flex-1 flex items-center justify-center gap-1 py-2 px-2 text-white rounded-lg font-bold shadow-xs transition-all active:scale-[0.99] text-[11px] cursor-pointer ${
+                  className={`w-full flex items-center justify-center gap-1.5 py-2 px-3 text-white rounded-lg font-bold shadow-xs transition-all active:scale-[0.99] text-xs cursor-pointer h-[38px] ${
                     classification === 'HEALTH_FUNCTIONAL_FOOD'
                       ? 'bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400'
                       : classification === 'GENERAL_FOOD'
@@ -1050,9 +1018,9 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                   title="식약처 / 식품안전나라 오픈API에서 제품 실시간 검색 및 후보 선택"
                 >
                   {isLoadingPublicData ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
-                    <Search className="w-3.5 h-3.5" />
+                    <Search className="w-4 h-4" />
                   )}
                   <span>
                     {classification === 'OTC_DRUG'
@@ -1061,20 +1029,6 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                       ? '건기식 조회'
                       : '식품 조회'}
                   </span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowOcrPanel(!showOcrPanel)}
-                  className={`px-2.5 py-2 rounded-lg font-bold text-[11px] border transition-all flex items-center gap-1 shrink-0 shadow-2xs cursor-pointer ${
-                    showOcrPanel
-                      ? 'bg-purple-700 text-white border-purple-800'
-                      : 'bg-white hover:bg-purple-50 text-purple-700 border-purple-300'
-                  }`}
-                  title="약학정보원 캡처, 제약사 학술 브로슈어, 영양정보표 라벨 사진을 첨부하여 자동 분석"
-                >
-                  <Paperclip className="w-3.5 h-3.5" />
-                  <span>자료 첨부</span>
                 </button>
               </div>
             </div>
@@ -1450,7 +1404,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-emerald-600" />
                   <h4 className="font-bold text-slate-900 text-xs">
-                    [2단계] 약사 임상 검수 (Verification Table) — 성분명(English INN), 함량 확인
+                    성분 검수 및 편집
                   </h4>
                 </div>
 
@@ -1837,57 +1791,50 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
         </div>
 
         {/* 모달 푸터 액션 */}
-        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-between">
-          <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>약국 PC & 집 PC 실시간 Firestore 리스너 동기화 준비 완료</span>
-          </div>
+        <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-2.5">
+          <button
+            type="button"
+            onClick={handleClose}
+            className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 font-semibold hover:bg-slate-100 text-xs cursor-pointer"
+          >
+            취소
+          </button>
 
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={handleClose}
-              className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 font-semibold hover:bg-slate-100 text-xs cursor-pointer"
-            >
-              취소
-            </button>
-
-            <button
-              type="button"
-              onClick={handleSaveToCloud}
-              disabled={verifiedIngredients.length === 0 || isSubmitting || !!currentDuplicate}
-              className={`px-6 py-2 rounded-lg font-bold shadow-md transition-all flex items-center gap-2 text-xs cursor-pointer ${
-                currentDuplicate
-                  ? 'bg-rose-200 text-rose-500 cursor-not-allowed border border-rose-300'
-                  : isEditMode
-                  ? 'bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white active:scale-[0.98]'
-                  : 'bg-sky-600 hover:bg-sky-700 disabled:bg-slate-300 text-white active:scale-[0.98]'
-              }`}
-              title={currentDuplicate ? '이미 취급 목록에 등록된 품목입니다' : undefined}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>{isEditMode ? '수정 내용 클라우드 반영 중...' : '약국 Cloud DB 동기화 중...'}</span>
-                </>
-              ) : currentDuplicate ? (
-                <>
-                  <AlertTriangle className="w-4 h-4 text-rose-500" />
-                  <span>이미 등록된 품목 (등록 불가)</span>
-                </>
-              ) : isEditMode ? (
-                <>
-                  <Check className="w-4 h-4" />
-                  <span>수정 내용 저장 및 실시간 동기화</span>
-                </>
-              ) : (
-                <>
-                  <Database className="w-4 h-4" />
-                  <span>약국 Cloud DB에 저장 및 실시간 동기화</span>
-                </>
-              )}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleSaveToCloud}
+            disabled={verifiedIngredients.length === 0 || isSubmitting || !!currentDuplicate}
+            className={`px-6 py-2 rounded-lg font-bold shadow-md transition-all flex items-center gap-2 text-xs cursor-pointer ${
+              currentDuplicate
+                ? 'bg-rose-200 text-rose-500 cursor-not-allowed border border-rose-300'
+                : isEditMode
+                ? 'bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white active:scale-[0.98]'
+                : 'bg-sky-600 hover:bg-sky-700 disabled:bg-slate-300 text-white active:scale-[0.98]'
+            }`}
+            title={currentDuplicate ? '이미 취급 목록에 등록된 품목입니다' : undefined}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>{isEditMode ? '수정 중...' : '등록 중...'}</span>
+              </>
+            ) : currentDuplicate ? (
+              <>
+                <AlertTriangle className="w-4 h-4 text-rose-500" />
+                <span>이미 등록된 품목</span>
+              </>
+            ) : isEditMode ? (
+              <>
+                <Check className="w-4 h-4" />
+                <span>수정 완료</span>
+              </>
+            ) : (
+              <>
+                <Database className="w-4 h-4" />
+                <span>등록하기</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
     </div>

@@ -93,6 +93,16 @@ function migrateAndEnsureKpic(products: ProductItem[]): ProductItem[] {
         }
       }
 
+      // 4. 아미노산 제제 접미사 제거 (예: '비필수 아미노산제제' -> '비필수 아미노산')
+      if (currentCat && (currentCat === '비필수 아미노산제제' || currentCat === '비필수 아미노산 제제')) {
+        currentCat = '비필수 아미노산';
+        hasChanges = true;
+      }
+      if (currentCat && (currentCat === '아미노산제제' || currentCat === '아미노산 제제')) {
+        currentCat = '아미노산';
+        hasChanges = true;
+      }
+
       if (currentCat !== ing.functionalCategory) {
         return { ...ing, functionalCategory: currentCat };
       }

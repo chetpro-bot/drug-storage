@@ -444,7 +444,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '타우린': {
     englishInn: 'Taurine',
-    functionalCategory: '비필수 아미노산제제',
+    functionalCategory: '비필수 아미노산',
     chemicalFormName: '함황 아미노설폰산 (타우린)',
     defaultUnit: 'mg',
     clinicalSummary: '• 담즙산 결합 및 삼투압 조절, 심근 수축력 및 근육 피로 완화'

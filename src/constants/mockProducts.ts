@@ -235,7 +235,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       {
         ingredientId: 'ing_taurine',
         englishInn: 'Taurine',
-        functionalCategory: '비필수 아미노산제제',
+        functionalCategory: '비필수 아미노산',
         chemicalFormName: '유리 아미노산 (타우린)',
         rawAmount: 100,
         unit: 'mg',

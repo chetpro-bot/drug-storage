@@ -9,6 +9,17 @@ export function normalizeCategory(cat: string): string {
     return '엽산';
   }
 
+  // 아미노산 '제제' 접미사 제거
+  if (res === '비필수 아미노산제제' || res === '비필수 아미노산 제제') {
+    return '비필수 아미노산';
+  }
+  if (res === '아미노산제제' || res === '아미노산 제제') {
+    return '아미노산';
+  }
+  if (res === '무기질(Mineral)제제' || res === '무기질제제') {
+    return '무기질';
+  }
+
   // 미네랄 원소기호 제거
   if (res === '마그네슘(Mg)') return '마그네슘';
   if (res === '아연(Zn)') return '아연';
@@ -56,8 +67,8 @@ export const STANDARD_EFFICACY_CATEGORIES = [
   '소염효소',
   '장내 가스 제거제',
   '담석용해제',
-  '비필수 아미노산제제',
-  '아미노산제제',
+  '비필수 아미노산',
+  '아미노산',
   '간보호제',
   '기타 간장 약물',
   '자율신경제',
@@ -132,7 +143,9 @@ export function getCategoryColor(cat: string): string {
       return 'bg-purple-50 text-purple-700 border-purple-200';
     case '담석용해제':
       return 'bg-teal-50 text-teal-700 border-teal-200';
+    case '비필수 아미노산':
     case '비필수 아미노산제제':
+    case '아미노산':
     case '아미노산제제':
       return 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200';
     case '간보호제':

@@ -490,22 +490,16 @@ function renderFormattedApiText(fullText: string, highlightKeywords: string[]) {
 
         if (isLevel2) {
           return (
-            <div key={idx} className="pl-4 py-0.5 flex items-start gap-2">
-              <span className="text-slate-400 font-bold shrink-0 text-[11px] mt-0.5">↳</span>
-              <div className="flex-1 text-slate-800 font-medium">
-                {renderHighlightedLine(trimmed)}
-              </div>
+            <div key={idx} className="pl-4 py-0.5 text-slate-800 font-medium">
+              {renderHighlightedLine(trimmed)}
             </div>
           );
         }
 
         if (isLevel3) {
           return (
-            <div key={idx} className="pl-8 py-0.5 flex items-start gap-2 text-slate-700">
-              <span className="text-slate-300 font-bold shrink-0">•</span>
-              <div className="flex-1 font-normal">
-                {renderHighlightedLine(trimmed)}
-              </div>
+            <div key={idx} className="pl-8 py-0.5 text-slate-700 font-normal">
+              {renderHighlightedLine(trimmed)}
             </div>
           );
         }

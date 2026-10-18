@@ -402,6 +402,10 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
                 .replace(/이노시톨/gi, 'Inositol')
                 .replace(/산화아연/gi, 'Zinc oxide')
                 .replace(/산화마그네슘/gi, 'Magnesium oxide')
+                .replace(/시트르산마그네슘수화물|구연산마그네슘수화물/gi, 'Magnesium Citrate Hydrate')
+                .replace(/시트르산마그네슘|구연산마그네슘/gi, 'Magnesium Citrate')
+                .replace(/글리세로인산마그네슘/gi, 'Magnesium Glycerophosphate')
+                .replace(/초산디알파토코페롤/gi, 'D-Alpha-Tocopherol Acetate')
                 .trim();
 
               return (

@@ -896,6 +896,34 @@ D-비오틴 0.05mg
     searchKeywords: ['마그비', '마그비스피드', '액상마그네슘', '유한양행']
   },
 
+  // --- [일동제약 마그라민 라인업] ---
+  {
+    id: 'kpaic_magramin_triple',
+    productName: '마그라민트리플액션정',
+    manufacturer: '일동제약',
+    classification: 'OTC_DRUG',
+    dosageForm: 'FILM_COATED_TABLET',
+    packagingUnit: '120정/상자 [60정/병 x 2]',
+    dailyServings: 1,
+    amountPerServing: 1,
+    servingUnitKorean: '정',
+    regulatoryCode: '202107129',
+    rawIngredientsText: `산화마그네슘 (Magnesium Oxide) 445mg (마그네슘으로서 268.3mg)
+글리세로인산마그네슘 (Magnesium Glycerophosphate) 50mg (마그네슘으로서 6.3mg)
+시트르산마그네슘수화물 (Magnesium Citrate Hydrate) 50mg
+피리독신염산염 (Pyridoxine Hydrochloride) 25mg
+초산디알파토코페롤 (D-Alpha-Tocopherol Acetate) 142.8571mg (비타민E로서 100IU)
+푸르설티아민 (Fursultiamine) 25mg
+콜레칼시페롤농축분말 (Cholecalciferol Concentrated Powder) 10mg`,
+    dosageInstruction: '만 12세 이상 및 성인 : 1일 1회, 1회 1정 식후 복용',
+    indicationsSummary: [
+      '마그네슘 결핍으로 인한 근육경련 완화 (3종 복합 마그네슘: 산화+글리세로인산+시트르산수화물)',
+      '말초혈행장애 및 갱년기 시 어깨·목결림, 수족저림·수족냉증 완화',
+      '비타민 D, E, B1, B6의 보급: 육체피로, 신경통, 근육통, 관절통 완화'
+    ],
+    searchKeywords: ['마그라민', '마그라민트리플', '마그라민트리플액션정', '트리플액션', '일동제약', '일동']
+  },
+
   // --- [대원제약 올대원맥스정] ---
   {
     id: 'kpaic_oldaewon_max',
@@ -1871,6 +1899,11 @@ function resolveKpaicEnglishIngredientName(korName: string, mainIngrEng?: string
     '감마오리자놀': 'γ-Oryzanol',
     '산화마그네슘': 'Magnesium Oxide',
     '글리세로인산마그네슘': 'Magnesium Glycerophosphate',
+    '시트르산마그네슘수화물': 'Magnesium Citrate Hydrate',
+    '시트르산마그네슘': 'Magnesium Citrate',
+    '구연산마그네슘수화물': 'Magnesium Citrate Hydrate',
+    '구연산마그네슘': 'Magnesium Citrate',
+    '초산디알파토코페롤': 'D-Alpha-Tocopherol Acetate',
     'L-시스테인': 'L-Cysteine',
     '유비데카레논': 'Ubidecarenone',
     'DL-메티오닌': 'DL-Methionine',
@@ -1880,6 +1913,31 @@ function resolveKpaicEnglishIngredientName(korName: string, mainIngrEng?: string
 
   if (kpaicStandardMap[cleanKor]) {
     return kpaicStandardMap[cleanKor];
+  }
+
+  // 식약처 MAIN_INGR_ENG 목록과 한글 성분명의 화학적 염/형태 스마트 교차 매칭
+  if (mainIngrEng) {
+    const candidates = mainIngrEng.split('/').map(s => s.trim()).filter(Boolean);
+    // 시트르산/구연산 마그네슘 (Magnesium Citrate Hydrate / Magnesium Citrate)
+    if ((cleanKor.includes('시트르산') || cleanKor.includes('구연산')) && cleanKor.includes('마그네슘')) {
+      const match = candidates.find(c => /magnesium/i.test(c) && /citrate/i.test(c));
+      if (match) return match;
+    }
+    // 글리세로인산 마그네슘 (Magnesium Glycerophosphate)
+    if (cleanKor.includes('글리세로인산') && cleanKor.includes('마그네슘')) {
+      const match = candidates.find(c => /magnesium/i.test(c) && /glycerophosphate/i.test(c));
+      if (match) return match;
+    }
+    // 산화 마그네슘 (Magnesium Oxide)
+    if (cleanKor.includes('산화마그네슘')) {
+      const match = candidates.find(c => /magnesium/i.test(c) && /oxide/i.test(c));
+      if (match) return match;
+    }
+    // 초산디알파토코페롤 / 토코페롤아세테이트
+    if (cleanKor.includes('토코페롤') && (cleanKor.includes('디알파') || cleanKor.includes('초산'))) {
+      const match = candidates.find(c => /tocopherol/i.test(c) && /acetate/i.test(c));
+      if (match) return match;
+    }
   }
 
   // 사전에서 매칭 후 Title Case 변환

@@ -270,7 +270,126 @@ function migrateAndEnsureKpic(products: ProductItem[]): ProductItem[] {
       }
     }
 
-    // 6. 일반 식품/음료류에서 유입된 영양정보 비성분(나트륨, 탄수화물, 당류, 지방, 단백질, 칼로리 등) 자동 정돈
+    // 6. '마그라민트리플액션정' 성분 규격 자동 보정 (약학정보원 및 식약처 공식 규격: Magnesium Citrate Hydrate 50mg 포함 7종 성분 보장)
+    if (prod.productName.includes('마그라민트리플액션')) {
+      const hasCitrate = prod.ingredients.some(i => 
+        /citrate|시트르산|구연산/i.test(i.englishInn || '') || 
+        /citrate|시트르산|구연산/i.test(i.koreanName || '') ||
+        /citrate|시트르산|구연산/i.test(i.formattedSpecification || '')
+      );
+      const hasGenericMg50 = prod.ingredients.some(i => 
+        (i.englishInn === 'Magnesium' || i.englishInn === '마그네슘') && i.rawAmount === 50
+      );
+
+      if (!hasCitrate || hasGenericMg50 || prod.ingredients.length < 7) {
+        hasChanges = true;
+        const exactMagraminIngredients: ProductIngredientEntry[] = [
+          {
+            ingredientId: 'ing_magramin_mg_ox',
+            englishInn: 'Magnesium Oxide',
+            koreanName: '산화마그네슘',
+            functionalCategory: '마그네슘(Mg)',
+            chemicalFormName: '무기염 (산화마그네슘)',
+            rawAmount: 445,
+            unit: 'mg',
+            elementalAmount: 268.3,
+            standardKey: 'MAGNESIUM',
+            isMainActive: true,
+            formattedSpecification: 'Magnesium Oxide 445mg (Magnesium 268.3mg)',
+            clinicalSummary: '• 신경 자극 전달 조절 및 근육 수축·이완 정상화, 세포 내 ATP 결합 안정화'
+          },
+          {
+            ingredientId: 'ing_magramin_mg_gp',
+            englishInn: 'Magnesium Glycerophosphate',
+            koreanName: '글리세로인산마그네슘',
+            functionalCategory: '마그네슘(Mg)',
+            chemicalFormName: '유기인산염 (글리세로인산마그네슘)',
+            rawAmount: 50,
+            unit: 'mg',
+            elementalAmount: 6.3,
+            standardKey: 'MAGNESIUM',
+            isMainActive: true,
+            formattedSpecification: 'Magnesium Glycerophosphate 50mg (Magnesium 6.3mg)',
+            clinicalSummary: '• 설사 유발 위험이 적고 생체흡수율이 뛰어난 유기염 마그네슘'
+          },
+          {
+            ingredientId: 'ing_magramin_mg_cit',
+            englishInn: 'Magnesium Citrate Hydrate',
+            koreanName: '시트르산마그네슘수화물',
+            functionalCategory: '마그네슘(Mg)',
+            chemicalFormName: '유기염 (시트르산마그네슘수화물)',
+            rawAmount: 50,
+            unit: 'mg',
+            standardKey: 'MAGNESIUM',
+            isMainActive: true,
+            formattedSpecification: 'Magnesium Citrate Hydrate 50mg',
+            clinicalSummary: '• 흡수율과 생체이용률이 우수하고 위장 부담이 적은 유기산염(구연산) 마그네슘 수화물'
+          },
+          {
+            ingredientId: 'ing_magramin_b6',
+            englishInn: 'Pyridoxine Hydrochloride',
+            koreanName: '피리독신염산염',
+            functionalCategory: '비타민B6',
+            chemicalFormName: '염산염 (피리독신염산염)',
+            rawAmount: 25,
+            unit: 'mg',
+            standardKey: 'VITAMIN_B6',
+            isMainActive: false,
+            formattedSpecification: 'Pyridoxine Hydrochloride 25mg',
+            clinicalSummary: '• 단백질 및 아미노산 대사, 마그네슘의 세포 내 유입 보조'
+          },
+          {
+            ingredientId: 'ing_magramin_vite',
+            englishInn: 'D-Alpha-Tocopherol Acetate',
+            koreanName: '초산디알파토코페롤',
+            functionalCategory: '비타민E',
+            chemicalFormName: '천연형 유도체 (초산 d-α-토코페롤)',
+            rawAmount: 142.8571,
+            unit: 'mg',
+            elementalAmount: 100,
+            standardKey: 'VITAMIN_E',
+            isMainActive: true,
+            formattedSpecification: 'D-Alpha-Tocopherol Acetate 142.8571mg (Vitamin E 100IU)',
+            clinicalSummary: '• 생체이용률이 우수한 천연형(d-alpha) 비타민 E 아세테이트\n• 지질 항산화 및 말초혈행 장애(어깨결림, 수족저림) 완화'
+          },
+          {
+            ingredientId: 'ing_magramin_b1',
+            englishInn: 'Fursultiamine',
+            koreanName: '푸르설티아민',
+            functionalCategory: '비타민B1',
+            chemicalFormName: '활성형 (푸르설티아민)',
+            rawAmount: 25,
+            unit: 'mg',
+            standardKey: 'VITAMIN_B1',
+            isMainActive: false,
+            formattedSpecification: 'Fursultiamine 25mg',
+            clinicalSummary: '• 뇌혈관장벽(BBB) 및 세포막 통과 우수, 신경통·근육통 완화'
+          },
+          {
+            ingredientId: 'ing_magramin_vitd',
+            englishInn: 'Cholecalciferol Concentrated Powder',
+            koreanName: '콜레칼시페롤농축분말',
+            functionalCategory: '비타민D',
+            chemicalFormName: '농축 분말 (콜레칼시페롤)',
+            rawAmount: 10,
+            unit: 'mg',
+            standardKey: 'VITAMIN_D',
+            isMainActive: false,
+            formattedSpecification: 'Cholecalciferol Concentrated Powder 10mg',
+            clinicalSummary: '• 칼슘 및 마그네슘 대사 조절, 뼈 형성 및 근육 기능 유지'
+          }
+        ];
+        const updated = {
+          ...prod,
+          ingredients: exactMagraminIngredients,
+          updatedAt: new Date().toISOString()
+        };
+        saveProductToFirestore(updated).catch(() => {});
+        return updated;
+      }
+    }
+
+    // 7. 일반 식품/음료류에서 유입된 영양정보 비성분(나트륨, 탄수화물, 당류, 지방, 단백질, 칼로리 등) 자동 정돈
     const hasFoodGarbage = prod.ingredients.some(i =>
       /(?:나트륨|탄수화물|당류|지방|트랜스지방|포화지방|콜레스테롤|단백질|열량|칼로리|kcal|내용량|총내용량|정제수)/i.test(
         i.englishInn || i.koreanName || ''

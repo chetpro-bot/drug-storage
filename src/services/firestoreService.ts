@@ -97,7 +97,11 @@ export async function saveProductToFirestore(product: ProductItem): Promise<void
       ...product,
       updatedAt: new Date().toISOString()
     });
-    await setDoc(docRef, dataToSave, { merge: true });
+    const savePromise = setDoc(docRef, dataToSave, { merge: true });
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Firestore 저장 타임아웃 (로컬에 우선 보존됨)')), 2500)
+    );
+    await Promise.race([savePromise, timeoutPromise]);
   } catch (e: any) {
     console.warn('Firestore 저장 알림 (로컬에 안전하게 보존됩니다):', e?.message || e);
   }
@@ -110,7 +114,11 @@ export async function deleteProductFromFirestore(productId: string): Promise<voi
   if (!isLiveFirebaseConfigured()) return;
   try {
     const docRef = doc(db, PRODUCTS_COLLECTION, productId);
-    await deleteDoc(docRef);
+    const deletePromise = deleteDoc(docRef);
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Firestore 삭제 타임아웃 (로컬에서 우선 삭제됨)')), 2500)
+    );
+    await Promise.race([deletePromise, timeoutPromise]);
   } catch (e: any) {
     console.warn('Firestore 삭제 알림 (로컬에서는 삭제 완료되었습니다):', e?.message || e);
   }

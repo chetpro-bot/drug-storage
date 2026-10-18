@@ -436,6 +436,9 @@ export const useProductStore = create<ProductState>((set, get) => {
           isSyncing: false,
           selectedProductId: state.selectedProductId || mergedList[0]?.id || null
         }));
+      }, (error) => {
+        console.warn('Firestore 리스너 에러 (로컬 캐시 안전 모드):', error);
+        set({ isSyncing: false });
       });
       return unsubscribe;
     },
@@ -449,11 +452,11 @@ export const useProductStore = create<ProductState>((set, get) => {
       );
       persistToLocal(next);
       set({ products: next, selectedProductId: product.id });
-      try {
-        await saveProductToFirestore(product);
-      } catch (e) {
+
+      // 백그라운드 Firestore 동기화 (UI 블로킹 방지)
+      saveProductToFirestore(product).catch((e) => {
         console.warn('Firestore 저장 비동기 처리 알림:', e);
-      }
+      });
     },
 
     updateProduct: async (id, partial) => {
@@ -537,12 +540,11 @@ export const useProductStore = create<ProductState>((set, get) => {
           : state.selectedProductId
       }));
 
+      // 백그라운드 Firestore 삭제 (UI 블로킹 방지)
       for (const dId of idsToDelete) {
-        try {
-          await deleteProductFromFirestore(dId);
-        } catch (e) {
+        deleteProductFromFirestore(dId).catch((e) => {
           console.warn('Firestore 삭제 비동기 처리 알림:', e);
-        }
+        });
       }
     },
 

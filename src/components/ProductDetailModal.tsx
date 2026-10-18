@@ -732,42 +732,37 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const summarizedPrecautions = summarizePrecautions(precautionsList);
 
   // 전문보기 팝업 내 형광펜 하이라이트용 키워드 추출
-  const precautionHighlightKeywords = React.useMemo(() => {
-    const list: string[] = [];
-    if (summarizedPrecautions.ageContraindication) {
-      const m = summarizedPrecautions.ageContraindication.match(/만\s*\d+\s*(?:개월|세)\s*(?:미만|이하)/);
-      if (m) list.push(m[0]);
-    }
-    list.push('임부', '수유부', '레보도파', 'Levodopa', '테트라사이클린', '제산제', '와파린');
-    if (summarizedPrecautions.generalWarning) {
-      if (summarizedPrecautions.generalWarning.includes('고칼슘혈증')) list.push('고칼슘혈증');
-      if (summarizedPrecautions.generalWarning.includes('신장결석')) list.push('신장결석');
-      if (summarizedPrecautions.generalWarning.includes('신부전')) list.push('신부전');
-    }
-    return list;
-  }, [summarizedPrecautions]);
+  const precautionHighlightKeywords: string[] = [];
+  if (summarizedPrecautions.ageContraindication) {
+    const m = summarizedPrecautions.ageContraindication.match(/만\s*\d+\s*(?:개월|세)\s*(?:미만|이하)/);
+    if (m) precautionHighlightKeywords.push(m[0]);
+  }
+  precautionHighlightKeywords.push('임부', '수유부', '레보도파', 'Levodopa', '테트라사이클린', '제산제', '와파린');
+  if (summarizedPrecautions.generalWarning) {
+    if (summarizedPrecautions.generalWarning.includes('고칼슘혈증')) precautionHighlightKeywords.push('고칼슘혈증');
+    if (summarizedPrecautions.generalWarning.includes('신장결석')) precautionHighlightKeywords.push('신장결석');
+    if (summarizedPrecautions.generalWarning.includes('신부전')) precautionHighlightKeywords.push('신부전');
+  }
 
-  const indicationHighlightKeywords = React.useMemo(() => {
-    return [
-      '육체피로',
-      '체력저하',
-      '신경통',
-      '근육통',
-      '관절통',
-      '눈의 피로',
-      '눈의피로',
-      '구내염',
-      '설염',
-      '피부염',
-      '습진',
-      '구루병',
-      '뼈',
-      '치아',
-      '아연',
-      '면역',
-      '간기능'
-    ];
-  }, []);
+  const indicationHighlightKeywords = [
+    '육체피로',
+    '체력저하',
+    '신경통',
+    '근육통',
+    '관절통',
+    '눈의 피로',
+    '눈의피로',
+    '구내염',
+    '설염',
+    '피부염',
+    '습진',
+    '구루병',
+    '뼈',
+    '치아',
+    '아연',
+    '면역',
+    '간기능'
+  ];
 
   const regulatoryCode =
     product.otcDetail?.itemSeq || product.functionalFoodDetail?.reportNo || '';

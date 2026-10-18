@@ -1,6 +1,6 @@
 {
   "name": "pharmacy-nutri-dashboard",
-  "version": "1.4.7",
+  "version": "1.4.8",
   "private": true,
   "description": "PC-based Nutritional Supplement Management & Clinical Consultation Dashboard for Pharmacies",
   "type": "module",

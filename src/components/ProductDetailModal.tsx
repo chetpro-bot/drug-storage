@@ -284,6 +284,143 @@ function buildHealthFunctionalFoodClaims(product: ProductItem): string[] {
   });
 }
 
+/**
+ * 효능·효과 전문을 상담 시 한눈에 파악하기 좋게 핵심 효능별로 요약
+ */
+function summarizeIndications(rawLines: string[]): string[] {
+  if (!rawLines || rawLines.length === 0) return [];
+  const fullText = rawLines.join('\n');
+  const summarized: string[] = [];
+
+  // 1. 피로/비타민 보급군
+  if (/육체피로|체력저하|발육기|노년기|임신|수유기|비타민.*보급/i.test(fullText)) {
+    summarized.push('육체피로 · 체력저하 시 비타민 보급 (임신·수유기, 발육기, 노년기)');
+  }
+  // 2. 통증 완화군
+  if (/신경통|근육통|관절통|요통|어깨결림|각기/i.test(fullText)) {
+    summarized.push('신경통 · 근육통 · 관절통(요통, 어깨결림) 및 각기 증상 완화');
+  }
+  // 3. 눈의 피로
+  if (/눈의\s*피로|안구/i.test(fullText)) {
+    summarized.push('눈의 피로 완화');
+  }
+  // 4. 구내염/피부 점막
+  if (/구내염|구순염|구각염|설염|피부염|습진/i.test(fullText)) {
+    summarized.push('구내염(입안염) · 설염(혀염) · 구순염 · 구각염 및 피부염 완화');
+  }
+  // 5. 뼈/치아/구루병
+  if (/뼈.*치아|치아.*발육|구루병/i.test(fullText)) {
+    summarized.push('뼈 · 치아 발육불량 및 구루병 예방');
+  }
+  // 6. 아연/면역
+  if (/아연.*보급|면역.*기능|세포분열/i.test(fullText)) {
+    summarized.push('면역 기능 정상화 및 아연 보급');
+  }
+  // 7. 간기능/해독/UDCA
+  if (/간기능|간질환|이담|소화/i.test(fullText)) {
+    summarized.push('간기능 개선 및 담즙 분비 촉진');
+  }
+
+  // 매칭된 표준 카테고리가 없는 경우 원본 텍스트를 문장 단위로 정제하여 상위 최대 4줄 추출
+  if (summarized.length === 0) {
+    const cleaned = rawLines
+      .map((l) => l.replace(/^[\d+·\-\*\s]+/, '').trim())
+      .filter((l) => l.length > 0 && !l.includes('첨부문서 참조'));
+    return cleaned.slice(0, 4);
+  }
+
+  return summarized;
+}
+
+interface PrecautionsSummaryResult {
+  ageContraindication?: string; // 연령 금기
+  pregnancyContraindication?: string; // 임부 및 수유부 금기
+  drugInteractions: string[]; // 약물 및 병용 금기/주의 성분
+  generalWarning?: string; // 주요 신중투여/주의사항
+}
+
+/**
+ * 복약지도 핵심 기준(연령금기, 임부/수유부 금기, 약과 병용 금기 성분)으로 주의사항 전문 요약
+ */
+function summarizePrecautions(rawLines: string[]): PrecautionsSummaryResult {
+  const fullText = (rawLines || []).join('\n');
+  const result: PrecautionsSummaryResult = {
+    drugInteractions: []
+  };
+
+  if (!fullText || fullText.includes('첨부문서 참조')) {
+    return result;
+  }
+
+  // 1. 연령 금기 추출
+  const ageMatch = fullText.match(
+    /(만\s*\d+\s*(?:개월|세)\s*(?:미만|이하)[^\n\.,]*?(?:투여하지\s*말|복용하지\s*말|금기|복용금지))/i
+  ) || fullText.match(/(\d+\s*(?:개월|세)\s*(?:미만|이하)[^\n\.,]*?(?:투여하지\s*말|복용하지\s*말|금기))/i);
+  if (ageMatch) {
+    result.ageContraindication = ageMatch[1].trim();
+  }
+
+  // 2. 임부 및 수유부 금기/주의 추출
+  if (/임부|임신하고\s*있을\s*가능성|수유부/i.test(fullText)) {
+    if (/임부[^\n\.]*?(?:투여하지\s*말|복용하지\s*말|금기)/i.test(fullText)) {
+      result.pregnancyContraindication = '임부 또는 임신 가능성 여성: 복용 금기';
+    } else if (/비타민\s*A[^\n\.]*?5,000\s*IU|기형아/i.test(fullText)) {
+      result.pregnancyContraindication = '임부(임신 3개월 이내 또는 임신 계획 여성): 비타민 A 1일 5,000 IU 이상 투여 금지(기형 유발 위험)';
+    } else if (/수유부[^\n\.]*?(?:투여하지\s*말|복용하지\s*말)/i.test(fullText)) {
+      result.pregnancyContraindication = '임부 및 수유부: 복용 전 의사/약사 상담 필수 (모유로 이행 가능)';
+    } else {
+      result.pregnancyContraindication = '임부 및 수유부: 복용 전 전문가 상담 필수 (고함량 복용 주의)';
+    }
+  }
+
+  // 3. 약물 병용 금기 성분 위주 추출
+  // 레보도파
+  if (/레보도파|levodopa/i.test(fullText)) {
+    result.drugInteractions.push(
+      '레보도파(Levodopa): 병용 금기 (피리독신이 레보도파의 말초 대사를 촉진하여 약효를 현저히 감소시킴)'
+    );
+  }
+  // 테트라사이클린계 항생제
+  if (/테트라사이클린|미노씬|독시사이클린|tetracycline/i.test(fullText)) {
+    result.drugInteractions.push(
+      '테트라사이클린(Tetracycline)계 항생제: 병용 주의 (미네랄과 착염 형성으로 흡수 저하, 2~4시간 간격 복용)'
+    );
+  }
+  // 퀴놀론계/플루오로퀴놀론계 항생제
+  if (/플루오로퀴놀론|퀴놀론|ciprofloxacin|levofloxacin|norfloxacin/i.test(fullText)) {
+    result.drugInteractions.push(
+      '퀴놀론(Quinolone)계 항생제: 병용 주의 (금속 이온 킬레이션으로 항생제 흡수 방해, 최소 2시간 이상 간격 복용)'
+    );
+  }
+  // 제산제, 칼슘/철분제제
+  if (/제산제|위산중화제|칼슘제|철분제제/i.test(fullText)) {
+    if (!result.drugInteractions.some(d => d.includes('제산제'))) {
+      result.drugInteractions.push(
+        '제산제 및 위장약: 제산제 복용 시 위내 pH 상승 및 킬레이트로 흡수율 변동 가능 (1~2시간 간격 권장)'
+      );
+    }
+  }
+  // 항응고제 / 와파린
+  if (/와파린|항응고제|warfarin/i.test(fullText)) {
+    result.drugInteractions.push(
+      '항응고제(와파린 등): 비타민 K 또는 고함량 비타민 E 병용 시 혈액응고 인자 변동 주의'
+    );
+  }
+  // 에스트로겐/경구피임약
+  if (/에스트로겐|경구피임약/i.test(fullText)) {
+    result.drugInteractions.push(
+      '에스트로겐 함유 경구피임약: 복용 여성은 혈전증 유발 위험 증가 주의'
+    );
+  }
+
+  // 일반 주의사항 한 줄
+  if (/고칼슘혈증|신장결석|신부전/i.test(fullText)) {
+    result.generalWarning = '고칼슘혈증 환자, 중증 신부전 환자, 신장결석 환자는 복용 금기';
+  }
+
+  return result;
+}
+
 export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   product,
   isOpen,
@@ -293,6 +430,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const { deleteProduct, updateProduct } = useProductStore();
   const [isDocsModalOpen, setIsDocsModalOpen] = useState(false);
   const [isFetchingFullApiText, setIsFetchingFullApiText] = useState(false);
+  const [isIndicationsFullModalOpen, setIsIndicationsFullModalOpen] = useState(false);
+  const [isPrecautionsFullModalOpen, setIsPrecautionsFullModalOpen] = useState(false);
 
   // 기존 DB에 저장된 제품의 주의사항이나 의약품 효능·효과가 요약본(placeholder)인 경우,
   // 모달 오픈 시 오픈API에서 전문(Full Text)을 자동으로 가져와 즉시 표시 및 DB 업데이트
@@ -475,19 +614,22 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   // 성분 정렬 (비타민 A, B1..B9..B12, C, D, E, K -> 미네랄 알파벳순 -> 기타 성분 알파벳순; 동일 분류 내 알파벳순)
   const sortedIngredients = sortProductIngredients(product.ingredients, product.productName);
 
-  // 일반의약품: 식약처 효능·효과 전문 텍스트
-  const otcIndicationsFullText = (product.otcDetail?.indicationsKorean || []).join('\n');
+  // 일반의약품: 식약처 효능·효과 전문 텍스트 및 핵심 요약
+  const otcIndicationsList = product.otcDetail?.indicationsKorean || [];
+  const otcIndicationsFullText = otcIndicationsList.join('\n');
+  const summarizedIndicationsList = summarizeIndications(otcIndicationsList);
 
   // 건강기능식품: 각 성분의 식약처 고시 기능성 번호형 카드 목록
   const hffIngredientClaims =
     product.classification !== 'OTC_DRUG' ? buildHealthFunctionalFoodClaims(product) : [];
 
-  // 주의사항 API 전문 텍스트
+  // 주의사항 API 전문 텍스트 및 복약지도 핵심 요약
   const precautionsList =
     product.classification === 'OTC_DRUG'
       ? product.otcDetail?.precautionsSummaryKorean || []
       : product.functionalFoodDetail?.safetyPrecautionsKorean || [];
   const precautionsFullText = precautionsList.join('\n');
+  const summarizedPrecautions = summarizePrecautions(precautionsList);
 
   const regulatoryCode =
     product.otcDetail?.itemSeq || product.functionalFoodDetail?.reportNo || '';
@@ -718,16 +860,18 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                             </div>
                           </td>
 
-                          {/* 3열: 상한섭취량 (단위 공백 없이 숫자+단위만 깔끔하게 표시) */}
-                          <td className="px-2.5 py-2.5 text-center align-middle">
+                          {/* 3열: 상한섭취량 (태그 배지가 아닌 본문 텍스트 형태로 깔끔하게 표기) */}
+                          <td className="px-3 py-2.5 text-center align-middle">
                             {item.info.ulText ? (
                               <span
                                 title={item.info.ulNote || '2025 한국인 영양소 섭취기준(KDRIs) 성인 1일 상한섭취량(UL)'}
-                                className="inline-block text-[11px] font-semibold text-rose-600 bg-rose-50 border border-rose-200/80 px-2 py-0.5 rounded tracking-tight"
+                                className="text-xs font-semibold text-rose-600 tracking-tight"
                               >
                                 {item.info.ulText}
                               </span>
-                            ) : null}
+                            ) : (
+                              <span className="text-slate-300">-</span>
+                            )}
                           </td>
                         </tr>
                       );
@@ -751,37 +895,71 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             )}
           </div>
 
-          {/* SECTION 3: 효능·효과 (의약품 전문) vs 기능성 (건기식 성분별 고시 기능성) */}
+          {/* SECTION 3: 효능·효과 (핵심 요약 + 전문보기 버튼) */}
           {product.classification === 'OTC_DRUG' ? (
             otcIndicationsFullText && (
               <div className="space-y-2">
-                <div className="flex items-center gap-1.5">
-                  <h3 className="text-xs font-extrabold text-slate-500">효능·효과</h3>
-                  <span className="text-[10px] font-bold text-sky-700 bg-sky-50 border border-sky-200 px-1.5 py-0.2 rounded">
-                    식약처 허가 전문
-                  </span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs font-extrabold text-slate-600">효능·효과 요약</h3>
+                    <span className="text-[10px] font-bold text-sky-700 bg-sky-50 border border-sky-200 px-1.5 py-0.2 rounded">
+                      핵심 복약 요약
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsIndicationsFullModalOpen(true)}
+                    className="text-xs font-bold text-sky-600 hover:text-sky-700 bg-sky-50 hover:bg-sky-100/80 border border-sky-200 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>전문보기</span>
+                  </button>
                 </div>
 
-                <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-4 text-xs text-slate-800 leading-relaxed whitespace-pre-line">
-                  {otcIndicationsFullText}
+                <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-4">
+                  <ul className="space-y-1.5 text-xs text-slate-800 leading-relaxed font-medium">
+                    {summarizedIndicationsList.length > 0 ? (
+                      summarizedIndicationsList.map((item, idx) => (
+                        <li key={idx} className="flex items-start gap-2">
+                          <span className="text-sky-600 font-bold shrink-0">•</span>
+                          <span>{item}</span>
+                        </li>
+                      ))
+                    ) : (
+                      <li className="text-slate-600">{otcIndicationsFullText}</li>
+                    )}
+                  </ul>
                 </div>
               </div>
             )
           ) : (
             hffIngredientClaims.length > 0 && (
               <div className="space-y-2.5">
-                <div className="flex items-center gap-1.5">
-                  <h3 className="text-xs font-extrabold text-slate-500">기능성</h3>
-                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
-                    성분별 고시 기능성
-                  </span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="text-xs font-extrabold text-slate-600">성분별 기능성</h3>
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
+                      식약처 고시 요약
+                    </span>
+                  </div>
+                  {product.functionalFoodDetail?.functionalClaimsKorean &&
+                    product.functionalFoodDetail.functionalClaimsKorean.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setIsIndicationsFullModalOpen(true)}
+                        className="text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>전문보기</span>
+                      </button>
+                    )}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
                   {hffIngredientClaims.map((claimText, idx) => (
                     <div
                       key={idx}
-                      className="bg-[#f8fafc] border border-slate-200 rounded-xl p-4 text-xs text-slate-800 leading-relaxed"
+                      className="bg-[#f8fafc] border border-slate-200 rounded-xl p-3 text-xs text-slate-800 leading-relaxed font-medium"
                     >
                       {claimText}
                     </div>
@@ -791,27 +969,102 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             )
           )}
 
-          {/* SECTION 4: 주의사항 (API 전문 표시) */}
+          {/* SECTION 4: 사용상의 주의사항 (연령금기, 임부/수유부 금기, 약과 병용 금기 성분 요약 + 전문보기 버튼) */}
           {precautionsFullText && (
             <div className="space-y-2">
-              <div className="flex items-center gap-1.5">
-                <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-                <h3 className="text-xs font-extrabold text-slate-500">
-                  {product.classification === 'OTC_DRUG'
-                    ? '사용상의 주의사항'
-                    : '섭취 시 주의사항'}
-                </h3>
-                <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded">
-                  API 전문
-                </span>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                  <h3 className="text-xs font-extrabold text-slate-600">
+                    {product.classification === 'OTC_DRUG'
+                      ? '사용상의 주의사항 요약'
+                      : '섭취 시 주의사항 요약'}
+                  </h3>
+                  <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.2 rounded">
+                    복약지도 핵심
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsPrecautionsFullModalOpen(true)}
+                  className="text-xs font-bold text-rose-700 hover:text-rose-800 bg-rose-50 hover:bg-rose-100/80 border border-rose-200 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>전문보기</span>
+                </button>
               </div>
 
-              <div className="bg-amber-50/40 border border-amber-200/80 rounded-xl p-4 space-y-2 max-h-72 overflow-y-auto">
-                <div className="text-xs text-slate-800 leading-relaxed whitespace-pre-line">
-                  {precautionsFullText}
-                </div>
+              <div className="bg-rose-50/30 border border-rose-200/70 rounded-xl p-4 space-y-3">
+                {/* 1. 연령 금기 */}
+                {summarizedPrecautions.ageContraindication && (
+                  <div className="flex items-start gap-2.5 text-xs">
+                    <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-extrabold text-[11px] shrink-0 border border-rose-200">
+                      연령 금기
+                    </span>
+                    <span className="font-bold text-rose-950 pt-0.5">
+                      {summarizedPrecautions.ageContraindication}
+                    </span>
+                  </div>
+                )}
+
+                {/* 2. 임부 및 수유부 금기 */}
+                {summarizedPrecautions.pregnancyContraindication && (
+                  <div className="flex items-start gap-2.5 text-xs">
+                    <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-800 font-extrabold text-[11px] shrink-0 border border-purple-200">
+                      임부·수유부
+                    </span>
+                    <span className="font-semibold text-purple-950 pt-0.5">
+                      {summarizedPrecautions.pregnancyContraindication}
+                    </span>
+                  </div>
+                )}
+
+                {/* 3. 약과 병용 금기 성분 위주 */}
+                {summarizedPrecautions.drugInteractions.length > 0 && (
+                  <div className="space-y-1.5 pt-1 border-t border-rose-100">
+                    <div className="flex items-center gap-1.5">
+                      <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-extrabold text-[11px] shrink-0 border border-amber-200">
+                        병용 금기/상호작용
+                      </span>
+                      <span className="text-[11px] font-bold text-slate-600">
+                        주의 약물 및 복용 간격
+                      </span>
+                    </div>
+                    <ul className="space-y-1 pl-1 text-xs text-slate-800 leading-relaxed font-medium">
+                      {summarizedPrecautions.drugInteractions.map((item, idx) => (
+                        <li key={idx} className="flex items-start gap-2">
+                          <span className="text-amber-600 font-bold shrink-0">•</span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* 4. 주요 금기 질환 */}
+                {summarizedPrecautions.generalWarning && (
+                  <div className="flex items-start gap-2.5 text-xs pt-1 border-t border-rose-100">
+                    <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-bold text-[11px] shrink-0 border border-slate-200">
+                      투여 금기
+                    </span>
+                    <span className="text-slate-800 pt-0.5 font-medium">
+                      {summarizedPrecautions.generalWarning}
+                    </span>
+                  </div>
+                )}
+
+                {/* 요약 항목이 하나도 매칭되지 않은 경우 안전하게 앞부분 2~3줄 요약 노출 */}
+                {!summarizedPrecautions.ageContraindication &&
+                  !summarizedPrecautions.pregnancyContraindication &&
+                  summarizedPrecautions.drugInteractions.length === 0 &&
+                  !summarizedPrecautions.generalWarning && (
+                    <p className="text-xs text-slate-700 leading-relaxed line-clamp-3">
+                      {precautionsFullText}
+                    </p>
+                  )}
+
                 {product.otcDetail?.storageMethodKorean && (
-                  <p className="text-xs text-slate-600 font-medium pt-2 border-t border-amber-200/60 mt-2">
+                  <p className="text-xs text-slate-600 font-medium pt-2 border-t border-rose-200/60">
                     보관방법: {product.otcDetail.storageMethodKorean}
                   </p>
                 )}
@@ -819,6 +1072,68 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </div>
           )}
         </div>
+
+        {/* 효능·효과 식약처 전문보기 모달 팝업 */}
+        {isIndicationsFullModalOpen && (
+          <div
+            onClick={() => setIsIndicationsFullModalOpen(false)}
+            className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col border border-slate-200 overflow-hidden"
+            >
+              <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0">
+                <h4 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-sky-600" />
+                  <span>효능·효과 식약처 허가 전문</span>
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => setIsIndicationsFullModalOpen(false)}
+                  className="w-7 h-7 rounded-full bg-white hover:bg-slate-200 flex items-center justify-center text-slate-500 border border-slate-200 transition-colors cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="p-5 overflow-y-auto text-xs text-slate-800 leading-relaxed whitespace-pre-line font-mono bg-white select-text">
+                {otcIndicationsFullText ||
+                  product.functionalFoodDetail?.functionalClaimsKorean?.join('\n\n') ||
+                  '전문 내용이 없습니다.'}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 사용상의 주의사항 API 전문보기 모달 팝업 */}
+        {isPrecautionsFullModalOpen && (
+          <div
+            onClick={() => setIsPrecautionsFullModalOpen(false)}
+            className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col border border-slate-200 overflow-hidden"
+            >
+              <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0">
+                <h4 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-600" />
+                  <span>사용상의 주의사항 API 전문</span>
+                </h4>
+                <button
+                  type="button"
+                  onClick={() => setIsPrecautionsFullModalOpen(false)}
+                  className="w-7 h-7 rounded-full bg-white hover:bg-slate-200 flex items-center justify-center text-slate-500 border border-slate-200 transition-colors cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="p-5 overflow-y-auto text-xs text-slate-800 leading-relaxed whitespace-pre-line font-mono bg-white select-text">
+                {precautionsFullText || '주의사항 전문 내용이 없습니다.'}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 첨부 자료 관리 모달 */}
         <AttachedDocumentsModal

@@ -1312,7 +1312,6 @@ export function parseFunctionalFoodRecordToIngredients(
   const stdrText: string = row.STDR_STND || '';
   const indivRawText: string = row.INDIV_RAWMTRL_NM || '';
   const rawMtrlText: string = row.RAWMTRL_NM || '';
-  const etcRawText: string = row.ETC_RAWMTRL_NM || '';
 
   // 1. INDIV_RAWMTRL_NM (또는 C003의 경우 RAWMTRL_NM 앞부분)에서 원료 화학적 형태 목록 추출
   const cleanRawMaterialItem = (str: string) =>
@@ -1476,28 +1475,70 @@ export function parseFunctionalFoodRecordToIngredients(
     }
   }
 
-  // 4. 만약 STDR_STND에서 매칭되지 않은 기능성 주원료(INDIV_RAWMTRL_NM)가 남아있다면 누락 없이 추가
-  if (indivRawText) {
-    indivMaterials.forEach((mat, idx) => {
-      if (usedIndivIndices.has(idx)) return;
-      if (/혼합제제|기타가공품|캡슐류|정제수|덱스트린|올리브유|대두유/.test(mat) && mat.length < 10) return;
-      formattedLines.push(mat);
-    });
-  } else if (formattedLines.length === 0 && rawMtrlText) {
-    // C003 폴백 시 STDR_STND에 수치가 없는 경우 상위 기능성 원재료만 추출
-    rawMtrlText
-      .split(/[,;\n\r]+/)
-      .map(cleanRawMaterialItem)
-      .filter(m => m && !/정제수|결정셀룰로스|스테아린산마그네슘|이산화규소|향료|젤라틴|글리세린|포도당|덱스트린/.test(m))
-      .slice(0, 8)
-      .forEach(m => formattedLines.push(m));
+  // 4. 만약 STDR_STND에서 규격 수치를 하나도 찾지 못한 경우에만 (예: C003 폴백) 원재료에서 상위 기능성 성분 추출
+  if (formattedLines.length === 0) {
+    if (indivRawText) {
+      indivMaterials.forEach((mat) => {
+        if (/혼합제제|기타가공품|캡슐류|정제수|덱스트린|올리브유|대두유/.test(mat) && mat.length < 10) return;
+        formattedLines.push(mat);
+      });
+    } else if (rawMtrlText) {
+      rawMtrlText
+        .split(/[,;\n\r]+/)
+        .map(cleanRawMaterialItem)
+        .filter(m => m && !/정제수|결정셀룰로스|스테아린산마그네슘|이산화규소|향료|젤라틴|글리세린|포도당|덱스트린/.test(m))
+        .slice(0, 8)
+        .forEach(m => formattedLines.push(m));
+    }
   }
 
   const rawIngredientsText = formattedLines.join('\n');
   const parsedIngredients = parseRawIngredientString(rawIngredientsText);
 
-  // 프로바이오틱스 CFU 표기 보정 및 미네랄 원소량 동기화
+  // 식약처 공전 고시형 원료별 기능성 매핑 사전
+  const MFDS_FUNCTIONALITY_MAP: { pattern: RegExp; name: string; claim: string }[] = [
+    { pattern: /비타민\s*b1|티아민/i, name: '비타민B1', claim: '탄수화물과 에너지 대사에 필요' },
+    { pattern: /비타민\s*b2|리보플라빈/i, name: '비타민B2', claim: '체내 에너지 생성에 필요' },
+    { pattern: /나이아신|니코틴산/i, name: '나이아신', claim: '체내 에너지 생성에 필요' },
+    { pattern: /판토텐산/i, name: '판토텐산', claim: '지방, 탄수화물, 단백질 대사와 에너지 생성에 필요' },
+    { pattern: /비타민\s*b6|피리독신/i, name: '비타민B6', claim: '단백질 및 아미노산 이용에 필요, 혈액의 호모시스테인 수준을 정상으로 유지하는데 필요' },
+    { pattern: /비타민\s*b12|코발라민/i, name: '비타민B12', claim: '정상적인 엽산 대사에 필요' },
+    { pattern: /비타민\s*c|아스코르브산/i, name: '비타민C', claim: '결합조직 형성과 기능유지에 필요, 철의 흡수에 필요, 항산화 작용을 하여 유해산소로부터 세포를 보호하는데 필요' },
+    { pattern: /비타민\s*d|콜레칼시페롤/i, name: '비타민D', claim: '칼슘과 인이 흡수되고 이용되는데 필요, 뼈의 형성과 유지에 필요, 골다공증발생 위험 감소에 도움을 줌' },
+    { pattern: /비타민\s*e|토코페롤/i, name: '비타민E', claim: '항산화 작용을 하여 유해산소로부터 세포를 보호하는데 필요' },
+    { pattern: /비타민\s*a|레티놀|베타카로틴/i, name: '비타민A', claim: '어두운 곳에서 시각 적응을 위해 필요, 피부와 점막을 형성하고 기능을 유지하는데 필요, 상피세포의 성장과 발달에 필요' },
+    { pattern: /비타민\s*k/i, name: '비타민K', claim: '정상적인 혈액응고에 필요, 뼈의 구성에 필요' },
+    { pattern: /엽산|폴산/i, name: '엽산', claim: '세포와 혈액생성에 필요, 태아 신경관의 정상 발달에 필요, 혈액의 호모시스테인 수준을 정상으로 유지하는데 필요' },
+    { pattern: /비오틴/i, name: '비오틴', claim: '지방, 탄수화물, 단백질 대사와 에너지 생성에 필요' },
+    { pattern: /아연/i, name: '아연', claim: '정상적인 면역기능에 필요, 정상적인 세포분열에 필요' },
+    { pattern: /셀레늄|셀렌/i, name: '셀레늄', claim: '유해산소로부터 세포를 보호하는데 필요' },
+    { pattern: /마그네슘/i, name: '마그네슘', claim: '에너지 이용에 필요, 신경과 근육 기능 유지에 필요' },
+    { pattern: /칼슘/i, name: '칼슘', claim: '뼈와 치아 형성에 필요, 신경과 근육 기능 유지에 필요, 정상적인 혈액응고에 필요, 골다공증발생 위험 감소에 도움을 줌' },
+    { pattern: /철/i, name: '철', claim: '체내 산소운반과 혈액생성에 필요, 에너지 생성에 필요' },
+    { pattern: /구리/i, name: '구리', claim: '철의 운반과 이용에 필요, 유해산소로부터 세포를 보호하는데 필요' },
+    { pattern: /망간/i, name: '망간', claim: '뼈 형성에 필요, 에너지 이용에 필요, 유해산소로부터 세포를 보호하는데 필요' },
+    { pattern: /요오드/i, name: '요오드', claim: '갑상선 호르몬의 합성에 필요, 에너지 생성에 필요, 신경발달에 필요' },
+    { pattern: /크롬/i, name: '크롬', claim: '체내 탄수화물, 지방, 단백질 대사에 관여' },
+    { pattern: /실리마린|밀크씨슬/i, name: '밀크씨슬(실리마린)', claim: '간 건강에 도움을 줄 수 있음' },
+    { pattern: /루테인|지아잔틴/i, name: '루테인', claim: '노화로 인해 감소될 수 있는 황반색소밀도를 유지하여 눈 건강에 도움을 줌' },
+    { pattern: /epa|dha|오메가/i, name: 'EPA 및 DHA 함유 유지', claim: '혈중 중성지질 개선·혈행 개선에 도움을 줄 수 있음' },
+    { pattern: /프로바이오틱스|유산균/i, name: '프로바이오틱스', claim: '유익균 증식 및 유해균 억제·배변활동 원활·장 건강에 도움을 줄 수 있음' },
+    { pattern: /테아닌/i, name: 'L-테아닌', claim: '스트레스로 인한 긴장완화에 도움을 줄 수 있음' },
+    { pattern: /코엔자임q10|코큐텐/i, name: '코엔자임Q10', claim: '항산화·높은 혈압 감소에 도움을 줄 수 있음' },
+    { pattern: /홍삼/i, name: '홍삼', claim: '면역력 증진·피로개선·혈소판 응집억제를 통한 혈액흐름·기억력 개선·항산화에 도움을 줄 수 있음' },
+    { pattern: /바나바/i, name: '바나바잎추출물', claim: '식후 혈당상승 억제에 도움을 줄 수 있음' },
+    { pattern: /쏘팔메토/i, name: '쏘팔메토열매추출물', claim: '성인 남성의 전립선 건강 유지에 도움을 줄 수 있음' }
+  ];
+
+  // 각 성분에 해당 기능성 문구 자동 부여 및 프로바이오틱스 보정
   parsedIngredients.forEach(ing => {
+    const searchTarget = `${ing.englishInn} ${ing.koreanName || ''} ${ing.chemicalFormName || ''}`.toLowerCase();
+    const matched = MFDS_FUNCTIONALITY_MAP.find(m => m.pattern.test(searchTarget));
+    if (matched) {
+      ing.clinicalSummary = `• 식약처 인정 기능성: ${matched.claim}`;
+      ing.noteKorean = `기준 및 규격 표시량 기준`;
+    }
+
     if (ing.englishInn === 'Probiotics') {
       const cfuSpec = Array.from(extractedSpecs.values()).find(s => s.displayUnitNote);
       if (cfuSpec?.displayUnitNote) {
@@ -1506,43 +1547,6 @@ export function parseFunctionalFoodRecordToIngredients(
       }
     }
   });
-
-  // 5. I0030의 ETC_RAWMTRL_NM(기타원료/부원료)에서 약국 상담용 핵심 유효 부원료 자동 감지 추가
-  if (etcRawText) {
-    const notableSubRules: { pattern: RegExp; label: string; inn: string; category: string }[] = [
-      { pattern: /L-아르지닌|L-아르기닌|아르기닌/i, label: 'L-아르기닌', inn: 'L-Arginine', category: '간보호제' },
-      { pattern: /타우린/i, label: '타우린', inn: 'Taurine', category: '비필수 아미노산제제' },
-      { pattern: /이노시톨/i, label: '이노시톨', inn: 'Inositol', category: '기타 비타민B' },
-      { pattern: /브로멜라인/i, label: '브로멜라인', inn: 'Bromelain', category: '소염효소' },
-      { pattern: /파파인|파파야추출/i, label: '파파인(파파야추출물)', inn: 'Papain', category: '소화효소제' },
-      { pattern: /글루콘산마그네슘/i, label: '글루콘산마그네슘', inn: 'Magnesium gluconate', category: '마그네슘(Mg)' },
-      { pattern: /젖산칼슘/i, label: '젖산칼슘', inn: 'Calcium lactate', category: '칼슘(Ca)' },
-      { pattern: /해조칼슘/i, label: '해조칼슘', inn: 'Seaweed calcium', category: '칼슘(Ca)' },
-      { pattern: /헛개나무/i, label: '헛개나무열매추출분말', inn: 'Hovenia dulcis extract', category: '간보호제' },
-      { pattern: /울금추출|강황추출|커큐민/i, label: '강황/울금추출물(커큐민)', inn: 'Curcumin (Turmeric extract)', category: '간보호제' },
-      { pattern: /아쉬아간다/i, label: '아쉬아간다추출물', inn: 'Withania somnifera (Ashwagandha)', category: '자양강장' },
-      { pattern: /홍경천/i, label: '홍경천추출물', inn: 'Rhodiola rosea extract', category: '자양강장' },
-      { pattern: /주석산수소콜린|콜린/i, label: '주석산수소콜린', inn: 'Choline bitartrate', category: '기타 비타민B' }
-    ];
-
-    const existingInns = new Set(parsedIngredients.map(p => p.englishInn.toLowerCase()));
-    notableSubRules.forEach((sub, idx) => {
-      if (sub.pattern.test(etcRawText) && !existingInns.has(sub.inn.toLowerCase())) {
-        existingInns.add(sub.inn.toLowerCase());
-        parsedIngredients.push({
-          ingredientId: `ing_fsk_sub_${Date.now()}_${idx}`,
-          englishInn: sub.inn,
-          functionalCategory: sub.category,
-          chemicalFormName: `부원료 (${sub.label}) — 함량 미고시`,
-          rawAmount: 0,
-          unit: 'mg',
-          isMainActive: false,
-          clinicalSummary: `• 식품안전나라 기타원료(부원료) 등재 성분 (${sub.label})\n• 건기식 부원료는 규격상 함량이 미고시되므로 필요 시 실물 라벨 함량을 입력하세요.`,
-          formattedSpecification: `${sub.inn} (부원료)`
-        });
-      }
-    });
-  }
 
   return {
     rawIngredientsText: rawIngredientsText || indivRawText || rawMtrlText || '기준 및 규격 원문 참조',

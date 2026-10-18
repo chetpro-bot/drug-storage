@@ -24,6 +24,7 @@ export interface FunctionalFoodRegulatoryDetail {
   suggestedUseKorean: string;           // 섭취량 및 섭취방법
   safetyPrecautionsKorean: string[];    // 섭취 시 주의사항
   standardSpecificationKorean?: string; // 기준 및 규격
+  labelPrecautionsText?: string;        // 제품 실물 뒷면 라벨 사진(OCR)에서 추출된 상세 주의사항 전문
 }
 
 export interface AttachedDocument {

@@ -13,6 +13,7 @@ import {
   recognizeUniversalDocument,
   parseNutritionLabelText, 
   parseKpicEfficacyText,
+  extractPrecautionsFromOcrText,
   OcrParseResult 
 } from '../services/labelOcrService';
 import { saveLearnedIngredientMapping } from '../utils/innMapper';
@@ -430,8 +431,20 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
       // 2. 패키지 영양·기능정보표(건기식/식품)인 경우: 성분 및 섭취량 정규화 파싱
       if (docResult.nutritionParsed.parsedIngredients.length > 0) {
         applyOcrResult(docResult.nutritionParsed);
-      } else {
-        alert('첨부 자료에서 약효분류 또는 영양성분표를 감지하지 못했습니다. 선명한 캡처 사진을 다시 선택해주세요.');
+      }
+
+      // 3. 사진에서 [섭취 시 주의사항] 섹션이 감지된 경우 주의사항 텍스트에 자동 추가
+      if (docResult.extractedPrecautions && docResult.extractedPrecautions.precautionsFullText) {
+        setPrecautionsText(prev => {
+          if (!prev.trim() || (prev.includes('이상사례') && prev.length < 50)) {
+            return docResult.extractedPrecautions.precautionsFullText;
+          }
+          return `${prev}\n\n[실물 라벨 섭취 시 주의사항]\n${docResult.extractedPrecautions.precautionsFullText}`;
+        });
+      }
+
+      if (docResult.nutritionParsed.parsedIngredients.length === 0 && (!docResult.extractedPrecautions || !docResult.extractedPrecautions.precautionsFullText)) {
+        alert('첨부 자료에서 약효분류, 영양성분표 또는 주의사항을 감지하지 못했습니다. 선명한 캡처 사진을 다시 선택해주세요.');
       }
     } catch (err: any) {
       console.error('OCR 파싱 실패:', err);
@@ -464,6 +477,13 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
     // 건기식 영양정보표 검사
     const result = parseNutritionLabelText(ocrRawText);
     applyOcrResult(result);
+
+    // 라벨 섭취 시 주의사항 검사
+    const extractedPrec = extractPrecautionsFromOcrText(ocrRawText);
+    if (extractedPrec.precautionsFullText) {
+      setPrecautionsText(prev => prev ? `${prev}\n\n[실물 라벨 섭취 시 주의사항]\n${extractedPrec.precautionsFullText}` : extractedPrec.precautionsFullText);
+    }
+
     setShowRawTextEditor(false);
   };
 

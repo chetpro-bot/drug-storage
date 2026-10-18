@@ -229,13 +229,46 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
 
       const finalIngredients = [...updatedIngredients, ...newItemsToAdd];
 
+      // 실물 라벨 뒷면 사진에서 추출된 주의사항 감지 및 저장
+      const extractedPrecautions = result.extractedPrecautions;
+      let updatedFunctionalDetail = product.functionalFoodDetail ? { ...product.functionalFoodDetail } : undefined;
+      let updatedOtcDetail = product.otcDetail ? { ...product.otcDetail } : undefined;
+
+      if (extractedPrecautions && extractedPrecautions.precautionsFullText) {
+        if (product.classification === 'HEALTH_FUNCTIONAL_FOOD' || updatedFunctionalDetail) {
+          updatedFunctionalDetail = {
+            ...(updatedFunctionalDetail || {
+              reportNo: '',
+              functionalClaimsKorean: [],
+              suggestedUseKorean: '',
+              safetyPrecautionsKorean: []
+            }),
+            labelPrecautionsText: extractedPrecautions.precautionsFullText,
+            safetyPrecautionsKorean:
+              extractedPrecautions.precautionsList.length > 0
+                ? extractedPrecautions.precautionsList
+                : updatedFunctionalDetail?.safetyPrecautionsKorean || []
+          };
+        } else if (updatedOtcDetail) {
+          if (extractedPrecautions.precautionsList.length > 0) {
+            updatedOtcDetail = {
+              ...updatedOtcDetail,
+              precautionsSummaryKorean: extractedPrecautions.precautionsList
+            };
+          }
+        }
+      }
+
       let summaryText = '';
       if (appliedList.length > 0) {
-        summaryText = `성분 및 약효분류 ${appliedList.length}건 성분표에 반영 완료`;
+        summaryText = `성분 및 약효분류 ${appliedList.length}건 반영`;
       } else if (rawText.length > 20) {
         summaryText = `텍스트 판독 완료 (${rawText.length}자)`;
       } else {
         summaryText = '텍스트 판독 완료 (선명한 사진 권장)';
+      }
+      if (extractedPrecautions?.precautionsList && extractedPrecautions.precautionsList.length > 0) {
+        summaryText += ` (주의사항 ${extractedPrecautions.precautionsList.length}건)`;
       }
 
       // 문서 상태 및 추출 텍스트 저장
@@ -254,16 +287,23 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
       // 데이터베이스(로컬 & Firestore)에 즉시 저장
       await updateProduct(product.id, {
         ingredients: finalIngredients,
-        attachments: updatedDocs
+        attachments: updatedDocs,
+        ...(updatedFunctionalDetail ? { functionalFoodDetail: updatedFunctionalDetail } : {}),
+        ...(updatedOtcDetail ? { otcDetail: updatedOtcDetail } : {})
       });
 
       // 사용자 알림
-      if (appliedList.length > 0) {
+      const precautionNotif = extractedPrecautions?.precautionsList?.length
+        ? `\n\n📸 [제품 라벨 주의사항 자동 추출 완료]\n• 실물 라벨 뒷면 주의사항 ${extractedPrecautions.precautionsList.length}건이 감지되어 제품 정보에 등록되었습니다! (상세 모달의 [전문보기]에서 확인 가능)`
+        : '';
+
+      if (appliedList.length > 0 || extractedPrecautions?.precautionsList?.length) {
         alert(
-          `🎉 첨부 자료 분석 내용이 성분표에 성공적으로 반영되었습니다!\n\n` +
-          `[반영 내역 (${appliedList.length}건)]\n` +
+          `🎉 첨부 자료 분석 내용이 성공적으로 반영되었습니다!\n\n` +
+          (appliedList.length > 0 ? `[성분 반영 내역 (${appliedList.length}건)]\n` +
           appliedList.slice(0, 10).map((item) => `• ${item}`).join('\n') +
-          (appliedList.length > 10 ? `\n...외 ${appliedList.length - 10}건` : '')
+          (appliedList.length > 10 ? `\n...외 ${appliedList.length - 10}건` : '') : '') +
+          precautionNotif
         );
       } else {
         alert(

@@ -546,6 +546,61 @@ export function parseKpicEfficacyText(rawText: string): KpicEfficacyMapping[] {
 }
 
 /**
+ * 패키지 뒷면 라벨 사진 OCR 텍스트에서 [섭취 시 주의사항] 섹션 정밀 추출
+ */
+export function extractPrecautionsFromOcrText(rawText: string): {
+  precautionsFullText: string;
+  precautionsList: string[];
+} {
+  if (!rawText || !rawText.trim()) return { precautionsFullText: '', precautionsList: [] };
+
+  // 1. 주의사항 시작 헤더 탐색
+  const headerRegex = /(?:\[\s*(?:섭취\s*시\s*)?주의사항\s*\]|섭취\s*시\s*주의사항|섭취\s*및\s*보관\s*시\s*주의사항|사용상의\s*주의사항|\[\s*주의사항\s*\])/i;
+  const match = rawText.match(headerRegex);
+
+  let targetText = '';
+  if (match && match.index !== undefined) {
+    const startIndex = match.index + match[0].length;
+    const followingText = rawText.slice(startIndex);
+
+    // 주의사항이 끝나는 다음 섹션 탐색 (예: [보관방법], [원재료명], [제조원], [유통기한] 등)
+    const endHeaderRegex = /(?:\[\s*(?:보관방법|원재료명|영양|제조|유통|소비자|반품|내포장재질|품목보고번호)\s*\]|보관방법\s*[:\n]|원재료명\s*[:\n]|유통기한\s*[:\n]|제조원\s*[:\n]|소비자상담실\s*[:\n])/i;
+    const endMatch = followingText.match(endHeaderRegex);
+
+    if (endMatch && endMatch.index !== undefined) {
+      targetText = followingText.slice(0, endMatch.index);
+    } else {
+      targetText = followingText.slice(0, 1500);
+    }
+  } else {
+    // 헤더가 명시적이지 않더라도 핵심 주의사항 문장들 필터링
+    const lines = rawText.split(/[\r\n]+/);
+    const precautionLines = lines.filter(line => 
+      /이상사례|특이체질|알레르기|과민반응|어린이|임산부|임부|수유부|질환이\s*있는|의약품.*복용|섭취를\s*중단|전문가와\s*상담|과다섭취|질식|흡습제|실리카겔/i.test(line)
+    );
+    if (precautionLines.length > 0) {
+      targetText = precautionLines.join('\n');
+    }
+  }
+
+  // 문장 정제 및 번호화
+  const cleanedLines = targetText
+    .split(/[\r\n]+/)
+    .map(l => l.replace(/^[•·\-\*\d\.\)\s]+/, '').trim())
+    .filter(l => l.length >= 6 && !/^(주의사항|보관방법|원재료명)$/.test(l));
+
+  const precautionsList = Array.from(new Set(cleanedLines));
+  const precautionsFullText = precautionsList.length > 0 
+    ? precautionsList.map((item, idx) => `${idx + 1}. ${item}`).join('\n')
+    : '';
+
+  return {
+    precautionsFullText,
+    precautionsList
+  };
+}
+
+/**
  * 자료 첨부 (약학정보원 캡처, 제약사 브로슈어, 라벨 사진) 범용 OCR 분석기
  */
 export async function recognizeUniversalDocument(
@@ -556,6 +611,10 @@ export async function recognizeUniversalDocument(
   isKpicFormat: boolean;
   kpicMappings: KpicEfficacyMapping[];
   nutritionParsed: OcrParseResult;
+  extractedPrecautions: {
+    precautionsFullText: string;
+    precautionsList: string[];
+  };
 }> {
   const recognitionPromise = (async () => {
     if (onProgress) onProgress(10, '자료 이미지 선명도 최적화 중...');
@@ -568,9 +627,10 @@ export async function recognizeUniversalDocument(
     const result = await worker.recognize(processedDataUrl);
     const rawText = result.data.text;
 
-    if (onProgress) onProgress(85, '약효분류 및 성분 스펙 구조화 중...');
+    if (onProgress) onProgress(85, '약효분류, 성분 스펙 및 주의사항 구조화 중...');
     const kpicMappings = parseKpicEfficacyText(rawText);
     const nutritionParsed = parseNutritionLabelText(rawText);
+    const extractedPrecautions = extractPrecautionsFromOcrText(rawText);
     const isKpicFormat = kpicMappings.length > 0 || rawText.includes('약효분류') || rawText.includes('소화기계');
 
     if (onProgress) onProgress(100, '자료 판독 완료!');
@@ -579,7 +639,8 @@ export async function recognizeUniversalDocument(
       rawText,
       isKpicFormat,
       kpicMappings,
-      nutritionParsed
+      nutritionParsed,
+      extractedPrecautions
     };
   })();
 

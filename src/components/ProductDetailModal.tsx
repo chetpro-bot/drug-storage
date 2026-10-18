@@ -10,6 +10,7 @@ import {
 import { AttachedDocumentsModal } from './AttachedDocumentsModal';
 import { resolveIngredientDisplayInfo, sortProductIngredients } from '../utils/innMapper';
 import { getDarkCategoryBadgeStyle } from '../utils/categoryColors';
+import { recognizeUniversalDocument, fileToDataUrl } from '../services/labelOcrService';
 import {
   X,
   Edit3,
@@ -18,7 +19,11 @@ import {
   MapPin,
   AlertCircle,
   FileText,
-  RefreshCw
+  RefreshCw,
+  Camera,
+  Upload,
+  CheckCircle2,
+  Loader2
 } from 'lucide-react';
 
 interface ProductDetailModalProps {
@@ -527,8 +532,80 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [isFetchingFullApiText, setIsFetchingFullApiText] = useState(false);
   const [isIndicationsFullModalOpen, setIsIndicationsFullModalOpen] = useState(false);
   const [isPrecautionsFullModalOpen, setIsPrecautionsFullModalOpen] = useState(false);
+  // 주의사항 전문보기 탭 (실물 라벨 vs 식약처 API)
+  const [precautionsModalTab, setPrecautionsModalTab] = useState<'LABEL' | 'API'>('LABEL');
+  // 제품 뒷면 사진 OCR 업로드 상태
+  const [isUploadingBackPhoto, setIsUploadingBackPhoto] = useState(false);
+  const [backPhotoStatusMessage, setBackPhotoStatusMessage] = useState('');
+  const backPhotoInputRef = React.useRef<HTMLInputElement>(null);
+
   // 성분 함량 표시 기준 (1알/1포당 vs 하루 섭취량당)
   const [displayBasis, setDisplayBasis] = useState<'PER_UNIT' | 'PER_DAILY'>('PER_UNIT');
+
+  // 제품 뒷면 사진 선택 및 주의사항 자동 추출 핸들러
+  const handleBackPhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !product) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('이미지 파일(JPG, PNG, WebP 등)을 선택해주세요.');
+      return;
+    }
+
+    setIsUploadingBackPhoto(true);
+    setBackPhotoStatusMessage('이미지 확인 및 최적화 중...');
+
+    try {
+      const dataUrl = await fileToDataUrl(file);
+      const result = await recognizeUniversalDocument(file, (progress, status) => {
+        setBackPhotoStatusMessage(`${status} (${progress}%)`);
+      });
+
+      const extractedPrecautions = result.extractedPrecautions;
+      const precautionsFullText = extractedPrecautions?.precautionsFullText || result.rawText;
+      const precautionsList = extractedPrecautions?.precautionsList?.length
+        ? extractedPrecautions.precautionsList
+        : [precautionsFullText];
+
+      const newDoc = {
+        id: `doc_back_${Date.now()}`,
+        fileName: file.name || '제품_뒷면_라벨.jpg',
+        fileSize: file.size,
+        uploadedAt: new Date().toISOString(),
+        dataUrl,
+        status: 'ANALYZED' as const,
+        analysisSummary: `뒷면 라벨 주의사항 ${precautionsList.length}건 인식`,
+        extractedText: precautionsFullText
+      };
+
+      const updatedAttachments = [...(product.attachments || []), newDoc];
+
+      await updateProduct(product.id, {
+        attachments: updatedAttachments,
+        functionalFoodDetail: {
+          ...(product.functionalFoodDetail || {
+            reportNo: '',
+            functionalClaimsKorean: [],
+            suggestedUseKorean: '',
+            safetyPrecautionsKorean: []
+          }),
+          labelPrecautionsText: precautionsFullText,
+          safetyPrecautionsKorean: precautionsList.length > 0 ? precautionsList : product.functionalFoodDetail?.safetyPrecautionsKorean || []
+        }
+      });
+
+      setPrecautionsModalTab('LABEL');
+      setIsPrecautionsFullModalOpen(true);
+      alert('📸 제품 뒷면 사진에서 [섭취 시 주의사항]이 성공적으로 추출되어 전문보기에 등록되었습니다!');
+    } catch (err: any) {
+      console.error('뒷면 사진 판독 오류:', err);
+      alert('사진 인식 중 오류가 발생했습니다: ' + (err?.message || '선명한 사진으로 다시 시도해주세요.'));
+    } finally {
+      setIsUploadingBackPhoto(false);
+      setBackPhotoStatusMessage('');
+      if (backPhotoInputRef.current) backPhotoInputRef.current.value = '';
+    }
+  };
 
   // 제품이 변경될 때마다 기본 표시 기준 동기화 (건기식은 기본 하루 복용량 기준, 의약품은 1알 기준)
   useEffect(() => {
@@ -1061,6 +1138,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                 </span>
                               )}
                             </div>
+                            {product.classification === 'HEALTH_FUNCTIONAL_FOOD' && item.ing.clinicalSummary && (
+                              <div className="text-[11px] text-slate-500 font-normal mt-0.5 leading-snug">
+                                {item.ing.clinicalSummary.replace(/^•\s*/, '')}
+                              </div>
+                            )}
                           </td>
 
                           {/* 3열: 원료 형태 (태그 배지를 제외한 깔끔한 본문 텍스트 표기) */}
@@ -1180,7 +1262,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           )}
 
           {/* SECTION 4: 사용상의 주의사항 (연령금기, 임부/수유부 금기, 약과 병용 금기 성분 요약 + 전문보기 버튼) */}
-          {precautionsFullText && (
+          {(precautionsFullText || product.functionalFoodDetail?.labelPrecautionsText) && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
@@ -1194,14 +1276,47 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     복약지도 핵심
                   </span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setIsPrecautionsFullModalOpen(true)}
-                  className="text-xs font-bold text-rose-700 hover:text-rose-800 bg-rose-50 hover:bg-rose-100/80 border border-rose-200 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>전문보기</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  {product.classification === 'HEALTH_FUNCTIONAL_FOOD' && (
+                    product.functionalFoodDetail?.labelPrecautionsText ? (
+                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                        실물 라벨 연동됨
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => backPhotoInputRef.current?.click()}
+                        disabled={isUploadingBackPhoto}
+                        className="text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 border border-slate-200 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                        title="제품 뒷면 사진을 찍어 올리면 주의사항을 텍스트로 자동 추출합니다"
+                      >
+                        {isUploadingBackPhoto ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-600" />
+                            <span>인식 중...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Camera className="w-3.5 h-3.5 text-slate-500" />
+                            <span>뒷면 사진 등록</span>
+                          </>
+                        )}
+                      </button>
+                    )
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPrecautionsModalTab(product.functionalFoodDetail?.labelPrecautionsText ? 'LABEL' : 'API');
+                      setIsPrecautionsFullModalOpen(true);
+                    }}
+                    className="text-xs font-bold text-rose-700 hover:text-rose-800 bg-rose-50 hover:bg-rose-100/80 border border-rose-200 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>전문보기</span>
+                  </button>
+                </div>
               </div>
 
               <div className="bg-rose-50/30 border border-rose-200/70 rounded-xl p-4 space-y-3">
@@ -1263,15 +1378,32 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </div>
                 )}
 
-                {/* 요약 항목이 하나도 매칭되지 않은 경우 안전하게 앞부분 2~3줄 요약 노출 */}
-                {!summarizedPrecautions.ageContraindication &&
+                {/* 실물 라벨 추출 텍스트가 있을 경우 실물 라벨 우선 표시 */}
+                {product.functionalFoodDetail?.labelPrecautionsText ? (
+                  <div className="space-y-1 pt-1 border-t border-rose-100">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-emerald-700">
+                        📸 제품사진 뒷면 실물 라벨 주의사항
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        상세내용은 [전문보기] 클릭
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-700 leading-relaxed line-clamp-3 whitespace-pre-line font-medium">
+                      {product.functionalFoodDetail.labelPrecautionsText}
+                    </p>
+                  </div>
+                ) : (
+                  /* 요약 항목이 하나도 매칭되지 않은 경우 안전하게 앞부분 2~3줄 요약 노출 */
+                  !summarizedPrecautions.ageContraindication &&
                   !summarizedPrecautions.pregnancyContraindication &&
                   summarizedPrecautions.drugInteractions.length === 0 &&
                   !summarizedPrecautions.generalWarning && (
                     <p className="text-xs text-slate-700 leading-relaxed line-clamp-3">
                       {precautionsFullText}
                     </p>
-                  )}
+                  )
+                )}
 
                 {product.otcDetail?.storageMethodKorean && (
                   <p className="text-xs text-slate-600 font-medium pt-2 border-t border-rose-200/60">
@@ -1318,7 +1450,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           </div>
         )}
 
-        {/* 사용상의 주의사항 API 전문보기 모달 팝업 */}
+        {/* 사용상의 주의사항 / 섭취 시 주의사항 전문보기 모달 팝업 */}
         {isPrecautionsFullModalOpen && (
           <div
             onClick={() => setIsPrecautionsFullModalOpen(false)}
@@ -1326,32 +1458,143 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col border border-slate-200 overflow-hidden"
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col border border-slate-200 overflow-hidden"
             >
               <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0">
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-3">
                   <h4 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 text-rose-600" />
-                    <span>사용상의 주의사항 API 전문</span>
+                    <span>
+                      {product.classification === 'OTC_DRUG'
+                        ? '사용상의 주의사항 허가 전문'
+                        : '섭취 시 주의사항 전문'}
+                    </span>
                   </h4>
-                  <span className="text-[10px] font-bold text-amber-900 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full">
-                    형광펜: 복약 요약 항목
-                  </span>
+                  {product.classification === 'HEALTH_FUNCTIONAL_FOOD' && (
+                    <div className="flex bg-slate-200/80 p-0.5 rounded-lg text-xs font-bold">
+                      <button
+                        type="button"
+                        onClick={() => setPrecautionsModalTab('LABEL')}
+                        className={`px-3 py-1 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                          precautionsModalTab === 'LABEL'
+                            ? 'bg-white text-slate-900 shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <Camera className="w-3.5 h-3.5 text-rose-600" />
+                        <span>📸 실물 라벨 뒷면 주의사항</span>
+                        {product.functionalFoodDetail?.labelPrecautionsText && (
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPrecautionsModalTab('API')}
+                        className={`px-3 py-1 rounded-md transition-all flex items-center gap-1.5 cursor-pointer ${
+                          precautionsModalTab === 'API'
+                            ? 'bg-white text-slate-900 shadow-xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        <span>🌐 식약처 API 신고사항</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setIsPrecautionsFullModalOpen(false)}
-                  className="w-7 h-7 rounded-full bg-white hover:bg-slate-200 flex items-center justify-center text-slate-500 border border-slate-200 transition-colors cursor-pointer"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsPrecautionsFullModalOpen(false)}
+                    className="w-7 h-7 rounded-full bg-white hover:bg-slate-200 flex items-center justify-center text-slate-500 border border-slate-200 transition-colors cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
-              <div className="p-6 overflow-y-auto max-h-[72vh] bg-white select-text">
-                {renderFormattedApiText(precautionsFullText, precautionHighlightKeywords)}
+
+              <div className="p-6 overflow-y-auto max-h-[75vh] bg-white select-text">
+                {product.classification === 'HEALTH_FUNCTIONAL_FOOD' && precautionsModalTab === 'LABEL' ? (
+                  product.functionalFoodDetail?.labelPrecautionsText ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                        <span className="text-xs font-bold text-slate-500">
+                          실물 제품 패키지 뒷면 라벨에서 OCR 판독된 주의사항 전문입니다.
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => backPhotoInputRef.current?.click()}
+                          disabled={isUploadingBackPhoto}
+                          className="text-xs font-bold text-sky-700 hover:text-sky-800 bg-sky-50 border border-sky-200 px-2.5 py-1 rounded-md flex items-center gap-1 cursor-pointer transition-colors"
+                        >
+                          <Camera className="w-3 h-3" />
+                          <span>사진 다시 등록</span>
+                        </button>
+                      </div>
+                      <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-200 text-xs text-slate-800 leading-relaxed font-mono whitespace-pre-wrap">
+                        {product.functionalFoodDetail.labelPrecautionsText}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 px-6 space-y-4">
+                      <div className="w-16 h-16 mx-auto rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-200">
+                        <Camera className="w-8 h-8" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <h5 className="text-base font-extrabold text-slate-900">
+                          제품사진 뒷면을 찍어 올리시면 실물 주의사항을 텍스트로 보여드립니다
+                        </h5>
+                        <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+                          식약처 신고 API 데이터 외에, 제품 패키지 뒷면에 인쇄된 상세 섭취 시 주의사항(특이체질, 알레르기, 어린이 지도사항 등)을 AI로 자동 판독하여 등록합니다.
+                        </p>
+                      </div>
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => backPhotoInputRef.current?.click()}
+                          disabled={isUploadingBackPhoto}
+                          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs shadow-md transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          {isUploadingBackPhoto ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              <span>{backPhotoStatusMessage || '글자 판독 중...'}</span>
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4" />
+                              <span>📸 제품 뒷면 사진 찍기 / 업로드</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )
+                ) : (
+                  <div>
+                    <div className="mb-3 flex items-center justify-between pb-2 border-b border-slate-100">
+                      <span className="text-xs font-bold text-slate-500">
+                        식약처 공공 API (식품안전나라/의약품안전나라) 공식 등록 주의사항 전문입니다.
+                      </span>
+                      <span className="text-[10px] font-bold text-amber-900 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full">
+                        형광펜: 복약 요약 항목
+                      </span>
+                    </div>
+                    {renderFormattedApiText(precautionsFullText, precautionHighlightKeywords)}
+                  </div>
+                )}
               </div>
             </div>
           </div>
         )}
+
+        {/* 제품 뒷면 사진 선택용 숨김 input */}
+        <input
+          type="file"
+          ref={backPhotoInputRef}
+          onChange={handleBackPhotoSelect}
+          accept="image/*"
+          className="hidden"
+        />
 
         {/* 첨부 자료 관리 모달 */}
         <AttachedDocumentsModal

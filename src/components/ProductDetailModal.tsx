@@ -1063,38 +1063,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                             </div>
                           </td>
 
-                          {/* 3열: 원료 형태 (활성형 비타민, 유기염/무기염 미네랄 등) */}
+                          {/* 3열: 원료 형태 (태그 배지를 제외한 깔끔한 본문 텍스트 표기) */}
                           <td className="px-3 py-2.5 border-r border-slate-200 align-middle">
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              {item.info.chemicalFormFeature.badgeType === 'ACTIVE_VITAMIN' && (
-                                <span className="inline-flex items-center text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300 shadow-2xs">
-                                  ★ 활성형
-                                </span>
-                              )}
-                              {item.info.chemicalFormFeature.badgeType === 'ORGANIC_MINERAL' && (
-                                <span className="inline-flex items-center text-[10px] font-black px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-900 border border-emerald-300 shadow-2xs">
-                                  ● 유기염
-                                </span>
-                              )}
-                              {item.info.chemicalFormFeature.badgeType === 'INORGANIC_MINERAL' && (
-                                <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-300 shadow-2xs">
-                                  무기염
-                                </span>
-                              )}
-                              {item.info.chemicalFormFeature.badgeType === 'AMIDE' && (
-                                <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-50 text-sky-800 border border-sky-300 shadow-2xs">
-                                  아미드형
-                                </span>
-                              )}
-                              {item.info.chemicalFormFeature.badgeType === 'NATURAL' && (
-                                <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-teal-50 text-teal-800 border border-teal-300 shadow-2xs">
-                                  천연형
-                                </span>
-                              )}
-                              <span className="text-xs text-slate-700 font-medium tracking-tight">
-                                {item.info.chemicalFormFeature.detailLabel}
-                              </span>
-                            </div>
+                            <span className="text-xs text-slate-800 font-medium leading-snug">
+                              {item.info.chemicalFormFeature.displayText || item.ing.chemicalFormName || '-'}
+                            </span>
                           </td>
 
                           {/* 4열: 상한섭취량 (태그 배지가 아닌 본문 텍스트 형태로 깔끔하게 표기) */}

@@ -1497,6 +1497,7 @@ export interface ChemicalFormFeature {
   badgeType: 'ACTIVE_VITAMIN' | 'ORGANIC_MINERAL' | 'INORGANIC_MINERAL' | 'AMIDE' | 'NATURAL' | 'NONE';
   badgeLabel?: string;
   detailLabel: string;
+  displayText: string;
 }
 
 export interface ResolvedIngredientDisplayInfo {
@@ -1665,10 +1666,13 @@ export function analyzeChemicalFormFeature(
       else if (/mecobalamin|메코발라민|메틸코발라민/i.test(combined)) detail = '메틸코발라민';
       else detail = '활성 조효소 유도체';
     }
+    detail = detail.replace(/^\((.*)\)$/, '$1').trim();
+    const displayText = detail ? `활성형 (${detail})` : '활성형';
     return {
       badgeType: 'ACTIVE_VITAMIN',
       badgeLabel: '활성형',
-      detailLabel: detail || '생체이용 활성형'
+      detailLabel: detail || '생체이용 활성형',
+      displayText
     };
   }
 
@@ -1691,34 +1695,48 @@ export function analyzeChemicalFormFeature(
       /산화|oxide|탄산|carbonate|황산|sulfate|아셀렌산|selenite/i.test(combined);
 
     if (isOrganic) {
-      let detail = rawForm.replace(/유기(산)?염|\(유기[^\)]*\)/g, '').trim();
+      let detail = rawForm
+        .replace(/유기(산|인산)?염/g, '')
+        .replace(/\(유기[^\)]*\)/g, '')
+        .trim();
+      detail = detail.replace(/^\((.*)\)$/, '$1').trim();
       if (!detail || detail === '표준 정제 원료') {
         if (/gluconate/i.test(combined)) detail = '글루콘산염 (흡수 우수)';
         else if (/citrate/i.test(combined)) detail = '구연산염 (위장 부담 적음)';
         else if (/lactate/i.test(combined)) detail = '젖산염';
         else if (/bisglycinate|chelate/i.test(combined)) detail = '아미노산 킬레이트';
-        else if (/yeast|건조효모/i.test(combined)) detail = '건조효모 유기태';
+        else if (/yeast|건조효모/i.test(combined)) detail = '건조효모';
         else detail = '유기산염';
       }
+      const displayText = /yeast|건조효모/i.test(combined)
+        ? `유기태 (${detail})`
+        : `유기염 (${detail})`;
       return {
         badgeType: 'ORGANIC_MINERAL',
         badgeLabel: '유기염',
-        detailLabel: detail || '유기산염'
+        detailLabel: detail || '유기산염',
+        displayText
       };
     }
 
     if (isInorganic) {
-      let detail = rawForm.replace(/무기염|\(무기[^\)]*\)/g, '').trim();
+      let detail = rawForm
+        .replace(/무기염/g, '')
+        .replace(/\(무기[^\)]*\)/g, '')
+        .trim();
+      detail = detail.replace(/^\((.*)\)$/, '$1').trim();
       if (!detail || detail === '표준 정제 원료') {
         if (/oxide|산화/i.test(combined)) detail = '산화물 (고밀도 원소)';
         else if (/carbonate|탄산/i.test(combined)) detail = '탄산염';
         else if (/sulfate|황산/i.test(combined)) detail = '황산염';
         else detail = '무기염';
       }
+      const displayText = detail === '무기염' ? '무기염' : `무기염 (${detail})`;
       return {
         badgeType: 'INORGANIC_MINERAL',
         badgeLabel: '무기염',
-        detailLabel: detail || '무기염'
+        detailLabel: detail || '무기염',
+        displayText
       };
     }
   }
@@ -1728,7 +1746,8 @@ export function analyzeChemicalFormFeature(
     return {
       badgeType: 'AMIDE',
       badgeLabel: '아미드형',
-      detailLabel: '나이아신아마이드'
+      detailLabel: '나이아신아마이드',
+      displayText: '아미드형 (나이아신아마이드)'
     };
   }
 
@@ -1737,7 +1756,8 @@ export function analyzeChemicalFormFeature(
     return {
       badgeType: 'NATURAL',
       badgeLabel: '천연형',
-      detailLabel: 'd-α-토코페롤'
+      detailLabel: 'd-α-토코페롤',
+      displayText: '천연형 (d-α-토코페롤)'
     };
   }
 
@@ -1745,12 +1765,13 @@ export function analyzeChemicalFormFeature(
   if (categoryTag === '비타민B5' && /pantothenate|판토텐산/i.test(combined)) {
     return {
       badgeType: 'NONE',
-      detailLabel: '판토텐산칼슘 (유기산염)'
+      detailLabel: '판토텐산칼슘 (유기산염)',
+      displayText: '판토텐산칼슘 (유기산염)'
     };
   }
 
   // 6. 그 외 일반 형태
-  let cleanedForm = rawForm.replace(/\([^\)]*\)/g, '').trim();
+  let cleanedForm = rawForm.trim();
   if (cleanedForm === '표준 정제 원료' || !cleanedForm) {
     if (categoryTag.startsWith('비타민')) cleanedForm = '일반(비활성)형';
     else if (isMineral) cleanedForm = '표준염';
@@ -1759,7 +1780,8 @@ export function analyzeChemicalFormFeature(
 
   return {
     badgeType: 'NONE',
-    detailLabel: cleanedForm
+    detailLabel: cleanedForm,
+    displayText: cleanedForm
   };
 }
 

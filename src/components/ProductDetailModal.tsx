@@ -1990,7 +1990,15 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                           };
                         });
 
-                        // 연속된 동일 약효분류 병합(rowSpan 계산)
+                        // 상한섭취량 병합 기준 키 (동일 약효분류 내 동일 상한섭취량 병합)
+                        const getUlGroupKey = (entry: (typeof itemsWithInfo)[0]) => {
+                          if (ulViewMode === 'CHILD') {
+                            return `${entry.info.categoryTag}__${entry.info.childUlText || ''}__${entry.info.ulText || ''}`;
+                          }
+                          return `${entry.info.categoryTag}__${entry.info.ulText || ''}`;
+                        };
+
+                        // 연속된 동일 약효분류 및 동일 상한섭취량 병합(rowSpan 계산)
                         return itemsWithInfo.map((item, idx) => {
                           const isFirstOfCategory =
                             idx === 0 || itemsWithInfo[idx - 1].info.categoryTag !== item.info.categoryTag;
@@ -2000,6 +2008,21 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                             for (let j = idx + 1; j < itemsWithInfo.length; j++) {
                               if (itemsWithInfo[j].info.categoryTag === item.info.categoryTag) {
                                 rowSpan++;
+                              } else {
+                                break;
+                              }
+                            }
+                          }
+
+                          const currentUlKey = getUlGroupKey(item);
+                          const isFirstOfUl =
+                            idx === 0 || getUlGroupKey(itemsWithInfo[idx - 1]) !== currentUlKey;
+
+                          let ulRowSpan = 1;
+                          if (isFirstOfUl) {
+                            for (let j = idx + 1; j < itemsWithInfo.length; j++) {
+                              if (getUlGroupKey(itemsWithInfo[j]) === currentUlKey) {
+                                ulRowSpan++;
                               } else {
                                 break;
                               }
@@ -2141,51 +2164,56 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                             </td>
                           )}
 
-                          {/* 3열(의약품은 4열): 상한섭취량 (소아/성인 모드 대응) */}
-                          <td className="px-2.5 sm:px-3 py-2.5 text-center align-middle">
-                            {ulViewMode === 'CHILD' ? (
-                              item.info.childUlText ? (
-                                <div className="flex flex-col items-center">
-                                  <span
-                                    title={item.info.childUlNote || '2025 KDRIs 소아 상한섭취량(UL)'}
-                                    className="text-xs font-bold text-amber-700 tracking-tight cursor-help whitespace-nowrap"
-                                  >
-                                    {item.info.childUlText}
-                                  </span>
-                                  {item.info.ulText && (
-                                    <span className="text-[10px] text-slate-400 font-normal whitespace-nowrap">
-                                      (성인 {item.info.ulText})
+                          {/* 3열(의약품은 4열): 상한섭취량 (소아/성인 모드 대응, 동일 약효분류 및 상한섭취량일 경우 셀 병합) */}
+                          {isFirstOfUl && (
+                            <td
+                              rowSpan={ulRowSpan}
+                              className="px-2.5 sm:px-3 py-2.5 text-center align-middle"
+                            >
+                              {ulViewMode === 'CHILD' ? (
+                                item.info.childUlText ? (
+                                  <div className="flex flex-col items-center">
+                                    <span
+                                      title={item.info.childUlNote || '2025 KDRIs 소아 상한섭취량(UL)'}
+                                      className="text-xs font-bold text-amber-700 tracking-tight cursor-help whitespace-nowrap"
+                                    >
+                                      {item.info.childUlText}
                                     </span>
-                                  )}
-                                </div>
-                              ) : item.info.ulText ? (
-                                <div className="flex flex-col items-center">
+                                    {item.info.ulText && (
+                                      <span className="text-[10px] text-slate-400 font-normal whitespace-nowrap">
+                                        (성인 {item.info.ulText})
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : item.info.ulText ? (
+                                  <div className="flex flex-col items-center">
+                                    <span
+                                      title={item.info.ulNote || '2025 한국인 영양소 섭취기준(KDRIs) 성인 1일 상한섭취량(UL)'}
+                                      className="text-xs font-semibold text-rose-600 tracking-tight whitespace-nowrap"
+                                    >
+                                      {item.info.ulText}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400 font-normal whitespace-nowrap">
+                                      (성인 기준)
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-300">-</span>
+                                )
+                              ) : (
+                                item.info.ulText ? (
                                   <span
                                     title={item.info.ulNote || '2025 한국인 영양소 섭취기준(KDRIs) 성인 1일 상한섭취량(UL)'}
                                     className="text-xs font-semibold text-rose-600 tracking-tight whitespace-nowrap"
                                   >
                                     {item.info.ulText}
                                   </span>
-                                  <span className="text-[10px] text-slate-400 font-normal whitespace-nowrap">
-                                    (성인 기준)
-                                  </span>
-                                </div>
-                              ) : (
-                                <span className="text-slate-300">-</span>
-                              )
-                            ) : (
-                              item.info.ulText ? (
-                                <span
-                                  title={item.info.ulNote || '2025 한국인 영양소 섭취기준(KDRIs) 성인 1일 상한섭취량(UL)'}
-                                  className="text-xs font-semibold text-rose-600 tracking-tight whitespace-nowrap"
-                                >
-                                  {item.info.ulText}
-                                </span>
-                              ) : (
-                                <span className="text-slate-300">-</span>
-                              )
-                            )}
-                          </td>
+                                ) : (
+                                  <span className="text-slate-300">-</span>
+                                )
+                              )}
+                            </td>
+                          )}
                         </tr>
                       );
                     });

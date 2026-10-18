@@ -3,7 +3,7 @@ import { ProductItem } from '../types/product';
 import { ProductIngredientEntry } from '../types/ingredient';
 import { ProductClassification } from '../types/classification';
 import { MOCK_PRODUCTS } from '../constants/mockProducts';
-import { doesProductMatchEfficacyTag } from '../constants/efficacyTags';
+import { STANDARD_EFFICACY_TAGS, doesProductMatchEfficacyTag } from '../constants/efficacyTags';
 import { resolveKpicCategory, saveLearnedIngredientMapping } from '../utils/innMapper';
 import { normalizeCategory } from '../utils/categoryColors';
 import { 
@@ -40,8 +40,16 @@ interface ProductState {
 
   // Cloud CRUD
   addProduct: (product: ProductItem) => Promise<void>;
+  bulkAddProducts: (newProducts: ProductItem[]) => Promise<void>;
   updateProduct: (id: string, partial: Partial<ProductItem>) => Promise<void>;
   deleteProduct: (id: string) => Promise<void>;
+
+  // Tag Management
+  customTags: string[];
+  addCustomTag: (tag: string) => void;
+  renameTag: (oldTag: string, newTag: string) => Promise<void>;
+  deleteTag: (tag: string) => Promise<void>;
+  getActiveTags: () => string[];
 
   // Efficacy Category Realtime Updates
   updateIngredientCategory: (ingredientKey: string, newCategory: string) => Promise<void>;
@@ -55,6 +63,30 @@ interface ProductState {
 const LOCAL_STORAGE_KEY = 'pharmassist_products_v3';
 const DELETED_IDS_KEY = 'pharmassist_deleted_ids_v1';
 const SORT_BY_STORAGE_KEY = 'pharmassist_sort_by_v1';
+const CUSTOM_TAGS_STORAGE_KEY = 'pharmassist_custom_tags_v2';
+const DELETED_DEFAULT_TAGS_STORAGE_KEY = 'pharmassist_deleted_default_tags_v1';
+
+export function getSavedCustomTags(): string[] {
+  try {
+    const saved = localStorage.getItem(CUSTOM_TAGS_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
+
+export function getSavedDeletedDefaultTags(): string[] {
+  try {
+    const saved = localStorage.getItem(DELETED_DEFAULT_TAGS_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (e) {}
+  return [];
+}
 
 export function getSavedSortBy(): ProductSortOption {
   try {
@@ -361,6 +393,7 @@ export const useProductStore = create<ProductState>((set, get) => {
     searchQuery: '',
     classificationFilter: 'ALL',
     selectedTag: null,
+    customTags: getSavedCustomTags(),
     sortBy: initialSort,
     isLiveSyncActive: isLiveFirebaseConfigured(),
     isSyncing: false,
@@ -457,6 +490,169 @@ export const useProductStore = create<ProductState>((set, get) => {
       saveProductToFirestore(product).catch((e) => {
         console.warn('Firestore 저장 비동기 처리 알림:', e);
       });
+    },
+
+    bulkAddProducts: async (newProducts: ProductItem[]) => {
+      if (!newProducts || newProducts.length === 0) return;
+      const currentProducts = get().products;
+      const currentSort = get().sortBy || 'NAME_ASC';
+
+      const existingMap = new Map<string, ProductItem>();
+      currentProducts.forEach((p) => existingMap.set(p.id, p));
+
+      newProducts.forEach((p) => {
+        unmarkDeletedId(p.id);
+        existingMap.set(p.id, p);
+      });
+
+      const nextList = sortProducts(
+        migrateAndEnsureKpic(Array.from(existingMap.values())),
+        currentSort
+      );
+
+      persistToLocal(nextList);
+      set({
+        products: nextList,
+        selectedProductId: newProducts[0]?.id || get().selectedProductId
+      });
+
+      // 백그라운드 Firestore 비동기 저장
+      for (const p of newProducts) {
+        saveProductToFirestore(p).catch((e) => {
+          console.warn('대량 등록 Firestore 동기화 알림:', e);
+        });
+      }
+    },
+
+    getActiveTags: () => {
+      const { customTags, products } = get();
+      const deletedSet = new Set(getSavedDeletedDefaultTags());
+      const tagSet = new Set<string>();
+
+      // 1. 기본 표준 태그 (삭제되지 않은 것)
+      STANDARD_EFFICACY_TAGS.forEach((t) => {
+        if (!deletedSet.has(t)) tagSet.add(t);
+      });
+
+      // 2. 사용자 추가 커스텀 태그
+      customTags.forEach((t) => {
+        if (!deletedSet.has(t)) tagSet.add(t);
+      });
+
+      // 3. 현재 등록된 제품들에서 사용 중인 태그
+      products.forEach((p) => {
+        p.tags.forEach((t) => {
+          const trimmed = t.trim();
+          if (trimmed && !deletedSet.has(trimmed)) tagSet.add(trimmed);
+        });
+      });
+
+      return Array.from(tagSet);
+    },
+
+    addCustomTag: (tag: string) => {
+      const trimmed = tag.trim();
+      if (!trimmed) return;
+      const currentDeleted = getSavedDeletedDefaultTags().filter((t) => t !== trimmed);
+      localStorage.setItem(DELETED_DEFAULT_TAGS_STORAGE_KEY, JSON.stringify(currentDeleted));
+
+      const currentCustom = getSavedCustomTags();
+      if (!currentCustom.includes(trimmed)) {
+        const next = [...currentCustom, trimmed];
+        localStorage.setItem(CUSTOM_TAGS_STORAGE_KEY, JSON.stringify(next));
+        set({ customTags: next });
+      }
+    },
+
+    renameTag: async (oldTag: string, newTag: string) => {
+      const cleanOld = oldTag.trim();
+      const cleanNew = newTag.trim();
+      if (!cleanOld || !cleanNew || cleanOld === cleanNew) return;
+
+      let currentCustom = getSavedCustomTags();
+      if (currentCustom.includes(cleanOld)) {
+        currentCustom = currentCustom.map((t) => (t === cleanOld ? cleanNew : t));
+      } else {
+        const deletedDefaults = getSavedDeletedDefaultTags();
+        if (!deletedDefaults.includes(cleanOld)) {
+          deletedDefaults.push(cleanOld);
+          localStorage.setItem(DELETED_DEFAULT_TAGS_STORAGE_KEY, JSON.stringify(deletedDefaults));
+        }
+        if (!currentCustom.includes(cleanNew)) {
+          currentCustom.push(cleanNew);
+        }
+      }
+      localStorage.setItem(CUSTOM_TAGS_STORAGE_KEY, JSON.stringify(currentCustom));
+
+      const { products, selectedTag } = get();
+      let hasChange = false;
+      const nextProducts = products.map((p) => {
+        if (p.tags && p.tags.includes(cleanOld)) {
+          hasChange = true;
+          const updatedTags = p.tags.map((t) => (t === cleanOld ? cleanNew : t));
+          const updated = { ...p, tags: updatedTags, updatedAt: new Date().toISOString() };
+          saveProductToFirestore(updated).catch(() => {});
+          return updated;
+        }
+        return p;
+      });
+
+      if (hasChange) {
+        persistToLocal(nextProducts);
+        set({
+          products: nextProducts,
+          customTags: currentCustom,
+          selectedTag: selectedTag === cleanOld ? cleanNew : selectedTag
+        });
+      } else {
+        set({
+          customTags: currentCustom,
+          selectedTag: selectedTag === cleanOld ? cleanNew : selectedTag
+        });
+      }
+    },
+
+    deleteTag: async (tagToDelete: string) => {
+      const cleanTag = tagToDelete.trim();
+      if (!cleanTag) return;
+
+      const currentCustom = getSavedCustomTags().filter((t) => t !== cleanTag);
+      localStorage.setItem(CUSTOM_TAGS_STORAGE_KEY, JSON.stringify(currentCustom));
+
+      if (STANDARD_EFFICACY_TAGS.includes(cleanTag)) {
+        const deletedDefaults = getSavedDeletedDefaultTags();
+        if (!deletedDefaults.includes(cleanTag)) {
+          deletedDefaults.push(cleanTag);
+          localStorage.setItem(DELETED_DEFAULT_TAGS_STORAGE_KEY, JSON.stringify(deletedDefaults));
+        }
+      }
+
+      const { products, selectedTag } = get();
+      let hasChange = false;
+      const nextProducts = products.map((p) => {
+        if (p.tags && p.tags.includes(cleanTag)) {
+          hasChange = true;
+          const updatedTags = p.tags.filter((t) => t !== cleanTag);
+          const updated = { ...p, tags: updatedTags, updatedAt: new Date().toISOString() };
+          saveProductToFirestore(updated).catch(() => {});
+          return updated;
+        }
+        return p;
+      });
+
+      if (hasChange) {
+        persistToLocal(nextProducts);
+        set({
+          products: nextProducts,
+          customTags: currentCustom,
+          selectedTag: selectedTag === cleanTag ? null : selectedTag
+        });
+      } else {
+        set({
+          customTags: currentCustom,
+          selectedTag: selectedTag === cleanTag ? null : selectedTag
+        });
+      }
     },
 
     updateProduct: async (id, partial) => {

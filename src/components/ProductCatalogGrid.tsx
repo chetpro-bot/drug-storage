@@ -3,7 +3,6 @@ import { useProductStore, ProductSortOption } from '../stores/useProductStore';
 import { ProductItem, getProductThumbnail } from '../types/product';
 import { ProductClassification } from '../types/classification';
 import {
-  STANDARD_EFFICACY_TAGS,
   doesProductMatchEfficacyTag,
   getMatchedEfficacyTagsForProduct
 } from '../constants/efficacyTags';
@@ -19,7 +18,6 @@ import {
   Check,
   X,
   Edit3,
-  Tag,
   ArrowUpDown
 } from 'lucide-react';
 
@@ -45,6 +43,7 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
     setSelectedProductId,
     updateProduct,
     getFilteredProducts,
+    getActiveTags,
     sortBy,
     setSortBy
   } = useProductStore();
@@ -63,20 +62,10 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [photoTargetProductId, setPhotoTargetProductId] = useState<string | null>(null);
 
-  // 사용자 정의 태그 중 표준 효능 태그에 없는 커스텀 태그 추출
-  const customTags = React.useMemo(() => {
-    const stdSet = new Set(STANDARD_EFFICACY_TAGS);
-    const extra = new Set<string>();
-    products.forEach((p) => {
-      p.tags.forEach((t) => {
-        const trimmed = t.trim();
-        if (trimmed && !stdSet.has(trimmed)) {
-          extra.add(trimmed);
-        }
-      });
-    });
-    return Array.from(extra);
-  }, [products]);
+  // 현재 활성화된 효능 태그 목록 (설정 관리 및 제품 태그 연동)
+  const activeTags = React.useMemo(() => {
+    return getActiveTags();
+  }, [products, getActiveTags]);
 
   // 각 효능 태그별 매칭 제품 수 계산 (현재 분류 필터 기준)
   const getTagMatchCount = (tag: string) => {
@@ -335,8 +324,8 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
               전체
             </button>
 
-            {/* 표준 효능 태그 버튼들 */}
-            {STANDARD_EFFICACY_TAGS.map((tag) => {
+            {/* 활성 효능 태그 버튼들 */}
+            {activeTags.map((tag) => {
               const isSelected = selectedTag === tag;
               const matchCount = getTagMatchCount(tag);
               return (
@@ -363,25 +352,6 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
                       {matchCount}
                     </span>
                   )}
-                </button>
-              );
-            })}
-
-            {/* 사용자가 직접 추가한 커스텀 태그들 */}
-            {customTags.slice(0, 12).map((tag) => {
-              const isSelected = selectedTag === tag;
-              return (
-                <button
-                  key={tag}
-                  onClick={() => setSelectedTag(isSelected ? null : tag)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer border flex items-center gap-1 ${
-                    isSelected
-                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                      : 'bg-white text-slate-600 border-slate-200 hover:bg-indigo-50 hover:text-indigo-700'
-                  }`}
-                >
-                  <Tag className="w-3 h-3 opacity-70" />
-                  <span>{tag}</span>
                 </button>
               );
             })}

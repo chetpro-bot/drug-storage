@@ -1509,6 +1509,9 @@ export interface ResolvedIngredientDisplayInfo {
   convertedText: string | null;
   ulText: string | null;
   ulNote?: string;
+  childUlText?: string | null;
+  childUlNote?: string;
+  childAgeRows?: { ageLabel: string; ulText: string; ulValue: number }[];
   chemicalFormFeature: ChemicalFormFeature;
   sortGroup: 1 | 2 | 3; // 1: 비타민, 2: 미네랄, 3: 기타 성분
   vitaminSubOrder: number; // 비타민 내 정렬 순서 (A=10, B1=21..B9=29..B12=32, 기타B=39, C=40, D=50, E=60, K=70)
@@ -1916,6 +1919,165 @@ export function resolveIngredientDisplayInfo(
     }
   }
 
+  // 소아·어린이 연령별 2025 KDRIs 상한섭취량(UL) 계산
+  let childUlText: string | null = null;
+  let childUlNote: string | undefined = undefined;
+  let childAgeRows: { ageLabel: string; ulText: string; ulValue: number }[] | undefined = undefined;
+
+  if (standardKey) {
+    if (standardKey === 'ZINC') {
+      childUlText = '6~19mg (1~11세)';
+      childUlNote = '2025 KDRIs 아연 연령별 상한섭취량: 1~2세 6mg, 3~5세 9mg, 6~8세 13mg, 9~11세 19mg, 12~14세 27mg, 15~18세 33mg (성인 35mg)';
+      childAgeRows = [
+        { ageLabel: '1~2세', ulText: '6mg', ulValue: 6 },
+        { ageLabel: '3~5세', ulText: '9mg', ulValue: 9 },
+        { ageLabel: '6~8세', ulText: '13mg', ulValue: 13 },
+        { ageLabel: '9~11세', ulText: '19mg', ulValue: 19 },
+        { ageLabel: '12~14세', ulText: '27mg', ulValue: 27 },
+        { ageLabel: '15~18세', ulText: '33mg', ulValue: 33 },
+        { ageLabel: '성인 (19세+)', ulText: '35mg', ulValue: 35 }
+      ];
+    } else if (standardKey === 'VITAMIN_B6') {
+      childUlText = '10~30mg (1~11세)';
+      childUlNote = '2025 KDRIs 비타민 B6 연령별 상한섭취량: 1~2세 10mg, 3~5세 15mg, 6~8세 20mg, 9~11세 30mg, 12~14세 40mg, 15~18세 45mg (성인 50mg)';
+      childAgeRows = [
+        { ageLabel: '1~2세', ulText: '10mg', ulValue: 10 },
+        { ageLabel: '3~5세', ulText: '15mg', ulValue: 15 },
+        { ageLabel: '6~8세', ulText: '20mg', ulValue: 20 },
+        { ageLabel: '9~11세', ulText: '30mg', ulValue: 30 },
+        { ageLabel: '12~14세', ulText: '40mg', ulValue: 40 },
+        { ageLabel: '15~18세', ulText: '45mg', ulValue: 45 },
+        { ageLabel: '성인 (19세+)', ulText: '50mg', ulValue: 50 }
+      ];
+    } else if (standardKey === 'VITAMIN_B3') {
+      const fullCheckStr = `${normEng} ${rawInn} ${ing.koreanName || ''} ${ing.chemicalFormName || ''}`.toLowerCase();
+      const isNicotinicAcid =
+        (normEng.includes('nicotinicacid') ||
+          (fullCheckStr.includes('니코틴산') && !fullCheckStr.includes('아미드'))) &&
+        !normEng.includes('nicotinamide') &&
+        !normEng.includes('niacinamide') &&
+        !fullCheckStr.includes('아미드');
+
+      if (isNicotinicAcid) {
+        childUlText = '10~20mg (1~11세, 산 형태)';
+        childUlNote = '2025 KDRIs 니코틴산(Nicotinic acid) 연령별 상한섭취량: 1~5세 10mg, 6~8세 15mg, 9~11세 20mg, 12~14세 25mg, 15~18세 30mg (성인 35mg)';
+        childAgeRows = [
+          { ageLabel: '1~5세', ulText: '10mg', ulValue: 10 },
+          { ageLabel: '6~8세', ulText: '15mg', ulValue: 15 },
+          { ageLabel: '9~11세', ulText: '20mg', ulValue: 20 },
+          { ageLabel: '12~14세', ulText: '25mg', ulValue: 25 },
+          { ageLabel: '15~18세', ulText: '30mg', ulValue: 30 },
+          { ageLabel: '성인 (19세+)', ulText: '35mg', ulValue: 35 }
+        ];
+      } else {
+        childUlText = '150~450mg (1~11세)';
+        childUlNote = '2025 KDRIs 니코틴산아미드(Nicotinamide) 연령별 상한섭취량: 1~2세 150mg, 3~5세 200mg, 6~8세 300mg, 9~11세 450mg, 12~14세 600mg, 15~18세 650mg (성인 850mg)';
+        childAgeRows = [
+          { ageLabel: '1~2세', ulText: '150mg', ulValue: 150 },
+          { ageLabel: '3~5세', ulText: '200mg', ulValue: 200 },
+          { ageLabel: '6~8세', ulText: '300mg', ulValue: 300 },
+          { ageLabel: '9~11세', ulText: '450mg', ulValue: 450 },
+          { ageLabel: '12~14세', ulText: '600mg', ulValue: 600 },
+          { ageLabel: '15~18세', ulText: '650mg', ulValue: 650 },
+          { ageLabel: '성인 (19세+)', ulText: '850mg', ulValue: 850 }
+        ];
+      }
+    } else if (standardKey === 'VITAMIN_A') {
+      childUlText = '600~1,600μg (1~11세)';
+      childUlNote = '2025 KDRIs 비타민 A 연령별 상한섭취량: 1~2세 600μg, 3~5세 750μg, 6~8세 1,100μg, 9~11세 1,600μg, 12~14세 2,300μg, 15~18세 2,800μg (성인 3,000μg)';
+      childAgeRows = [
+        { ageLabel: '1~2세', ulText: '600μg', ulValue: 600 },
+        { ageLabel: '3~5세', ulText: '750μg', ulValue: 750 },
+        { ageLabel: '6~8세', ulText: '1,100μg', ulValue: 1100 },
+        { ageLabel: '9~11세', ulText: '1,600μg', ulValue: 1600 },
+        { ageLabel: '12~14세', ulText: '2,300μg', ulValue: 2300 },
+        { ageLabel: '15~18세', ulText: '2,800μg', ulValue: 2800 },
+        { ageLabel: '성인 (19세+)', ulText: '3,000μg', ulValue: 3000 }
+      ];
+    } else if (standardKey === 'VITAMIN_D') {
+      childUlText = '1,200~2,400IU (1~11세)';
+      childUlNote = '2025 KDRIs 비타민 D 연령별 상한섭취량: 1~2세 30μg(1,200IU), 3~5세 35μg(1,400IU), 6~8세 40μg(1,600IU), 9~11세 60μg(2,400IU), 12세 이상 100μg(4,000IU)';
+      childAgeRows = [
+        { ageLabel: '1~2세', ulText: '1,200IU (30μg)', ulValue: 30 },
+        { ageLabel: '3~5세', ulText: '1,400IU (35μg)', ulValue: 35 },
+        { ageLabel: '6~8세', ulText: '1,600IU (40μg)', ulValue: 40 },
+        { ageLabel: '9~11세', ulText: '2,400IU (60μg)', ulValue: 60 },
+        { ageLabel: '12세 이상', ulText: '4,000IU (100μg)', ulValue: 100 }
+      ];
+    } else if (standardKey === 'VITAMIN_C') {
+      childUlText = '400~1,200mg (1~11세)';
+      childUlNote = '2025 KDRIs 비타민 C 연령별 상한섭취량: 1~2세 400mg, 3~5세 600mg, 6~8세 900mg, 9~11세 1,200mg, 12~14세 1,600mg, 15~18세 1,800mg (성인 2,000mg)';
+      childAgeRows = [
+        { ageLabel: '1~2세', ulText: '400mg', ulValue: 400 },
+        { ageLabel: '3~5세', ulText: '600mg', ulValue: 600 },
+        { ageLabel: '6~8세', ulText: '900mg', ulValue: 900 },
+        { ageLabel: '9~11세', ulText: '1,200mg', ulValue: 1200 },
+        { ageLabel: '12~14세', ulText: '1,600mg', ulValue: 1600 },
+        { ageLabel: '성인 (19세+)', ulText: '2,000mg', ulValue: 2000 }
+      ];
+    } else if (standardKey === 'VITAMIN_B9') {
+      childUlText = '300~700μg (1~11세)';
+      childUlNote = '2025 KDRIs 엽산 연령별 상한섭취량: 1~2세 300μg, 3~5세 400μg, 6~8세 500μg, 9~11세 700μg, 12~14세 800μg, 15~18세 900μg (성인 1,000μg)';
+      childAgeRows = [
+        { ageLabel: '1~2세', ulText: '300μg', ulValue: 300 },
+        { ageLabel: '3~5세', ulText: '400μg', ulValue: 400 },
+        { ageLabel: '6~8세', ulText: '500μg', ulValue: 500 },
+        { ageLabel: '9~11세', ulText: '700μg', ulValue: 700 },
+        { ageLabel: '12~14세', ulText: '800μg', ulValue: 800 },
+        { ageLabel: '성인 (19세+)', ulText: '1,000μg', ulValue: 1000 }
+      ];
+    } else if (standardKey === 'CALCIUM') {
+      childUlText = '1,500~2,500mg (1~8세)';
+      childUlNote = '2025 KDRIs 칼슘 연령별 상한섭취량: 1~2세 1,500mg, 3~5세 2,000mg, 6~8세 2,500mg, 9~18세 3,000mg (성인 2,500mg)';
+      childAgeRows = [
+        { ageLabel: '1~2세', ulText: '1,500mg', ulValue: 1500 },
+        { ageLabel: '3~5세', ulText: '2,000mg', ulValue: 2000 },
+        { ageLabel: '6~8세', ulText: '2,500mg', ulValue: 2500 },
+        { ageLabel: '9~18세', ulText: '3,000mg', ulValue: 3000 },
+        { ageLabel: '성인 (19세+)', ulText: '2,500mg', ulValue: 2500 }
+      ];
+    } else if (standardKey === 'IRON') {
+      childUlText = '40mg (1~14세)';
+      childUlNote = '2025 KDRIs 철 연령별 상한섭취량: 1~14세 40mg, 15세 이상 45mg';
+      childAgeRows = [
+        { ageLabel: '1~14세', ulText: '40mg', ulValue: 40 },
+        { ageLabel: '15세 이상', ulText: '45mg', ulValue: 45 }
+      ];
+    } else if (standardKey === 'MAGNESIUM') {
+      childUlText = '65~230mg (식품외, 1~11세)';
+      childUlNote = '2025 KDRIs 마그네슘(식품 외 급원) 연령별 상한섭취량: 1~2세 65mg, 3~5세 110mg, 6~8세 160mg, 9~11세 230mg, 12~14세 310mg (성인 350mg)';
+      childAgeRows = [
+        { ageLabel: '1~2세', ulText: '65mg', ulValue: 65 },
+        { ageLabel: '3~5세', ulText: '110mg', ulValue: 110 },
+        { ageLabel: '6~8세', ulText: '160mg', ulValue: 160 },
+        { ageLabel: '9~11세', ulText: '230mg', ulValue: 230 },
+        { ageLabel: '12~14세', ulText: '310mg', ulValue: 310 },
+        { ageLabel: '성인 (19세+)', ulText: '350mg', ulValue: 350 }
+      ];
+    } else if (standardKey === 'SELENIUM') {
+      childUlText = '60~230μg (1~11세)';
+      childUlNote = '2025 KDRIs 셀레늄 연령별 상한섭취량: 1~2세 60μg, 3~5세 90μg, 6~8세 150μg, 9~11세 230μg, 12~14세 320μg (성인 400μg)';
+      childAgeRows = [
+        { ageLabel: '1~2세', ulText: '60μg', ulValue: 60 },
+        { ageLabel: '3~5세', ulText: '90μg', ulValue: 90 },
+        { ageLabel: '6~8세', ulText: '150μg', ulValue: 150 },
+        { ageLabel: '9~11세', ulText: '230mg', ulValue: 230 },
+        { ageLabel: '12~14세', ulText: '320μg', ulValue: 320 },
+        { ageLabel: '성인 (19세+)', ulText: '400μg', ulValue: 400 }
+      ];
+    } else if (standardKey === 'VITAMIN_E') {
+      childUlText = '100~350mg (1~11세)';
+      childUlNote = '2025 KDRIs 비타민 E 연령별 상한섭취량: 1~2세 100mg(150IU), 3~5세 150mg(220IU), 6~8세 250mg(370IU), 9~11세 350mg(520IU), 12세 이상 540mg(800IU)';
+      childAgeRows = [
+        { ageLabel: '1~2세', ulText: '100mg (150IU)', ulValue: 100 },
+        { ageLabel: '3~5세', ulText: '150mg (220IU)', ulValue: 150 },
+        { ageLabel: '6~8세', ulText: '250mg (370IU)', ulValue: 250 },
+        { ageLabel: '9~11세', ulText: '350mg (520IU)', ulValue: 350 },
+        { ageLabel: '12세 이상', ulText: '540mg (800IU)', ulValue: 540 }
+      ];
+    }
+  }
+
   // 6. 정렬 그룹 및 비타민 세부 순서 결정
   // Group 1: 비타민 (A -> B1 -> B2 -> B3 -> B5 -> B6 -> B7 -> 엽산(B9) -> B12 -> 기타 비타민B -> C -> D -> E -> K)
   // Group 2: 미네랄 (알파벳순)
@@ -1999,6 +2161,9 @@ export function resolveIngredientDisplayInfo(
     convertedText,
     ulText,
     ulNote,
+    childUlText,
+    childUlNote,
+    childAgeRows,
     chemicalFormFeature,
     sortGroup,
     vitaminSubOrder

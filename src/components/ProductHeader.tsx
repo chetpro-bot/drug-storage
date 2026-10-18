@@ -225,7 +225,7 @@ export const ProductHeader: React.FC<ProductHeaderProps> = ({ product }) => {
             <div className="flex items-center gap-2 text-xs text-slate-700 bg-amber-50/80 border border-amber-200/80 px-3 py-1.5 rounded-md">
               <Clock className="w-4 h-4 text-amber-600 shrink-0" />
               <span className="font-semibold text-amber-900">표준 복용·섭취 기준:</span>
-              <span className="font-medium">{standardInstruction}</span>
+              <span className="font-medium whitespace-pre-line">{standardInstruction}</span>
             </div>
 
             {/* 핵심 효능/특징 태그 (클릭 시 해당 효능 카탈로그 필터로 이동) */}

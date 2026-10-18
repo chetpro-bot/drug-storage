@@ -1641,14 +1641,14 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
 
                 <div className="col-span-8">
                   <label className="block font-bold text-slate-700 mb-1 text-xs">
-                    표준 복용·섭취 기준 문구
+                    표준 복용·섭취 기준 문구 (줄바꿈 가능)
                   </label>
-                  <input
-                    type="text"
+                  <textarea
+                    rows={3}
                     value={dosageInstruction}
                     onChange={(e) => setDosageInstruction(e.target.value)}
-                    placeholder="예: 만 19세 이상 및 성인 : 1일 1회, 1회 1정 식후 복용"
-                    className="w-full p-2 border border-slate-300 rounded-lg bg-white text-xs font-medium"
+                    placeholder="예:&#10;만 1세~3세: 1일 1회, 1회 1포&#10;만 4세~7세: 1일 2회, 1회 1포&#10;만 8세 이상: 1일 2회, 1회 2포"
+                    className="w-full p-2 border border-slate-300 rounded-lg bg-white text-xs font-medium leading-relaxed font-sans"
                   />
                 </div>
 

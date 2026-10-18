@@ -6,6 +6,7 @@ import { ProductIngredientEntry } from '../types/ingredient';
  * (사용자 캡처 화면의 효능 분류 체계와 1:1 대응)
  */
 export const STANDARD_EFFICACY_TAGS: string[] = [
+  '어린이',
   '뇌',
   '혈행',
   '여성',
@@ -52,7 +53,8 @@ const TAG_SYNONYM_MAP: Record<string, string[]> = {
   '피부': ['피부', '구내염', '습진', '보습', '콜라겐'],
   '장': ['장', '유산균', '프로바이오틱스', '배변', '변비'],
   '소화': ['소화', '위장', '속쓰림', '효소'],
-  '성장/어린이': ['성장/어린이', '성장', '어린이', '키즈', '성장기어린이']
+  '성장/어린이': ['성장/어린이', '성장', '어린이', '키즈', '성장기어린이'],
+  '어린이': ['어린이', '키즈', '소아', '유아', '성장', '성장/어린이', '성장기어린이', '어린이영양제']
 };
 
 /**
@@ -119,7 +121,10 @@ export function inferInitialEfficacyTags(
   if (/남성|전립선|쏘팔메토|옥타코사놀/.test(combined)) suggested.add('남성');
   if (/피부|콜라겐|히알루론산|구내염/.test(combined)) suggested.add('피부');
   if (/소화|효소|카무트|위장/.test(combined)) suggested.add('소화');
-  if (/어린이|키즈|성장/.test(combined)) suggested.add('성장/어린이');
+  if (/어린이|키즈|성장|마이타민|베베|아이/.test(combined)) {
+    suggested.add('어린이');
+    suggested.add('성장/어린이');
+  }
 
   // 주성분(isMainActive) 확인
   for (const ing of ingredients.filter((i) => i.isMainActive)) {

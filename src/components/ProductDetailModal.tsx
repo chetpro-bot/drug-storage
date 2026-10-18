@@ -25,7 +25,8 @@ import {
   CheckCircle2,
   Loader2,
   Sparkles,
-  Package
+  Package,
+  Baby
 } from 'lucide-react';
 
 interface ProductDetailModalProps {
@@ -581,6 +582,53 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   // 성분 함량 표시 기준 (1알/1포당 vs 하루 섭취량당)
   const [displayBasis, setDisplayBasis] = useState<'PER_UNIT' | 'PER_DAILY'>('PER_UNIT');
 
+  // 상한섭취량 표시 기준 (성인 UL vs 소아 UL)
+  const [ulViewMode, setUlViewMode] = useState<'ADULT' | 'CHILD'>('ADULT');
+  // 소아 연령별 상한섭취량 기준표 모달 팝업 상태
+  const [isChildUlModalOpen, setIsChildUlModalOpen] = useState(false);
+
+  // 복용 방법(용법) 직접 수정 모드 및 입력값 상태 (줄바꿈 지원)
+  const [isEditingDosage, setIsEditingDosage] = useState(false);
+  const [editDosageValue, setEditDosageValue] = useState('');
+
+  // 복용 방법 직접 수정 시작
+  const handleStartEditDosage = () => {
+    setEditDosageValue(dosageMethodText);
+    setIsEditingDosage(true);
+  };
+
+  // 복용 방법 수정 저장 (줄바꿈 보존)
+  const handleSaveDosage = async () => {
+    if (!product) return;
+    const trimmed = editDosageValue.trim();
+    if (product.classification === 'HEALTH_FUNCTIONAL_FOOD') {
+      await updateProduct(product.id, {
+        functionalFoodDetail: {
+          ...(product.functionalFoodDetail || {
+            reportNo: '',
+            functionalClaimsKorean: [],
+            safetyPrecautionsKorean: []
+          }),
+          suggestedUseKorean: trimmed
+        }
+      });
+    } else {
+      await updateProduct(product.id, {
+        otcDetail: {
+          ...(product.otcDetail || {
+            itemSeq: '',
+            permitDate: '',
+            indicationsKorean: [],
+            storageMethodKorean: '',
+            precautionsSummaryKorean: []
+          }),
+          dosageAndAdministrationKorean: trimmed
+        }
+      });
+    }
+    setIsEditingDosage(false);
+  };
+
   // 식품안전나라 부원료(기타원료 목록) 조회 로딩 상태
   const [isFetchingSubIngredients, setIsFetchingSubIngredients] = useState(false);
 
@@ -778,12 +826,28 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   };
 
   // 제품이 변경될 때마다 기본 표시 기준 동기화 (건기식은 기본 하루 복용량 기준, 의약품은 1알 기준)
+  // 또한 '어린이' 태그가 있거나 키즈/마이타민 제품인 경우 상한섭취량을 소아(CHILD) 모드로 자동 설정
   useEffect(() => {
     if (product) {
       setDisplayBasis(
         product.ingredientBasis ||
           (product.classification === 'HEALTH_FUNCTIONAL_FOOD' ? 'PER_DAILY' : 'PER_UNIT')
       );
+
+      const isChild =
+        (product.tags || []).includes('어린이') ||
+        /어린이|키즈|마이타민|베베|아이/i.test(product.productName);
+
+      if (isChild) {
+        setUlViewMode('CHILD');
+        // 어린이 제품인데 태그 목록에 '어린이'가 누락되어 있다면 자동 등록
+        if (!product.tags || !product.tags.includes('어린이')) {
+          const nextTags = [...(product.tags || []), '어린이'];
+          updateProduct(product.id, { tags: nextTags });
+        }
+      } else {
+        setUlViewMode('ADULT');
+      }
     }
   }, [product?.id, product?.classification, product?.ingredientBasis]);
 
@@ -1049,6 +1113,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       ? '건기식'
       : '기타가공품/식품';
 
+  const isChildProduct =
+    (product.tags || []).includes('어린이') ||
+    /어린이|키즈|마이타민|베베|아이/i.test(product.productName);
+
   const dosageMethodText =
     product.functionalFoodDetail?.suggestedUseKorean ||
     product.otcDetail?.dosageAndAdministrationKorean ||
@@ -1280,47 +1348,140 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             )}
           </div>
 
-          {/* SECTION 1: 복용 방법 */}
+          {/* SECTION 1: 복용 방법 (직접 수정 및 줄바꿈 지원) */}
           <div className="space-y-1.5">
-            <h3 className="text-xs font-extrabold text-slate-500">복용 방법</h3>
-            <div className="bg-[#f8fafc] border border-slate-200/80 rounded-xl px-4 py-3">
-              <p className="text-sm font-bold text-slate-800 leading-relaxed whitespace-pre-line">
-                {dosageMethodText}
-              </p>
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-extrabold text-slate-500">복용 방법</h3>
+              {!isEditingDosage && (
+                <button
+                  type="button"
+                  onClick={handleStartEditDosage}
+                  className="text-[11px] font-semibold text-sky-600 hover:text-sky-700 hover:underline flex items-center gap-1 cursor-pointer"
+                  title="나이별 복용량 및 복용 방법 직접 수정 (줄바꿈 가능)"
+                >
+                  <Edit3 className="w-3 h-3" />
+                  <span>용법 수정</span>
+                </button>
+              )}
             </div>
+
+            {isEditingDosage ? (
+              <div className="space-y-2 bg-[#f8fafc] border border-sky-300 rounded-xl p-3">
+                <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                  <span>엔터(Enter) 키로 줄바꿈하여 연령별 복용법을 입력하세요.</span>
+                  <span className="text-amber-600 font-bold">줄바꿈 지원</span>
+                </div>
+                <textarea
+                  value={editDosageValue}
+                  onChange={(e) => setEditDosageValue(e.target.value)}
+                  rows={4}
+                  placeholder={`예)\n만 2세~4세: 1일 1회, 1회 1포\n만 5세 이상: 1일 2회, 1회 1포`}
+                  className="w-full text-xs font-medium text-slate-800 bg-white border border-slate-300 rounded-lg p-2.5 leading-relaxed focus:outline-none focus:ring-2 focus:ring-sky-500 whitespace-pre-wrap font-sans"
+                />
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingDosage(false)}
+                    className="px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 rounded-md transition-colors cursor-pointer"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveDosage}
+                    className="px-3 py-1 text-xs font-bold text-white bg-sky-600 hover:bg-sky-700 rounded-md shadow-2xs transition-colors cursor-pointer"
+                  >
+                    저장
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-[#f8fafc] border border-slate-200/80 rounded-xl px-4 py-3">
+                <p className="text-sm font-bold text-slate-800 leading-relaxed whitespace-pre-wrap font-sans">
+                  {dosageMethodText}
+                </p>
+              </div>
+            )}
           </div>
 
-          {/* SECTION 2: 성분 / 함량 (약효분류 | 성분 함량 | 상한섭취량 3열 세로줄 구분 정렬) */}
+          {/* SECTION 2: 성분 / 함량 (약효분류 | 성분 함량 | 원료 형태 | 상한섭취량 4열 정렬) */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-extrabold text-slate-700">
-                성분 / 함량
-              </h3>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-extrabold text-slate-700">
+                  성분 / 함량
+                </h3>
+                {isChildProduct && (
+                  <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Baby className="w-3 h-3 text-amber-600" />
+                    어린이 제품
+                  </span>
+                )}
+              </div>
 
-              {/* 1알/1포 vs 하루 섭취량 선택 토글 (오른쪽 끝 배치) */}
-              <div className="inline-flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px] font-bold">
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* 소아용량 기준표 모달 열기 버튼 */}
                 <button
                   type="button"
-                  onClick={() => setDisplayBasis('PER_UNIT')}
-                  className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                    displayBasis === 'PER_UNIT'
-                      ? 'bg-white text-sky-700 shadow-2xs font-extrabold'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
+                  onClick={() => setIsChildUlModalOpen(true)}
+                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  title="2025 KDRIs 연령별 소아 상한섭취량(UL) 상세 기준표 보기"
                 >
-                  1{unitName}
+                  <Baby className="w-3.5 h-3.5 text-amber-600" />
+                  <span>소아용량 기준표</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setDisplayBasis('PER_DAILY')}
-                  className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                    displayBasis === 'PER_DAILY'
-                      ? 'bg-white text-sky-700 shadow-2xs font-extrabold'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  하루 섭취량
-                </button>
+
+                {/* 성인 UL / 소아 UL 보기 토글 */}
+                <div className="inline-flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setUlViewMode('ADULT')}
+                    className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                      ulViewMode === 'ADULT'
+                        ? 'bg-white text-slate-800 shadow-2xs font-extrabold'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    성인 UL
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUlViewMode('CHILD')}
+                    className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                      ulViewMode === 'CHILD'
+                        ? 'bg-amber-500 text-white shadow-2xs font-extrabold'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    소아 UL
+                  </button>
+                </div>
+
+                {/* 1알/1포 vs 하루 섭취량 선택 토글 (오른쪽 끝 배치) */}
+                <div className="inline-flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setDisplayBasis('PER_UNIT')}
+                    className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                      displayBasis === 'PER_UNIT'
+                        ? 'bg-white text-sky-700 shadow-2xs font-extrabold'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    1{unitName}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDisplayBasis('PER_DAILY')}
+                    className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                      displayBasis === 'PER_DAILY'
+                        ? 'bg-white text-sky-700 shadow-2xs font-extrabold'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    하루 섭취량
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -1335,7 +1496,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     <th className="w-[200px] px-3 py-2 text-center border-r border-slate-200">
                       원료 형태
                     </th>
-                    <th className="w-[150px] px-2.5 py-2 text-center">상한섭취량</th>
+                    <th className="w-[160px] px-2.5 py-2 text-center">
+                      {ulViewMode === 'CHILD' ? (
+                        <span className="text-amber-700">상한섭취량 (소아)</span>
+                      ) : (
+                        <span>상한섭취량 (성인)</span>
+                      )}
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs text-slate-800">
@@ -1422,17 +1589,49 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                             </span>
                           </td>
 
-                          {/* 4열: 상한섭취량 (태그 배지가 아닌 본문 텍스트 형태로 깔끔하게 표기) */}
+                          {/* 4열: 상한섭취량 (소아/성인 모드 대응) */}
                           <td className="px-3 py-2.5 text-center align-middle">
-                            {item.info.ulText ? (
-                              <span
-                                title={item.info.ulNote || '2025 한국인 영양소 섭취기준(KDRIs) 성인 1일 상한섭취량(UL)'}
-                                className="text-xs font-semibold text-rose-600 tracking-tight"
-                              >
-                                {item.info.ulText}
-                              </span>
+                            {ulViewMode === 'CHILD' ? (
+                              item.info.childUlText ? (
+                                <div className="flex flex-col items-center">
+                                  <span
+                                    title={item.info.childUlNote || '2025 KDRIs 소아 상한섭취량(UL)'}
+                                    className="text-xs font-bold text-amber-700 tracking-tight cursor-help"
+                                  >
+                                    {item.info.childUlText}
+                                  </span>
+                                  {item.info.ulText && (
+                                    <span className="text-[10px] text-slate-400 font-normal">
+                                      (성인 {item.info.ulText})
+                                    </span>
+                                  )}
+                                </div>
+                              ) : item.info.ulText ? (
+                                <div className="flex flex-col items-center">
+                                  <span
+                                    title={item.info.ulNote || '2025 한국인 영양소 섭취기준(KDRIs) 성인 1일 상한섭취량(UL)'}
+                                    className="text-xs font-semibold text-rose-600 tracking-tight"
+                                  >
+                                    {item.info.ulText}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 font-normal">
+                                    (성인 기준)
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-slate-300">-</span>
+                              )
                             ) : (
-                              <span className="text-slate-300">-</span>
+                              item.info.ulText ? (
+                                <span
+                                  title={item.info.ulNote || '2025 한국인 영양소 섭취기준(KDRIs) 성인 1일 상한섭취량(UL)'}
+                                  className="text-xs font-semibold text-rose-600 tracking-tight"
+                                >
+                                  {item.info.ulText}
+                                </span>
+                              ) : (
+                                <span className="text-slate-300">-</span>
+                              )
                             )}
                           </td>
                         </tr>
@@ -2038,6 +2237,163 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     {renderFormattedApiText(precautionsFullText, precautionHighlightKeywords)}
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 소아 연령별 상한섭취량 (2025 KDRIs) 기준표 팝업 모달 */}
+        {isChildUlModalOpen && (
+          <div
+            onClick={() => setIsChildUlModalOpen(false)}
+            className="fixed inset-0 z-60 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white text-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col border border-slate-200 overflow-hidden"
+            >
+              <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-amber-50/70">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-700 font-black">
+                    <Baby className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+                      <span>2025 한국인 영양소 섭취기준(KDRIs) 소아·청소년 연령별 상한섭취량(UL)</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium">
+                      보건복지부 · 한국영양학회 2025 최신 기준 (과량 섭취 시 유해작용 예방 목적)
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsChildUlModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto flex-1 space-y-4">
+                <div className="bg-amber-50/50 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-900 space-y-1">
+                  <div className="font-bold flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                    <span>상한섭취량(UL, Tolerable Upper Intake Level)이란?</span>
+                  </div>
+                  <p className="leading-relaxed text-amber-800">
+                    인체 건강에 유해한 영향이 나타나지 않는 일일 최대 섭취 수준입니다. 어린이 영양제 복용 시 연령대별 상한섭취량을 초과하지 않도록 지도하는 것이 안전합니다.
+                  </p>
+                </div>
+
+                <div className="border border-slate-200 rounded-xl overflow-x-auto shadow-2xs">
+                  <table className="w-full text-xs text-left border-collapse min-w-[700px]">
+                    <thead>
+                      <tr className="bg-slate-100 text-slate-700 font-extrabold text-[11px] border-b border-slate-200">
+                        <th className="px-3 py-2.5 border-r border-slate-200">영양소 성분명</th>
+                        <th className="px-2.5 py-2 text-center border-r border-slate-200">1~2세</th>
+                        <th className="px-2.5 py-2 text-center border-r border-slate-200">3~5세</th>
+                        <th className="px-2.5 py-2 text-center border-r border-slate-200">6~8세</th>
+                        <th className="px-2.5 py-2 text-center border-r border-slate-200">9~11세</th>
+                        <th className="px-2.5 py-2 text-center border-r border-slate-200">12~14세</th>
+                        <th className="px-2.5 py-2 text-center border-r border-slate-200 bg-slate-50">성인 (19세+)</th>
+                        <th className="px-3 py-2 text-slate-600">주요 예방 목적 및 주의</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      <tr className="hover:bg-amber-50/30">
+                        <td className="px-3 py-2.5 font-bold text-slate-900 border-r border-slate-200">아연 (Zinc)</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">6 mg</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">9 mg</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">13 mg</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">19 mg</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">27 mg</td>
+                        <td className="px-2.5 py-2.5 text-center font-semibold text-rose-600 border-r border-slate-200 bg-slate-50">35 mg</td>
+                        <td className="px-3 py-2.5 text-slate-600 text-[11px]">구리 흡수 저해 및 면역 기능 저하 예방</td>
+                      </tr>
+                      <tr className="hover:bg-amber-50/30">
+                        <td className="px-3 py-2.5 font-bold text-slate-900 border-r border-slate-200">비타민B6 (피리독신)</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">10 mg</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">15 mg</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">20 mg</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">30 mg</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">40 mg</td>
+                        <td className="px-2.5 py-2.5 text-center font-semibold text-rose-600 border-r border-slate-200 bg-slate-50">50 mg</td>
+                        <td className="px-3 py-2.5 text-slate-600 text-[11px]">말초 감각신경병증 및 신경 손상 예방</td>
+                      </tr>
+                      <tr className="hover:bg-amber-50/30">
+                        <td className="px-3 py-2.5 font-bold text-slate-900 border-r border-slate-200">
+                          <div>나이아신 / 니코틴산아미드</div>
+                          <div className="text-[10px] text-slate-400 font-normal">니코틴산(산 형태)은 성인 35mg</div>
+                        </td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">150 mg</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">200 mg</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">300 mg</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">450 mg</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">600 mg</td>
+                        <td className="px-2.5 py-2.5 text-center font-semibold text-rose-600 border-r border-slate-200 bg-slate-50">850 mg</td>
+                        <td className="px-3 py-2.5 text-slate-600 text-[11px]">간독성 예방 (영양제는 대부분 안전한 아미드 형태)</td>
+                      </tr>
+                      <tr className="hover:bg-amber-50/30">
+                        <td className="px-3 py-2.5 font-bold text-slate-900 border-r border-slate-200">비타민A (레티놀)</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">600 μg</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">700 μg</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">1,000 μg</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">1,400 μg</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">1,750 μg</td>
+                        <td className="px-2.5 py-2.5 text-center font-semibold text-rose-600 border-r border-slate-200 bg-slate-50">3,000 μg</td>
+                        <td className="px-3 py-2.5 text-slate-600 text-[11px]">간 비대 및 골절 위험 예방 (베타카로틴은 제외)</td>
+                      </tr>
+                      <tr className="hover:bg-amber-50/30">
+                        <td className="px-3 py-2.5 font-bold text-slate-900 border-r border-slate-200">비타민D (콜레칼시페롤)</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">1,200 IU</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">1,400 IU</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">1,600 IU</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">2,400 IU</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">4,000 IU</td>
+                        <td className="px-2.5 py-2.5 text-center font-semibold text-rose-600 border-r border-slate-200 bg-slate-50">4,000 IU</td>
+                        <td className="px-3 py-2.5 text-slate-600 text-[11px]">고칼슘혈증 및 신장 결석 예방</td>
+                      </tr>
+                      <tr className="hover:bg-amber-50/30">
+                        <td className="px-3 py-2.5 font-bold text-slate-900 border-r border-slate-200">비타민C (아스코르브산)</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">400 mg</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">500 mg</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">700 mg</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">1,200 mg</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">1,600 mg</td>
+                        <td className="px-2.5 py-2.5 text-center font-semibold text-rose-600 border-r border-slate-200 bg-slate-50">2,000 mg</td>
+                        <td className="px-3 py-2.5 text-slate-600 text-[11px]">삼투성 설사 및 위장관 자극 예방</td>
+                      </tr>
+                      <tr className="hover:bg-amber-50/30">
+                        <td className="px-3 py-2.5 font-bold text-slate-900 border-r border-slate-200">엽산 (Folic Acid)</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">300 μg</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">400 μg</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">600 μg</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">800 μg</td>
+                        <td className="px-2.5 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200">800 μg</td>
+                        <td className="px-2.5 py-2.5 text-center font-semibold text-rose-600 border-r border-slate-200 bg-slate-50">1,000 μg</td>
+                        <td className="px-3 py-2.5 text-slate-600 text-[11px]">비타민B12 결핍성 신경 손상 은폐 방지</td>
+                      </tr>
+                      <tr className="hover:bg-amber-50/30">
+                        <td className="px-3 py-2.5 font-bold text-slate-900 border-r border-slate-200">비타민B1 · B2</td>
+                        <td colSpan={6} className="px-2.5 py-2.5 text-center text-slate-400 font-semibold border-r border-slate-200 bg-slate-50/60">
+                          수용성 비타민으로 체내 축적 없이 소변으로 배설되어 공식 상한섭취량(UL) 미설정 (안전)
+                        </td>
+                        <td className="px-3 py-2.5 text-slate-600 text-[11px]">소아 권장량 이상 섭취해도 체외 배출됨</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="px-6 py-3 border-t border-slate-200 bg-slate-50 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsChildUlModalOpen(false)}
+                  className="px-4 py-1.5 text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg shadow-2xs transition-colors cursor-pointer"
+                >
+                  닫기
+                </button>
               </div>
             </div>
           </div>

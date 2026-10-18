@@ -299,6 +299,9 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
     setIndicationsText(result.indicationsSummary.join('\n'));
     setPrecautionsText((result.precautionsSummary || []).join('\n'));
     setVerifiedIngredients(result.parsedIngredients);
+    if (result.classification === 'HEALTH_FUNCTIONAL_FOOD') {
+      setIngredientBasis('PER_DAILY');
+    }
 
     if (!isEditMode) {
       const suggestedTags = inferInitialEfficacyTags(
@@ -725,7 +728,13 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                       : productToEdit.functionalFoodDetail?.safetyPrecautionsKorean || ['특이체질 시 성분 확인'],
                   standardSpecificationKorean:
                     publicDataFetched?.standardSpecificationText ||
-                    productToEdit.functionalFoodDetail?.standardSpecificationKorean
+                    productToEdit.functionalFoodDetail?.standardSpecificationKorean,
+                  subIngredientsText:
+                    publicDataFetched?.etcRawMaterialText ||
+                    productToEdit.functionalFoodDetail?.subIngredientsText,
+                  rawMaterialsText:
+                    publicDataFetched?.indivRawMaterialText ||
+                    productToEdit.functionalFoodDetail?.rawMaterialsText
                 }
               })
         };
@@ -746,7 +755,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
         dailyServings,
         amountPerServing,
         servingUnitKorean,
-        ingredientBasis,
+        ingredientBasis: classification === 'HEALTH_FUNCTIONAL_FOOD' ? 'PER_DAILY' : ingredientBasis,
         priceRetailKrw,
         storageLocation: storageLocation.trim() || undefined,
         imageUrl: productImageUrl || undefined,
@@ -772,7 +781,9 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                 functionalClaimsKorean: parsedIndications.length > 0 ? parsedIndications : ['정상적인 면역 및 에너지 대사'],
                 suggestedUseKorean: dosageInstruction || `1일 ${dailyServings}회, 1회 ${amountPerServing}${servingUnitKorean} 섭취`,
                 safetyPrecautionsKorean: parsedPrecautions.length > 0 ? parsedPrecautions : ['특이체질 시 성분 확인'],
-                standardSpecificationKorean: publicDataFetched?.standardSpecificationText
+                standardSpecificationKorean: publicDataFetched?.standardSpecificationText,
+                subIngredientsText: publicDataFetched?.etcRawMaterialText,
+                rawMaterialsText: publicDataFetched?.indivRawMaterialText
               }
             })
       };

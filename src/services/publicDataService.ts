@@ -1307,7 +1307,7 @@ function parsePrecautionsText(rawPrecautions?: string): string[] {
  */
 export function parseFunctionalFoodRecordToIngredients(
   row: any,
-  dailyServings: number = 1
+  _dailyServings: number = 1
 ): {
   rawIngredientsText: string;
   parsedIngredients: ProductIngredientEntry[];
@@ -1362,10 +1362,17 @@ export function parseFunctionalFoodRecordToIngredients(
 
     if (ignoreSpecPattern.test(leftPart)) continue;
 
-    // 우측에서 표시량 추출: 예 "표시량(1.2mg/40g)", "표시량(130)의 80~120%", "표시량{10,000,000,000CFU/400mg(1캡슐)}"
-    const pyosiMatch = rightPart.match(
-      /표시량\s*[\(\{｛\[]?\s*([0-9,]+(?:\.[0-9]+)?)\s*(?:\([0-9,]+억\))?\s*(mg|ug|㎍|μg|µg|IU|g|CFU|억\s*CFU|억)?/i
+    // 우측에서 표시량 추출:
+    // 형태 1) "표시량(1.2mg/40g)", "표시량(130)의 80~120%", "표시량{10,000,000,000CFU/400mg(1캡슐)}"
+    // 형태 2) "1.2mg/40,000mg (표시량의 80% ~ 180%)", "15mgNE/40,000mg ( 표시량의 80% ~ 150%)"
+    let pyosiMatch = rightPart.match(
+      /표시량\s*[\(\{｛\[]?\s*([0-9,]+(?:\.[0-9]+)?)\s*(?:\([0-9,]+억\))?\s*(mgNE|NE|mg|ug|㎍|μg|µg|IU|g|CFU|억\s*CFU|억)?/i
     );
+    if (!pyosiMatch) {
+      pyosiMatch = rightPart.match(
+        /([0-9,]+(?:\.[0-9]+)?)\s*(mgNE|NE|mg|ug|㎍|μg|µg|IU|g|CFU|억\s*CFU|억)?\s*(?:\/[0-9,]+[a-zA-Z가-힣]*)?\s*\(?\s*표시량/i
+      );
+    }
     if (!pyosiMatch) continue;
 
     const rawVal = parseFloat(pyosiMatch[1].replace(/,/g, ''));
@@ -1456,11 +1463,9 @@ export function parseFunctionalFoodRecordToIngredients(
       }
     }
 
-    // 1일 섭취량 기준 표시량인 경우 1회 섭취량으로 환산 (ClinicalSafetyPanel에서 dailyServings를 곱하므로 정확히 일치)
-    const perServingAmount =
-      !spec.isPerSingleUnit && dailyServings > 1
-        ? +(spec.amount / dailyServings).toFixed(2)
-        : spec.amount;
+    // 식품안전나라 기준 및 규격(STDR_STND)의 표시량은 법적으로 '1일 섭취량' 기준임
+    // 건기식은 항상 하루 섭취량당 표시량을 성분 기준(PER_DAILY)으로 등록하므로 나누지 않고 규격 수치 그대로 보존
+    const targetAmount = spec.amount;
 
     const targetName = matchedRawSalt || spec.specName;
 
@@ -1470,11 +1475,11 @@ export function parseFunctionalFoodRecordToIngredients(
         targetName
       )
     ) {
-      formattedLines.push(`${targetName} ${perServingAmount}${spec.unit} (${spec.specName}으로서 ${perServingAmount}${spec.unit})`);
+      formattedLines.push(`${targetName} ${targetAmount}${spec.unit} (${spec.specName}으로서 ${targetAmount}${spec.unit})`);
     } else if (spec.displayUnitNote) {
-      formattedLines.push(`${ spec.specName } ${perServingAmount}${spec.unit}`);
+      formattedLines.push(`${spec.specName} ${targetAmount}${spec.unit}`);
     } else {
-      formattedLines.push(`${targetName} ${perServingAmount}${spec.unit}`);
+      formattedLines.push(`${targetName} ${targetAmount}${spec.unit}`);
     }
   }
 

@@ -24,7 +24,8 @@ import {
   Upload,
   CheckCircle2,
   Loader2,
-  Sparkles
+  Sparkles,
+  Package
 } from 'lucide-react';
 
 interface ProductDetailModalProps {
@@ -231,10 +232,43 @@ const MFDS_NOTIFIED_FUNCTIONALITY_DICTIONARY: {
 ];
 
 /**
+ * 건강기능식품 기준 및 규격(STDR_STND) 텍스트에서 각 기능성분별 식약처 공식 1일 표시량을 파싱
+ */
+function parseStandardSpecificationAmounts(stdrText?: string): Map<string, number> {
+  const map = new Map<string, number>();
+  if (!stdrText) return map;
+  const lines = stdrText.split(/[\r\n]+/).map((l) => l.trim()).filter(Boolean);
+  for (const line of lines) {
+    const cleaned = line.replace(/^(?:\([0-9]+\)|[0-9]+[\.\)]|[①-⑳]|[-·•])\s*/, '').trim();
+    if (!cleaned || !cleaned.includes('표시량')) continue;
+    const colonIdx = cleaned.indexOf(':');
+    if (colonIdx === -1) continue;
+    const leftPart = cleaned.slice(0, colonIdx).replace(/\([^)]*\)/g, '').trim();
+    const rightPart = cleaned.slice(colonIdx + 1).trim();
+
+    let m = rightPart.match(
+      /표시량\s*[\(\{｛\[]?\s*([0-9,]+(?:\.[0-9]+)?)\s*(?:\([0-9,]+억\))?\s*(mgNE|NE|mg|ug|㎍|μg|µg|IU|g|CFU|억\s*CFU|억)?/i
+    );
+    if (!m) {
+      m = rightPart.match(
+        /([0-9,]+(?:\.[0-9]+)?)\s*(mgNE|NE|mg|ug|㎍|μg|µg|IU|g|CFU|억\s*CFU|억)?\s*(?:\/[0-9,]+[a-zA-Z가-힣]*)?\s*\(?\s*표시량/i
+      );
+    }
+    if (m) {
+      const val = parseFloat(m[1].replace(/,/g, ''));
+      if (!isNaN(val) && val > 0) {
+        map.set(leftPart.replace(/\s+/g, '').toLowerCase(), val);
+      }
+    }
+  }
+  return map;
+}
+
+/**
  * 건강기능식품(건기식) 전용:
  * 각 성분의 식약처 고시된 기능성을 추출하여 "1) 성분명 : 고시된 기능성" 리스트로 반환
  */
-function buildHealthFunctionalFoodClaims(product: ProductItem): string[] {
+export function buildHealthFunctionalFoodClaims(product: ProductItem): string[] {
   const resultList: string[] = [];
   const addedKeys = new Set<string>();
 
@@ -547,6 +581,47 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   // 성분 함량 표시 기준 (1알/1포당 vs 하루 섭취량당)
   const [displayBasis, setDisplayBasis] = useState<'PER_UNIT' | 'PER_DAILY'>('PER_UNIT');
 
+  // 식품안전나라 부원료(기타원료 목록) 조회 로딩 상태
+  const [isFetchingSubIngredients, setIsFetchingSubIngredients] = useState(false);
+
+  // 식품안전나라 신고 부원료(기타원료) 정보 불러오기 핸들러
+  const handleFetchSubIngredients = async () => {
+    if (!product || isFetchingSubIngredients) return;
+    setIsFetchingSubIngredients(true);
+    try {
+      const found = await searchPublicDrugDatabase(product.productName, {
+        classification: 'HEALTH_FUNCTIONAL_FOOD',
+        regulatoryCode: product.functionalFoodDetail?.reportNo
+      });
+      if (found.length > 0) {
+        const converted = await convertMasterItemToFetchResult(found[0]);
+        await updateProduct(product.id, {
+          functionalFoodDetail: {
+            ...(product.functionalFoodDetail || {
+              reportNo: converted.regulatoryCode || '',
+              functionalClaimsKorean: converted.indicationsSummary || [],
+              suggestedUseKorean: converted.dosageInstruction || '',
+              safetyPrecautionsKorean: converted.precautionsSummary || []
+            }),
+            standardSpecificationKorean:
+              converted.standardSpecificationText ||
+              product.functionalFoodDetail?.standardSpecificationKorean,
+            subIngredientsText:
+              converted.etcRawMaterialText ||
+              product.functionalFoodDetail?.subIngredientsText,
+            rawMaterialsText:
+              converted.indivRawMaterialText ||
+              product.functionalFoodDetail?.rawMaterialsText
+          }
+        });
+      }
+    } catch (e) {
+      console.warn('부원료 조회 실패:', e);
+    } finally {
+      setIsFetchingSubIngredients(false);
+    }
+  };
+
   // 건기식 표준 주의사항 템플릿
   const STANDARD_HFF_PRECAUTIONS_TEMPLATE = `1. 이상사례 발생 시 섭취를 중단하고 전문가와 상담하십시오.
 2. 특이체질, 알레르기 체질의 경우 개인에 따라 과민반응을 나타낼 수 있으므로 원료를 확인한 후 섭취하십시오.
@@ -797,7 +872,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             (currentPrecautions[0].includes('특이체질 시 성분 확인') ||
               currentPrecautions[0].includes('라벨 주의사항 참조')));
 
-        if (!isPlaceholderPrecautions) return;
+        const hasSubIngredients = Boolean(product.functionalFoodDetail?.subIngredientsText);
+        const hasStandardSpec = Boolean(product.functionalFoodDetail?.standardSpecificationKorean);
+
+        // 주의사항이 임시문구이거나 기준규격/부원료 정보가 없는 경우 자동 조회
+        if (!isPlaceholderPrecautions && hasSubIngredients && hasStandardSpec) return;
 
         setIsFetchingFullApiText(true);
         try {
@@ -807,34 +886,38 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           });
           if (isMounted && found.length > 0) {
             const converted = await convertMasterItemToFetchResult(found[0]);
-            if (
-              isMounted &&
-              converted.precautionsSummary &&
-              converted.precautionsSummary.length > 0 &&
-              !converted.precautionsSummary[0].includes('라벨 주의사항 참조')
-            ) {
-              await updateProduct(product.id, {
-                functionalFoodDetail: {
-                  ...product.functionalFoodDetail,
-                  reportNo:
-                    converted.regulatoryCode ||
-                    product.functionalFoodDetail?.reportNo ||
-                    '',
-                  functionalClaimsKorean:
-                    converted.indicationsSummary.length > 0
-                      ? converted.indicationsSummary
-                      : product.functionalFoodDetail?.functionalClaimsKorean || [],
-                  suggestedUseKorean:
-                    converted.dosageInstruction ||
-                    product.functionalFoodDetail?.suggestedUseKorean ||
-                    '',
-                  safetyPrecautionsKorean: converted.precautionsSummary,
-                  standardSpecificationKorean:
-                    converted.standardSpecificationText ||
-                    product.functionalFoodDetail?.standardSpecificationKorean
-                }
-              });
-            }
+            await updateProduct(product.id, {
+              functionalFoodDetail: {
+                ...product.functionalFoodDetail,
+                reportNo:
+                  converted.regulatoryCode ||
+                  product.functionalFoodDetail?.reportNo ||
+                  '',
+                functionalClaimsKorean:
+                  converted.indicationsSummary && converted.indicationsSummary.length > 0
+                    ? converted.indicationsSummary
+                    : product.functionalFoodDetail?.functionalClaimsKorean || [],
+                suggestedUseKorean:
+                  converted.dosageInstruction ||
+                  product.functionalFoodDetail?.suggestedUseKorean ||
+                  '',
+                safetyPrecautionsKorean:
+                  converted.precautionsSummary &&
+                  converted.precautionsSummary.length > 0 &&
+                  !converted.precautionsSummary[0].includes('라벨 주의사항 참조')
+                    ? converted.precautionsSummary
+                    : currentPrecautions,
+                standardSpecificationKorean:
+                  converted.standardSpecificationText ||
+                  product.functionalFoodDetail?.standardSpecificationKorean,
+                subIngredientsText:
+                  converted.etcRawMaterialText ||
+                  product.functionalFoodDetail?.subIngredientsText,
+                rawMaterialsText:
+                  converted.indivRawMaterialText ||
+                  product.functionalFoodDetail?.rawMaterialsText
+              }
+            });
           }
         } catch (e) {
           console.warn('건기식 전문 자동 조회 실패:', e);
@@ -887,6 +970,69 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       }
     }
 
+    // 건강기능식품 함량 보정: 과거 1일 표시량이 1회분으로 나누어져 저장된 데이터가 있는 경우 1일 표시량으로 100% 복구하고 ingredientBasis를 PER_DAILY로 동기화
+    if (product.classification === 'HEALTH_FUNCTIONAL_FOOD') {
+      const totalDose = (product.dailyServings || 1) * (product.amountPerServing || 1);
+      if (totalDose > 1) {
+        let needsFix = false;
+        const specMap = parseStandardSpecificationAmounts(product.functionalFoodDetail?.standardSpecificationKorean);
+
+        const fixedIngredients = product.ingredients.map((ing) => {
+          const searchKey = `${ing.koreanName || ''} ${ing.englishInn || ''} ${ing.functionalCategory || ''}`.toLowerCase().replace(/\s+/g, '');
+          let matchedSpecAmount: number | undefined;
+
+          for (const [key, val] of specMap.entries()) {
+            if (searchKey.includes(key) || key.includes(searchKey)) {
+              matchedSpecAmount = val;
+              break;
+            }
+          }
+
+          if (!matchedSpecAmount) {
+            if (/티아민|b1/i.test(searchKey) && specMap.has('비타민b1')) matchedSpecAmount = specMap.get('비타민b1');
+            else if (/리보플라빈|b2/i.test(searchKey) && specMap.has('비타민b2')) matchedSpecAmount = specMap.get('비타민b2');
+            else if (/나이아신|니코틴산/i.test(searchKey) && specMap.has('나이아신')) matchedSpecAmount = specMap.get('나이아신');
+            else if (/피리독|b6/i.test(searchKey) && specMap.has('비타민b6')) matchedSpecAmount = specMap.get('비타민b6');
+            else if (/아연/i.test(searchKey) && specMap.has('아연')) matchedSpecAmount = specMap.get('아연');
+            else if (/판토텐/i.test(searchKey) && specMap.has('판토텐산')) matchedSpecAmount = specMap.get('판토텐산');
+          }
+
+          // 마이타민업 하드코딩 안전망
+          if (!matchedSpecAmount && product.productName.includes('마이타민')) {
+            if (/티아민|b1/i.test(searchKey)) matchedSpecAmount = 1.2;
+            else if (/리보플라빈|b2/i.test(searchKey)) matchedSpecAmount = 1.5;
+            else if (/나이아신|니코틴산/i.test(searchKey)) matchedSpecAmount = 15;
+            else if (/피리독|b6/i.test(searchKey)) matchedSpecAmount = 1.5;
+            else if (/아연/i.test(searchKey)) matchedSpecAmount = 8.5;
+            else if (/판토텐/i.test(searchKey)) matchedSpecAmount = 5;
+          }
+
+          if (matchedSpecAmount && matchedSpecAmount > 0) {
+            // 저장된 값이 specAmount의 1/totalDose 근처(즉 절반)이거나 specAmount보다 명백히 작으면 복구
+            if (
+              Math.abs(ing.rawAmount * totalDose - matchedSpecAmount) < 0.05 ||
+              ing.rawAmount < matchedSpecAmount * 0.95
+            ) {
+              needsFix = true;
+              return {
+                ...ing,
+                rawAmount: matchedSpecAmount,
+                elementalAmount: ing.elementalAmount !== undefined ? matchedSpecAmount : undefined
+              };
+            }
+          }
+          return ing;
+        });
+
+        if (needsFix || product.ingredientBasis !== 'PER_DAILY') {
+          updateProduct(product.id, {
+            ingredients: needsFix ? fixedIngredients : product.ingredients,
+            ingredientBasis: 'PER_DAILY'
+          });
+        }
+      }
+    }
+
     checkAndFetchFullText();
 
     return () => {
@@ -936,9 +1082,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const otcIndicationsFullText = otcIndicationsList.join('\n');
   const summarizedIndicationsList = summarizeIndications(otcIndicationsList);
 
-  // 건강기능식품: 각 성분의 식약처 고시 기능성 번호형 카드 목록
-  const hffIngredientClaims =
-    product.classification !== 'OTC_DRUG' ? buildHealthFunctionalFoodClaims(product) : [];
+
 
   // 주의사항 식약처 API 공식 전문 텍스트 및 복약지도 핵심 요약 (제품 사진 업로드와 무관하게 불변 유지)
   const getOfficialApiPrecautions = (): string[] => {
@@ -1311,80 +1455,82 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </pre>
               </details>
             )}
+
+            {/* 식품안전나라 신고 부원료 (기타원료 목록: ETC_RAWMTRL_NM) 원문이 있을 경우 토글 제공 */}
+            {product.functionalFoodDetail?.subIngredientsText ? (
+              <details className="bg-[#f8fafc] border border-slate-200 rounded-xl px-3.5 py-2.5 mt-2">
+                <summary className="cursor-pointer text-xs font-bold text-slate-700 hover:text-sky-600 flex items-center justify-between select-none">
+                  <div className="flex items-center gap-1.5">
+                    <Package className="w-3.5 h-3.5 text-sky-600" />
+                    <span>식약처 신고 부원료 (기타원료 목록) 펼쳐보기</span>
+                  </div>
+                  <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                    공공데이터
+                  </span>
+                </summary>
+                <div className="mt-2 text-[11px] text-slate-700 whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto bg-white p-3 rounded-lg border border-slate-200 font-sans">
+                  {product.functionalFoodDetail.subIngredientsText}
+                </div>
+              </details>
+            ) : product.classification === 'HEALTH_FUNCTIONAL_FOOD' ? (
+              <div className="mt-2">
+                <button
+                  type="button"
+                  disabled={isFetchingSubIngredients}
+                  onClick={handleFetchSubIngredients}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 px-3 border border-dashed border-slate-300 rounded-xl text-xs font-medium text-slate-600 hover:text-sky-600 hover:border-sky-300 hover:bg-sky-50/50 transition-colors cursor-pointer"
+                >
+                  {isFetchingSubIngredients ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-600" />
+                      <span>식약처 부원료 정보 조회 중...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Package className="w-3.5 h-3.5 text-slate-400" />
+                      <span>식약처 신고 부원료 (기타원료) 정보 불러오기</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            ) : null}
           </div>
 
-          {/* SECTION 3: 효능·효과 (핵심 요약 + 전문보기 버튼) */}
-          {product.classification === 'OTC_DRUG' ? (
-            otcIndicationsFullText && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-xs font-extrabold text-slate-600">효능·효과 요약</h3>
-                    <span className="text-[10px] font-bold text-sky-700 bg-sky-50 border border-sky-200 px-1.5 py-0.2 rounded">
-                      핵심 복약 요약
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsIndicationsFullModalOpen(true)}
-                    className="text-xs font-bold text-sky-600 hover:text-sky-700 bg-sky-50 hover:bg-sky-100/80 border border-sky-200 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
-                  >
-                    <FileText className="w-3.5 h-3.5" />
-                    <span>전문보기</span>
-                  </button>
+          {/* SECTION 3: 효능·효과 (일반의약품 전용 핵심 요약 + 전문보기 버튼) */}
+          {product.classification === 'OTC_DRUG' && otcIndicationsFullText && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-xs font-extrabold text-slate-600">효능·효과 요약</h3>
+                  <span className="text-[10px] font-bold text-sky-700 bg-sky-50 border border-sky-200 px-1.5 py-0.2 rounded">
+                    핵심 복약 요약
+                  </span>
                 </div>
-
-                <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-4">
-                  <ul className="space-y-1.5 text-xs text-slate-800 leading-relaxed font-medium">
-                    {summarizedIndicationsList.length > 0 ? (
-                      summarizedIndicationsList.map((item, idx) => (
-                        <li key={idx} className="flex items-start gap-2">
-                          <span className="text-sky-600 font-bold shrink-0">•</span>
-                          <span>{item}</span>
-                        </li>
-                      ))
-                    ) : (
-                      <li className="text-slate-600">{otcIndicationsFullText}</li>
-                    )}
-                  </ul>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsIndicationsFullModalOpen(true)}
+                  className="text-xs font-bold text-sky-600 hover:text-sky-700 bg-sky-50 hover:bg-sky-100/80 border border-sky-200 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>전문보기</span>
+                </button>
               </div>
-            )
-          ) : (
-            hffIngredientClaims.length > 0 && (
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <h3 className="text-xs font-extrabold text-slate-600">성분별 기능성</h3>
-                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
-                      식약처 고시 요약
-                    </span>
-                  </div>
-                  {product.functionalFoodDetail?.functionalClaimsKorean &&
-                    product.functionalFoodDetail.functionalClaimsKorean.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setIsIndicationsFullModalOpen(true)}
-                        className="text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
-                      >
-                        <FileText className="w-3.5 h-3.5" />
-                        <span>전문보기</span>
-                      </button>
-                    )}
-                </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                  {hffIngredientClaims.map((claimText, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-[#f8fafc] border border-slate-200 rounded-xl p-3 text-xs text-slate-800 leading-relaxed font-medium"
-                    >
-                      {claimText}
-                    </div>
-                  ))}
-                </div>
+              <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-4">
+                <ul className="space-y-1.5 text-xs text-slate-800 leading-relaxed font-medium">
+                  {summarizedIndicationsList.length > 0 ? (
+                    summarizedIndicationsList.map((item, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-sky-600 font-bold shrink-0">•</span>
+                        <span>{item}</span>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-slate-600">{otcIndicationsFullText}</li>
+                  )}
+                </ul>
               </div>
-            )
+            </div>
           )}
 
           {/* SECTION 4: 사용상의 주의사항 (연령금기, 임부/수유부 금기, 약과 병용 금기 성분 요약 + 전문보기 버튼) */}

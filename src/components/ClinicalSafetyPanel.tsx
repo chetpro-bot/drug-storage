@@ -52,7 +52,11 @@ export const ClinicalSafetyPanel: React.FC<ClinicalSafetyPanelProps> = ({ produc
         }
       }
 
-      const dailyAmount = (ing.elementalAmount ?? ing.rawAmount) * product.dailyServings;
+      const isPerDaily =
+        product.ingredientBasis === 'PER_DAILY' || product.classification === 'HEALTH_FUNCTIONAL_FOOD';
+      const dailyAmount = isPerDaily
+        ? (ing.elementalAmount ?? ing.rawAmount)
+        : (ing.elementalAmount ?? ing.rawAmount) * (product.dailyServings || 1);
       const rniPercent = Math.round((dailyAmount / kdriRef.rni) * 100);
       const isUlExceeded = effectiveUl ? dailyAmount > effectiveUl : false;
       const isUlApproaching = effectiveUl ? dailyAmount >= effectiveUl * 0.8 && !isUlExceeded : false;

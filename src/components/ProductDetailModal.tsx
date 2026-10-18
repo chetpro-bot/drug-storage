@@ -2664,26 +2664,26 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </div>
 
                 <div className="border border-slate-200 rounded-xl overflow-x-auto shadow-2xs">
-                  <table className="w-full text-xs text-left border-collapse min-w-[760px] sm:min-w-full">
+                  <table className="w-full text-xs border-collapse table-fixed min-w-[740px] sm:min-w-full">
                     <thead>
                       <tr className="bg-slate-100 text-slate-700 font-extrabold text-[11px] border-b border-slate-200">
-                        <th className="px-2.5 py-1.5 border-r border-slate-200 w-[95px] sm:w-[105px]">영양소</th>
-                        <th className="px-1 py-1.5 text-center border-r border-slate-200">1~2세</th>
-                        <th className="px-1 py-1.5 text-center border-r border-slate-200">3~5세</th>
-                        <th className="px-1 py-1.5 text-center border-r border-slate-200">6~8세</th>
-                        <th className="px-1 py-1.5 text-center border-r border-slate-200">9~11세</th>
-                        <th className="px-1 py-1.5 text-center border-r border-slate-200">12~14세</th>
-                        <th className="px-1 py-1.5 text-center border-r border-slate-200">15~18세</th>
-                        <th className="px-1.5 py-1.5 text-center border-r border-slate-200 bg-slate-200/50 text-slate-900 font-extrabold">성인(19~64)</th>
-                        <th className="px-1 py-1.5 text-center border-r border-slate-200 bg-slate-200/40 text-slate-800">노인(65+)</th>
-                        <th className="px-1 py-1.5 text-center border-r border-slate-200 bg-rose-50 text-rose-900 font-extrabold">임신부</th>
-                        <th className="px-1 py-1.5 text-center bg-purple-50 text-purple-900 font-extrabold">수유부</th>
+                        <th className="w-[9.5%] px-1.5 py-1.5 text-center border-r border-slate-200">영양소</th>
+                        <th className="w-[9%] px-1 py-1.5 text-center border-r border-slate-200">1~2세</th>
+                        <th className="w-[9%] px-1 py-1.5 text-center border-r border-slate-200">3~5세</th>
+                        <th className="w-[9%] px-1 py-1.5 text-center border-r border-slate-200">6~8세</th>
+                        <th className="w-[9%] px-1 py-1.5 text-center border-r border-slate-200">9~11세</th>
+                        <th className="w-[9%] px-1 py-1.5 text-center border-r border-slate-200">12~14세</th>
+                        <th className="w-[9%] px-1 py-1.5 text-center border-r border-slate-200">15~18세</th>
+                        <th className="w-[10.5%] px-1 py-1.5 text-center border-r border-slate-200 bg-slate-100 font-extrabold text-slate-800">성인(19~64)</th>
+                        <th className="w-[8.5%] px-1 py-1.5 text-center border-r border-slate-200 bg-slate-50 text-slate-700">노인(65+)</th>
+                        <th className="w-[8.5%] px-1 py-1.5 text-center border-r border-slate-200 bg-rose-50 text-rose-900 font-extrabold">임신부</th>
+                        <th className="w-[8.5%] px-1 py-1.5 text-center bg-purple-50 text-purple-900 font-extrabold">수유부</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {KDRI_2025_UNIFIED_UL_REFERENCE_TABLE.map((row) => (
                         <tr key={row.id} className="hover:bg-amber-50/30 transition-colors">
-                          <td className="px-2.5 py-1 sm:py-1.5 font-extrabold text-slate-900 border-r border-slate-200 align-middle text-[11px] sm:text-xs leading-tight">
+                          <td className="px-1.5 py-1 sm:py-1.5 font-extrabold text-slate-900 border-r border-slate-200 text-center align-middle text-[11px] sm:text-xs leading-tight">
                             {row.nutrientName}
                           </td>
                           {row.isNoUl ? (
@@ -2713,10 +2713,21 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                               <td className="px-1 py-1 sm:py-1.5 text-center font-bold text-amber-700 border-r border-slate-200 align-middle text-[11px]">
                                 {row.age15_18}
                               </td>
-                              <td className="px-1.5 py-1 sm:py-1.5 text-center font-extrabold text-slate-900 bg-slate-50/70 border-r border-slate-200 align-middle text-[11px]">
-                                {row.adult}
+                              <td className="px-1 py-1 sm:py-1.5 text-center font-extrabold text-slate-900 bg-slate-50/50 border-r border-slate-200 align-middle text-[11px] leading-tight">
+                                {(() => {
+                                  const match = row.adult.match(/^(.*?)\s*(\(.*?\))$/);
+                                  if (match) {
+                                    return (
+                                      <div className="flex flex-col items-center justify-center leading-tight">
+                                        <span>{match[1]}</span>
+                                        <span className="text-[10px] text-slate-500 font-normal tracking-tight">{match[2]}</span>
+                                      </div>
+                                    );
+                                  }
+                                  return <span>{row.adult}</span>;
+                                })()}
                               </td>
-                              <td className="px-1 py-1 sm:py-1.5 text-center font-semibold text-slate-800 bg-slate-50/40 border-r border-slate-200 align-middle text-[11px]">
+                              <td className="px-1 py-1 sm:py-1.5 text-center font-semibold text-slate-800 bg-slate-50/30 border-r border-slate-200 align-middle text-[11px]">
                                 {row.elderly}
                               </td>
                               <td className="px-1 py-1 sm:py-1.5 text-center font-extrabold text-rose-700 border-r border-slate-200 bg-rose-50/30 align-middle text-[11px]">

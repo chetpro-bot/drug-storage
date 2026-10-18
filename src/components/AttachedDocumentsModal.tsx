@@ -200,58 +200,68 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
       });
       const updatedIngredients = [...validExisting];
 
-      // A) 일반식품 영양성분표(마그네슘, 칼슘, 아연 등 원료염 결합 형태) 최우선 매핑
+      // A) 일반식품 영양성분표(마그네슘, 칼슘, 아연, 비타민K 등 원료염 결합 형태) 최우선 매핑
       if (foodIngredients.length > 0) {
-        foodIngredients.forEach((fi) => {
-          const fiNameClean = fi.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
-          const fiCatClean = (fi.functionalCategory || '').toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
-
-          const existingIdx = updatedIngredients.findIndex((ing) => {
-            const ingCatClean = (ing.functionalCategory || '').toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
-            const ingNameClean = (ing.englishInn || '').toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
-            return (
-              (fiCatClean && ingCatClean === fiCatClean) ||
-              ingNameClean.includes(fiNameClean) ||
-              fiNameClean.includes(ingNameClean)
-            );
+        // 일반식품(혼합음료, 기타가공품 등)은 영양성분표에서 추출된 유효 성분들로 전면 정제 (과거 손상된 잡음 완전 제거)
+        if (product.classification === 'GENERAL_FOOD') {
+          updatedIngredients.length = 0;
+          updatedIngredients.push(...foodIngredients);
+          foodIngredients.forEach((fi) => {
+            appliedList.push(`[영양소 정밀 반영] ${fi.functionalCategory}: ${fi.formattedSpecification}`);
           });
+        } else {
+          foodIngredients.forEach((fi) => {
+            const fiNameClean = fi.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+            const fiCatClean = (fi.functionalCategory || '').toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
 
-          if (existingIdx >= 0) {
-            updatedIngredients[existingIdx] = {
-              ...updatedIngredients[existingIdx],
-              englishInn: fi.englishInn,
-              koreanName: fi.koreanName,
-              functionalCategory: fi.functionalCategory,
-              rawAmount: fi.rawAmount,
-              unit: fi.unit,
-              standardKey: fi.standardKey,
-              chemicalFormName: fi.chemicalFormName,
-              formattedSpecification: fi.formattedSpecification
-            };
-            appliedList.push(`[영양소 갱신] ${fi.functionalCategory}: ${fi.englishInn} ${fi.rawAmount}${fi.unit}`);
-          } else {
-            updatedIngredients.push(fi);
-            appliedList.push(`[영양소 등록] ${fi.functionalCategory}: ${fi.englishInn} ${fi.rawAmount}${fi.unit}`);
-          }
-        });
+            const existingIdx = updatedIngredients.findIndex((ing) => {
+              const ingCatClean = (ing.functionalCategory || '').toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+              const ingNameClean = (ing.englishInn || '').toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+              return (
+                (fiCatClean && ingCatClean === fiCatClean) ||
+                ingNameClean.includes(fiNameClean) ||
+                fiNameClean.includes(ingNameClean)
+              );
+            });
+
+            if (existingIdx >= 0) {
+              updatedIngredients[existingIdx] = {
+                ...updatedIngredients[existingIdx],
+                englishInn: fi.englishInn,
+                koreanName: fi.koreanName,
+                functionalCategory: fi.functionalCategory,
+                rawAmount: fi.rawAmount,
+                unit: fi.unit,
+                standardKey: fi.standardKey,
+                chemicalFormName: fi.chemicalFormName,
+                formattedSpecification: fi.formattedSpecification
+              };
+              appliedList.push(`[영양소 갱신] ${fi.functionalCategory}: ${fi.englishInn} ${fi.rawAmount}${fi.unit}`);
+            } else {
+              updatedIngredients.push(fi);
+              appliedList.push(`[영양소 등록] ${fi.functionalCategory}: ${fi.englishInn} ${fi.rawAmount}${fi.unit}`);
+            }
+          });
+        }
       }
 
-      // B) 기존 성분들에 대해 KPIC 약효분류 및 규격 갱신 (식품 파서에서 도출된 영양소는 OCR 잡음 오염 방지를 위해 보호)
-      const foodKeys = new Set(
-        foodIngredients.flatMap((fi) => [
-          fi.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, ''),
-          (fi.functionalCategory || '').toLowerCase().replace(/[^a-z0-9가-힣]/g, '')
-        ]).filter(Boolean)
-      );
+      // B) 기존 성분들에 대해 KPIC 약효분류 및 규격 갱신 (일반식품이 아닌 의약품/건기식 성분만 갱신)
+      if (product.classification !== 'GENERAL_FOOD') {
+        const foodKeys = new Set(
+          foodIngredients.flatMap((fi) => [
+            fi.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, ''),
+            (fi.functionalCategory || '').toLowerCase().replace(/[^a-z0-9가-힣]/g, '')
+          ]).filter(Boolean)
+        );
 
-      updatedIngredients.forEach((ing) => {
-        const ingNameClean = ing.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
-        const ingCatClean = (ing.functionalCategory || '').toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+        updatedIngredients.forEach((ing) => {
+          const ingNameClean = ing.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+          const ingCatClean = (ing.functionalCategory || '').toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
 
-        // 일반식품 라벨에서 추출된 영양소(칼슘, 마그네슘, 아연, 비타민K 등)는 일반 의약품 텍스트/표 잡음으로 덮어쓰지 않음
-        if (foodKeys.has(ingNameClean) || foodKeys.has(ingCatClean)) {
-          return;
-        }
+          // 일반식품 라벨에서 추출된 영양소는 일반 의약품 텍스트/표 잡음으로 덮어쓰지 않음
+          if (foodKeys.has(ingNameClean) || foodKeys.has(ingCatClean)) {
+            return;
+          }
 
         // 1) 직접 KPIC 매핑이 있는지 확인
         const directFound = directKpic.find((km) => {
@@ -296,6 +306,7 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
           }
         }
       });
+    }
 
       // C) 신규 성분 추가: 식품(혼합음료 등)의 경우 매크로 영양소(탄수화물, 당류, 지방, 단백질, 나트륨 등) 유입 차단
       const isFoodProduct = product.classification === 'GENERAL_FOOD' || foodIngredients.length > 0;

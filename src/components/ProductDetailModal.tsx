@@ -1159,9 +1159,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       };
 
       const updatedAttachments = [...(product.attachments || []), newDoc];
+      const foodIngs = result.foodParsed?.ingredients || [];
+      const shouldUpdateFoodIngredients =
+        (product.classification === 'GENERAL_FOOD' || foodIngs.length > 0) && foodIngs.length > 0;
 
       await updateProduct(product.id, {
         attachments: updatedAttachments,
+        ...(shouldUpdateFoodIngredients ? { ingredients: foodIngs } : {}),
         functionalFoodDetail: {
           ...(product.functionalFoodDetail || {
             reportNo: '',
@@ -1177,7 +1181,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       setIsEditingLabelPrecautions(false);
       setPrecautionsModalTab('LABEL');
       setIsPrecautionsFullModalOpen(true);
-      alert('📸 제품 뒷면 사진에서 [섭취 시 주의사항]이 성공적으로 추출되어 전문보기에 등록되었습니다!');
+      alert('📸 제품 뒷면 사진에서 [섭취 시 주의사항]' + (shouldUpdateFoodIngredients ? ' 및 [영양성분표]' : '') + '가 성공적으로 추출되어 반영되었습니다!');
     } catch (err: any) {
       console.error('뒷면 사진 판독 오류:', err);
       alert('사진 인식 중 오류가 발생했습니다: ' + (err?.message || '선명한 사진으로 다시 시도해주세요.'));

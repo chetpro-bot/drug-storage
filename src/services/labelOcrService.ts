@@ -849,10 +849,20 @@ export function parseFoodNutritionLabel(rawText: string): {
       .trim();
   };
 
+  // 영양정보 표 전용 라인 분리 (원재료명의 수치(예: 라마르미네600)가 영양소 함량으로 오인식되는 현상 원천 차단)
+  let nutritionSectionText = '';
+  const nutritionIndex = normalizedRaw.search(/(?:영양정보|경양정보|1일\s*영양성분|총\s*내용량당|1포당|1회\s*분량)/i);
+  if (nutritionIndex >= 0) {
+    nutritionSectionText = normalizedRaw.slice(nutritionIndex);
+  } else {
+    nutritionSectionText = normalizedRaw;
+  }
+  const nutritionLines = nutritionSectionText.split(/[\r\n]+/).map((l) => l.trim()).filter(Boolean);
+
   NUTRIENT_DEFS.forEach((def) => {
     let matchedAmount: number | null = null;
 
-    for (const line of lines) {
+    for (const line of nutritionLines) {
       const m = line.match(def.detectRegex);
       if (m) {
         let val = parseFloat(m[1].replace(/,/g, ''));
@@ -874,7 +884,7 @@ export function parseFoodNutritionLabel(rawText: string): {
     }
 
     if (matchedAmount === null) {
-      const mFull = normalizedRaw.match(def.detectRegex);
+      const mFull = nutritionSectionText.match(def.detectRegex);
       if (mFull) {
         const val = parseFloat(mFull[1].replace(/,/g, ''));
         if (!isNaN(val) && val > 0) {

@@ -646,64 +646,95 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </h3>
             </div>
 
-            <div className="divide-y divide-slate-200 border border-slate-200 rounded-xl overflow-hidden bg-white">
-              {/* 테이블 컬럼 헤더 */}
-              <div className="grid grid-cols-[100px_1fr_180px] divide-x divide-slate-200 bg-slate-50 text-[11px] font-extrabold text-slate-600">
-                <div className="px-2 py-2 text-center">약효분류</div>
-                <div className="px-3.5 py-2 text-center">성분 함량</div>
-                <div className="px-2.5 py-2 text-center">상한섭취량</div>
-              </div>
+            <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 text-[11px] font-extrabold text-slate-600 border-b border-slate-200">
+                    <th className="w-[100px] px-2 py-2 text-center border-r border-slate-200">약효분류</th>
+                    <th className="px-4 py-2 text-center border-r border-slate-200">성분 함량</th>
+                    <th className="w-[160px] px-2.5 py-2 text-center">상한섭취량</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs text-slate-800">
+                  {(() => {
+                    // 성분 표시 정보 사전 계산
+                    const itemsWithInfo = sortedIngredients.map((ing) => ({
+                      ing,
+                      info: resolveIngredientDisplayInfo(ing, product.productName),
+                      badgeStyle: getDarkCategoryBadgeStyle(
+                        resolveIngredientDisplayInfo(ing, product.productName).categoryTag
+                      )
+                    }));
 
-              {/* 성분 행 목록 */}
-              {sortedIngredients.map((ing, idx) => {
-                const info = resolveIngredientDisplayInfo(ing, product.productName);
-                const badgeStyle = getDarkCategoryBadgeStyle(info.categoryTag);
+                    // 연속된 동일 약효분류 병합(rowSpan 계산)
+                    return itemsWithInfo.map((item, idx) => {
+                      const isFirstOfCategory =
+                        idx === 0 || itemsWithInfo[idx - 1].info.categoryTag !== item.info.categoryTag;
 
-                return (
-                  <div
-                    key={ing.ingredientId || idx}
-                    className="grid grid-cols-[100px_1fr_180px] divide-x divide-slate-200 hover:bg-sky-50/40 transition-colors"
-                  >
-                    {/* 1열: 약효분류 태그 (작은 사이즈) */}
-                    <div className="px-2 py-2 flex items-center justify-center">
-                      <span
-                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded border leading-tight text-center ${badgeStyle}`}
-                      >
-                        {info.categoryTag}
-                      </span>
-                    </div>
+                      let rowSpan = 1;
+                      if (isFirstOfCategory) {
+                        for (let j = idx + 1; j < itemsWithInfo.length; j++) {
+                          if (itemsWithInfo[j].info.categoryTag === item.info.categoryTag) {
+                            rowSpan++;
+                          } else {
+                            break;
+                          }
+                        }
+                      }
 
-                    {/* 2열: 성분 함량 + 하단 (실제 환산 성분량) */}
-                    <div className="px-3.5 py-2 flex flex-col justify-center min-w-0 font-mono">
-                      <div className="flex items-baseline justify-between gap-3">
-                        <span className="text-xs font-bold text-slate-900 truncate">
-                          {info.englishName}
-                        </span>
-                        <span className="text-xs font-extrabold text-slate-900 shrink-0">
-                          {ing.rawAmount.toLocaleString()}{ing.unit}
-                        </span>
-                      </div>
-                      {info.convertedText && (
-                        <div className="text-[11px] font-bold text-emerald-600 text-right mt-0.5">
-                          ({info.convertedText})
-                        </div>
-                      )}
-                    </div>
-
-                    {/* 3열: 상한섭취량 */}
-                    <div className="px-2 py-2 flex items-center justify-center font-mono">
-                      {info.ulText ? (
-                        <span
-                          title={info.ulNote || '2025 한국인 영양소 섭취기준(KDRIs) 성인 1일 상한섭취량(UL)'}
-                          className="text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded whitespace-nowrap"
+                      return (
+                        <tr
+                          key={item.ing.ingredientId || idx}
+                          className="hover:bg-sky-50/30 transition-colors"
                         >
-                          {info.ulText}
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-                );
-              })}
+                          {/* 1열: 약효분류 (동일 분류일 경우 셀 병합) */}
+                          {isFirstOfCategory && (
+                            <td
+                              rowSpan={rowSpan}
+                              className="px-2 py-2.5 text-center align-middle border-r border-slate-200 bg-slate-50/40"
+                            >
+                              <span
+                                className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded border leading-tight ${item.badgeStyle}`}
+                              >
+                                {item.info.categoryTag}
+                              </span>
+                            </td>
+                          )}
+
+                          {/* 2열: 성분 함량 (예: Benfotiamine 100mg (티아민염산염 72.3mg)) */}
+                          <td className="px-4 py-2.5 border-r border-slate-200 align-middle">
+                            <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
+                              <span className="font-semibold text-slate-900 tracking-tight">
+                                {item.info.englishName}
+                              </span>
+                              <span className="font-bold text-slate-900 tracking-tight">
+                                {item.ing.rawAmount.toLocaleString()}{item.ing.unit}
+                              </span>
+                              {item.info.convertedText && (
+                                <span className="font-medium text-emerald-600 text-[11px]">
+                                  ({item.info.convertedText})
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* 3열: 상한섭취량 (단위 공백 없이 숫자+단위만 깔끔하게 표시) */}
+                          <td className="px-2.5 py-2.5 text-center align-middle">
+                            {item.info.ulText ? (
+                              <span
+                                title={item.info.ulNote || '2025 한국인 영양소 섭취기준(KDRIs) 성인 1일 상한섭취량(UL)'}
+                                className="inline-block text-[11px] font-semibold text-rose-600 bg-rose-50 border border-rose-200/80 px-2 py-0.5 rounded tracking-tight"
+                              >
+                                {item.info.ulText}
+                              </span>
+                            ) : null}
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()}
+                </tbody>
+              </table>
             </div>
 
             {/* 식품안전나라 기준 및 규격(STDR_STND) 원문이 있을 경우 토글 제공 */}

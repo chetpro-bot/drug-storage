@@ -1794,7 +1794,7 @@ export function resolveIngredientDisplayInfo(
     if (std?.ul !== undefined) {
       ulNote = std.clinicalWarningThresholdNote;
       if (standardKey === 'VITAMIN_D') {
-        ulText = '상한 4,000 IU (100 μg)';
+        ulText = '4,000IU (100μg)';
       } else if (standardKey === 'VITAMIN_B3') {
         // 비타민 B3(니아신)는 원료 형태에 따라 상한섭취량(UL)이 완전히 다름 (2025 KDRIs 기준)
         // 1) 니코틴산(Nicotinic acid): 상한 35 mg NE/일 (초과 시 안면홍조/Flushing 위험)
@@ -1810,25 +1810,25 @@ export function resolveIngredientDisplayInfo(
           fullCheckStr.includes('아미드');
 
         if (isNicotinicAcid) {
-          ulText = '상한 35 mg (니코틴산)';
+          ulText = '35mg (니코틴산)';
           ulNote =
             '2025 KDRIs 비타민 B3 상한섭취량: 니코틴산(Nicotinic acid) 성인 35 mg NE/일 — 초과 시 프로스타글란딘 매개 혈관확장·안면홍조(Flushing) 유발 가능 (참고: 니코틴산아미드는 850 mg NE/일)';
         } else if (isNicotinamide) {
-          ulText = '상한 850 mg (니코틴산아미드)';
+          ulText = '850mg (니코틴산아미드)';
           ulNote =
             '2025 KDRIs 비타민 B3 상한섭취량: 니코틴산아미드(Nicotinamide) 성인 850 mg NE/일 (참고: 니코틴산은 35 mg NE/일)';
         } else {
-          ulText = '상한 35 mg(니코틴산) · 850 mg(아미드)';
+          ulText = '35mg(니코틴산) · 850mg(아미드)';
           ulNote =
             '2025 KDRIs 비타민 B3 상한섭취량: 원료 형태에 따라 니코틴산(Nicotinic acid) 35 mg NE/일, 니코틴산아미드(Nicotinamide) 850 mg NE/일 적용';
         }
       } else if (standardKey === 'VITAMIN_E') {
-        ulText = '상한 540 mg α-TE';
+        ulText = '540mg α-TE';
       } else if (standardKey === 'VITAMIN_A') {
-        ulText = '상한 3,000 μg RAE';
+        ulText = '3,000μg RAE';
       } else {
         const displayUnit = std.unit === 'ug' ? 'μg' : std.unit;
-        ulText = `상한 ${std.ul.toLocaleString()} ${displayUnit}`;
+        ulText = `${std.ul.toLocaleString()}${displayUnit}`;
       }
     }
   }

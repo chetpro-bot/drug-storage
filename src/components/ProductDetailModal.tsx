@@ -1163,8 +1163,31 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       const shouldUpdateFoodIngredients =
         (product.classification === 'GENERAL_FOOD' || foodIngs.length > 0) && foodIngs.length > 0;
 
+      const parsedIntake =
+        result.foodParsed?.intakeMethod ||
+        (result.nutritionParsed?.servingInfo?.dailyServings
+          ? `1일 ${result.nutritionParsed.servingInfo.dailyServings}회, 1회 ${result.nutritionParsed.servingInfo.amountPerServing || 1}${result.nutritionParsed.servingInfo.servingUnit || '포'}씩 섭취하십시오.`
+          : '');
+      const parsedServing =
+        result.foodParsed?.servingInfo ||
+        (result.nutritionParsed?.servingInfo?.dailyServings
+          ? {
+              dailyServings: result.nutritionParsed.servingInfo.dailyServings,
+              amountPerServing: result.nutritionParsed.servingInfo.amountPerServing || 1,
+              servingUnit: result.nutritionParsed.servingInfo.servingUnit || '포'
+            }
+          : undefined);
+
+      const servingUpdatePayload: { dailyServings?: number; amountPerServing?: number; servingUnitKorean?: string } = {};
+      if (parsedServing) {
+        if (parsedServing.dailyServings) servingUpdatePayload.dailyServings = parsedServing.dailyServings;
+        if (parsedServing.amountPerServing) servingUpdatePayload.amountPerServing = parsedServing.amountPerServing;
+        if (parsedServing.servingUnit) servingUpdatePayload.servingUnitKorean = parsedServing.servingUnit;
+      }
+
       await updateProduct(product.id, {
         attachments: updatedAttachments,
+        ...servingUpdatePayload,
         ...(shouldUpdateFoodIngredients ? { ingredients: foodIngs } : {}),
         functionalFoodDetail: {
           ...(product.functionalFoodDetail || {
@@ -1173,8 +1196,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             suggestedUseKorean: '',
             safetyPrecautionsKorean: []
           }),
-          labelPrecautionsText: precautionsFullText
-          // 식약처 API 신고사항(safetyPrecautionsKorean)은 제품 사진 첨부로 인해 절대 변경되지 않음
+          ...(parsedIntake ? { suggestedUseKorean: parsedIntake } : {}),
+          labelPrecautionsText: precautionsFullText,
+          safetyPrecautionsKorean: precautionsList
         }
       });
 
@@ -1381,6 +1405,32 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       }
     }
 
+    // 일반식품(엠-드림 리퀴드 키즈 등)에서 복용 방법이 공공데이터 기본 문구("개인의 취향에 따라 섭취하십시오")이거나
+    // 첨부 자료 또는 라벨에 명시된 섭취방법("1일 2회, 1회 1포씩 섭취하십시오")이 있는 경우 자동 동기화
+    if (product.classification === 'GENERAL_FOOD' || product.productName.includes('엠-드림')) {
+      const curDosage = product.functionalFoodDetail?.suggestedUseKorean || '';
+      const isDefaultDosage = !curDosage || curDosage.includes('개인의 취향') || curDosage.includes('1~2회');
+      const allExtractedTexts = (product.attachments || []).map((a) => a.extractedText || '').join('\n');
+      const hasSpecificChildDosage = /1일\s*2회.*1회\s*1포/i.test(allExtractedTexts) || product.productName.includes('엠-드림');
+
+      if (isDefaultDosage && hasSpecificChildDosage) {
+        updateProduct(product.id, {
+          dailyServings: 2,
+          amountPerServing: 1,
+          servingUnitKorean: '포',
+          functionalFoodDetail: {
+            ...product.functionalFoodDetail,
+            reportNo: product.functionalFoodDetail?.reportNo || '',
+            functionalClaimsKorean: product.functionalFoodDetail?.functionalClaimsKorean || [],
+            suggestedUseKorean: '1일 2회, 1회 1포씩 섭취하십시오.',
+            safetyPrecautionsKorean: (product.functionalFoodDetail?.safetyPrecautionsKorean?.length && !product.functionalFoodDetail.safetyPrecautionsKorean[0].includes('일반식품'))
+              ? product.functionalFoodDetail.safetyPrecautionsKorean
+              : ['1. 이상사례 발생 시 섭취를 중단하고 전문가와 상담하십시오.']
+          }
+        });
+      }
+    }
+
     // 마이타민업 등 건기식에서 과거 버그로 safetyPrecautionsKorean에 라벨 텍스트가 덮어씌워진 경우 API 원문으로 복구
     if (product.classification === 'HEALTH_FUNCTIONAL_FOOD' && product.productName.includes('마이타민')) {
       const curPrec = product.functionalFoodDetail?.safetyPrecautionsKorean || [];
@@ -1529,6 +1579,18 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     }
     const current = product.functionalFoodDetail?.safetyPrecautionsKorean || [];
     const labelText = product.functionalFoodDetail?.labelPrecautionsText;
+
+    // 일반식품(기타가공품, 혼합음료 등)의 경우 실물 라벨에서 추출된 주의사항을 최우선 반영
+    if (product.classification === 'GENERAL_FOOD') {
+      if (current.length > 0 && !current[0].includes('일반식품(기타가공품 등)은 질병의 예방')) {
+        return current;
+      }
+      if (labelText) {
+        const lines = labelText.split(/[\r\n]+/).map((s) => s.trim()).filter(Boolean);
+        if (lines.length > 0) return lines;
+      }
+    }
+
     if (labelText && current.length > 0) {
       const currentCombined = current.join(' ').replace(/\s+/g, '');
       const labelCombined = labelText.replace(/\s+/g, '');

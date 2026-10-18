@@ -183,7 +183,7 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
 
       // 4. 일반식품(혼합음료, 기타가공품) 영양성분표 및 원재료명 맞춤 파싱 성분
       const foodParsed = result.foodParsed || parseFoodNutritionLabel(rawText);
-      const foodIngredients = foodParsed?.ingredients || [];
+      const foodIngredients: ProductIngredientEntry[] = foodParsed?.ingredients || [];
 
       // 성분표 반영 추적
       const appliedList: string[] = [];
@@ -333,29 +333,81 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
 
       const finalIngredients = [...updatedIngredients, ...newItemsToAdd];
 
+      // 실물 라벨 / 첨부자료에서 섭취량 및 섭취방법(복용 방법) 추출 및 저장
+      const parsedIntakeMethod =
+        foodParsed?.intakeMethod ||
+        (result.nutritionParsed?.servingInfo?.dailyServings
+          ? `1일 ${result.nutritionParsed.servingInfo.dailyServings}회, 1회 ${result.nutritionParsed.servingInfo.amountPerServing || 1}${result.nutritionParsed.servingInfo.servingUnit || '포'}씩 섭취하십시오.`
+          : '');
+
+      const parsedServing =
+        foodParsed?.servingInfo ||
+        (result.nutritionParsed?.servingInfo?.dailyServings
+          ? {
+              dailyServings: result.nutritionParsed.servingInfo.dailyServings,
+              amountPerServing: result.nutritionParsed.servingInfo.amountPerServing || 1,
+              servingUnit: result.nutritionParsed.servingInfo.servingUnit || '포'
+            }
+          : undefined);
+
+      const servingUpdatePayload: { dailyServings?: number; amountPerServing?: number; servingUnitKorean?: string } = {};
+      if (parsedServing) {
+        if (parsedServing.dailyServings) servingUpdatePayload.dailyServings = parsedServing.dailyServings;
+        if (parsedServing.amountPerServing) servingUpdatePayload.amountPerServing = parsedServing.amountPerServing;
+        if (parsedServing.servingUnit) servingUpdatePayload.servingUnitKorean = parsedServing.servingUnit;
+      }
+
       // 실물 라벨 뒷면 사진에서 추출된 주의사항 감지 및 저장
       const extractedPrecautions = result.extractedPrecautions;
+      const validPrecautionsList =
+        extractedPrecautions?.precautionsList?.length
+          ? extractedPrecautions.precautionsList
+          : (foodParsed?.precautions || []);
+      const validPrecautionsFullText =
+        extractedPrecautions?.precautionsFullText ||
+        foodParsed?.precautionsFullText ||
+        (validPrecautionsList.length > 0 ? validPrecautionsList.map((p: string, i: number) => `${i + 1}. ${p}`).join('\n') : '');
+
       let updatedFunctionalDetail = product.functionalFoodDetail ? { ...product.functionalFoodDetail } : undefined;
       let updatedOtcDetail = product.otcDetail ? { ...product.otcDetail } : undefined;
 
-      if (extractedPrecautions && extractedPrecautions.precautionsFullText && isMeaningfulKoreanText(extractedPrecautions.precautionsFullText)) {
-        if (product.classification === 'HEALTH_FUNCTIONAL_FOOD' || product.classification === 'GENERAL_FOOD' || updatedFunctionalDetail) {
-          updatedFunctionalDetail = {
-            ...(updatedFunctionalDetail || {
-              reportNo: '',
-              functionalClaimsKorean: [],
-              suggestedUseKorean: '',
-              safetyPrecautionsKorean: []
-            }),
-            labelPrecautionsText: extractedPrecautions.precautionsFullText
+      // 건기식/일반식품 상세 정보 업데이트
+      if (product.classification === 'HEALTH_FUNCTIONAL_FOOD' || product.classification === 'GENERAL_FOOD' || updatedFunctionalDetail) {
+        updatedFunctionalDetail = {
+          ...(updatedFunctionalDetail || {
+            reportNo: '',
+            functionalClaimsKorean: [],
+            suggestedUseKorean: '',
+            safetyPrecautionsKorean: []
+          }),
+          ...(parsedIntakeMethod ? { suggestedUseKorean: parsedIntakeMethod } : {}),
+          ...(validPrecautionsFullText && isMeaningfulKoreanText(validPrecautionsFullText)
+            ? {
+                labelPrecautionsText: validPrecautionsFullText,
+                safetyPrecautionsKorean: validPrecautionsList
+              }
+            : {})
+        };
+        if (parsedIntakeMethod) {
+          appliedList.push(`[복용 방법] ${parsedIntakeMethod}`);
+        }
+        if (validPrecautionsList.length > 0) {
+          appliedList.push(`[주의사항] ${validPrecautionsList[0]}`);
+        }
+      } else if (updatedOtcDetail) {
+        if (parsedIntakeMethod) {
+          updatedOtcDetail = {
+            ...updatedOtcDetail,
+            dosageAndAdministrationKorean: parsedIntakeMethod
           };
-        } else if (updatedOtcDetail) {
-          if (extractedPrecautions.precautionsList.length > 0) {
-            updatedOtcDetail = {
-              ...updatedOtcDetail,
-              precautionsSummaryKorean: extractedPrecautions.precautionsList
-            };
-          }
+          appliedList.push(`[용법·용량] ${parsedIntakeMethod}`);
+        }
+        if (validPrecautionsList.length > 0) {
+          updatedOtcDetail = {
+            ...updatedOtcDetail,
+            precautionsSummaryKorean: validPrecautionsList
+          };
+          appliedList.push(`[주의사항] ${validPrecautionsList[0]}`);
         }
       }
 
@@ -400,6 +452,7 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
       await updateProduct(product.id, {
         ingredients: finalIngredients,
         attachments: updatedDocs,
+        ...servingUpdatePayload,
         ...(updatedFunctionalDetail ? { functionalFoodDetail: updatedFunctionalDetail } : {}),
         ...(updatedOtcDetail ? { otcDetail: updatedOtcDetail } : {})
       });
@@ -462,7 +515,7 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
     const kpicMappings = parseKpicEfficacyText(directText);
     const parsedIngredients = parseRawIngredientString(directText);
     const foodParsed = parseFoodNutritionLabel(directText);
-    const foodIngredients = foodParsed.ingredients || [];
+    const foodIngredients: ProductIngredientEntry[] = foodParsed.ingredients || [];
 
     // 기존 성분 중 유효하지 않은 경고문구 및 매크로 비성분 제외
     const isMacroOrGarbage = (text: string) =>

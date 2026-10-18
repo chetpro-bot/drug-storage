@@ -614,21 +614,31 @@ export function extractPrecautionsFromOcrText(rawText: string): {
   };
 }
 
+export interface FoodNutritionParseResult {
+  ingredients: ProductIngredientEntry[];
+  precautions: string[];
+  precautionsFullText: string;
+  intakeMethod?: string;
+  servingInfo?: {
+    dailyServings: number;
+    amountPerServing: number;
+    servingUnit: string;
+  };
+}
+
 /**
  * 일반식품(혼합음료, 기타가공품 등) 영양성분표 및 원재료명 맞춤 파서
  * - 영양성분표에서 의미 있는 미네랄(마그네슘, 칼슘, 아연 등) 및 비타민 추출
  * - 원재료명 및 함량에서 해당 영양소의 실제 염 형태(글루콘산마그네슘, 젖산칼슘 등)를 추출하여 성분명으로 결합
  * - 당알코올 주의사항 등 경고 문구를 주의사항으로 분리 (성분표 유입 차단)
+ * - 섭취량 및 섭취방법(1일 2회, 1회 1포씩 등)과 섭취 시 주의사항 자동 추출
  */
-export function parseFoodNutritionLabel(rawText: string): {
-  ingredients: ProductIngredientEntry[];
-  precautions: string[];
-} {
+export function parseFoodNutritionLabel(rawText: string): FoodNutritionParseResult {
   const ingredients: ProductIngredientEntry[] = [];
   const precautions: string[] = [];
 
   if (!rawText || !rawText.trim()) {
-    return { ingredients, precautions };
+    return { ingredients, precautions, precautionsFullText: '' };
   }
 
   // 0. OCR 오인식 및 특수 폰트 정규화 (mg가 08, 018, 108로 깨지거나 슘이 슴으로 깨지는 현상 사전 복구)
@@ -639,24 +649,144 @@ export function parseFoodNutritionLabel(rawText: string): {
     .replace(/(\d+)\s*pg\b/gi, '$1ug')             // 'µg'가 'pg'로 오인식되는 패턴 보정
     .replace(/Bug\b/i, '25ug')                     // '25µg'가 'Bug'로 오인식되는 패턴 보정
     .replace(/25\s*(?:118|,?118)\s*(?:ug)?/g, '25ug') // '25µg'가 '25 118'로 오인식되는 패턴 보정
-    .replace(/1<2메나/g, 'K2메나');
+    .replace(/1<2메나/g, 'K2메나')
+    // 섭취량/복용법 OCR 왜곡 보정 (예: '12428), 18 1포씩' 또는 '19028], 1회 1포씩' -> '1일 2회, 1회 1포씩')
+    .replace(/1[0-9일]{1,4}\s*([1-4])\s*[8회\)]+[,]?\s*(?:1[8회]|\b1회\b)?\s*([0-9\.]*)\s*(포|정|캡슐|스틱|병)씩?\s*섭취/g, (_match, daily, amt, unit) => {
+      const d = daily || '2';
+      const a = amt || '1';
+      return `1일 ${d}회, 1회 ${a}${unit}씩 섭취`;
+    })
+    .replace(/1포씩\s*섭취하십시오/g, '1회 1포씩 섭취하십시오');
 
-  // 1. 주의사항 / 당알코올 경고 문구 추출
+  // 1. 섭취량 및 섭취방법 파싱
+  let intakeMethod = '';
+  let servingInfo: { dailyServings: number; amountPerServing: number; servingUnit: string } | undefined;
+
   const lines = normalizedRaw.split(/[\r\n]+/).map((l) => l.trim()).filter(Boolean);
-  lines.forEach((line) => {
-    if (
+
+  // 헤더 탐색: [섭취량 및 섭취방법], 섭취량 및 섭취방법, 섭취방법, 복용방법, 용법용량
+  const intakeHeaderRegex = /(?:\[\s*(?:섭취량\s*및\s*섭취방법|섭취방법|복용방법|용법\s*용량)\s*\]|섭취량\s*및\s*섭취방법|섭취방법|복용방법|용법\s*용량)\s*[:：]?/i;
+  const intakeHeaderMatch = normalizedRaw.match(intakeHeaderRegex);
+
+  if (intakeHeaderMatch && intakeHeaderMatch.index !== undefined) {
+    const afterHeader = normalizedRaw.slice(intakeHeaderMatch.index + intakeHeaderMatch[0].length).replace(/^[:：\s]+/, '');
+    const nextSectionIdx = afterHeader.search(/(?:\[\s*(?:섭취\s*시\s*주의사항|주의사항|보관방법|원재료명|영양정보|제조원|반품|유통기한|소비기한)\s*\]|섭취\s*시\s*주의사항|보관방법|원재료명|영양정보)/i);
+    const candidate = nextSectionIdx >= 0 ? afterHeader.slice(0, nextSectionIdx) : afterHeader.slice(0, 200);
+    const candidateLines = candidate.split(/[\r\n]+/).map(s => s.trim()).filter(Boolean);
+    if (candidateLines.length > 0) {
+      intakeMethod = candidateLines[0]
+        .replace(/^[•·\-\*\s]+/, '')
+        .replace(/^\d+[\.\)\-]\s*/, '')
+        .trim();
+      if (candidateLines.length > 1 && !/[다요음]\.?$/.test(intakeMethod) && candidateLines[1].length < 40) {
+        intakeMethod += ' ' + candidateLines[1].replace(/^[•·\-\*\s]+/, '').trim();
+      }
+    }
+  }
+
+  // 헤더가 없거나 인식이 덜 된 경우 본문 라인 직접 탐색
+  if (!intakeMethod) {
+    const dosageLine = lines.find(l =>
+      /1일\s*\d+회.*1회\s*\d+\s*(?:포|정|캡슐|스틱|병).*섭취/i.test(l) ||
+      /1일\s*\d+회.*섭취하십시오/i.test(l) ||
+      /1회\s*\d+\s*(?:포|정|캡슐|스틱|병).*섭취하십시오/i.test(l)
+    );
+    if (dosageLine) {
+      intakeMethod = dosageLine
+        .replace(/^[•·\-\*\s]+/, '')
+        .replace(/^\d+[\.\)\-]\s*/, '')
+        .trim();
+    }
+  }
+
+  if (intakeMethod) {
+    intakeMethod = intakeMethod.replace(/^[:：\s]+/, '').trim();
+    if (!/[다요음\.]/.test(intakeMethod.slice(-1))) {
+      intakeMethod += ' 섭취하십시오.';
+    }
+  }
+
+  const timesMatch = (intakeMethod || normalizedRaw).match(
+    /1일\s*([0-9\.]+)회\s*[,/]?\s*1회\s*([0-9\.]+)\s*(포|정|캡슐|스틱|병|g|ml)/i
+  );
+  if (timesMatch) {
+    servingInfo = {
+      dailyServings: parseInt(timesMatch[1], 10) || 1,
+      amountPerServing: parseFloat(timesMatch[2]) || 1,
+      servingUnit: timesMatch[3]
+    };
+  } else {
+    const dailyIntakeMatch = (intakeMethod || normalizedRaw).match(
+      /1일\s*섭취량\s*[:：]?\s*([0-9\.]+)\s*(포|정|캡슐|스틱|병|g|ml)/i
+    );
+    if (dailyIntakeMatch) {
+      servingInfo = {
+        dailyServings: parseInt(dailyIntakeMatch[1], 10) || 1,
+        amountPerServing: 1,
+        servingUnit: dailyIntakeMatch[2]
+      };
+    }
+  }
+
+  // 2. 섭취 시 주의사항 / 경고 문구 정밀 추출
+  const precautionHeaderRegex = /(?:\[\s*(?:섭취\s*시\s*)?주의사항\s*\]|섭취\s*시\s*주의사항|섭취\s*및\s*보관\s*시\s*주의사항|\[\s*주의사항\s*\])\s*[:：]?/i;
+  const precHeaderMatch = normalizedRaw.match(precautionHeaderRegex);
+  let precautionTargetText = '';
+
+  if (precHeaderMatch && precHeaderMatch.index !== undefined) {
+    const afterPrec = normalizedRaw.slice(precHeaderMatch.index + precHeaderMatch[0].length).replace(/^[:：\s]+/, '');
+    const nextSecMatch = afterPrec.search(/(?:\[\s*(?:보관방법|원재료명|영양정보|제조원|반품|유통기한|소비기한)\s*\]|보관방법|원재료명|영양정보)/i);
+    precautionTargetText = nextSecMatch >= 0 ? afterPrec.slice(0, nextSecMatch) : afterPrec.slice(0, 500);
+  }
+
+  if (precautionTargetText) {
+    const precLines = precautionTargetText
+      .split(/[\r\n]+/)
+      .map(l => l.replace(/^[•·\-\*\d\.\)\s:：]+/, '').replace(/www\.[a-z0-9\.\-_]+/gi, '').trim())
+      .filter(l => l.length >= 6 && !/^(주의사항|보관방법|원재료명)$/.test(l));
+
+    precLines.forEach(l => {
+      if (!precautions.includes(l)) {
+        precautions.push(l);
+      }
+    });
+  }
+
+  // 본문 전체에서 이상사례 등 핵심 주의사항 문장 추가 수집 및 줄바꿈 병합
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/이상사례\s*발생\s*시|섭취를\s*중단하고\s*전문가와\s*상담/i.test(line)) {
+      let combined = line.replace(/^[※\*\-\•\d\.\)\s:：]+/, '').replace(/www\.[a-z0-9\.\-_]+/gi, '').trim();
+      if (i + 1 < lines.length && /상담하십시오|전문가와\s*상담|주의하십시오/i.test(lines[i + 1])) {
+        const nextClean = lines[i + 1].replace(/^[※\*\-\•\d\.\)\s:：]+/, '').replace(/www\.[a-z0-9\.\-_]+/gi, '').trim();
+        if (!combined.includes(nextClean)) {
+          combined = `${combined} ${nextClean}`;
+        }
+      }
+      if (!combined.includes('상담하십시오') && combined.includes('전문가와')) {
+        combined += ' 상담하십시오.';
+      }
+      combined = combined.replace(/\s+/g, ' ').trim();
+      if (combined.length >= 8 && !precautions.includes(combined)) {
+        precautions.push(combined);
+      }
+    } else if (
       /당알코올|과량\s*섭취\s*시\s*설사|설사를\s*일으킬|어린이\s*손에\s*닿지|개봉\s*후\s*냉장|직사광선을\s*피해/i.test(
         line
       )
     ) {
-      const cleanLine = line.replace(/^[※\*\-\•\s]+/, '').trim();
+      const cleanLine = line.replace(/^[※\*\-\•\s]+/, '').replace(/www\.[a-z0-9\.\-_]+/gi, '').trim();
       if (cleanLine.length >= 8 && !precautions.includes(cleanLine)) {
         precautions.push(cleanLine);
       }
     }
-  });
+  }
 
-  // 2. 원료명 및 함량 섹션 추출 (섭취량, 보관방법, 영양정보 표 등 타 섹션으로의 침범 엄격 차단)
+  const precautionsFullText = precautions.length > 0
+    ? precautions.map((item, idx) => `${idx + 1}. ${item}`).join('\n')
+    : '';
+
+  // 3. 원료명 및 함량 섹션 추출 (섭취량, 보관방법, 영양정보 표 등 타 섹션으로의 침범 엄격 차단)
   let rawMaterialsText = '';
   const rawMatMatch = normalizedRaw.match(
     /(?:원료명|원재료명|원재료)(?:\s*및\s*함량)?\s*[:：]?\s*([\s\S]+?)(?=\n\s*(?:※|\[|섭취|주의사항|보관|소비자|영양정보|1일\s*영양|반품|제조|판매|품목|내용량|$))/i
@@ -934,7 +1064,7 @@ export function parseFoodNutritionLabel(rawText: string): {
     }
   });
 
-  return { ingredients, precautions };
+  return { ingredients, precautions, precautionsFullText, intakeMethod, servingInfo };
 }
 
 /**
@@ -948,10 +1078,7 @@ export async function recognizeUniversalDocument(
   isKpicFormat: boolean;
   kpicMappings: KpicEfficacyMapping[];
   nutritionParsed: OcrParseResult;
-  foodParsed: {
-    ingredients: ProductIngredientEntry[];
-    precautions: string[];
-  };
+  foodParsed: FoodNutritionParseResult;
   extractedPrecautions: {
     precautionsFullText: string;
     precautionsList: string[];
@@ -966,7 +1093,19 @@ export async function recognizeUniversalDocument(
 
     if (onProgress) onProgress(50, '첨부 자료 글자 정밀 판독 중...');
     const result = await worker.recognize(processedDataUrl);
-    const rawText = result.data.text;
+    let rawText = result.data.text;
+
+    // 패키지 라벨 좌측(원재료명, 섭취방법, 주의사항 등 다단 레이아웃) 누락 방지를 위한 고속 보조 패스
+    try {
+      const leftResult = await worker.recognize(processedDataUrl, {
+        rectangle: { left: 0, top: 0, width: 450, height: 600 }
+      });
+      if (leftResult?.data?.text) {
+        rawText += '\n\n' + leftResult.data.text;
+      }
+    } catch (e) {
+      console.warn('보조 영역 OCR 건너뜀:', e);
+    }
 
     if (onProgress) onProgress(85, '약효분류, 성분 스펙 및 주의사항 구조화 중...');
     const kpicMappings = parseKpicEfficacyText(rawText);
@@ -979,8 +1118,8 @@ export async function recognizeUniversalDocument(
       extractedPrecautions.precautionsList = Array.from(
         new Set([...extractedPrecautions.precautionsList, ...foodParsed.precautions])
       );
-      if (!extractedPrecautions.precautionsFullText) {
-        extractedPrecautions.precautionsFullText = foodParsed.precautions.join('\n');
+      if (!extractedPrecautions.precautionsFullText || foodParsed.precautionsFullText) {
+        extractedPrecautions.precautionsFullText = foodParsed.precautionsFullText || foodParsed.precautions.map((p: string, i: number) => `${i + 1}. ${p}`).join('\n');
       }
     }
 

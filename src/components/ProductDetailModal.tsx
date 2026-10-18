@@ -1269,11 +1269,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                 </span>
                               )}
                             </div>
-                            {product.classification === 'HEALTH_FUNCTIONAL_FOOD' && item.ing.clinicalSummary && (
-                              <div className="text-[11px] text-slate-500 font-normal mt-0.5 leading-snug">
-                                {item.ing.clinicalSummary.replace(/^•\s*/, '')}
-                              </div>
-                            )}
                           </td>
 
                           {/* 3열: 원료 형태 (태그 배지를 제외한 깔끔한 본문 텍스트 표기) */}

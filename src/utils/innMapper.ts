@@ -169,7 +169,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   '니코틴산아미드': {
     englishInn: 'Nicotinamide',
     functionalCategory: '비타민B3',
-    chemicalFormName: '아미드형 (비타민 B3 — 니코틴산아미드, 상한 850mg)',
+    chemicalFormName: '아미드형 (니코틴산아미드)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B3',
     clinicalSummary: '• 안면 홍조(Flushing) 위험 없는 아미드 형태, 산화환원 반응 NAD 조효소 합성\n• 2025 KDRIs 성인 상한섭취량(UL): 850mg NE/일 (니코틴산아미드 기준)'
@@ -177,7 +177,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   '니코틴아미드': {
     englishInn: 'Nicotinamide',
     functionalCategory: '비타민B3',
-    chemicalFormName: '아미드형 (비타민 B3 — 니코틴산아미드, 상한 850mg)',
+    chemicalFormName: '아미드형 (니코틴산아미드)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B3',
     clinicalSummary: '• 안면 홍조(Flushing) 위험 없는 아미드 형태, 산화환원 반응 NAD 조효소 합성\n• 2025 KDRIs 성인 상한섭취량(UL): 850mg NE/일 (니코틴산아미드 기준)'
@@ -185,7 +185,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   '니코틴산': {
     englishInn: 'Nicotinic acid',
     functionalCategory: '비타민B3',
-    chemicalFormName: '산(Acid)형 (비타민 B3 — 니코틴산, 상한 35mg)',
+    chemicalFormName: '산(Acid)형 (니코틴산)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B3',
     clinicalSummary: '• NAD/NADP 산화환원 조효소 합성 및 지질 대사 관여\n• 2025 KDRIs 성인 상한섭취량(UL): 35mg NE/일 (초과 시 안면홍조/Flushing 유발 주의)'
@@ -730,7 +730,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   '나이아신': {
     englishInn: 'Niacin',
     functionalCategory: '비타민B3',
-    chemicalFormName: '나이아신 (원료 형태별 상한 상이: 니코틴산 35mg / 니코틴산아미드 850mg)',
+    chemicalFormName: '나이아신 (니코틴산아미드)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B3',
     clinicalSummary: '• 체내 에너지 생성 및 NAD/NADP 산화환원 조효소 작용\n• 원료 형태에 따라 상한섭취량 상이 (니코틴산 35mg NE vs 니코틴산아미드 850mg NE)'
@@ -738,7 +738,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   '니아신': {
     englishInn: 'Niacin',
     functionalCategory: '비타민B3',
-    chemicalFormName: '나이아신 (원료 형태별 상한 상이: 니코틴산 35mg / 니코틴산아미드 850mg)',
+    chemicalFormName: '나이아신 (니코틴산아미드)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B3',
     clinicalSummary: '• 체내 에너지 생성 및 NAD/NADP 산화환원 조효소 작용\n• 원료 형태에 따라 상한섭취량 상이 (니코틴산 35mg NE vs 니코틴산아미드 850mg NE)'
@@ -1658,8 +1658,15 @@ export function analyzeChemicalFormFeature(
       .replace(/^무기염\s*\((.+)\)$/, '$1')
       .replace(/^아미드형\s*\((.+)\)$/, '$1')
       .replace(/^천연형\s*\((.+)\)$/, '$1')
-      .trim();
   }
+
+  // 상한섭취량 문구 및 비타민 B3 접두어 정돈
+  formText = formText
+    .replace(/^비타민\s*b3\s*—\s*/gi, '')
+    .replace(/,\s*상한\s*\d+mg/gi, '')
+    .replace(/상한\s*\d+mg/gi, '')
+    .replace(/\(\s*\)/g, '')
+    .trim();
 
   const combined = `${formText} ${englishName} ${rawInn} ${categoryTag}`.toLowerCase();
 
@@ -1877,31 +1884,26 @@ export function resolveIngredientDisplayInfo(
       if (standardKey === 'VITAMIN_D') {
         ulText = '4,000IU (100μg)';
       } else if (standardKey === 'VITAMIN_B3') {
-        // 비타민 B3(니아신)는 원료 형태에 따라 상한섭취량(UL)이 완전히 다름 (2025 KDRIs 기준)
-        // 1) 니코틴산(Nicotinic acid): 상한 35 mg NE/일 (초과 시 안면홍조/Flushing 위험)
-        // 2) 니코틴산아미드(Nicotinamide / Niacinamide): 상한 850 mg NE/일
-        // 3) 단순히 '나이아신(Niacin)'으로만 표기되어 형태가 특정되지 않은 경우: 두 기준 모두 병기
+        // 비타민 B3(니아신)는 국내 건기식 및 비타민제에서 거의 대부분 니코틴산아미드 형태임
+        // 사용자 기준:
+        // 1) 기본적으로 상한섭취량에 그냥 '850mg'으로 기록
+        // 2) 혹시 산 형태(니코틴산)일 경우에만 '35mg (니코틴산)'으로 적용 및 명시
         const fullCheckStr = `${normEng} ${rawInn} ${ing.koreanName || ''} ${ing.chemicalFormName || ''}`.toLowerCase();
         const isNicotinicAcid =
-          normEng.includes('nicotinicacid') ||
-          (fullCheckStr.includes('니코틴산') && !fullCheckStr.includes('아미드'));
-        const isNicotinamide =
-          normEng.includes('nicotinamide') ||
-          normEng.includes('niacinamide') ||
-          fullCheckStr.includes('아미드');
+          (normEng.includes('nicotinicacid') ||
+            (fullCheckStr.includes('니코틴산') && !fullCheckStr.includes('아미드'))) &&
+          !normEng.includes('nicotinamide') &&
+          !normEng.includes('niacinamide') &&
+          !fullCheckStr.includes('아미드');
 
         if (isNicotinicAcid) {
           ulText = '35mg (니코틴산)';
           ulNote =
             '2025 KDRIs 비타민 B3 상한섭취량: 니코틴산(Nicotinic acid) 성인 35 mg NE/일 — 초과 시 프로스타글란딘 매개 혈관확장·안면홍조(Flushing) 유발 가능 (참고: 니코틴산아미드는 850 mg NE/일)';
-        } else if (isNicotinamide) {
-          ulText = '850mg (니코틴산아미드)';
-          ulNote =
-            '2025 KDRIs 비타민 B3 상한섭취량: 니코틴산아미드(Nicotinamide) 성인 850 mg NE/일 (참고: 니코틴산은 35 mg NE/일)';
         } else {
-          ulText = '35mg(니코틴산) · 850mg(아미드)';
+          ulText = '850mg';
           ulNote =
-            '2025 KDRIs 비타민 B3 상한섭취량: 원료 형태에 따라 니코틴산(Nicotinic acid) 35 mg NE/일, 니코틴산아미드(Nicotinamide) 850 mg NE/일 적용';
+            '2025 KDRIs 비타민 B3 상한섭취량: 니코틴산아미드(Nicotinamide) 성인 850 mg NE/일 (참고: 니코틴산 형태는 35 mg NE/일)';
         }
       } else if (standardKey === 'VITAMIN_E') {
         ulText = '540mg α-TE (800IU)';

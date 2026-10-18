@@ -28,32 +28,27 @@ export const ClinicalSafetyPanel: React.FC<ClinicalSafetyPanelProps> = ({ produc
       let effectiveNameKorean = kdriRef.nutrientNameKorean;
       let effectiveWarningNote = kdriRef.clinicalWarningThresholdNote;
 
-      // 비타민 B3(니아신) 원료 형태별 상한섭취량(UL) 분기 처리 (니코틴산 35mg vs 니코틴산아미드 850mg)
+      // 비타민 B3(니아신) 원료 형태별 상한섭취량(UL) 분기 처리 (기본 850mg, 산 형태인 경우 35mg)
       if (ing.standardKey === 'VITAMIN_B3') {
         const checkStr = `${ing.englishInn || ''} ${ing.koreanName || ''} ${ing.chemicalFormName || ''}`.toLowerCase();
         const isNicotinicAcid =
-          checkStr.includes('nicotinic acid') ||
-          checkStr.includes('nicotinicacid') ||
-          (checkStr.includes('니코틴산') && !checkStr.includes('아미드'));
-        const isNicotinamide =
-          checkStr.includes('nicotinamide') ||
-          checkStr.includes('niacinamide') ||
-          checkStr.includes('아미드');
+          (checkStr.includes('nicotinic acid') ||
+            checkStr.includes('nicotinicacid') ||
+            (checkStr.includes('니코틴산') && !checkStr.includes('아미드'))) &&
+          !checkStr.includes('nicotinamide') &&
+          !checkStr.includes('niacinamide') &&
+          !checkStr.includes('아미드');
 
         if (isNicotinicAcid) {
           effectiveUl = 35;
-          effectiveNameKorean = '니아신 (니코틴산, B3)';
+          effectiveNameKorean = '니아신 (니코틴산)';
           effectiveWarningNote =
             '니코틴산(Nicotinic acid) 성인 상한 35mg NE/일 초과 시 혈관확장·안면홍조(Flushing) 및 가려움증 유발 위험';
-        } else if (isNicotinamide) {
-          effectiveUl = 850;
-          effectiveNameKorean = '니아신 (니코틴산아미드, B3)';
-          effectiveWarningNote =
-            '니코틴산아미드(Nicotinamide) 성인 상한 850mg NE/일 초과 시 간독성 및 위장장애 위험 (참고: 니코틴산은 상한 35mg)';
         } else {
+          effectiveUl = 850;
           effectiveNameKorean = '니아신 (비타민 B3)';
           effectiveWarningNote =
-            '원료 형태에 따라 상한섭취량 상이: 니코틴산(Nicotinic acid) 35mg/일 vs 니코틴산아미드(Nicotinamide) 850mg/일';
+            '니코틴산아미드(Nicotinamide) 성인 상한 850mg NE/일 초과 시 간독성 및 위장장애 위험 (참고: 니코틴산은 상한 35mg)';
         }
       }
 

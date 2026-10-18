@@ -225,10 +225,13 @@ export const EfficacyClassificationModal: React.FC<EfficacyClassificationModalPr
       }
       if (!q) return true;
 
-      const matchInn = item.englishInn.toLowerCase().includes(q);
-      const matchKor = item.koreanName.toLowerCase().includes(q);
-      const matchCat = item.functionalCategory.toLowerCase().includes(q);
-      const matchProd = item.productNames.some((p) => p.toLowerCase().includes(q));
+      const norm = (s: string) => (s || '').toLowerCase().replace(/[\s\-_·,\.\(\)\[\]\/]/g, '');
+      const cleanQ = norm(q);
+
+      const matchInn = item.englishInn.toLowerCase().includes(q) || (cleanQ ? norm(item.englishInn).includes(cleanQ) : false);
+      const matchKor = item.koreanName.toLowerCase().includes(q) || (cleanQ ? norm(item.koreanName).includes(cleanQ) : false);
+      const matchCat = item.functionalCategory.toLowerCase().includes(q) || (cleanQ ? norm(item.functionalCategory).includes(cleanQ) : false);
+      const matchProd = item.productNames.some((p) => p.toLowerCase().includes(q) || (cleanQ ? norm(p).includes(cleanQ) : false));
       return matchInn || matchKor || matchCat || matchProd;
     });
   }, [allIngredients, searchQuery, selectedFilterCategory, onlyInProducts]);

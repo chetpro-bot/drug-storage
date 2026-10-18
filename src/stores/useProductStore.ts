@@ -649,6 +649,11 @@ export const useProductStore = create<ProductState>((set, get) => {
     const { products, searchQuery, classificationFilter, selectedTag, sortBy } = get();
     const query = searchQuery.trim().toLowerCase();
 
+    // 띄어쓰기 및 하이픈, 괄호 등 특수기호 제거 정규화 헬퍼 (예: '엠-드림 리퀴드 키즈' -> '엠드림리퀴드키즈')
+    const normalize = (s?: string) => (s || '').toLowerCase().replace(/[\s\-_·,\.\(\)\[\]\/]/g, '');
+    const cleanQuery = normalize(query);
+    const queryTokens = query.split(/\s+/).map(normalize).filter(Boolean);
+
     const filtered = products.filter((item) => {
       if (classificationFilter !== 'ALL' && item.classification !== classificationFilter) {
         return false;
@@ -658,26 +663,66 @@ export const useProductStore = create<ProductState>((set, get) => {
       }
       if (!query) return true;
 
-      const matchName = item.productName.toLowerCase().includes(query);
-      const matchManufacturer = item.manufacturer.toLowerCase().includes(query);
-      const matchLocation = item.storageLocation?.toLowerCase().includes(query);
-      const matchTags = item.tags.some((t) => t.toLowerCase().includes(query));
-      const matchIngredients = item.ingredients.some(
-        (ing) =>
-          ing.englishInn.toLowerCase().includes(query) ||
-          ing.koreanName?.toLowerCase().includes(query) ||
-          ing.noteKorean?.toLowerCase().includes(query)
-      );
-      const matchBarcode = item.barcode?.includes(query);
+      // 1) 기본 단순 포함 검색
+      const rawMatch =
+        item.productName.toLowerCase().includes(query) ||
+        item.manufacturer.toLowerCase().includes(query) ||
+        Boolean(item.storageLocation?.toLowerCase().includes(query)) ||
+        item.tags.some((t) => t.toLowerCase().includes(query)) ||
+        item.ingredients.some(
+          (ing) =>
+            ing.englishInn.toLowerCase().includes(query) ||
+            ing.koreanName?.toLowerCase().includes(query) ||
+            ing.noteKorean?.toLowerCase().includes(query)
+        ) ||
+        Boolean(item.barcode?.includes(query));
 
-      return (
-        matchName ||
-        matchManufacturer ||
-        Boolean(matchLocation) ||
-        matchTags ||
-        matchIngredients ||
-        Boolean(matchBarcode)
-      );
+      if (rawMatch) return true;
+
+      // 2) 띄어쓰기·특수문자(하이픈 등) 무시 정규화 검색 (예: '엠드림리퀴드키즈' <-> '엠-드림 리퀴드 키즈')
+      const normName = normalize(item.productName);
+      const normMfg = normalize(item.manufacturer);
+      const normLoc = normalize(item.storageLocation);
+      const normBarcode = (item.barcode || '').replace(/[\s\-]/g, '');
+
+      if (cleanQuery) {
+        if (
+          normName.includes(cleanQuery) ||
+          cleanQuery.includes(normName) ||
+          normMfg.includes(cleanQuery) ||
+          normLoc.includes(cleanQuery) ||
+          normBarcode.includes(cleanQuery) ||
+          item.tags.some((t) => normalize(t).includes(cleanQuery)) ||
+          item.ingredients.some(
+            (ing) =>
+              normalize(ing.englishInn).includes(cleanQuery) ||
+              normalize(ing.koreanName).includes(cleanQuery) ||
+              normalize(ing.noteKorean).includes(cleanQuery)
+          )
+        ) {
+          return true;
+        }
+      }
+
+      // 3) 다중 단어 검색 (예: '엠드림 키즈' 입력 시 모든 토큰이 제품명/원료 등에 포함되는지 확인)
+      if (queryTokens.length > 1) {
+        const fullSearchTarget = [
+          normName,
+          normMfg,
+          normLoc,
+          ...item.tags.map(normalize),
+          ...item.ingredients.flatMap((ing) => [
+            normalize(ing.englishInn),
+            normalize(ing.koreanName),
+            normalize(ing.noteKorean)
+          ])
+        ].join(' ');
+
+        const allTokensMatch = queryTokens.every((token) => fullSearchTarget.includes(token));
+        if (allTokensMatch) return true;
+      }
+
+      return false;
     });
 
     return sortProducts(filtered, sortBy);

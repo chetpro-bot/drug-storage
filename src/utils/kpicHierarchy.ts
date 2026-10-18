@@ -331,10 +331,13 @@ export function filterKpicTree(
       }
       if (!q) return true;
 
-      const matchInn = ing.englishInn.toLowerCase().includes(q);
-      const matchKor = ing.koreanName.toLowerCase().includes(q);
-      const matchCat = ing.functionalCategory.toLowerCase().includes(q);
-      const matchProd = ing.productNames.some((p) => p.toLowerCase().includes(q));
+      const norm = (s: string) => (s || '').toLowerCase().replace(/[\s\-_·,\.\(\)\[\]\/]/g, '');
+      const cleanQ = norm(q);
+
+      const matchInn = ing.englishInn.toLowerCase().includes(q) || (cleanQ ? norm(ing.englishInn).includes(cleanQ) : false);
+      const matchKor = ing.koreanName.toLowerCase().includes(q) || (cleanQ ? norm(ing.koreanName).includes(cleanQ) : false);
+      const matchCat = ing.functionalCategory.toLowerCase().includes(q) || (cleanQ ? norm(ing.functionalCategory).includes(cleanQ) : false);
+      const matchProd = ing.productNames.some((p) => p.toLowerCase().includes(q) || (cleanQ ? norm(p).includes(cleanQ) : false));
       const matchCode = ing.kpicCode.toLowerCase().includes(q);
 
       return matchInn || matchKor || matchCat || matchProd || matchCode;

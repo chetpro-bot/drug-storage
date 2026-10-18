@@ -631,13 +631,14 @@ export function parseFoodNutritionLabel(rawText: string): {
     return { ingredients, precautions };
   }
 
-  // 0. OCR 오인식 및 특수 폰트 정규화 (mg가 018/108로 깨지거나 슘이 슴으로 깨지는 현상 사전 복구)
+  // 0. OCR 오인식 및 특수 폰트 정규화 (mg가 08, 018, 108로 깨지거나 슘이 슴으로 깨지는 현상 사전 복구)
   const normalizedRaw = rawText
     .replace(/칼[슴숨]/g, '칼슘')
     .replace(/마그네[슴승]/g, '마그네슘')
-    .replace(/(\d+)\s*(?:018|108)\b/g, '$1mg') // OCR에서 'mg'가 '018' 또는 '108'로 오인식되는 패턴 보정
-    .replace(/(\d+)\s*pg\b/gi, '$1ug')         // 'µg'가 'pg'로 오인식되는 패턴 보정
-    .replace(/Bug\b/i, '25ug')                 // '25µg'가 'Bug'로 오인식되는 패턴 보정
+    .replace(/(\d+?)\s*(?:018|108|08)\b/g, '$1mg') // OCR에서 'mg'가 '08', '018', '108'로 오인식되는 패턴 보정 (예: 5508 -> 55mg, 308 -> 3mg, 55018 -> 55mg)
+    .replace(/(\d+)\s*pg\b/gi, '$1ug')             // 'µg'가 'pg'로 오인식되는 패턴 보정
+    .replace(/Bug\b/i, '25ug')                     // '25µg'가 'Bug'로 오인식되는 패턴 보정
+    .replace(/25\s*(?:118|,?118)\s*(?:ug)?/g, '25ug') // '25µg'가 '25 118'로 오인식되는 패턴 보정
     .replace(/1<2메나/g, 'K2메나');
 
   // 1. 주의사항 / 당알코올 경고 문구 추출

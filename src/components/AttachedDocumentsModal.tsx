@@ -202,8 +202,9 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
 
       // A) 일반식품 영양성분표(마그네슘, 칼슘, 아연, 비타민K 등 원료염 결합 형태) 최우선 매핑
       if (foodIngredients.length > 0) {
-        // 일반식품(혼합음료, 기타가공품 등)은 영양성분표에서 추출된 유효 성분들로 전면 정제 (과거 손상된 잡음 완전 제거)
-        if (product.classification === 'GENERAL_FOOD') {
+        // 일반식품(혼합음료, 기타가공품 등) 또는 3종 이상의 식품 영양소가 감지된 경우:
+        // 과거 오인식된 찌꺼기 성분(K 25,118ug 등)을 전면 초기화하고 정밀 추출된 foodIngredients로 완전 교체
+        if (product.classification === 'GENERAL_FOOD' || foodIngredients.length >= 3) {
           updatedIngredients.length = 0;
           updatedIngredients.push(...foodIngredients);
           foodIngredients.forEach((fi) => {
@@ -246,7 +247,7 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
       }
 
       // B) 기존 성분들에 대해 KPIC 약효분류 및 규격 갱신 (일반식품이 아닌 의약품/건기식 성분만 갱신)
-      if (product.classification !== 'GENERAL_FOOD') {
+      if (product.classification !== 'GENERAL_FOOD' && foodIngredients.length < 3) {
         const foodKeys = new Set(
           foodIngredients.flatMap((fi) => [
             fi.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, ''),

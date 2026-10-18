@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import { Pill, Settings } from 'lucide-react';
 import { APP_VERSION } from '../version';
-import { EfficacyClassificationModal } from './EfficacyClassificationModal';
 import { SettingsModal } from './SettingsModal';
 
 export const Header: React.FC = () => {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
 
   return (
     <header className="h-14 bg-white border-b border-slate-200/90 text-slate-900 px-6 flex items-center justify-between shrink-0 select-none shadow-2xs z-10">
@@ -44,16 +42,6 @@ export const Header: React.FC = () => {
       <SettingsModal
         isOpen={isSettingsModalOpen}
         onClose={() => setIsSettingsModalOpen(false)}
-        onOpenEfficacyClassificationModal={() => {
-          setIsSettingsModalOpen(false);
-          setIsCategoryModalOpen(true);
-        }}
-      />
-
-      {/* 약학정보원(KPIC) 약효 분류표 관리 및 수정 모달 */}
-      <EfficacyClassificationModal
-        isOpen={isCategoryModalOpen}
-        onClose={() => setIsCategoryModalOpen(false)}
       />
     </header>
   );

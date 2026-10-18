@@ -293,6 +293,16 @@ function migrateAndEnsureKpic(products: ProductItem[]): ProductItem[] {
       return updated;
     }
 
+    // 6. 올대원맥스정 등 제약회사(판매사: 대원제약 vs 수탁제조사: 한풍제약) 교정
+    if (prod.productName.includes('올대원맥스') && (prod.manufacturer.includes('한풍') || !prod.manufacturer.includes('대원'))) {
+      hasChanges = true;
+      prod = {
+        ...prod,
+        manufacturer: '대원제약',
+        distributor: '대원제약'
+      };
+    }
+
     if (hasChanges) {
       const updated = {
         ...prod,

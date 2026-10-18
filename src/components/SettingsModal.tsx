@@ -14,8 +14,6 @@ import {
   FileCheck,
   RefreshCw,
   Search,
-  Sparkles,
-  Info,
   CheckCircle2,
   PackagePlus
 } from 'lucide-react';
@@ -28,14 +26,15 @@ import {
   searchPublicDrugDatabase,
   convertMasterItemToFetchResult
 } from '../services/publicDataService';
+import { EfficacyClassificationView } from './EfficacyClassificationModal';
 
 interface SettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onOpenEfficacyClassificationModal: () => void;
+  initialTab?: SettingsTab;
 }
 
-type SettingsTab = 'EFFICACY' | 'TAGS' | 'BULK_IMPORT';
+export type SettingsTab = 'EFFICACY' | 'TAGS' | 'BULK_IMPORT';
 
 interface ParsedBulkRow {
   index: number;
@@ -54,7 +53,7 @@ interface ParsedBulkRow {
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
   onClose,
-  onOpenEfficacyClassificationModal
+  initialTab = 'EFFICACY'
 }) => {
   const {
     products,
@@ -65,7 +64,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     bulkAddProducts
   } = useProductStore();
 
-  const [activeTab, setActiveTab] = useState<SettingsTab>('EFFICACY');
+  const [activeTab, setActiveTab] = useState<SettingsTab>(initialTab);
 
   // --- [탭 2: 제품 태그 관리 상태] ---
   const [tagSearchQuery, setTagSearchQuery] = useState('');
@@ -160,12 +159,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const handleDownloadTemplate = () => {
     const sampleData = [
       {
+        '제품명 (필수)': '올대원맥스정',
+        '제약회사 (필수)': '대원제약',
+        '포장단위': '120정/상자 [60정/병 x 2]',
+        '판매가(원)': 70000,
+        '분류': '일반의약품',
+        '보관위치': '진열대 A-1',
+        '바코드': '',
+        '효능태그': '피로, 눈, 관절'
+      },
+      {
         '제품명 (필수)': '비맥스메타정',
         '제약회사 (필수)': 'GC녹십자',
         '포장단위': '120정 (60정 x 2병)',
         '판매가(원)': 70000,
         '분류': '일반의약품',
-        '보관위치': '진열대 A-1',
+        '보관위치': '진열대 A-2',
         '바코드': '8806440023456',
         '효능태그': '피로, 만성피로, 활력'
       },
@@ -178,25 +187,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         '보관위치': '소아과 매대 B-2',
         '바코드': '',
         '효능태그': '어린이, 성장, 뼈, 면역'
-      },
-      {
-        '제품명 (필수)': '아로나민골드프리미엄정',
-        '제약회사 (필수)': '일동제약',
-        '포장단위': '100정',
-        '판매가(원)': 35000,
-        '분류': '일반의약품',
-        '보관위치': '진열대 A-2',
-        '바코드': '',
-        '효능태그': '피로, 눈, 신경통'
       }
     ];
 
     const ws = XLSX.utils.json_to_sheet(sampleData);
-    // 컬럼 너비 설정
     ws['!cols'] = [
       { wch: 24 }, // 제품명
       { wch: 18 }, // 제약회사
-      { wch: 20 }, // 포장단위
+      { wch: 22 }, // 포장단위
       { wch: 14 }, // 판매가
       { wch: 16 }, // 분류
       { wch: 18 }, // 보관위치
@@ -230,7 +228,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         }
 
         const parsed: ParsedBulkRow[] = rawJson.map((row, idx) => {
-          // 유연한 컬럼 헤더 매핑
           const findVal = (keys: string[]) => {
             for (const key of Object.keys(row)) {
               const cleanKey = key.trim().toLowerCase().replace(/[\s\(\)\[\]_]/g, '');
@@ -244,7 +241,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           };
 
           const rawName = findVal(['제품명', '품목명', '제품', 'productname', 'name']);
-          const rawMfg = findVal(['제약회사', '제조사', '제조원', '회사', 'manufacturer', 'company']);
+          const rawMfg = findVal(['제약회사', '제조사', '제조원', '회사', '판매사', 'manufacturer', 'company']);
           const rawUnit = findVal(['포장단위', '포장', '규격', '단위', 'packagingunit', 'unit']);
           const rawPrice = findVal(['판매가', '소비자가', '가격', 'price', 'priceretailkrw']);
           const rawClass = findVal(['분류', '구분', '종류', 'classification', 'type']);
@@ -357,7 +354,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           });
 
           if (searchResults.length > 0) {
-            // 가장 연관도 높은 첫 번째 매칭 품목 선택
             const bestMatch = searchResults[0];
             enrichedData = await convertMasterItemToFetchResult(bestMatch);
             apiEnrichedCount++;
@@ -367,13 +363,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         }
       }
 
-      // 최종 제품 객체 조합
+      // [핵심 기준] 제약회사는 API에서 반환하는 수탁제조원 이름이 아니라, 엑셀 파일(사용자 입력)에 기재된 제약회사(판매사/브랜드)를 최우선으로 등록
+      const userMfg = row.manufacturer ? row.manufacturer.trim() : '';
+      const finalManufacturer = userMfg || enrichedData?.manufacturer || '제약사 미정';
+
       const finalProduct: ProductItem = {
         id: generatedId,
         productName: row.productName,
-        manufacturer: enrichedData?.manufacturer || row.manufacturer || '제약사 미정',
+        manufacturer: finalManufacturer,
+        distributor: userMfg && enrichedData?.manufacturer && userMfg !== enrichedData.manufacturer ? userMfg : undefined,
         classification:
-          enrichedData?.classification || row.classification || 'HEALTH_FUNCTIONAL_FOOD',
+          row.classification || enrichedData?.classification || 'HEALTH_FUNCTIONAL_FOOD',
         dosageForm: (enrichedData?.dosageForm as DosageForm) || 'TABLET',
         packagingUnit: row.packagingUnit || enrichedData?.packagingUnit || '120정',
         priceRetailKrw: row.priceRetailKrw,
@@ -436,21 +436,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 sm:p-6 select-none animate-in fade-in duration-200">
-      <div className="w-full max-w-5xl max-h-[90vh] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 sm:p-6 select-none animate-in fade-in duration-200">
+      <div className="w-full max-w-6xl h-[92vh] max-h-[92vh] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden">
         {/* 모달 헤더 */}
-        <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0">
+        <div className="px-6 py-3.5 bg-slate-900 text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center border border-sky-400/30">
               <Settings className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-extrabold tracking-tight flex items-center gap-2">
-                약국 상담 및 데이터 설정
+              <h2 className="text-sm sm:text-base font-extrabold tracking-tight flex items-center gap-2">
+                설정 및 마스터 데이터 관리
               </h2>
-              <p className="text-xs text-slate-400 font-medium">
-                약효 분류표, 제품 효능 태그 관리 및 엑셀 대량 품목 등록
-              </p>
             </div>
           </div>
           <button
@@ -465,7 +462,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         <div className="px-6 bg-slate-50 border-b border-slate-200 flex items-center gap-2 shrink-0">
           <button
             onClick={() => setActiveTab('EFFICACY')}
-            className={`px-4 py-3 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+            className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === 'EFFICACY'
                 ? 'border-sky-600 text-sky-700 bg-white/70'
                 : 'border-transparent text-slate-600 hover:text-slate-900'
@@ -477,7 +474,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           <button
             onClick={() => setActiveTab('TAGS')}
-            className={`px-4 py-3 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+            className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === 'TAGS'
                 ? 'border-sky-600 text-sky-700 bg-white/70'
                 : 'border-transparent text-slate-600 hover:text-slate-900'
@@ -492,7 +489,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           <button
             onClick={() => setActiveTab('BULK_IMPORT')}
-            className={`px-4 py-3 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+            className={`px-4 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
               activeTab === 'BULK_IMPORT'
                 ? 'border-sky-600 text-sky-700 bg-white/70'
                 : 'border-transparent text-slate-600 hover:text-slate-900'
@@ -504,87 +501,34 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         {/* 모달 본문 영역 */}
-        <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
-          {/* TAB 1: 약효분류표 수정 */}
+        <div className={`flex-1 ${activeTab === 'EFFICACY' ? 'overflow-hidden flex flex-col' : 'overflow-y-auto p-6 bg-slate-50/50'}`}>
+          {/* TAB 1: 약효분류표 수정 (설명 배너 없이 바로 트리/테이블 수정 화면 노출) */}
           {activeTab === 'EFFICACY' && (
-            <div className="space-y-6 max-w-3xl mx-auto">
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center shrink-0 border border-sky-100">
-                    <SlidersHorizontal className="w-5 h-5" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-sm font-extrabold text-slate-900 mb-1">
-                      약학정보원(KPIC) 4단계 약효 분류표 관리
-                    </h3>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      모든 의약품 및 건강기능식품의 성분은 약학정보원 공식 4단계 계층 분류(대분류 → 중분류 → 소분류 → 세분류)에 매핑됩니다.
-                      성분별 약효 분류를 실시간으로 변경하거나 분류명을 일괄 수정할 수 있습니다.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
-                    <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5 mb-1">
-                      <Sparkles className="w-3.5 h-3.5 text-sky-600" />
-                      <span>4단계 계층 트리 탐색</span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 leading-normal">
-                      약학정보원 공식 코드 체계(health.kr) 기반으로 전체 약효 트리 구조를 편리하게 펼쳐보며 성분을 탐색할 수 있습니다.
-                    </p>
-                  </div>
-
-                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80">
-                    <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5 mb-1">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>성분별 약효 실시간 변경 및 학습</span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 leading-normal">
-                      약사님이 특정 성분의 약효 분류를 수정하면, 등록된 전체 제품과 향후 추가될 제품에 자동으로 영구 적용됩니다.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="pt-3 flex justify-end">
-                  <button
-                    onClick={() => {
-                      onOpenEfficacyClassificationModal();
-                    }}
-                    className="px-5 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-2 cursor-pointer transition-all active:scale-[0.98]"
-                  >
-                    <SlidersHorizontal className="w-4 h-4" />
-                    <span>약효 분류표 수정 열기</span>
-                  </button>
-                </div>
-              </div>
+            <div className="flex-1 flex flex-col h-full overflow-hidden">
+              <EfficacyClassificationView />
             </div>
           )}
 
           {/* TAB 2: 제품 태그 관리 */}
           {activeTab === 'TAGS' && (
             <div className="space-y-5 max-w-4xl mx-auto">
-              {/* 태그 추가 폼 & 가이드 */}
-              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+              {/* 태그 추가 폼 */}
+              <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
                 <div className="flex items-center justify-between gap-4 flex-wrap">
                   <div>
                     <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
                       <Tag className="w-4 h-4 text-indigo-600" />
-                      <span>제품 효능·증상 태그 관리</span>
+                      <span>카탈로그 효능·증상 태그 관리</span>
                     </h3>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      카탈로그 상단 필터 바에 표시될 태그를 추가, 수정, 삭제할 수 있습니다.
-                    </p>
                   </div>
 
-                  {/* 신규 태그 추가 인풋 */}
                   <form onSubmit={handleAddNewTag} className="flex items-center gap-2">
                     <input
                       type="text"
                       value={newTagInput}
                       onChange={(e) => setNewTagInput(e.target.value)}
-                      placeholder="새 태그명 (예: 통풍, 혈압, 비염)..."
-                      className="w-48 px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                      placeholder="새 태그명 (예: 통풍, 혈압)..."
+                      className="w-48 px-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-lg focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-medium"
                     />
                     <button
                       type="submit"
@@ -597,7 +541,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </form>
                 </div>
 
-                {/* 태그 검색 및 필터 */}
                 <div className="pt-2 flex items-center justify-between gap-3 border-t border-slate-100">
                   <div className="relative w-64">
                     <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -616,7 +559,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
 
               {/* 태그 목록 그리드 */}
-              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+              <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs">
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
                   {filteredTags.map((tag) => {
                     const count = tagProductCounts[tag] || 0;
@@ -718,48 +661,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
           {/* TAB 3: 엑셀 대량 품목 등록 */}
           {activeTab === 'BULK_IMPORT' && (
-            <div className="space-y-5 max-w-4xl mx-auto">
-              {/* 안내 카드 */}
-              <div className="bg-sky-50/70 border border-sky-200 rounded-2xl p-5 space-y-3">
-                <div className="flex items-start gap-3">
-                  <Info className="w-5 h-5 text-sky-600 shrink-0 mt-0.5" />
-                  <div className="space-y-2">
-                    <h4 className="text-xs font-extrabold text-sky-900">
-                      엑셀 대량 등록 시 필요한 정보 안내
-                    </h4>
-                    <p className="text-xs text-sky-800 leading-relaxed">
-                      대량 등록 시에는 <strong>[제품명, 제약회사]</strong> 2가지만 있으면 식약처 일반의약품 및 식품안전나라 건강기능식품 공공 API를 통해
-                      <strong> 성분, 분량, 복용 방법, 주의사항, 약효분류</strong>가 자동으로 자동 수집·채워집니다!
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1 text-[11px]">
-                      <div className="bg-white/80 p-2.5 rounded-lg border border-sky-200/80">
-                        <span className="font-bold text-sky-950 block mb-0.5">🟢 필수 항목</span>
-                        <span className="text-sky-800">제품명, 제약회사</span>
-                      </div>
-                      <div className="bg-white/80 p-2.5 rounded-lg border border-sky-200/80">
-                        <span className="font-bold text-sky-950 block mb-0.5">🔵 권장 항목</span>
-                        <span className="text-sky-800">포장단위, 판매가(원)</span>
-                      </div>
-                      <div className="bg-white/80 p-2.5 rounded-lg border border-sky-200/80">
-                        <span className="font-bold text-sky-950 block mb-0.5">⚪ 선택 항목</span>
-                        <span className="text-sky-800">보관위치, 바코드, 효능태그</span>
-                      </div>
-                    </div>
-                  </div>
+            <div className="space-y-4 max-w-4xl mx-auto">
+              {/* 상단 간결 안내 및 엑셀 표준 양식 다운로드 바 */}
+              <div className="flex items-center justify-between p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs gap-3 flex-wrap">
+                <div className="flex items-center gap-2 text-xs text-slate-700 flex-wrap">
+                  <span className="font-extrabold text-slate-900">💡 필수 항목:</span>
+                  <span><strong>제품명</strong>, <strong>제약회사</strong> (판매사 기준)</span>
+                  <span className="text-slate-300">|</span>
+                  <span className="text-slate-500">포장단위, 판매가, 위치, 바코드, 태그 (선택)</span>
                 </div>
-
-                <div className="pt-1 flex items-center justify-between border-t border-sky-200/80 flex-wrap gap-2">
-                  <span className="text-[11px] text-sky-700">
-                    * 표준 엑셀 양식을 다운로드하여 내용을 채운 후 업로드하시면 편리합니다.
-                  </span>
-                  <button
-                    onClick={handleDownloadTemplate}
-                    className="px-3.5 py-1.5 bg-white hover:bg-sky-50 text-sky-700 border border-sky-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>표준 엑셀 양식 다운로드 (.xlsx)</span>
-                  </button>
-                </div>
+                <button
+                  onClick={handleDownloadTemplate}
+                  className="px-3.5 py-1.5 bg-slate-50 hover:bg-sky-50 text-sky-700 border border-slate-300 hover:border-sky-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                >
+                  <Download className="w-3.5 h-3.5 text-sky-600" />
+                  <span>표준 엑셀 양식 다운로드 (.xlsx)</span>
+                </button>
               </div>
 
               {/* 파일 업로드 드롭존 */}
@@ -771,7 +688,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 onDragLeave={() => setIsDragging(false)}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-3 ${
+                className={`border-2 border-dashed rounded-2xl p-7 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-2.5 ${
                   isDragging
                     ? 'border-sky-500 bg-sky-50/50 scale-[1.01]'
                     : 'border-slate-300 bg-white hover:border-sky-400 hover:bg-slate-50/50'
@@ -784,15 +701,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   className="hidden"
                   onChange={handleFileChange}
                 />
-                <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 shadow-2xs">
-                  <Upload className="w-6 h-6" />
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 shadow-2xs">
+                  <Upload className="w-5 h-5" />
                 </div>
                 <div>
                   <p className="text-xs font-extrabold text-slate-800">
                     엑셀 파일(.xlsx, .xls, .csv)을 이곳에 끌어다 놓거나 클릭하여 선택하세요
                   </p>
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    표준 등록 양식 또는 기존 약국 품목 엑셀 파일을 그대로 업로드할 수 있습니다.
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    표준 등록 양식 또는 기존 약국 엑셀 파일을 그대로 등록하실 수 있습니다.
                   </p>
                 </div>
                 {uploadedFileName && (
@@ -838,9 +755,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           총 {parsedRows.length}개 품목 감지
                         </span>
                       </h4>
-                      <p className="text-[11px] text-slate-500">
-                        데이터를 확인한 후 하단의 [대량 등록 시작] 버튼을 누르시면 제품 카탈로그에 일괄 반영됩니다.
-                      </p>
                     </div>
 
                     <div className="flex items-center gap-3">
@@ -861,18 +775,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         }}
                         className="text-xs text-slate-400 hover:text-slate-600 font-semibold cursor-pointer"
                       >
-                        취소 및 초기화
+                        초기화
                       </button>
                     </div>
                   </div>
 
-                  <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-xl">
+                  <div className="max-h-60 overflow-y-auto border border-slate-200 rounded-xl">
                     <table className="w-full text-left text-xs border-collapse">
                       <thead className="bg-slate-50 sticky top-0 border-b border-slate-200 text-slate-600 font-bold text-[11px]">
                         <tr>
                           <th className="p-2.5 w-12 text-center">No</th>
                           <th className="p-2.5">제품명</th>
-                          <th className="p-2.5">제약회사</th>
+                          <th className="p-2.5">제약회사(판매사)</th>
                           <th className="p-2.5">포장단위</th>
                           <th className="p-2.5 text-right">판매가</th>
                           <th className="p-2.5">위치</th>
@@ -893,7 +807,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                 </span>
                               )}
                             </td>
-                            <td className="p-2 text-slate-600">
+                            <td className="p-2 font-semibold text-slate-800">
                               {row.manufacturer || <span className="text-slate-400">-</span>}
                             </td>
                             <td className="p-2 text-slate-600">{row.packagingUnit}</td>
@@ -946,7 +860,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         <span className="flex items-center gap-2">
                           <RefreshCw className="w-4 h-4 text-sky-400 animate-spin" />
                           <span>
-                            대량 품목 등록 및 공공 API 조회 진행 중... ({importProgress.current}/
+                            대량 품목 등록 및 공공 API 연동 진행 중... ({importProgress.current}/
                             {importProgress.total})
                           </span>
                         </span>
@@ -986,18 +900,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           )}
         </div>
 
-        {/* 모달 푸터 */}
-        <div className="px-6 py-3.5 bg-slate-100 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 shrink-0">
-          <span>
-            💡 모든 변경 사항은 실시간으로 저장되며 모든 기기(약국/자택)에 자동 동기화됩니다.
-          </span>
-          <button
-            onClick={onClose}
-            className="px-4 py-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold transition-colors cursor-pointer"
-          >
-            닫기
-          </button>
-        </div>
+        {/* 모달 푸터 (TAB 1인 경우에는 본문 높이를 최대화) */}
+        {activeTab !== 'EFFICACY' && (
+          <div className="px-6 py-3 bg-slate-100 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 shrink-0">
+            <span>
+              💡 모든 변경 사항은 실시간으로 저장되며 모든 기기(약국/자택)에 자동 동기화됩니다.
+            </span>
+            <button
+              onClick={onClose}
+              className="px-4 py-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-bold transition-colors cursor-pointer"
+            >
+              닫기
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -28,7 +28,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 
-interface EfficacyClassificationModalProps {
+export interface EfficacyClassificationModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
@@ -43,8 +43,13 @@ interface IngredientRow {
   productCount: number;
 }
 
-export const EfficacyClassificationModal: React.FC<EfficacyClassificationModalProps> = ({
-  isOpen,
+export interface EfficacyClassificationViewProps {
+  showHeader?: boolean;
+  onClose?: () => void;
+}
+
+export const EfficacyClassificationView: React.FC<EfficacyClassificationViewProps> = ({
+  showHeader = false,
   onClose
 }) => {
   const { products, updateIngredientCategory, batchRenameCategory } = useProductStore();
@@ -321,14 +326,11 @@ export const EfficacyClassificationModal: React.FC<EfficacyClassificationModalPr
     showToast(`약효 분류 '${oldNorm}'이(가) '${newNorm}'(으)로 일괄 변경되었습니다.`);
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 md:p-6 animate-fade-in">
-      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-6xl max-h-[94vh] flex flex-col overflow-hidden">
-        
-        {/* 1. 상단 모달 헤더 */}
-        <div className="p-4 md:px-6 bg-slate-900 text-white flex items-center justify-between gap-4">
+    <div className="flex-1 flex flex-col h-full overflow-hidden bg-white">
+      {/* 1. 상단 모달 헤더 (showHeader가 true일 때만 렌더링) */}
+      {showHeader && (
+        <div className="p-4 md:px-6 bg-slate-900 text-white flex items-center justify-between gap-4 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-sky-500/20 text-sky-300 border border-sky-400/30 flex items-center justify-center shrink-0">
               <SlidersHorizontal className="w-5 h-5" />
@@ -368,16 +370,19 @@ export const EfficacyClassificationModal: React.FC<EfficacyClassificationModalPr
               <RefreshCw className="w-3.5 h-3.5 text-sky-400" />
               <span className="hidden sm:inline">약효 분류명 일괄 변경</span>
             </button>
-            <button
-              onClick={onClose}
-              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
           </div>
         </div>
+      )}
 
-        {/* 토스트 알림 메시지 */}
+      {/* 토스트 알림 메시지 */}
         {toastMessage && (
           <div className="bg-emerald-600 text-white text-xs px-4 py-2 font-medium flex items-center gap-2 animate-fade-in">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
@@ -428,31 +433,44 @@ export const EfficacyClassificationModal: React.FC<EfficacyClassificationModalPr
         )}
 
         {/* 2. 뷰 모드 탭 & health.kr 뎁스 제어 툴바 */}
-        <div className="bg-slate-50 border-b border-slate-200 px-4 md:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="bg-slate-50 border-b border-slate-200 px-4 md:px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs shrink-0">
           {/* 뷰 모드 탭 버튼 */}
-          <div className="flex items-center bg-slate-200/80 p-0.5 rounded-lg border border-slate-300/80">
-            <button
-              onClick={() => setViewMode('tree')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-bold transition-all cursor-pointer ${
-                viewMode === 'tree'
-                  ? 'bg-white text-sky-800 shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5 text-sky-600" />
-              <span>계층 트리 뷰 (health.kr 스타일)</span>
-            </button>
-            <button
-              onClick={() => setViewMode('table')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-bold transition-all cursor-pointer ${
-                viewMode === 'table'
-                  ? 'bg-white text-sky-800 shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <TableProperties className="w-3.5 h-3.5 text-slate-500" />
-              <span>테이블 목록 뷰</span>
-            </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center bg-slate-200/80 p-0.5 rounded-lg border border-slate-300/80">
+              <button
+                onClick={() => setViewMode('tree')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-bold transition-all cursor-pointer ${
+                  viewMode === 'tree'
+                    ? 'bg-white text-sky-800 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5 text-sky-600" />
+                <span>계층 트리 뷰</span>
+              </button>
+              <button
+                onClick={() => setViewMode('table')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md font-bold transition-all cursor-pointer ${
+                  viewMode === 'table'
+                    ? 'bg-white text-sky-800 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <TableProperties className="w-3.5 h-3.5 text-slate-500" />
+                <span>테이블 목록 뷰</span>
+              </button>
+            </div>
+
+            {!showHeader && (
+              <button
+                onClick={() => setIsBatchOpen((v) => !v)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-sky-700 hover:text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded-lg transition-colors cursor-pointer shadow-2xs"
+                title="특정 약효분류 명칭을 다른 이름으로 한 번에 변경"
+              >
+                <RefreshCw className="w-3.5 h-3.5 text-sky-600" />
+                <span>약효 분류명 일괄 변경</span>
+              </button>
+            )}
           </div>
 
           {/* health.kr 전용 뎁스 컨트롤 및 범례 */}
@@ -775,13 +793,28 @@ export const EfficacyClassificationModal: React.FC<EfficacyClassificationModalPr
             </div>
           )}
 
-          <button
-            onClick={onClose}
-            className="px-4 py-1.5 bg-slate-800 hover:bg-slate-900 text-white font-medium rounded-lg transition-colors cursor-pointer"
-          >
-            닫기
-          </button>
+          {onClose && showHeader && (
+            <button
+              onClick={onClose}
+              className="px-4 py-1.5 bg-slate-800 hover:bg-slate-900 text-white font-medium rounded-lg transition-colors cursor-pointer"
+            >
+              닫기
+            </button>
+          )}
         </div>
+    </div>
+  );
+};
+
+export const EfficacyClassificationModal: React.FC<EfficacyClassificationModalProps> = ({
+  isOpen,
+  onClose
+}) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-2 md:p-6 animate-fade-in">
+      <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-6xl max-h-[94vh] flex flex-col overflow-hidden">
+        <EfficacyClassificationView showHeader={true} onClose={onClose} />
       </div>
     </div>
   );

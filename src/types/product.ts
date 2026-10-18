@@ -36,7 +36,34 @@ export interface AttachedDocument {
   status?: 'PENDING' | 'ANALYZING' | 'ANALYZED' | 'FAILED';
   analysisSummary?: string; // 예: "약학정보원 약효분류 18건 적용 완료"
   extractedText?: string;
+  docType?: 'BACK_LABEL' | 'GENERAL';
 }
+
+/**
+ * 첨부 문서가 제품 뒷면 라벨 사진인지 판별
+ */
+export function isBackLabelAttachment(doc?: { id?: string; fileName?: string; docType?: string }): boolean {
+  if (!doc) return false;
+  if (doc.docType === 'BACK_LABEL') return true;
+  if (doc.id && doc.id.startsWith('doc_back_')) return true;
+  if (doc.fileName && (doc.fileName.includes('뒷면') || doc.fileName.toLowerCase().includes('back'))) return true;
+  return false;
+}
+
+/**
+ * 제품 대표 썸네일 반환 (imageUrl 우선, 없으면 뒷면 라벨을 제외한 일반 첨부 이미지 반환)
+ * 뒷면 라벨 사진은 절대 카탈로그 대표 썸네일로 사용되지 않음
+ */
+export function getProductThumbnail(product?: Partial<ProductItem> | null): string | undefined {
+  if (!product) return undefined;
+  if (product.imageUrl) return product.imageUrl;
+  if (product.attachments && product.attachments.length > 0) {
+    const frontDoc = product.attachments.find((a) => !isBackLabelAttachment(a));
+    if (frontDoc) return frontDoc.dataUrl;
+  }
+  return undefined;
+}
+
 
 /**
  * 약국 영양제 및 일반의약품 통합 마스터 품목 모델

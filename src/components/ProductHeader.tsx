@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { ProductItem } from '../types/product';
+import { ProductItem, getProductThumbnail } from '../types/product';
 import { useProductStore } from '../stores/useProductStore';
 import { AttachedDocumentsModal } from './AttachedDocumentsModal';
 import { NewProductModal } from './NewProductModal';
@@ -26,7 +26,7 @@ export const ProductHeader: React.FC<ProductHeaderProps> = ({ product }) => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const photoInputRef = useRef<HTMLInputElement | null>(null);
 
-  const thumbnail = product.imageUrl || product.attachments?.[0]?.dataUrl;
+  const thumbnail = getProductThumbnail(product);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useProductStore } from '../stores/useProductStore';
-import { ProductItem } from '../types/product';
+import { ProductItem, getProductThumbnail } from '../types/product';
 import { ProductClassification } from '../types/classification';
 import {
   STANDARD_EFFICACY_TAGS,
@@ -85,14 +85,7 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
     }).length;
   };
 
-  // 제품 대표 이미지(imageUrl 우선, 없으면 첨부파일 첫 번째 이미지) 반환
-  const getProductThumbnail = (product: ProductItem): string | undefined => {
-    if (product.imageUrl) return product.imageUrl;
-    if (product.attachments && product.attachments.length > 0) {
-      return product.attachments[0].dataUrl;
-    }
-    return undefined;
-  };
+
 
   // 카드에서 사진 변경 버튼 클릭 시
   const handleTriggerPhotoUpload = (e: React.MouseEvent, productId: string) => {

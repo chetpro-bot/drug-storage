@@ -414,8 +414,7 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       ],
       suggestedUseKorean: '1일 2회, 1회 1포(20g)를 식전 또는 식후에 그대로 섭취하십시오.',
       safetyPrecautionsKorean: [
-        '특이체질, 알레르기 체질의 경우 성분을 확인 후 섭취하십시오.',
-        '개봉 시 포장재에 의해 다치지 않도록 주의하십시오.'
+        '(1) 이상사례 발생 시 섭취를 중단하고 전문가와 상담할 것'
       ]
     }
   },

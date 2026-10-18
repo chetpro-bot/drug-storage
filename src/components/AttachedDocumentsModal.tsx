@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ProductItem, AttachedDocument } from '../types/product';
+import { ProductItem, AttachedDocument, isBackLabelAttachment } from '../types/product';
 import { ProductIngredientEntry } from '../types/ingredient';
 import { 
   recognizeUniversalDocument, 
@@ -123,11 +123,24 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
     }
   };
 
-  // 첨부 자료 삭제
+  // 첨부 자료 삭제 (뒷면 라벨 사진 삭제 시 실물 라벨 주의사항 텍스트도 자동 동기화 삭제)
   const handleDeleteDocument = async (docId: string) => {
     if (!window.confirm('이 첨부 자료를 삭제하시겠습니까?')) return;
-    const filtered = attachments.filter(d => d.id !== docId);
-    await updateProduct(product.id, { attachments: filtered });
+    const docToDelete = attachments.find((d) => d.id === docId);
+    const filtered = attachments.filter((d) => d.id !== docId);
+
+    const isBackLabelDoc = docToDelete && isBackLabelAttachment(docToDelete);
+    const remainingBackLabels = filtered.filter((d) => isBackLabelAttachment(d));
+
+    const updatePayload: any = { attachments: filtered };
+    if ((isBackLabelDoc || remainingBackLabels.length === 0) && product.functionalFoodDetail?.labelPrecautionsText) {
+      updatePayload.functionalFoodDetail = {
+        ...product.functionalFoodDetail,
+        labelPrecautionsText: undefined
+      };
+    }
+
+    await updateProduct(product.id, updatePayload);
   };
 
   // 첨부 자료 OCR 분석 실행 및 성분표 100% 반영
@@ -244,11 +257,8 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
               suggestedUseKorean: '',
               safetyPrecautionsKorean: []
             }),
-            labelPrecautionsText: extractedPrecautions.precautionsFullText,
-            safetyPrecautionsKorean:
-              extractedPrecautions.precautionsList.length > 0
-                ? extractedPrecautions.precautionsList
-                : updatedFunctionalDetail?.safetyPrecautionsKorean || []
+            labelPrecautionsText: extractedPrecautions.precautionsFullText
+            // 식약처 API 신고사항(safetyPrecautionsKorean)은 제품 사진 첨부로 인해 절대 변경되지 않음
           };
         } else if (updatedOtcDetail) {
           if (extractedPrecautions.precautionsList.length > 0) {

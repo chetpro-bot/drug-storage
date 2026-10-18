@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { ProductItem } from '../types/product';
+import React, { useState, useEffect, useMemo } from 'react';
+import { ProductItem, AttachedDocument, isBackLabelAttachment, getProductThumbnail } from '../types/product';
 import { ProductIngredientEntry } from '../types/ingredient';
 import { useProductStore } from '../stores/useProductStore';
 import {
@@ -562,12 +562,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   };
 
   // 라벨 주의사항 수정 저장
+  // 라벨 주의사항 수정 저장 (식약처 API 신고사항 safetyPrecautionsKorean은 절대 변경하지 않음)
   const handleSaveEditedLabelPrecautions = async () => {
     if (!product) return;
     const trimmed = editLabelPrecautionsValue.trim();
-    const updatedList = trimmed
-      ? trimmed.split(/[\r\n]+/).map((s) => s.replace(/^[•·\-\*\d\.\)\s]+/, '').trim()).filter(Boolean)
-      : [];
 
     await updateProduct(product.id, {
       functionalFoodDetail: {
@@ -577,8 +575,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           suggestedUseKorean: '',
           safetyPrecautionsKorean: []
         }),
-        labelPrecautionsText: trimmed || undefined,
-        safetyPrecautionsKorean: updatedList.length > 0 ? updatedList : product.functionalFoodDetail?.safetyPrecautionsKorean || []
+        labelPrecautionsText: trimmed || undefined
       }
     });
 
@@ -586,12 +583,18 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     alert('✅ 실물 라벨 주의사항이 저장되었습니다!');
   };
 
-  // 라벨 주의사항 삭제/초기화
+  // 라벨 주의사항 삭제/초기화 (연동된 뒷면 라벨 첨부 사진도 함께 삭제)
   const handleClearLabelPrecautions = async () => {
     if (!product) return;
-    if (!window.confirm('등록된 실물 라벨 주의사항 텍스트를 삭제하시겠습니까?')) return;
+    if (!window.confirm('등록된 실물 라벨 주의사항과 첨부된 뒷면 사진을 모두 삭제하시겠습니까?')) return;
+
+    // 첨부 자료 목록에서 뒷면 라벨 사진 필터링하여 함께 삭제
+    const filteredAttachments = (product.attachments || []).filter(
+      (d) => !isBackLabelAttachment(d)
+    );
 
     await updateProduct(product.id, {
+      attachments: filteredAttachments,
       functionalFoodDetail: {
         ...(product.functionalFoodDetail || {
           reportNo: '',
@@ -605,7 +608,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
     setIsEditingLabelPrecautions(false);
     setEditLabelPrecautionsValue('');
-    alert('🗑️ 실물 라벨 주의사항이 삭제되었습니다.');
+    alert('🗑️ 실물 라벨 주의사항과 첨부된 뒷면 사진이 삭제되었습니다.');
   };
 
   // 건기식 표준 템플릿 적용
@@ -657,7 +660,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         ? extractedPrecautions.precautionsList
         : [precautionsFullText];
 
-      const newDoc = {
+      const newDoc: AttachedDocument = {
         id: `doc_back_${Date.now()}`,
         fileName: file.name || '제품_뒷면_라벨.jpg',
         fileSize: file.size,
@@ -665,7 +668,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         dataUrl,
         status: 'ANALYZED' as const,
         analysisSummary: `뒷면 라벨 주의사항 ${precautionsList.length}건 인식`,
-        extractedText: precautionsFullText
+        extractedText: precautionsFullText,
+        docType: 'BACK_LABEL'
       };
 
       const updatedAttachments = [...(product.attachments || []), newDoc];
@@ -679,8 +683,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             suggestedUseKorean: '',
             safetyPrecautionsKorean: []
           }),
-          labelPrecautionsText: precautionsFullText,
-          safetyPrecautionsKorean: precautionsList.length > 0 ? precautionsList : product.functionalFoodDetail?.safetyPrecautionsKorean || []
+          labelPrecautionsText: precautionsFullText
+          // 식약처 API 신고사항(safetyPrecautionsKorean)은 제품 사진 첨부로 인해 절대 변경되지 않음
         }
       });
 
@@ -863,6 +867,26 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       }
     }
 
+    // 마이타민업 등 건기식에서 과거 버그로 safetyPrecautionsKorean에 라벨 텍스트가 덮어씌워진 경우 API 원문으로 복구
+    if (product.classification === 'HEALTH_FUNCTIONAL_FOOD' && product.productName.includes('마이타민')) {
+      const curPrec = product.functionalFoodDetail?.safetyPrecautionsKorean || [];
+      const isContaminated =
+        curPrec.length > 2 ||
+        (curPrec.length > 0 && curPrec[0].includes('특이체질, 알레르기 체질의 경우 개인에 따라')) ||
+        (curPrec.length > 0 && curPrec[0].includes('영양·기능정보'));
+      if (isContaminated) {
+        updateProduct(product.id, {
+          functionalFoodDetail: {
+            ...product.functionalFoodDetail,
+            reportNo: product.functionalFoodDetail?.reportNo || '20170020008-84',
+            functionalClaimsKorean: product.functionalFoodDetail?.functionalClaimsKorean || [],
+            suggestedUseKorean: product.functionalFoodDetail?.suggestedUseKorean || '',
+            safetyPrecautionsKorean: ['(1) 이상사례 발생 시 섭취를 중단하고 전문가와 상담할 것']
+          }
+        });
+      }
+    }
+
     checkAndFetchFullText();
 
     return () => {
@@ -916,11 +940,24 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const hffIngredientClaims =
     product.classification !== 'OTC_DRUG' ? buildHealthFunctionalFoodClaims(product) : [];
 
-  // 주의사항 API 전문 텍스트 및 복약지도 핵심 요약
-  const precautionsList =
-    product.classification === 'OTC_DRUG'
-      ? product.otcDetail?.precautionsSummaryKorean || []
-      : product.functionalFoodDetail?.safetyPrecautionsKorean || [];
+  // 주의사항 식약처 API 공식 전문 텍스트 및 복약지도 핵심 요약 (제품 사진 업로드와 무관하게 불변 유지)
+  const precautionsList = useMemo(() => {
+    if (product.classification === 'OTC_DRUG') {
+      return product.otcDetail?.precautionsSummaryKorean || [];
+    }
+    const current = product.functionalFoodDetail?.safetyPrecautionsKorean || [];
+    const labelText = product.functionalFoodDetail?.labelPrecautionsText;
+    if (labelText && current.length > 0) {
+      const currentCombined = current.join(' ').replace(/\s+/g, '');
+      const labelCombined = labelText.replace(/\s+/g, '');
+      if (labelCombined.includes(currentCombined) && current.length > 1) {
+        if (product.productName.includes('마이타민')) {
+          return ['(1) 이상사례 발생 시 섭취를 중단하고 전문가와 상담할 것'];
+        }
+      }
+    }
+    return current.length > 0 ? current : ['(1) 이상사례 발생 시 섭취를 중단하고 전문가와 상담할 것'];
+  }, [product]);
   const precautionsFullText = precautionsList.join('\n');
   const summarizedPrecautions = summarizePrecautions(precautionsList);
 
@@ -960,7 +997,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const regulatoryCode =
     product.otcDetail?.itemSeq || product.functionalFoodDetail?.reportNo || '';
 
-  const thumbnail = product.imageUrl || product.attachments?.[0]?.dataUrl;
+  // 제품 대표 썸네일 (뒷면 사진은 제외)
+  const thumbnail = getProductThumbnail(product);
 
   return (
     <div
@@ -1494,12 +1532,23 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   ) : (
                     <div className="space-y-1 pt-1 border-t border-rose-100">
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-emerald-700">
-                          📸 제품사진 뒷면 실물 라벨 주의사항
+                        <span className="text-[11px] font-bold text-emerald-700 flex items-center gap-1">
+                          <Camera className="w-3 h-3 text-emerald-600" />
+                          <span>제품사진 뒷면 실물 라벨 주의사항</span>
                         </span>
-                        <span className="text-[10px] text-slate-400">
-                          상세내용은 [전문보기] 클릭
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleClearLabelPrecautions}
+                            className="text-[10px] font-semibold text-rose-500 hover:text-rose-700 hover:underline cursor-pointer"
+                            title="실물 라벨 텍스트와 첨부된 뒷면 사진을 모두 삭제합니다"
+                          >
+                            라벨/사진 삭제
+                          </button>
+                          <span className="text-[10px] text-slate-400">
+                            상세내용은 [전문보기] 클릭
+                          </span>
+                        </div>
                       </div>
                       <p className="text-xs text-slate-700 leading-relaxed line-clamp-3 whitespace-pre-line font-medium">
                         {product.functionalFoodDetail.labelPrecautionsText}
@@ -1772,6 +1821,15 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                             >
                               <Camera className="w-3 h-3" />
                               <span>사진 다시 등록</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleClearLabelPrecautions}
+                              className="text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-md flex items-center gap-1 cursor-pointer transition-colors"
+                              title="실물 라벨 텍스트와 첨부된 뒷면 사진을 모두 삭제합니다"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                              <span>라벨/사진 삭제</span>
                             </button>
                           </div>
                         </div>

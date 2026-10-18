@@ -1928,21 +1928,55 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                             </td>
                           )}
 
-                          {/* 2열: 성분 함량 (예: Benfotiamine 100mg (티아민염산염 72.3mg)) */}
+                          {/* 2열: 성분 함량 (복합 원료염 지원: 예: 칼슘 55mg (젖산 칼슘, 황산 칼슘)) */}
                           <td className="px-4 py-2.5 border-r border-slate-200 align-middle">
-                            <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                              <span className="font-semibold text-slate-900 tracking-tight">
-                                {item.info.englishName}
-                              </span>
-                              <span className="font-bold text-slate-900 tracking-tight">
-                                {item.ing.rawAmount.toLocaleString()}{item.ing.unit}
-                              </span>
-                              {item.info.convertedText && (
-                                <span className="font-medium text-emerald-600 text-[11px]">
-                                  ({item.info.convertedText})
-                                </span>
-                              )}
-                            </div>
+                            {(() => {
+                              const hasMultipleSalts =
+                                item.info.englishName.includes(',') ||
+                                (item.ing.chemicalFormName && item.ing.chemicalFormName.includes(','));
+
+                              if (hasMultipleSalts) {
+                                const nutrientTitle =
+                                  item.info.categoryTag && item.info.categoryTag !== '기타'
+                                    ? item.info.categoryTag
+                                    : item.ing.functionalCategory && item.ing.functionalCategory !== '기타'
+                                    ? item.ing.functionalCategory
+                                    : item.info.englishName;
+                                const saltsText = item.info.englishName.includes(',')
+                                  ? item.info.englishName
+                                  : item.ing.chemicalFormName;
+
+                                return (
+                                  <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
+                                    <span className="font-semibold text-slate-900 tracking-tight">
+                                      {nutrientTitle}
+                                    </span>
+                                    <span className="font-bold text-slate-900 tracking-tight">
+                                      {item.ing.rawAmount.toLocaleString()}{item.ing.unit}
+                                    </span>
+                                    <span className="font-normal text-slate-600 text-[11px] tracking-tight">
+                                      ({saltsText})
+                                    </span>
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
+                                  <span className="font-semibold text-slate-900 tracking-tight">
+                                    {item.info.englishName}
+                                  </span>
+                                  <span className="font-bold text-slate-900 tracking-tight">
+                                    {item.ing.rawAmount.toLocaleString()}{item.ing.unit}
+                                  </span>
+                                  {item.info.convertedText && (
+                                    <span className="font-medium text-emerald-600 text-[11px]">
+                                      ({item.info.convertedText})
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </td>
 
                           {/* 3열: 상한섭취량 (소아/성인 모드 대응) */}

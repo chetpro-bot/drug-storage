@@ -234,8 +234,6 @@ const MFDS_NOTIFIED_FUNCTIONALITY_DICTIONARY: {
 
 export interface PediatricUlReferenceItem {
   id: string;
-  category: 'VITAMIN' | 'MINERAL';
-  categoryTitle: string;
   nutrientName: string;
   age1_2: string;
   age3_5: string;
@@ -244,21 +242,32 @@ export interface PediatricUlReferenceItem {
   age12_14: string;
   age15_18: string;
   adult: string;
-  note?: string;
+  isNoUl?: boolean;
+}
+
+export interface LifecycleUlReferenceItem {
+  id: string;
+  nutrientName: string;
+  toddler: string;     // 유아 (1~5세)
+  child: string;       // 소아 (6~11세)
+  adolescentM: string; // 청소년 남 (12~18세)
+  adolescentF: string; // 청소년 여 (12~18세)
+  adultM: string;      // 성인 남 (19~64세)
+  adultF: string;      // 성인 여 (19~64세)
+  elderly: string;     // 노인 (65세+)
+  pregnant: string;    // 임신부
+  lactating: string;   // 수유부
   isNoUl?: boolean;
 }
 
 /**
  * 2025 보건복지부 · 한국영양학회 한국인 영양소 섭취기준(KDRIs)
- * 소아·청소년 연령별 1일 상한섭취량(UL) 기준표
- * 정렬 기준: 1) 비타민(A -> B1~B12 -> 콜린 -> C -> D -> E -> K) -> 2) 미네랄 (성분명 abc 알파벳순)
+ * 소아·청소년 연령별 1일 상한섭취량(UL) 기준표 (23종 표준 성분)
+ * 정렬: 비타민 A~K -> 미네랄 (칼슘~아연) -> 콜린
  */
 export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
-  // 1. 비타민 (A -> B1 -> B2 -> B3 -> B5 -> B6 -> B7 -> B9 -> B12 -> 콜린 -> C -> D -> E -> K)
   {
     id: 'vitA',
-    category: 'VITAMIN',
-    categoryTitle: '비타민',
     nutrientName: '비타민 A',
     age1_2: '600 μg',
     age3_5: '750 μg',
@@ -270,8 +279,6 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
   },
   {
     id: 'thiamine',
-    category: 'VITAMIN',
-    categoryTitle: '비타민',
     nutrientName: '비타민 B₁',
     age1_2: '-',
     age3_5: '-',
@@ -284,8 +291,6 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
   },
   {
     id: 'riboflavin',
-    category: 'VITAMIN',
-    categoryTitle: '비타민',
     nutrientName: '비타민 B₂',
     age1_2: '-',
     age3_5: '-',
@@ -298,9 +303,7 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
   },
   {
     id: 'nicotinamide',
-    category: 'VITAMIN',
-    categoryTitle: '비타민',
-    nutrientName: '비타민 B₃ (나이아신)',
+    nutrientName: '나이아신',
     age1_2: '150 mg',
     age3_5: '200 mg',
     age6_8: '300 mg',
@@ -311,9 +314,7 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
   },
   {
     id: 'pantothenic_acid',
-    category: 'VITAMIN',
-    categoryTitle: '비타민',
-    nutrientName: '비타민 B₅ (판토텐산)',
+    nutrientName: '판토텐산',
     age1_2: '-',
     age3_5: '-',
     age6_8: '-',
@@ -325,8 +326,6 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
   },
   {
     id: 'pyridoxine',
-    category: 'VITAMIN',
-    categoryTitle: '비타민',
     nutrientName: '비타민 B₆',
     age1_2: '10 mg',
     age3_5: '15 mg',
@@ -338,9 +337,7 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
   },
   {
     id: 'biotin',
-    category: 'VITAMIN',
-    categoryTitle: '비타민',
-    nutrientName: '비타민 B₇ (비오틴)',
+    nutrientName: '비오틴',
     age1_2: '-',
     age3_5: '-',
     age6_8: '-',
@@ -352,9 +349,7 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
   },
   {
     id: 'folic_acid',
-    category: 'VITAMIN',
-    categoryTitle: '비타민',
-    nutrientName: '비타민 B₉ (엽산)',
+    nutrientName: '엽산',
     age1_2: '300 μg',
     age3_5: '400 μg',
     age6_8: '500 μg',
@@ -365,8 +360,6 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
   },
   {
     id: 'cyanocobalamin',
-    category: 'VITAMIN',
-    categoryTitle: '비타민',
     nutrientName: '비타민 B₁₂',
     age1_2: '-',
     age3_5: '-',
@@ -378,22 +371,7 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
     isNoUl: true
   },
   {
-    id: 'choline',
-    category: 'VITAMIN',
-    categoryTitle: '비타민',
-    nutrientName: '콜린 (Choline)',
-    age1_2: '700 mg',
-    age3_5: '1,000 mg',
-    age6_8: '1,000 mg',
-    age9_11: '1,500 mg',
-    age12_14: '2,000 mg',
-    age15_18: '2,000 mg',
-    adult: '2,500 mg'
-  },
-  {
     id: 'ascorbic_acid',
-    category: 'VITAMIN',
-    categoryTitle: '비타민',
     nutrientName: '비타민 C',
     age1_2: '400 mg',
     age3_5: '600 mg',
@@ -405,8 +383,6 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
   },
   {
     id: 'vitD',
-    category: 'VITAMIN',
-    categoryTitle: '비타민',
     nutrientName: '비타민 D',
     age1_2: '1,200 IU (30μg)',
     age3_5: '1,400 IU (35μg)',
@@ -418,8 +394,6 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
   },
   {
     id: 'vitE',
-    category: 'VITAMIN',
-    categoryTitle: '비타민',
     nutrientName: '비타민 E',
     age1_2: '100 mg (150 IU)',
     age3_5: '150 mg (220 IU)',
@@ -431,8 +405,6 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
   },
   {
     id: 'vitK',
-    category: 'VITAMIN',
-    categoryTitle: '비타민',
     nutrientName: '비타민 K',
     age1_2: '-',
     age3_5: '-',
@@ -443,13 +415,9 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
     adult: '-',
     isNoUl: true
   },
-
-  // 2. 미네랄 (영문 성분명 abc 순서: Calcium -> Copper -> Iodine -> Iron -> Magnesium -> Manganese -> Molybdenum -> Selenium -> Zinc)
   {
     id: 'calcium',
-    category: 'MINERAL',
-    categoryTitle: '미네랄',
-    nutrientName: '칼슘 (Calcium)',
+    nutrientName: '칼슘',
     age1_2: '1,500 mg',
     age3_5: '2,000 mg',
     age6_8: '2,500 mg',
@@ -460,9 +428,7 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
   },
   {
     id: 'copper',
-    category: 'MINERAL',
-    categoryTitle: '미네랄',
-    nutrientName: '구리 (Copper)',
+    nutrientName: '구리',
     age1_2: '1 mg',
     age3_5: '2 mg',
     age6_8: '3 mg',
@@ -473,9 +439,7 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
   },
   {
     id: 'iodine',
-    category: 'MINERAL',
-    categoryTitle: '미네랄',
-    nutrientName: '요오드 (Iodine)',
+    nutrientName: '요오드',
     age1_2: '250 μg',
     age3_5: '300 μg',
     age6_8: '450 μg',
@@ -486,9 +450,7 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
   },
   {
     id: 'iron',
-    category: 'MINERAL',
-    categoryTitle: '미네랄',
-    nutrientName: '철 (Iron)',
+    nutrientName: '철',
     age1_2: '40 mg',
     age3_5: '40 mg',
     age6_8: '40 mg',
@@ -499,9 +461,7 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
   },
   {
     id: 'magnesium',
-    category: 'MINERAL',
-    categoryTitle: '미네랄',
-    nutrientName: '마그네슘 (Magnesium)',
+    nutrientName: '마그네슘',
     age1_2: '65 mg',
     age3_5: '110 mg',
     age6_8: '160 mg',
@@ -512,9 +472,7 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
   },
   {
     id: 'manganese',
-    category: 'MINERAL',
-    categoryTitle: '미네랄',
-    nutrientName: '망간 (Manganese)',
+    nutrientName: '망간',
     age1_2: '2 mg',
     age3_5: '3 mg',
     age6_8: '4 mg',
@@ -525,9 +483,7 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
   },
   {
     id: 'molybdenum',
-    category: 'MINERAL',
-    categoryTitle: '미네랄',
-    nutrientName: '몰리브덴 (Molybdenum)',
+    nutrientName: '몰리브덴',
     age1_2: '60 μg',
     age3_5: '100 μg',
     age6_8: '150 μg',
@@ -538,9 +494,7 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
   },
   {
     id: 'selenium',
-    category: 'MINERAL',
-    categoryTitle: '미네랄',
-    nutrientName: '셀레늄 (Selenium)',
+    nutrientName: '셀레늄',
     age1_2: '60 μg',
     age3_5: '90 μg',
     age6_8: '150 μg',
@@ -551,9 +505,7 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
   },
   {
     id: 'zinc',
-    category: 'MINERAL',
-    categoryTitle: '미네랄',
-    nutrientName: '아연 (Zinc)',
+    nutrientName: '아연',
     age1_2: '6 mg',
     age3_5: '9 mg',
     age6_8: '13 mg',
@@ -561,6 +513,329 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
     age12_14: '27 mg',
     age15_18: '33 mg',
     adult: '35 mg'
+  },
+  {
+    id: 'choline',
+    nutrientName: '콜린',
+    age1_2: '700 mg',
+    age3_5: '1,000 mg',
+    age6_8: '1,000 mg',
+    age9_11: '1,500 mg',
+    age12_14: '2,000 mg',
+    age15_18: '2,000 mg',
+    adult: '2,500 mg'
+  }
+];
+
+/**
+ * 2025 보건복지부 · 한국영양학회 한국인 영양소 섭취기준(KDRIs)
+ * 전 생애주기 (소아·청소년, 성인 남녀, 노인, 임부, 수유부) 전체 1일 상한섭취량(UL) 기준표
+ */
+export const KDRI_2025_LIFECYCLE_REFERENCE_TABLE: LifecycleUlReferenceItem[] = [
+  {
+    id: 'vitA',
+    nutrientName: '비타민 A',
+    toddler: '600~750 μg',
+    child: '1,100~1,600 μg',
+    adolescentM: '2,300~2,800 μg',
+    adolescentF: '2,300~2,800 μg',
+    adultM: '3,000 μg',
+    adultF: '3,000 μg',
+    elderly: '3,000 μg',
+    pregnant: '3,000 μg',
+    lactating: '3,000 μg'
+  },
+  {
+    id: 'thiamine',
+    nutrientName: '비타민 B₁',
+    toddler: '-',
+    child: '-',
+    adolescentM: '-',
+    adolescentF: '-',
+    adultM: '-',
+    adultF: '-',
+    elderly: '-',
+    pregnant: '-',
+    lactating: '-',
+    isNoUl: true
+  },
+  {
+    id: 'riboflavin',
+    nutrientName: '비타민 B₂',
+    toddler: '-',
+    child: '-',
+    adolescentM: '-',
+    adolescentF: '-',
+    adultM: '-',
+    adultF: '-',
+    elderly: '-',
+    pregnant: '-',
+    lactating: '-',
+    isNoUl: true
+  },
+  {
+    id: 'nicotinamide',
+    nutrientName: '나이아신',
+    toddler: '150~200 mg',
+    child: '300~450 mg',
+    adolescentM: '600~650 mg',
+    adolescentF: '600~650 mg',
+    adultM: '850 mg',
+    adultF: '850 mg',
+    elderly: '850 mg',
+    pregnant: '850 mg',
+    lactating: '850 mg'
+  },
+  {
+    id: 'pantothenic_acid',
+    nutrientName: '판토텐산',
+    toddler: '-',
+    child: '-',
+    adolescentM: '-',
+    adolescentF: '-',
+    adultM: '-',
+    adultF: '-',
+    elderly: '-',
+    pregnant: '-',
+    lactating: '-',
+    isNoUl: true
+  },
+  {
+    id: 'pyridoxine',
+    nutrientName: '비타민 B₆',
+    toddler: '10~15 mg',
+    child: '20~30 mg',
+    adolescentM: '40~45 mg',
+    adolescentF: '40~45 mg',
+    adultM: '50 mg',
+    adultF: '50 mg',
+    elderly: '50 mg',
+    pregnant: '50 mg',
+    lactating: '50 mg'
+  },
+  {
+    id: 'biotin',
+    nutrientName: '비오틴',
+    toddler: '-',
+    child: '-',
+    adolescentM: '-',
+    adolescentF: '-',
+    adultM: '-',
+    adultF: '-',
+    elderly: '-',
+    pregnant: '-',
+    lactating: '-',
+    isNoUl: true
+  },
+  {
+    id: 'folic_acid',
+    nutrientName: '엽산',
+    toddler: '300~400 μg',
+    child: '500~700 μg',
+    adolescentM: '800~900 μg',
+    adolescentF: '800~900 μg',
+    adultM: '1,000 μg',
+    adultF: '1,000 μg',
+    elderly: '1,000 μg',
+    pregnant: '1,000 μg',
+    lactating: '1,000 μg'
+  },
+  {
+    id: 'cyanocobalamin',
+    nutrientName: '비타민 B₁₂',
+    toddler: '-',
+    child: '-',
+    adolescentM: '-',
+    adolescentF: '-',
+    adultM: '-',
+    adultF: '-',
+    elderly: '-',
+    pregnant: '-',
+    lactating: '-',
+    isNoUl: true
+  },
+  {
+    id: 'ascorbic_acid',
+    nutrientName: '비타민 C',
+    toddler: '400~600 mg',
+    child: '900~1,200 mg',
+    adolescentM: '1,600~1,800 mg',
+    adolescentF: '1,600~1,800 mg',
+    adultM: '2,000 mg',
+    adultF: '2,000 mg',
+    elderly: '2,000 mg',
+    pregnant: '2,000 mg',
+    lactating: '2,000 mg'
+  },
+  {
+    id: 'vitD',
+    nutrientName: '비타민 D',
+    toddler: '1,200~1,400 IU',
+    child: '1,600~2,400 IU',
+    adolescentM: '4,000 IU',
+    adolescentF: '4,000 IU',
+    adultM: '4,000 IU',
+    adultF: '4,000 IU',
+    elderly: '4,000 IU',
+    pregnant: '4,000 IU',
+    lactating: '4,000 IU'
+  },
+  {
+    id: 'vitE',
+    nutrientName: '비타민 E',
+    toddler: '100~150 mg',
+    child: '250~350 mg',
+    adolescentM: '540 mg',
+    adolescentF: '540 mg',
+    adultM: '540 mg',
+    adultF: '540 mg',
+    elderly: '540 mg',
+    pregnant: '540 mg',
+    lactating: '540 mg'
+  },
+  {
+    id: 'vitK',
+    nutrientName: '비타민 K',
+    toddler: '-',
+    child: '-',
+    adolescentM: '-',
+    adolescentF: '-',
+    adultM: '-',
+    adultF: '-',
+    elderly: '-',
+    pregnant: '-',
+    lactating: '-',
+    isNoUl: true
+  },
+  {
+    id: 'calcium',
+    nutrientName: '칼슘',
+    toddler: '1,500~2,000 mg',
+    child: '2,500~3,000 mg',
+    adolescentM: '3,000 mg',
+    adolescentF: '3,000 mg',
+    adultM: '2,500 mg',
+    adultF: '2,500 mg',
+    elderly: '2,000 mg',
+    pregnant: '2,500 mg',
+    lactating: '2,500 mg'
+  },
+  {
+    id: 'copper',
+    nutrientName: '구리',
+    toddler: '1~2 mg',
+    child: '3~4 mg',
+    adolescentM: '6~8 mg',
+    adolescentF: '6~8 mg',
+    adultM: '10 mg',
+    adultF: '10 mg',
+    elderly: '10 mg',
+    pregnant: '10 mg',
+    lactating: '10 mg'
+  },
+  {
+    id: 'iodine',
+    nutrientName: '요오드',
+    toddler: '250~300 μg',
+    child: '450~700 μg',
+    adolescentM: '1,200~1,800 μg',
+    adolescentF: '1,200~1,800 μg',
+    adultM: '2,400 μg',
+    adultF: '2,400 μg',
+    elderly: '2,400 μg',
+    pregnant: '2,400 μg',
+    lactating: '2,400 μg'
+  },
+  {
+    id: 'iron',
+    nutrientName: '철',
+    toddler: '40 mg',
+    child: '40 mg',
+    adolescentM: '40~45 mg',
+    adolescentF: '40~45 mg',
+    adultM: '45 mg',
+    adultF: '45 mg',
+    elderly: '45 mg',
+    pregnant: '45 mg',
+    lactating: '45 mg'
+  },
+  {
+    id: 'magnesium',
+    nutrientName: '마그네슘',
+    toddler: '65~110 mg',
+    child: '160~230 mg',
+    adolescentM: '310~350 mg',
+    adolescentF: '310~350 mg',
+    adultM: '350 mg',
+    adultF: '350 mg',
+    elderly: '350 mg',
+    pregnant: '350 mg',
+    lactating: '350 mg'
+  },
+  {
+    id: 'manganese',
+    nutrientName: '망간',
+    toddler: '2~3 mg',
+    child: '4~6 mg',
+    adolescentM: '8~10 mg',
+    adolescentF: '8~10 mg',
+    adultM: '11 mg',
+    adultF: '11 mg',
+    elderly: '11 mg',
+    pregnant: '11 mg',
+    lactating: '11 mg'
+  },
+  {
+    id: 'molybdenum',
+    nutrientName: '몰리브덴',
+    toddler: '60~100 μg',
+    child: '150~220 μg',
+    adolescentM: '350~450 μg',
+    adolescentF: '350~450 μg',
+    adultM: '600~650 μg',
+    adultF: '500 μg',
+    elderly: '500~600 μg',
+    pregnant: '500 μg',
+    lactating: '500 μg'
+  },
+  {
+    id: 'selenium',
+    nutrientName: '셀레늄',
+    toddler: '60~90 μg',
+    child: '150~230 μg',
+    adolescentM: '320~380 μg',
+    adolescentF: '320~380 μg',
+    adultM: '400 μg',
+    adultF: '400 μg',
+    elderly: '400 μg',
+    pregnant: '400 μg',
+    lactating: '400 μg'
+  },
+  {
+    id: 'zinc',
+    nutrientName: '아연',
+    toddler: '6~9 mg',
+    child: '13~19 mg',
+    adolescentM: '27~33 mg',
+    adolescentF: '27~33 mg',
+    adultM: '35 mg',
+    adultF: '35 mg',
+    elderly: '35 mg',
+    pregnant: '35 mg',
+    lactating: '35 mg'
+  },
+  {
+    id: 'choline',
+    nutrientName: '콜린',
+    toddler: '700~1,000 mg',
+    child: '1,000~1,500 mg',
+    adolescentM: '2,000~2,500 mg',
+    adolescentF: '2,000 mg',
+    adultM: '3,000 mg',
+    adultF: '2,500 mg',
+    elderly: '2,500~3,000 mg',
+    pregnant: '2,500 mg',
+    lactating: '2,500 mg'
   }
 ];
 
@@ -916,11 +1191,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   // 상한섭취량 표시 기준 (성인 UL vs 소아 UL)
   const [ulViewMode, setUlViewMode] = useState<'ADULT' | 'CHILD'>('ADULT');
-  // 소아 연령별 상한섭취량 기준표 모달 팝업 상태 및 카테고리 필터
+  // 상한섭취량 기준표 모달 팝업 상태 및 범위 필터 (소아·청소년 vs 전 생애주기 전체)
   const [isChildUlModalOpen, setIsChildUlModalOpen] = useState(false);
-  const [childUlTableCategory, setChildUlTableCategory] = useState<
-    'ALL' | 'VITAMIN' | 'MINERAL'
-  >('ALL');
+  const [ulTableScope, setUlTableScope] = useState<'PEDIATRIC' | 'LIFECYCLE'>('PEDIATRIC');
 
   // 복용 방법(용법) 직접 수정 모드 및 입력값 상태 (줄바꿈 지원)
   const [isEditingDosage, setIsEditingDosage] = useState(false);
@@ -2611,132 +2884,154 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </div>
 
               <div className="p-6 overflow-y-auto flex-1 space-y-4">
-                {/* 카테고리 필터 탭 버튼 (수용성 비타민 -> 지용성 비타민 -> 미네랄) */}
-                <div className="flex items-center gap-1.5 flex-wrap">
+                {/* 뷰 모드 전환 버튼: 소아·청소년 (1~18세) vs 전 생애주기 전체표 (남녀·임부·수유부 포함) */}
+                <div className="flex items-center gap-2 flex-wrap">
                   <button
                     type="button"
-                    onClick={() => setChildUlTableCategory('ALL')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      childUlTableCategory === 'ALL'
+                    onClick={() => setUlTableScope('PEDIATRIC')}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      ulTableScope === 'PEDIATRIC'
                         ? 'bg-amber-600 text-white shadow-2xs'
                         : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                     }`}
                   >
-                    전체 성분
+                    <span>🧒 소아·청소년 (1~18세)</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => setChildUlTableCategory('VITAMIN')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                      childUlTableCategory === 'VITAMIN'
+                    onClick={() => setUlTableScope('LIFECYCLE')}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                      ulTableScope === 'LIFECYCLE'
                         ? 'bg-amber-600 text-white shadow-2xs'
                         : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                     }`}
                   >
-                    <span>💊 비타민 (14종)</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setChildUlTableCategory('MINERAL')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                      childUlTableCategory === 'MINERAL'
-                        ? 'bg-amber-600 text-white shadow-2xs'
-                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                    }`}
-                  >
-                    <span>🧪 미네랄 (9종)</span>
+                    <span>👥 전 연령 전체표 (남·녀·임부·수유부)</span>
                   </button>
                 </div>
 
                 <div className="border border-slate-200 rounded-xl overflow-x-auto shadow-2xs">
-                  <table className="w-full text-xs text-left border-collapse min-w-[620px]">
-                    <thead>
-                      <tr className="bg-slate-100 text-slate-700 font-extrabold text-[11px] border-b border-slate-200">
-                        <th className="px-3.5 py-2.5 border-r border-slate-200 min-w-[150px]">영양소 성분명</th>
-                        <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[65px]">1~2세</th>
-                        <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[65px]">3~5세</th>
-                        <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[65px]">6~8세</th>
-                        <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[65px]">9~11세</th>
-                        <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[70px]">12~14세</th>
-                        <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[70px]">15~18세</th>
-                        <th className="px-2.5 py-2 text-center bg-slate-50 min-w-[85px]">성인 (19세+)</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {(() => {
-                        const items =
-                          childUlTableCategory === 'ALL'
-                            ? KDRI_2025_PEDIATRIC_REFERENCE_TABLE
-                            : KDRI_2025_PEDIATRIC_REFERENCE_TABLE.filter(
-                                (r) => r.category === childUlTableCategory
-                              );
-
-                        let currentCategory = '';
-
-                        return items.map((row) => {
-                          const showCategoryHeader =
-                            childUlTableCategory === 'ALL' && row.categoryTitle !== currentCategory;
-                          if (showCategoryHeader) {
-                            currentCategory = row.categoryTitle;
-                          }
-
-                          return (
-                            <React.Fragment key={row.id}>
-                              {showCategoryHeader && (
-                                <tr className="bg-slate-100/90 border-y border-slate-200">
-                                  <td
-                                    colSpan={8}
-                                    className="px-3.5 py-1.5 text-[11px] font-black text-slate-800 tracking-tight"
-                                  >
-                                    {row.categoryTitle === '비타민'
-                                      ? '💊 비타민'
-                                      : '🧪 미네랄'}
-                                  </td>
-                                </tr>
-                              )}
-                              <tr className="hover:bg-amber-50/30 transition-colors">
-                                <td className="px-3.5 py-2.5 font-bold text-slate-900 border-r border-slate-200 align-middle">
-                                  <div className="font-extrabold text-slate-900">{row.nutrientName}</div>
+                  {ulTableScope === 'PEDIATRIC' ? (
+                    <table className="w-full text-xs text-left border-collapse min-w-[620px]">
+                      <thead>
+                        <tr className="bg-slate-100 text-slate-700 font-extrabold text-[11px] border-b border-slate-200">
+                          <th className="px-3.5 py-2.5 border-r border-slate-200 min-w-[140px]">영양소 성분명</th>
+                          <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[65px]">1~2세</th>
+                          <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[65px]">3~5세</th>
+                          <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[65px]">6~8세</th>
+                          <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[65px]">9~11세</th>
+                          <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[70px]">12~14세</th>
+                          <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[70px]">15~18세</th>
+                          <th className="px-2.5 py-2 text-center bg-slate-50 min-w-[85px]">성인 (19세+)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {KDRI_2025_PEDIATRIC_REFERENCE_TABLE.map((row) => (
+                          <tr key={row.id} className="hover:bg-amber-50/30 transition-colors">
+                            <td className="px-3.5 py-2.5 font-bold text-slate-900 border-r border-slate-200 align-middle">
+                              <div className="font-extrabold text-slate-900">{row.nutrientName}</div>
+                            </td>
+                            {row.isNoUl ? (
+                              <td
+                                colSpan={7}
+                                className="px-3 py-2.5 text-center text-slate-400 font-medium bg-slate-50/60 align-middle text-[11px]"
+                              >
+                                공식 상한섭취량(UL) 미설정
+                              </td>
+                            ) : (
+                              <>
+                                <td className="px-2 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200 align-middle">
+                                  {row.age1_2}
                                 </td>
-                                {row.isNoUl ? (
-                                  <td
-                                    colSpan={7}
-                                    className="px-3 py-2.5 text-center text-slate-400 font-medium bg-slate-50/60 align-middle text-[11px]"
-                                  >
-                                    공식 상한섭취량(UL) 미설정
-                                  </td>
-                                ) : (
-                                  <>
-                                    <td className="px-2 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200 align-middle">
-                                      {row.age1_2}
-                                    </td>
-                                    <td className="px-2 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200 align-middle">
-                                      {row.age3_5}
-                                    </td>
-                                    <td className="px-2 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200 align-middle">
-                                      {row.age6_8}
-                                    </td>
-                                    <td className="px-2 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200 align-middle">
-                                      {row.age9_11}
-                                    </td>
-                                    <td className="px-2 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200 align-middle">
-                                      {row.age12_14}
-                                    </td>
-                                    <td className="px-2 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200 align-middle">
-                                      {row.age15_18}
-                                    </td>
-                                    <td className="px-2.5 py-2.5 text-center font-semibold text-rose-600 bg-slate-50 align-middle">
-                                      {row.adult}
-                                    </td>
-                                  </>
-                                )}
-                              </tr>
-                            </React.Fragment>
-                          );
-                        });
-                      })()}
-                    </tbody>
-                  </table>
+                                <td className="px-2 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200 align-middle">
+                                  {row.age3_5}
+                                </td>
+                                <td className="px-2 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200 align-middle">
+                                  {row.age6_8}
+                                </td>
+                                <td className="px-2 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200 align-middle">
+                                  {row.age9_11}
+                                </td>
+                                <td className="px-2 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200 align-middle">
+                                  {row.age12_14}
+                                </td>
+                                <td className="px-2 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200 align-middle">
+                                  {row.age15_18}
+                                </td>
+                                <td className="px-2.5 py-2.5 text-center font-semibold text-rose-600 bg-slate-50 align-middle">
+                                  {row.adult}
+                                </td>
+                              </>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <table className="w-full text-xs text-left border-collapse min-w-[780px]">
+                      <thead>
+                        <tr className="bg-slate-100 text-slate-700 font-extrabold text-[11px] border-b border-slate-200">
+                          <th className="px-3.5 py-2.5 border-r border-slate-200 min-w-[120px]">영양소 성분명</th>
+                          <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[65px]">유아(1~5)</th>
+                          <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[65px]">소아(6~11)</th>
+                          <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[75px]">청소년 남</th>
+                          <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[75px]">청소년 여</th>
+                          <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[75px]">성인 남</th>
+                          <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[75px]">성인 여</th>
+                          <th className="px-2 py-2 text-center border-r border-slate-200 min-w-[65px]">노인(65+)</th>
+                          <th className="px-2 py-2 text-center border-r border-slate-200 bg-rose-50 text-rose-900 min-w-[75px]">임신부</th>
+                          <th className="px-2 py-2 text-center bg-purple-50 text-purple-900 min-w-[75px]">수유부</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {KDRI_2025_LIFECYCLE_REFERENCE_TABLE.map((row) => (
+                          <tr key={row.id} className="hover:bg-amber-50/30 transition-colors">
+                            <td className="px-3.5 py-2.5 font-bold text-slate-900 border-r border-slate-200 align-middle">
+                              <div className="font-extrabold text-slate-900">{row.nutrientName}</div>
+                            </td>
+                            {row.isNoUl ? (
+                              <td
+                                colSpan={9}
+                                className="px-3 py-2.5 text-center text-slate-400 font-medium bg-slate-50/60 align-middle text-[11px]"
+                              >
+                                공식 상한섭취량(UL) 미설정
+                              </td>
+                            ) : (
+                              <>
+                                <td className="px-2 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200 align-middle">
+                                  {row.toddler}
+                                </td>
+                                <td className="px-2 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200 align-middle">
+                                  {row.child}
+                                </td>
+                                <td className="px-2 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200 align-middle">
+                                  {row.adolescentM}
+                                </td>
+                                <td className="px-2 py-2.5 text-center font-bold text-amber-700 border-r border-slate-200 align-middle">
+                                  {row.adolescentF}
+                                </td>
+                                <td className="px-2 py-2.5 text-center font-semibold text-slate-800 border-r border-slate-200 align-middle">
+                                  {row.adultM}
+                                </td>
+                                <td className="px-2 py-2.5 text-center font-semibold text-slate-800 border-r border-slate-200 align-middle">
+                                  {row.adultF}
+                                </td>
+                                <td className="px-2 py-2.5 text-center font-semibold text-slate-800 border-r border-slate-200 align-middle">
+                                  {row.elderly}
+                                </td>
+                                <td className="px-2 py-2.5 text-center font-extrabold text-rose-700 border-r border-slate-200 bg-rose-50/40 align-middle">
+                                  {row.pregnant}
+                                </td>
+                                <td className="px-2 py-2.5 text-center font-extrabold text-purple-700 bg-purple-50/40 align-middle">
+                                  {row.lactating}
+                                </td>
+                              </>
+                            )}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
                 </div>
               </div>
 

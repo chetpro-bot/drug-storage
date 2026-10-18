@@ -1513,8 +1513,8 @@ export interface ResolvedIngredientDisplayInfo {
   childUlNote?: string;
   childAgeRows?: { ageLabel: string; ulText: string; ulValue: number }[];
   chemicalFormFeature: ChemicalFormFeature;
-  sortGroup: 1 | 2 | 3; // 1: 비타민, 2: 미네랄, 3: 기타 성분
-  subOrder?: number; // 비타민 내 순서 (A=10, B1=21..B12=32, 콜린=35, C=40, D=50, E=60, K=70)
+  sortGroup: 1 | 2 | 3 | 4; // 1: 비타민, 2: 미네랄, 3: 콜린, 4: 기타 성분
+  subOrder?: number; // 비타민 내 순서 (A=10, B1=21..B12=32, C=40, D=50, E=60, K=70)
 }
 
 const KOR_TO_ENG_DISPLAY_MAP: Record<string, string> = {
@@ -2138,7 +2138,7 @@ export function resolveIngredientDisplayInfo(
     }
   }
 
-  // 6. 정렬 그룹 결정 (1: 비타민 -> 2: 미네랄 -> 3: 기타 성분)
+  // 6. 정렬 그룹 결정 (1: 비타민 -> 2: 미네랄 -> 3: 콜린 -> 4: 기타 성분)
   const VITAMIN_CATEGORIES = new Set([
     '비타민A',
     '베타카로틴',
@@ -2154,7 +2154,6 @@ export function resolveIngredientDisplayInfo(
     '비타민B12',
     '기타 비타민B',
     '비타민B군',
-    '콜린',
     '비타민C',
     '비타민D',
     '비타민D2',
@@ -2199,16 +2198,18 @@ export function resolveIngredientDisplayInfo(
     '미네랄'
   ]);
 
-  let sortGroup: 1 | 2 | 3 = 3;
+  const checkText = `${categoryTag} ${englishName} ${rawInn}`.toLowerCase();
+  let sortGroup: 1 | 2 | 3 | 4 = 4;
 
-  if (VITAMIN_CATEGORIES.has(categoryTag)) {
+  if (categoryTag === '콜린' || /choline|콜린/i.test(checkText)) {
+    sortGroup = 3;
+  } else if (VITAMIN_CATEGORIES.has(categoryTag)) {
     sortGroup = 1;
   } else if (MINERAL_CATEGORIES.has(categoryTag)) {
     sortGroup = 2;
   } else {
-    const checkText = `${categoryTag} ${englishName} ${rawInn}`.toLowerCase();
     if (
-      /retinol|retinyl|carotene|thiamin|benfotiamin|fursultiamin|riboflavin|niacin|nicotinamid|pantothen|pyridox|biotin|folic|folate|cobalamin|cyanocobalamin|choline|ascorb|cholecalciferol|ergocalciferol|tocopher|phylloquin|menaquin|vitamin/i.test(
+      /retinol|retinyl|carotene|thiamin|benfotiamin|fursultiamin|riboflavin|niacin|nicotinamid|pantothen|pyridox|biotin|folic|folate|cobalamin|cyanocobalamin|ascorb|cholecalciferol|ergocalciferol|tocopher|phylloquin|menaquin|vitamin/i.test(
         checkText
       )
     ) {
@@ -2222,10 +2223,9 @@ export function resolveIngredientDisplayInfo(
     }
   }
 
-  // 비타민 그룹 내 정렬 순서 (기존 성분표 순서: A -> B1..B12 -> 콜린/기타B -> C -> D -> E -> K)
+  // 비타민 그룹 내 정렬 순서 (기존 성분표 순서: A -> B1..B12 -> 기타B -> C -> D -> E -> K)
   let subOrder: number | undefined = undefined;
   if (sortGroup === 1) {
-    const checkText = `${categoryTag} ${englishName} ${rawInn}`.toLowerCase();
     if (categoryTag === '비타민A' || categoryTag === '베타카로틴' || /retinol|retinyl|palmitate|carotene/i.test(checkText)) {
       subOrder = 10;
     } else if (categoryTag === '비타민B1' || /thiamin|benfotiamin|fursultiamin|bisbentiamin/i.test(checkText)) {
@@ -2250,7 +2250,7 @@ export function resolveIngredientDisplayInfo(
       subOrder = 29;
     } else if (categoryTag === '비타민B12' || /cobalamin|cyanocobalamin|mecobalamin/i.test(checkText)) {
       subOrder = 32;
-    } else if (categoryTag === '기타 비타민B' || categoryTag === '비타민B군' || categoryTag === '콜린' || /choline|inositol/i.test(checkText)) {
+    } else if (categoryTag === '기타 비타민B' || categoryTag === '비타민B군' || /inositol/i.test(checkText)) {
       subOrder = 35;
     } else if (categoryTag === '비타민C' || /ascorb/i.test(checkText)) {
       subOrder = 40;
@@ -2292,10 +2292,11 @@ export function resolveIngredientDisplayInfo(
 
 /**
  * 제품 성분 배열 정렬 함수:
- * 1) 대분류: 비타민 -> 미네랄 -> 기타 성분 순
- * 2) 비타민: 기존 성분표 순서 (비타민 A -> B1 -> B2 -> B3 -> B5 -> B6 -> B7 -> B9(엽산) -> B12 -> 기타B/콜린 -> C -> D -> E -> K)
+ * 1) 대분류: 비타민 -> 미네랄 -> 콜린 -> 기타 성분 순
+ * 2) 비타민: 기존 성분표 순서 (비타민 A -> B1 -> B2 -> B3(나이아신) -> B5(판토텐산) -> B6 -> B7(비오틴) -> B9(엽산) -> B12 -> 기타B -> C -> D -> E -> K)
  * 3) 미네랄: 영문 성분명 abc 알파벳순 (Calcium -> Copper -> Iodine -> Iron -> Magnesium -> Manganese -> Molybdenum -> Selenium -> Zinc)
- * 4) 기타 성분: 영문 성분명 abc 알파벳순
+ * 4) 콜린 (미네랄 다음)
+ * 5) 기타 성분: 영문 성분명 abc 알파벳순
  * (동일 비타민군 내부에서도 영문 성분명 abc 알파벳순)
  */
 export function sortProductIngredients(
@@ -2306,12 +2307,12 @@ export function sortProductIngredients(
     const infoA = resolveIngredientDisplayInfo(a, productName);
     const infoB = resolveIngredientDisplayInfo(b, productName);
 
-    // 1차: 대분류 비교 (1: 비타민 -> 2: 미네랄 -> 3: 기타 성분)
+    // 1차: 대분류 비교 (1: 비타민 -> 2: 미네랄 -> 3: 콜린 -> 4: 기타 성분)
     if (infoA.sortGroup !== infoB.sortGroup) {
       return infoA.sortGroup - infoB.sortGroup;
     }
 
-    // 2차: 비타민 그룹 내에서는 비타민 순서 (A -> B1..B12 -> 콜린/기타B -> C -> D -> E -> K)
+    // 2차: 비타민 그룹 내에서는 비타민 순서 (A -> B1..B12 -> 기타B -> C -> D -> E -> K)
     if (infoA.sortGroup === 1 && infoA.subOrder !== infoB.subOrder) {
       return (infoA.subOrder ?? 999) - (infoB.subOrder ?? 999);
     }

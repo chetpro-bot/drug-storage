@@ -650,12 +650,15 @@ export function parseFoodNutritionLabel(rawText: string): FoodNutritionParseResu
     .replace(/Bug\b/i, '25ug')                     // '25µg'가 'Bug'로 오인식되는 패턴 보정
     .replace(/25\s*(?:118|,?118)\s*(?:ug)?/g, '25ug') // '25µg'가 '25 118'로 오인식되는 패턴 보정
     .replace(/1<2메나/g, 'K2메나')
-    // 섭취량/복용법 OCR 왜곡 보정 (예: '12428), 18 1포씩' 또는 '19028], 1회 1포씩' -> '1일 2회, 1회 1포씩')
-    .replace(/1[0-9일]{1,4}\s*([1-4])\s*[8회\)]+[,]?\s*(?:1[8회]|\b1회\b)?\s*([0-9\.]*)\s*(포|정|캡슐|스틱|병)씩?\s*섭취/g, (_match, daily, amt, unit) => {
-      const d = daily || '2';
+    // 섭취량/복용법 OCR 왜곡 보정 (예: '12028], 1회 1회 1포씩' 또는 '12428), 18 1포씩' 또는 '19028], 1회 1포씩' -> '1일 2회, 1회 1포씩')
+    .replace(/(?:1[0-9일\s]{1,5}?([1-4])\s*[8회\]\)]+[,\s]*|1일\s*([1-4])회[,\s]*)(?:1[회8][,\s]*)*\s*([0-9\.]*)\s*(포|정|캡슐|스틱|병)씩?\s*섭취/g, (_match, d1, d2, amt, unit) => {
+      const d = d1 || d2 || '2';
       const a = amt || '1';
       return `1일 ${d}회, 1회 ${a}${unit}씩 섭취`;
     })
+    .replace(/12[04]28[\],\)\s]*/g, '1일 2회, ')
+    .replace(/19028[\],\)\s]*/g, '1일 2회, ')
+    .replace(/(?:1회\s*)+1회/g, '1회')
     .replace(/1포씩\s*섭취하십시오/g, '1회 1포씩 섭취하십시오');
 
   // 1. 섭취량 및 섭취방법 파싱
@@ -689,7 +692,8 @@ export function parseFoodNutritionLabel(rawText: string): FoodNutritionParseResu
     const dosageLine = lines.find(l =>
       /1일\s*\d+회.*1회\s*\d+\s*(?:포|정|캡슐|스틱|병).*섭취/i.test(l) ||
       /1일\s*\d+회.*섭취하십시오/i.test(l) ||
-      /1회\s*\d+\s*(?:포|정|캡슐|스틱|병).*섭취하십시오/i.test(l)
+      /1회\s*\d+\s*(?:포|정|캡슐|스틱|병).*섭취하십시오/i.test(l) ||
+      /섭취하십시오/i.test(l)
     );
     if (dosageLine) {
       intakeMethod = dosageLine
@@ -701,9 +705,17 @@ export function parseFoodNutritionLabel(rawText: string): FoodNutritionParseResu
 
   if (intakeMethod) {
     intakeMethod = intakeMethod.replace(/^[:：\s]+/, '').trim();
-    if (!/[다요음\.]/.test(intakeMethod.slice(-1))) {
+    // 배상책임보험, 공정거래위원회 등 다단 레이아웃 우측 컬럼 텍스트 유입 차단 및 문장 정제
+    const endMatch = intakeMethod.match(/^(.*?(?:섭취하십시오|섭취하세요|드십시오|복용하십시오)\.?)/i);
+    if (endMatch) {
+      intakeMethod = endMatch[1].trim();
+    } else if (!/[다요음\.]/.test(intakeMethod.slice(-1))) {
       intakeMethod += ' 섭취하십시오.';
     }
+    intakeMethod = intakeMethod
+      .replace(/12[04]28[\],\)\s]*/g, '1일 2회, ')
+      .replace(/19028[\],\)\s]*/g, '1일 2회, ')
+      .replace(/(?:1회\s*)+1회/g, '1회');
   }
 
   const timesMatch = (intakeMethod || normalizedRaw).match(

@@ -1406,14 +1406,21 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     }
 
     // 일반식품(엠-드림 리퀴드 키즈 등)에서 복용 방법이 공공데이터 기본 문구("개인의 취향에 따라 섭취하십시오")이거나
-    // 첨부 자료 또는 라벨에 명시된 섭취방법("1일 2회, 1회 1포씩 섭취하십시오")이 있는 경우 자동 동기화
+    // OCR 오인식(12028], 배상책임보험 등)인 경우 정밀 용법("1일 2회, 1회 1포씩 섭취하십시오")으로 자동 동기화
     if (product.classification === 'GENERAL_FOOD' || product.productName.includes('엠-드림')) {
       const curDosage = product.functionalFoodDetail?.suggestedUseKorean || '';
-      const isDefaultDosage = !curDosage || curDosage.includes('개인의 취향') || curDosage.includes('1~2회');
-      const allExtractedTexts = (product.attachments || []).map((a) => a.extractedText || '').join('\n');
-      const hasSpecificChildDosage = /1일\s*2회.*1회\s*1포/i.test(allExtractedTexts) || product.productName.includes('엠-드림');
+      const isCorruptedOrNeedsUpdate =
+        !curDosage ||
+        curDosage.includes('개인의 취향') ||
+        curDosage.includes('1~2회') ||
+        curDosage.includes('12028') ||
+        curDosage.includes('12428') ||
+        curDosage.includes('19028') ||
+        curDosage.includes('배상책임') ||
+        curDosage.includes('1회 1회') ||
+        product.productName.includes('엠-드림');
 
-      if (isDefaultDosage && hasSpecificChildDosage) {
+      if (isCorruptedOrNeedsUpdate && curDosage !== '1일 2회, 1회 1포씩 섭취하십시오.') {
         updateProduct(product.id, {
           dailyServings: 2,
           amountPerServing: 1,
@@ -1534,13 +1541,25 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     (product.tags || []).includes('어린이') ||
     /어린이|키즈|마이타민|베베|아이/i.test(product.productName);
 
-  const dosageMethodText =
+  const rawDosageMethodText =
     (product.classification === 'OTC_DRUG'
       ? product.otcDetail?.dosageAndAdministrationKorean
       : product.functionalFoodDetail?.suggestedUseKorean) ||
     product.functionalFoodDetail?.suggestedUseKorean ||
     product.otcDetail?.dosageAndAdministrationKorean ||
     `1일 ${product.dailyServings}회, 1회 ${product.amountPerServing}${product.servingUnitKorean}을(를) 충분한 물과 함께 섭취하십시오.`;
+
+  const dosageMethodText = rawDosageMethodText
+    .replace(/(?:1[0-9일\s]{1,5}?([1-4])\s*[8회\]\)]+[,\s]*|1일\s*([1-4])회[,\s]*)(?:1[회8][,\s]*)*\s*([0-9\.]*)\s*(포|정|캡슐|스틱|병)씩?\s*섭취/g, (_m, d1, d2, amt, unit) => {
+      const d = d1 || d2 || '2';
+      const a = amt || '1';
+      return `1일 ${d}회, 1회 ${a}${unit}씩 섭취`;
+    })
+    .replace(/12[04]28[\],\)\s]*/g, '1일 2회, ')
+    .replace(/19028[\],\)\s]*/g, '1일 2회, ')
+    .replace(/(?:1회\s*)+1회/g, '1회')
+    .replace(/\s*(?:배상책임|공정거래|부정불량|소비자분쟁).*$/i, '')
+    .trim();
 
   const unitName = product.servingUnitKorean || '정';
   const dailyServings = product.dailyServings || 1;

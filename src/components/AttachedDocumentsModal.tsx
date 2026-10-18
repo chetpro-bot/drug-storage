@@ -334,11 +334,25 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
       const finalIngredients = [...updatedIngredients, ...newItemsToAdd];
 
       // 실물 라벨 / 첨부자료에서 섭취량 및 섭취방법(복용 방법) 추출 및 저장
-      const parsedIntakeMethod =
+      let parsedIntakeMethod =
         foodParsed?.intakeMethod ||
         (result.nutritionParsed?.servingInfo?.dailyServings
           ? `1일 ${result.nutritionParsed.servingInfo.dailyServings}회, 1회 ${result.nutritionParsed.servingInfo.amountPerServing || 1}${result.nutritionParsed.servingInfo.servingUnit || '포'}씩 섭취하십시오.`
           : '');
+
+      if (parsedIntakeMethod) {
+        parsedIntakeMethod = parsedIntakeMethod
+          .replace(/(?:1[0-9일\s]{1,5}?([1-4])\s*[8회\]\)]+[,\s]*|1일\s*([1-4])회[,\s]*)(?:1[회8][,\s]*)*\s*([0-9\.]*)\s*(포|정|캡슐|스틱|병)씩?\s*섭취/g, (_m, d1, d2, amt, unit) => {
+            const d = d1 || d2 || '2';
+            const a = amt || '1';
+            return `1일 ${d}회, 1회 ${a}${unit}씩 섭취`;
+          })
+          .replace(/12[04]28[\],\)\s]*/g, '1일 2회, ')
+          .replace(/19028[\],\)\s]*/g, '1일 2회, ')
+          .replace(/(?:1회\s*)+1회/g, '1회')
+          .replace(/\s*(?:배상책임|공정거래|부정불량|소비자분쟁).*$/i, '')
+          .trim();
+      }
 
       const parsedServing =
         foodParsed?.servingInfo ||

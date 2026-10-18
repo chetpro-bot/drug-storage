@@ -1513,8 +1513,8 @@ export interface ResolvedIngredientDisplayInfo {
   childUlNote?: string;
   childAgeRows?: { ageLabel: string; ulText: string; ulValue: number }[];
   chemicalFormFeature: ChemicalFormFeature;
-  sortGroup: 1 | 2 | 3; // 1: 비타민, 2: 미네랄, 3: 기타 성분
-  vitaminSubOrder: number; // 비타민 내 정렬 순서 (A=10, B1=21..B9=29..B12=32, 기타B=39, C=40, D=50, E=60, K=70)
+  sortGroup: 1 | 2 | 3 | 4; // 1: 수용성 비타민, 2: 지용성 비타민, 3: 미네랄, 4: 기타 성분
+  vitaminSubOrder?: number;
 }
 
 const KOR_TO_ENG_DISPLAY_MAP: Record<string, string> = {
@@ -2127,30 +2127,34 @@ export function resolveIngredientDisplayInfo(
   }
 
   // 6. 정렬 그룹 및 비타민 세부 순서 결정
-  // Group 1: 비타민 (A -> B1 -> B2 -> B3 -> B5 -> B6 -> B7 -> 엽산(B9) -> B12 -> 기타 비타민B -> C -> D -> E -> K)
-  // Group 2: 미네랄 (알파벳순)
-  // Group 3: 나머지 성분 (알파벳순)
-  const VITAMIN_ORDER_MAP: Record<string, number> = {
-    '비타민A': 10,
-    '비타민B1': 21,
-    '비타민B2': 22,
-    '비타민B3': 23,
-    '비타민B5': 25,
-    '비타민B6': 26,
-    '비타민B7': 27,
-    '엽산': 29,
-    '비타민B9(엽산)': 29,
-    '비타민B12': 32,
-    '기타 비타민B': 39,
-    '비타민C': 40,
-    '비타민D': 50,
-    '비타민D2': 50,
-    '비타민D3': 50,
-    '비타민E': 60,
-    '비타민K': 70,
-    '비타민K1': 70,
-    '비타민K2': 70
-  };
+  // 6. 정렬 그룹 결정 (사용자 기준: 1: 수용성 비타민 -> 2: 지용성 비타민 -> 3: 미네랄 -> 4: 기타 성분)
+  const WATER_SOLUBLE_VITAMINS = new Set([
+    '비타민B1',
+    '비타민B2',
+    '비타민B3',
+    '비타민B5',
+    '비타민B6',
+    '비타민B7',
+    '엽산',
+    '비타민B9',
+    '비타민B9(엽산)',
+    '비타민B12',
+    '기타 비타민B',
+    '비타민B군',
+    '비타민C'
+  ]);
+
+  const FAT_SOLUBLE_VITAMINS = new Set([
+    '비타민A',
+    '베타카로틴',
+    '비타민D',
+    '비타민D2',
+    '비타민D3',
+    '비타민E',
+    '비타민K',
+    '비타민K1',
+    '비타민K2'
+  ]);
 
   const MINERAL_CATEGORIES = new Set([
     '칼슘',
@@ -2180,17 +2184,41 @@ export function resolveIngredientDisplayInfo(
     '요오드(I)',
     '칼륨',
     '칼륨(K)',
-    '무기질(Mineral)제제'
+    '인',
+    '인(P)',
+    '무기질(Mineral)제제',
+    '미네랄'
   ]);
 
-  let sortGroup: 1 | 2 | 3 = 3;
-  let vitaminSubOrder = 999;
+  let sortGroup: 1 | 2 | 3 | 4 = 4;
 
-  if (VITAMIN_ORDER_MAP[categoryTag] !== undefined) {
+  if (WATER_SOLUBLE_VITAMINS.has(categoryTag)) {
     sortGroup = 1;
-    vitaminSubOrder = VITAMIN_ORDER_MAP[categoryTag];
-  } else if (MINERAL_CATEGORIES.has(categoryTag)) {
+  } else if (FAT_SOLUBLE_VITAMINS.has(categoryTag)) {
     sortGroup = 2;
+  } else if (MINERAL_CATEGORIES.has(categoryTag)) {
+    sortGroup = 3;
+  } else {
+    const checkText = `${categoryTag} ${englishName} ${rawInn}`.toLowerCase();
+    if (
+      /ascorb|thiamin|benfotiamin|fursultiamin|riboflavin|niacin|nicotinamid|pantothen|pyridox|biotin|folic|folate|cobalamin|cyanocobalamin/i.test(
+        checkText
+      )
+    ) {
+      sortGroup = 1;
+    } else if (
+      /retinol|retinyl|carotene|cholecalciferol|ergocalciferol|tocopher|phylloquin|menaquin/i.test(
+        checkText
+      )
+    ) {
+      sortGroup = 2;
+    } else if (
+      /calcium|magnesium|zinc|iron|ferrous|ferric|selenium|copper|cupric|manganese|chromium|molybdenum|iodine|potassium/i.test(
+        checkText
+      )
+    ) {
+      sortGroup = 3;
+    }
   }
 
   const chemicalFormFeature = analyzeChemicalFormFeature(
@@ -2213,16 +2241,14 @@ export function resolveIngredientDisplayInfo(
     childUlNote,
     childAgeRows,
     chemicalFormFeature,
-    sortGroup,
-    vitaminSubOrder
+    sortGroup
   };
 }
 
 /**
  * 제품 성분 배열 정렬 함수:
- * 1) 비타민: A -> B1 -> B2 -> ... -> B9(엽산) -> B12 -> 기타B -> C -> D -> E -> K 순 (동일 약효분류 내에서는 영문 성분명 알파벳순)
- * 2) 미네랄: 영문 성분명 알파벳순
- * 3) 나머지 성분 (또는 비타민·미네랄이 없는 일반 의약품): 영문 성분명 알파벳순
+ * 1) 수용성 비타민 -> 2) 지용성 비타민 -> 3) 미네랄 -> 4) 기타 성분 순
+ * 각 카테고리(분류) 내에서는 영문 성분명 abc 알파벳순 정렬
  */
 export function sortProductIngredients(
   ingredients: ProductIngredientEntry[],
@@ -2232,17 +2258,12 @@ export function sortProductIngredients(
     const infoA = resolveIngredientDisplayInfo(a, productName);
     const infoB = resolveIngredientDisplayInfo(b, productName);
 
-    // 1차: 그룹 비교 (1: 비타민 -> 2: 미네랄 -> 3: 기타 성분)
+    // 1차: 그룹 비교 (1: 수용성 비타민 -> 2: 지용성 비타민 -> 3: 미네랄 -> 4: 기타 성분)
     if (infoA.sortGroup !== infoB.sortGroup) {
       return infoA.sortGroup - infoB.sortGroup;
     }
 
-    // 2차: 비타민 그룹 내에서는 비타민 세부 번호(A, B1..B12, C, D, E, K) 순
-    if (infoA.sortGroup === 1 && infoA.vitaminSubOrder !== infoB.vitaminSubOrder) {
-      return infoA.vitaminSubOrder - infoB.vitaminSubOrder;
-    }
-
-    // 3차: 같은 비타민 분류 내, 또는 미네랄 그룹 내, 또는 기타 성분 그룹 내에서는 영문 성분명 알파벳순 정렬
+    // 2차: 각 분류 내에서는 영문 성분명 abc 알파벳순
     return infoA.englishName.localeCompare(infoB.englishName, 'en', { sensitivity: 'base' });
   });
 }

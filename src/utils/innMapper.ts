@@ -1998,10 +1998,10 @@ export function resolveIngredientDisplayInfo(
       childUlText = '1,200~2,400IU (1~11세)';
       childUlNote = '2025 KDRIs 비타민 D 연령별 상한섭취량: 1~2세 30μg(1,200IU), 3~5세 35μg(1,400IU), 6~8세 40μg(1,600IU), 9~11세 60μg(2,400IU), 12세 이상 100μg(4,000IU)';
       childAgeRows = [
-        { ageLabel: '1~2세', ulText: '1,200IU (30μg)', ulValue: 30 },
-        { ageLabel: '3~5세', ulText: '1,400IU (35μg)', ulValue: 35 },
-        { ageLabel: '6~8세', ulText: '1,600IU (40μg)', ulValue: 40 },
-        { ageLabel: '9~11세', ulText: '2,400IU (60μg)', ulValue: 60 },
+        { ageLabel: '1~2세', ulText: '1,200IU', ulValue: 30 },
+        { ageLabel: '3~5세', ulText: '1,400IU', ulValue: 35 },
+        { ageLabel: '6~8세', ulText: '1,600IU', ulValue: 40 },
+        { ageLabel: '9~11세', ulText: '2,400IU', ulValue: 60 },
         { ageLabel: '12세 이상', ulText: '4,000IU (100μg)', ulValue: 100 }
       ];
     } else if (standardKey === 'VITAMIN_C') {
@@ -2117,10 +2117,10 @@ export function resolveIngredientDisplayInfo(
       childUlText = '100~350mg (1~11세)';
       childUlNote = '2025 KDRIs 비타민 E 연령별 상한섭취량: 1~2세 100mg(150IU), 3~5세 150mg(220IU), 6~8세 250mg(370IU), 9~11세 350mg(520IU), 12세 이상 540mg(800IU)';
       childAgeRows = [
-        { ageLabel: '1~2세', ulText: '100mg (150IU)', ulValue: 100 },
-        { ageLabel: '3~5세', ulText: '150mg (220IU)', ulValue: 150 },
-        { ageLabel: '6~8세', ulText: '250mg (370IU)', ulValue: 250 },
-        { ageLabel: '9~11세', ulText: '350mg (520IU)', ulValue: 350 },
+        { ageLabel: '1~2세', ulText: '100mg', ulValue: 100 },
+        { ageLabel: '3~5세', ulText: '150mg', ulValue: 150 },
+        { ageLabel: '6~8세', ulText: '250mg', ulValue: 250 },
+        { ageLabel: '9~11세', ulText: '350mg', ulValue: 350 },
         { ageLabel: '12세 이상', ulText: '540mg (800IU)', ulValue: 540 }
       ];
     } else if (standardKey === 'CHOLINE') {

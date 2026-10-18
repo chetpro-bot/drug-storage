@@ -801,7 +801,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white text-slate-900 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[88vh] flex flex-col border border-slate-200 overflow-hidden"
+        className="bg-white text-slate-900 rounded-2xl shadow-2xl w-full max-w-3xl md:max-w-4xl max-h-[88vh] flex flex-col border border-slate-200 overflow-hidden"
       >
         {/* 1. 상단 모달 헤더 (제품명 + 닫기 버튼) */}
         <div className="px-6 py-4 border-b border-slate-200/90 flex items-center justify-between shrink-0 bg-[#f8fafc]">
@@ -976,11 +976,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 text-[11px] font-extrabold text-slate-600 border-b border-slate-200">
-                    <th className="w-[100px] px-2 py-2 text-center border-r border-slate-200">약효분류</th>
+                    <th className="w-[90px] px-2 py-2 text-center border-r border-slate-200">약효분류</th>
                     <th className="px-4 py-2 text-center border-r border-slate-200">
                       성분 함량
                     </th>
-                    <th className="w-[160px] px-2.5 py-2 text-center">상한섭취량</th>
+                    <th className="w-[200px] px-3 py-2 text-center border-r border-slate-200">
+                      원료 형태
+                    </th>
+                    <th className="w-[150px] px-2.5 py-2 text-center">상한섭취량</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs text-slate-800">
@@ -1060,7 +1063,41 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                             </div>
                           </td>
 
-                          {/* 3열: 상한섭취량 (태그 배지가 아닌 본문 텍스트 형태로 깔끔하게 표기) */}
+                          {/* 3열: 원료 형태 (활성형 비타민, 유기염/무기염 미네랄 등) */}
+                          <td className="px-3 py-2.5 border-r border-slate-200 align-middle">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              {item.info.chemicalFormFeature.badgeType === 'ACTIVE_VITAMIN' && (
+                                <span className="inline-flex items-center text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300 shadow-2xs">
+                                  ★ 활성형
+                                </span>
+                              )}
+                              {item.info.chemicalFormFeature.badgeType === 'ORGANIC_MINERAL' && (
+                                <span className="inline-flex items-center text-[10px] font-black px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-900 border border-emerald-300 shadow-2xs">
+                                  ● 유기염
+                                </span>
+                              )}
+                              {item.info.chemicalFormFeature.badgeType === 'INORGANIC_MINERAL' && (
+                                <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-300 shadow-2xs">
+                                  무기염
+                                </span>
+                              )}
+                              {item.info.chemicalFormFeature.badgeType === 'AMIDE' && (
+                                <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-50 text-sky-800 border border-sky-300 shadow-2xs">
+                                  아미드형
+                                </span>
+                              )}
+                              {item.info.chemicalFormFeature.badgeType === 'NATURAL' && (
+                                <span className="inline-flex items-center text-[10px] font-bold px-1.5 py-0.5 rounded bg-teal-50 text-teal-800 border border-teal-300 shadow-2xs">
+                                  천연형
+                                </span>
+                              )}
+                              <span className="text-xs text-slate-700 font-medium tracking-tight">
+                                {item.info.chemicalFormFeature.detailLabel}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* 4열: 상한섭취량 (태그 배지가 아닌 본문 텍스트 형태로 깔끔하게 표기) */}
                           <td className="px-3 py-2.5 text-center align-middle">
                             {item.info.ulText ? (
                               <span

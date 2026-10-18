@@ -1493,6 +1493,12 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
   return results;
 }
 
+export interface ChemicalFormFeature {
+  badgeType: 'ACTIVE_VITAMIN' | 'ORGANIC_MINERAL' | 'INORGANIC_MINERAL' | 'AMIDE' | 'NATURAL' | 'NONE';
+  badgeLabel?: string;
+  detailLabel: string;
+}
+
 export interface ResolvedIngredientDisplayInfo {
   englishName: string;
   categoryTag: string;
@@ -1502,6 +1508,7 @@ export interface ResolvedIngredientDisplayInfo {
   convertedText: string | null;
   ulText: string | null;
   ulNote?: string;
+  chemicalFormFeature: ChemicalFormFeature;
   sortGroup: 1 | 2 | 3; // 1: 비타민, 2: 미네랄, 3: 기타 성분
   vitaminSubOrder: number; // 비타민 내 정렬 순서 (A=10, B1=21..B9=29..B12=32, 기타B=39, C=40, D=50, E=60, K=70)
 }
@@ -1626,6 +1633,135 @@ const ENG_ALIAS_TO_DICT_KEY: Record<string, string> = {
   taurine: '타우린',
   'l-arginine': 'L-아르기닌'
 };
+
+/**
+ * 원료 형태/염(Form & Salt)의 특성(활성형 비타민, 유기염/무기염 미네랄 등)을 분석하여 표기용 뱃지와 상세 레이블 생성
+ */
+export function analyzeChemicalFormFeature(
+  rawForm: string,
+  categoryTag: string,
+  englishName: string,
+  rawInn: string
+): ChemicalFormFeature {
+  const combined = `${rawForm} ${englishName} ${rawInn} ${categoryTag}`.toLowerCase();
+
+  // 1. 비타민류의 활성형 판별
+  const isActiveVitamin =
+    /활성형|조효소|fursultiamine|푸르설티아민|benfotiamine|벤포티아민|bisbentiamine|비스벤티아민|mecobalamin|메코발라민|메틸코발라민|pyridoxal|피리독살|riboflavin butyrate|리보플라빈부티레이트|5'-phosphate|포스페이트|dibencozide|코바마미드/i.test(combined);
+
+  if (isActiveVitamin) {
+    let detail = rawForm
+      .replace(/\(활성형[^\)]*\)/g, '')
+      .replace(/활성형[^\s,]*/g, '')
+      .replace(/조효소형/g, '')
+      .replace(/\(비타민\s*B\d+\)/g, '')
+      .trim();
+    if (!detail || detail === '표준 정제 원료') {
+      if (/fursultiamine|푸르설티아민/i.test(combined)) detail = '프로설티아민 (지용성)';
+      else if (/benfotiamine|벤포티아민/i.test(combined)) detail = '벤포티아민 (생체이용 우수)';
+      else if (/bisbentiamine|비스벤티아민/i.test(combined)) detail = '비스벤티아민 (BBB 통과)';
+      else if (/butyrate|부티레이트/i.test(combined)) detail = '지용성 부티레이트';
+      else if (/pyridoxal|피리독살/i.test(combined)) detail = '조효소 PLP';
+      else if (/mecobalamin|메코발라민|메틸코발라민/i.test(combined)) detail = '메틸코발라민';
+      else detail = '활성 조효소 유도체';
+    }
+    return {
+      badgeType: 'ACTIVE_VITAMIN',
+      badgeLabel: '활성형',
+      detailLabel: detail || '생체이용 활성형'
+    };
+  }
+
+  // 2. 미네랄류의 유기염 vs 무기염 판별
+  const isMineral =
+    categoryTag === '마그네슘' ||
+    categoryTag === '아연' ||
+    categoryTag === '칼슘' ||
+    categoryTag.includes('철') ||
+    categoryTag === '셀레늄' ||
+    categoryTag === '구리' ||
+    categoryTag === '망간' ||
+    categoryTag === '크롬' ||
+    categoryTag === '몰리브덴';
+
+  if (isMineral) {
+    const isOrganic =
+      /유기|글루콘산|gluconate|구연산|citrate|젖산|lactate|비스글리시네이트|bisglycinate|킬레이트|chelate|판토텐산|fumarate|푸마르산|건조효모|yeast|해조|식물성/i.test(combined);
+    const isInorganic =
+      /산화|oxide|탄산|carbonate|황산|sulfate|아셀렌산|selenite/i.test(combined);
+
+    if (isOrganic) {
+      let detail = rawForm.replace(/유기(산)?염|\(유기[^\)]*\)/g, '').trim();
+      if (!detail || detail === '표준 정제 원료') {
+        if (/gluconate/i.test(combined)) detail = '글루콘산염 (흡수 우수)';
+        else if (/citrate/i.test(combined)) detail = '구연산염 (위장 부담 적음)';
+        else if (/lactate/i.test(combined)) detail = '젖산염';
+        else if (/bisglycinate|chelate/i.test(combined)) detail = '아미노산 킬레이트';
+        else if (/yeast|건조효모/i.test(combined)) detail = '건조효모 유기태';
+        else detail = '유기산염';
+      }
+      return {
+        badgeType: 'ORGANIC_MINERAL',
+        badgeLabel: '유기염',
+        detailLabel: detail || '유기산염'
+      };
+    }
+
+    if (isInorganic) {
+      let detail = rawForm.replace(/무기염|\(무기[^\)]*\)/g, '').trim();
+      if (!detail || detail === '표준 정제 원료') {
+        if (/oxide|산화/i.test(combined)) detail = '산화물 (고밀도 원소)';
+        else if (/carbonate|탄산/i.test(combined)) detail = '탄산염';
+        else if (/sulfate|황산/i.test(combined)) detail = '황산염';
+        else detail = '무기염';
+      }
+      return {
+        badgeType: 'INORGANIC_MINERAL',
+        badgeLabel: '무기염',
+        detailLabel: detail || '무기염'
+      };
+    }
+  }
+
+  // 3. 비타민 B3 아미드형
+  if (categoryTag === '비타민B3' && /nicotinamide|아미드/i.test(combined)) {
+    return {
+      badgeType: 'AMIDE',
+      badgeLabel: '아미드형',
+      detailLabel: '나이아신아마이드'
+    };
+  }
+
+  // 4. 천연형 비타민 E
+  if (categoryTag === '비타민E' && /d-α|천연/i.test(combined) && !/dl-α|합성/i.test(combined)) {
+    return {
+      badgeType: 'NATURAL',
+      badgeLabel: '천연형',
+      detailLabel: 'd-α-토코페롤'
+    };
+  }
+
+  // 5. 판토텐산칼슘 등 비타민B5 유기산염
+  if (categoryTag === '비타민B5' && /pantothenate|판토텐산/i.test(combined)) {
+    return {
+      badgeType: 'NONE',
+      detailLabel: '판토텐산칼슘 (유기산염)'
+    };
+  }
+
+  // 6. 그 외 일반 형태
+  let cleanedForm = rawForm.replace(/\([^\)]*\)/g, '').trim();
+  if (cleanedForm === '표준 정제 원료' || !cleanedForm) {
+    if (categoryTag.startsWith('비타민')) cleanedForm = '일반(비활성)형';
+    else if (isMineral) cleanedForm = '표준염';
+    else cleanedForm = '-';
+  }
+
+  return {
+    badgeType: 'NONE',
+    detailLabel: cleanedForm
+  };
+}
 
 /**
  * 개별 성분의 표시용 영문명, 약효분류 태그, 실제 유효/원소 환산량, 2025 KDRIs 상한섭취량(UL), 정렬 그룹을 계산
@@ -1900,6 +2036,13 @@ export function resolveIngredientDisplayInfo(
     sortGroup = 2;
   }
 
+  const chemicalFormFeature = analyzeChemicalFormFeature(
+    ing.chemicalFormName || meta?.chemicalFormName || '',
+    categoryTag,
+    englishName,
+    rawInn
+  );
+
   return {
     englishName,
     categoryTag,
@@ -1909,6 +2052,7 @@ export function resolveIngredientDisplayInfo(
     convertedText,
     ulText,
     ulNote,
+    chemicalFormFeature,
     sortGroup,
     vitaminSubOrder
   };

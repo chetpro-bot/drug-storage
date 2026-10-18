@@ -1940,16 +1940,18 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 text-[11px] font-extrabold text-slate-600 border-b border-slate-200">
-                    <th className="w-[100px] px-2 py-2 text-center border-r border-slate-200">약효분류</th>
-                    <th className="px-4 py-2 text-center border-r border-slate-200">
+                    <th className={`${product.classification === 'OTC_DRUG' ? 'w-[88px] sm:w-[96px]' : 'w-[100px]'} px-2 py-2 text-center border-r border-slate-200`}>
+                      약효분류
+                    </th>
+                    <th className="px-3 sm:px-4 py-2 text-center border-r border-slate-200">
                       성분 함량
                     </th>
                     {product.classification === 'OTC_DRUG' && (
-                      <th className="w-[180px] sm:w-[220px] px-3 py-2 text-center border-r border-slate-200">
+                      <th className="w-[280px] sm:w-[350px] px-3 py-2 text-center border-r border-slate-200">
                         원료 형태
                       </th>
                     )}
-                    <th className={`${product.classification === 'OTC_DRUG' ? 'w-[150px] sm:w-[180px]' : 'w-[170px] sm:w-[210px]'} px-2.5 py-2 text-center`}>
+                    <th className={`${product.classification === 'OTC_DRUG' ? 'w-[100px] sm:w-[115px]' : 'w-[170px] sm:w-[210px]'} px-2 py-2 text-center`}>
                       {ulViewMode === 'CHILD' ? (
                         <span className="text-amber-700">상한섭취량 (소아)</span>
                       ) : (
@@ -2133,7 +2135,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                           )}
 
                           {/* 3열(의약품은 4열): 상한섭취량 (소아/성인 모드 대응) */}
-                          <td className="px-3 py-2.5 text-center align-middle">
+                          <td className="px-2 py-2.5 text-center align-middle">
                             {ulViewMode === 'CHILD' ? (
                               item.info.childUlText ? (
                                 <div className="flex flex-col items-center">

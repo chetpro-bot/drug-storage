@@ -1932,20 +1932,27 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                             </td>
                           )}
 
-                          {/* 2열: 성분 함량 (단일/복합 원료염 지원: 예: 칼슘 220mg (젖산 칼슘), 칼슘 55mg (젖산 칼슘, 황산 칼슘)) */}
+                          {/* 2열: 성분 함량 (단일/복합 원료염 지원: 예: 칼슘 220mg (젖산 칼슘), 칼슘 55mg (젖산 칼슘, 황산 칼슘), 비타민K 25µg (비타민 K2(메나퀴논-7))) */}
                           <td className="px-4 py-2.5 border-r border-slate-200 align-middle">
                             {(() => {
-                              const explicitSalt =
-                                item.ing.chemicalFormName && item.ing.chemicalFormName !== '-'
-                                  ? item.ing.chemicalFormName
-                                  : null;
-
                               const nutrientCategory =
                                 item.info.categoryTag && item.info.categoryTag !== '기타'
                                   ? item.info.categoryTag
                                   : item.ing.functionalCategory && item.ing.functionalCategory !== '기타'
                                   ? item.ing.functionalCategory
                                   : null;
+
+                              let explicitSalt =
+                                item.ing.chemicalFormName && item.ing.chemicalFormName !== '-'
+                                  ? item.ing.chemicalFormName
+                                  : null;
+
+                              // 비타민K의 경우 기존 데이터에 원료염이 누락되었더라도 K2(메나퀴논-7) 자동 보정
+                              if (!explicitSalt && (nutrientCategory === '비타민K' || /vitamin\s*k/i.test(item.info.englishName))) {
+                                explicitSalt = '비타민 K2(메나퀴논-7)';
+                              }
+
+                              const displayUnit = item.ing.unit === 'ug' ? 'µg' : item.ing.unit;
 
                               // 원료염이 명시되어 있거나, 성분명 자체가 원료염(예: 글루콘산 마그네슘, 젖산 칼슘 등)인 경우 포맷 적용
                               const hasSaltDetail =
@@ -1954,7 +1961,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                 Boolean(
                                   nutrientCategory &&
                                     item.info.englishName !== nutrientCategory &&
-                                    /(?:글루콘산|젖산|황산|탄산|구연산|산화|염화|해조|푸마르산|락트산)/.test(
+                                    /(?:글루콘산|젖산|황산|탄산|구연산|산화|염화|해조|푸마르산|락트산|메나퀴|메나큐)/.test(
                                       item.info.englishName
                                     )
                                 );
@@ -1973,7 +1980,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                       {nutrientTitle}
                                     </span>
                                     <span className="font-bold text-slate-900 tracking-tight">
-                                      {item.ing.rawAmount.toLocaleString()}{item.ing.unit}
+                                      {item.ing.rawAmount.toLocaleString()}{displayUnit}
                                     </span>
                                     {saltsText && (
                                       <span className="font-normal text-slate-600 text-[11px] tracking-tight">
@@ -1984,13 +1991,15 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                 );
                               }
 
+                              const fallbackTitle = nutrientCategory || item.info.englishName;
+
                               return (
                                 <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
                                   <span className="font-semibold text-slate-900 tracking-tight">
-                                    {item.info.englishName}
+                                    {fallbackTitle}
                                   </span>
                                   <span className="font-bold text-slate-900 tracking-tight">
-                                    {item.ing.rawAmount.toLocaleString()}{item.ing.unit}
+                                    {item.ing.rawAmount.toLocaleString()}{displayUnit}
                                   </span>
                                   {item.info.convertedText && (
                                     <span className="font-medium text-emerald-600 text-[11px]">

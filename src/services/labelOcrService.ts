@@ -905,11 +905,17 @@ export function parseFoodNutritionLabel(rawText: string): {
         }
       });
 
+      // 비타민K의 경우 식품 라벨 특성상 원료명 인식이 누락되더라도 안전하게 K2(메나퀴논-7) 원료염 보장
+      if (def.key === 'VITAMIN_K' && matchedMaterials.length === 0) {
+        matchedMaterials.push('비타민 K2(메나퀴논-7)');
+      }
+
       const saltsList = matchedMaterials.length > 0 ? matchedMaterials.join(', ') : '-';
+      const displayUnit = def.unit === 'ug' ? 'µg' : def.unit;
       const formattedSpec =
         saltsList !== '-'
-          ? `${def.nutrientName} ${matchedAmount}${def.unit} (${saltsList})`
-          : `${def.nutrientName} ${matchedAmount}${def.unit}`;
+          ? `${def.nutrientName} ${matchedAmount}${displayUnit} (${saltsList})`
+          : `${def.nutrientName} ${matchedAmount}${displayUnit}`;
 
       ingredients.push({
         ingredientId: `ing_food_${def.key.toLowerCase()}_${Date.now()}_${ingredients.length}`,
@@ -919,11 +925,11 @@ export function parseFoodNutritionLabel(rawText: string): {
         rawAmount: matchedAmount,
         unit: def.unit,
         standardKey: def.standardKey,
-        chemicalFormName: saltsList,
+        chemicalFormName: saltsList !== '-' ? saltsList : '비타민 K2(메나퀴논-7)',
         formattedSpecification: formattedSpec,
         isMainActive: true,
         clinicalSummary: def.defaultClinicalSummary,
-        noteKorean: `1포당 ${matchedAmount}${def.unit}`
+        noteKorean: `1포당 ${matchedAmount}${displayUnit}`
       });
     }
   });

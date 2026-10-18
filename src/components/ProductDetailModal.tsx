@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ProductItem, AttachedDocument, isBackLabelAttachment, getProductThumbnail } from '../types/product';
 import { ProductIngredientEntry } from '../types/ingredient';
 import { useProductStore } from '../stores/useProductStore';
@@ -941,7 +941,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     product.classification !== 'OTC_DRUG' ? buildHealthFunctionalFoodClaims(product) : [];
 
   // 주의사항 식약처 API 공식 전문 텍스트 및 복약지도 핵심 요약 (제품 사진 업로드와 무관하게 불변 유지)
-  const precautionsList = useMemo(() => {
+  const getOfficialApiPrecautions = (): string[] => {
     if (product.classification === 'OTC_DRUG') {
       return product.otcDetail?.precautionsSummaryKorean || [];
     }
@@ -957,7 +957,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       }
     }
     return current.length > 0 ? current : ['(1) 이상사례 발생 시 섭취를 중단하고 전문가와 상담할 것'];
-  }, [product]);
+  };
+
+  const precautionsList = getOfficialApiPrecautions();
   const precautionsFullText = precautionsList.join('\n');
   const summarizedPrecautions = summarizePrecautions(precautionsList);
 

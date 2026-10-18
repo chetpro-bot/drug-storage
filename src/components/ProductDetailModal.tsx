@@ -1947,11 +1947,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       성분 함량
                     </th>
                     {product.classification === 'OTC_DRUG' && (
-                      <th className="w-[280px] sm:w-[350px] px-3 py-2 text-center border-r border-slate-200">
+                      <th className="w-[240px] sm:w-[260px] px-3 py-2 text-center border-r border-slate-200">
                         원료 형태
                       </th>
                     )}
-                    <th className={`${product.classification === 'OTC_DRUG' ? 'w-[100px] sm:w-[115px]' : 'w-[170px] sm:w-[210px]'} px-2 py-2 text-center`}>
+                    <th className={`${product.classification === 'OTC_DRUG' ? 'w-[160px] sm:w-[175px]' : 'w-[170px] sm:w-[210px]'} px-2.5 py-2 text-center`}>
                       {ulViewMode === 'CHILD' ? (
                         <span className="text-amber-700">상한섭취량 (소아)</span>
                       ) : (
@@ -2135,18 +2135,18 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                           )}
 
                           {/* 3열(의약품은 4열): 상한섭취량 (소아/성인 모드 대응) */}
-                          <td className="px-2 py-2.5 text-center align-middle">
+                          <td className="px-2.5 sm:px-3 py-2.5 text-center align-middle">
                             {ulViewMode === 'CHILD' ? (
                               item.info.childUlText ? (
                                 <div className="flex flex-col items-center">
                                   <span
                                     title={item.info.childUlNote || '2025 KDRIs 소아 상한섭취량(UL)'}
-                                    className="text-xs font-bold text-amber-700 tracking-tight cursor-help"
+                                    className="text-xs font-bold text-amber-700 tracking-tight cursor-help whitespace-nowrap"
                                   >
                                     {item.info.childUlText}
                                   </span>
                                   {item.info.ulText && (
-                                    <span className="text-[10px] text-slate-400 font-normal">
+                                    <span className="text-[10px] text-slate-400 font-normal whitespace-nowrap">
                                       (성인 {item.info.ulText})
                                     </span>
                                   )}
@@ -2155,11 +2155,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                 <div className="flex flex-col items-center">
                                   <span
                                     title={item.info.ulNote || '2025 한국인 영양소 섭취기준(KDRIs) 성인 1일 상한섭취량(UL)'}
-                                    className="text-xs font-semibold text-rose-600 tracking-tight"
+                                    className="text-xs font-semibold text-rose-600 tracking-tight whitespace-nowrap"
                                   >
                                     {item.info.ulText}
                                   </span>
-                                  <span className="text-[10px] text-slate-400 font-normal">
+                                  <span className="text-[10px] text-slate-400 font-normal whitespace-nowrap">
                                     (성인 기준)
                                   </span>
                                 </div>
@@ -2170,7 +2170,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                               item.info.ulText ? (
                                 <span
                                   title={item.info.ulNote || '2025 한국인 영양소 섭취기준(KDRIs) 성인 1일 상한섭취량(UL)'}
-                                  className="text-xs font-semibold text-rose-600 tracking-tight"
+                                  className="text-xs font-semibold text-rose-600 tracking-tight whitespace-nowrap"
                                 >
                                   {item.info.ulText}
                                 </span>

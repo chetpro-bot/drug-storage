@@ -1683,15 +1683,22 @@ export function resolveIngredientDisplayInfo(
     }
   }
 
-  // 3. 약효분류 태그 결정 (엽산 -> 비타민B9(엽산) 등 표준화)
+  // 3. 약효분류 태그 결정 (비타민B9(엽산) -> 엽산, 미네랄 원소기호 제거 등 표준화)
   let rawCategory =
     ing.functionalCategory && ing.functionalCategory !== '기타'
       ? ing.functionalCategory
       : meta?.functionalCategory || resolveKpicCategory(englishName) || resolveKpicCategory(rawInn) || '기타';
 
   let categoryTag = normalizeCategory(rawCategory);
-  if (normEng === 'folicacid' || normEng === 'folate' || categoryTag === '엽산' || categoryTag === '폴산') {
-    categoryTag = '비타민B9(엽산)';
+  if (
+    normEng === 'folicacid' ||
+    normEng === 'folate' ||
+    categoryTag === '엽산' ||
+    categoryTag === '폴산' ||
+    categoryTag === '비타민B9(엽산)' ||
+    categoryTag === '비타민B9'
+  ) {
+    categoryTag = '엽산';
   }
 
   // 4. 실제 성분량(원소량 / 활성 유효성분량) 환산 계산
@@ -1721,26 +1728,31 @@ export function resolveIngredientDisplayInfo(
 
   // 환산 라벨이 사전에 없을 경우 카테고리/성분명 기반 기본 라벨 부여
   if (convertedAmount !== undefined && !convertedLabel) {
-    if (categoryTag === '마그네슘(Mg)') convertedLabel = '마그네슘으로서';
-    else if (categoryTag === '아연(Zn)') convertedLabel = '아연으로서';
-    else if (categoryTag === '칼슘(Ca)') convertedLabel = '칼슘으로서';
-    else if (categoryTag.includes('철')) convertedLabel = '철로서';
-    else if (categoryTag === '셀레늄(Se)') convertedLabel = '셀레늄으로서';
-    else if (categoryTag === '크롬(Cr)') convertedLabel = '크롬으로서';
-    else if (categoryTag.startsWith('비타민D')) convertedLabel = '비타민D로서';
-    else if (categoryTag === '비타민E') convertedLabel = '비타민E로서';
-    else if (categoryTag === '비타민B1') convertedLabel = '티아민염산염으로서';
-    else if (categoryTag === '비타민B2') convertedLabel = '리보플라빈으로서';
-    else if (categoryTag === '비타민B5') convertedLabel = '판토텐산으로서';
-    else if (categoryTag === '비타민B6') convertedLabel = '피리독신으로서';
-    else if (categoryTag === '비타민C') convertedLabel = '아스코르브산으로서';
+    if (categoryTag === '마그네슘' || categoryTag === '마그네슘(Mg)') convertedLabel = '마그네슘';
+    else if (categoryTag === '아연' || categoryTag === '아연(Zn)') convertedLabel = '아연';
+    else if (categoryTag === '칼슘' || categoryTag === '칼슘(Ca)') convertedLabel = '칼슘';
+    else if (categoryTag.includes('철')) convertedLabel = '철';
+    else if (categoryTag === '셀레늄' || categoryTag === '셀레늄(Se)') convertedLabel = '셀레늄';
+    else if (categoryTag === '크롬' || categoryTag === '크롬(Cr)') convertedLabel = '크롬';
+    else if (categoryTag.startsWith('비타민D')) convertedLabel = '비타민D';
+    else if (categoryTag === '비타민E') convertedLabel = '비타민E';
+    else if (categoryTag === '비타민B1') convertedLabel = '티아민염산염';
+    else if (categoryTag === '비타민B2') convertedLabel = '리보플라빈';
+    else if (categoryTag === '비타민B5') convertedLabel = '판토텐산';
+    else if (categoryTag === '비타민B6') convertedLabel = '피리독신';
+    else if (categoryTag === '비타민C') convertedLabel = '아스코르브산';
   }
+
+  // '~으로서', '~로서' 접미사 제거하여 (리보플라빈 28.65mg) 형태로 깔끔하게 표기
+  const cleanConvertedLabel = convertedLabel
+    ? convertedLabel.replace(/(으로서|로서)$/, '').trim()
+    : undefined;
 
   const convertedText =
     convertedAmount !== undefined
-      ? convertedLabel
-        ? `${convertedLabel} ${convertedAmount.toLocaleString()} ${convertedUnit}`
-        : `${convertedAmount.toLocaleString()} ${convertedUnit}`
+      ? cleanConvertedLabel
+        ? `${cleanConvertedLabel} ${convertedAmount.toLocaleString()}${convertedUnit}`
+        : `${convertedAmount.toLocaleString()}${convertedUnit}`
       : null;
 
   // 5. 2025 한국인 영양소 섭취기준(KDRIs) 성인 상한섭취량(UL) 매칭
@@ -1750,21 +1762,28 @@ export function resolveIngredientDisplayInfo(
       standardKey = 'VITAMIN_A';
     } else if (categoryTag === '비타민B3') standardKey = 'VITAMIN_B3';
     else if (categoryTag === '비타민B6') standardKey = 'VITAMIN_B6';
-    else if (categoryTag === '비타민B9(엽산)') standardKey = 'VITAMIN_B9';
+    else if (categoryTag === '엽산' || categoryTag === '비타민B9(엽산)') standardKey = 'VITAMIN_B9';
     else if (categoryTag === '비타민C') standardKey = 'VITAMIN_C';
     else if (categoryTag === '비타민D' || categoryTag === '비타민D3' || categoryTag === '비타민D2') {
       standardKey = 'VITAMIN_D';
     } else if (categoryTag === '비타민E') standardKey = 'VITAMIN_E';
-    else if (categoryTag === '칼슘(Ca)') standardKey = 'CALCIUM';
-    else if (categoryTag === '마그네슘(Mg)') standardKey = 'MAGNESIUM';
-    else if (categoryTag === '아연(Zn)') standardKey = 'ZINC';
-    else if (categoryTag === '제1철 (Ferrous)' || categoryTag === '제2철 (Ferric)' || categoryTag === '철(Fe)') {
+    else if (categoryTag === '칼슘' || categoryTag === '칼슘(Ca)') standardKey = 'CALCIUM';
+    else if (categoryTag === '마그네슘' || categoryTag === '마그네슘(Mg)') standardKey = 'MAGNESIUM';
+    else if (categoryTag === '아연' || categoryTag === '아연(Zn)') standardKey = 'ZINC';
+    else if (
+      categoryTag === '철' ||
+      categoryTag === '제1철' ||
+      categoryTag === '제2철' ||
+      categoryTag === '제1철 (Ferrous)' ||
+      categoryTag === '제2철 (Ferric)' ||
+      categoryTag === '철(Fe)'
+    ) {
       standardKey = 'IRON';
-    } else if (categoryTag === '셀레늄(Se)') standardKey = 'SELENIUM';
-    else if (categoryTag === '구리(Cu)' || categoryTag === '동(Cu)') standardKey = 'COPPER';
-    else if (categoryTag === '망간(Mn)') standardKey = 'MANGANESE';
-    else if (categoryTag === '요오드(I)') standardKey = 'IODINE';
-    else if (categoryTag === '몰리브덴(Mo)') standardKey = 'MOLYBDENUM';
+    } else if (categoryTag === '셀레늄' || categoryTag === '셀레늄(Se)') standardKey = 'SELENIUM';
+    else if (categoryTag === '구리' || categoryTag === '구리(Cu)' || categoryTag === '동(Cu)') standardKey = 'COPPER';
+    else if (categoryTag === '망간' || categoryTag === '망간(Mn)') standardKey = 'MANGANESE';
+    else if (categoryTag === '요오드' || categoryTag === '요오드(I)') standardKey = 'IODINE';
+    else if (categoryTag === '몰리브덴' || categoryTag === '몰리브덴(Mo)') standardKey = 'MOLYBDENUM';
     else if (normEng.includes('choline')) standardKey = 'CHOLINE';
   }
 
@@ -1815,7 +1834,7 @@ export function resolveIngredientDisplayInfo(
   }
 
   // 6. 정렬 그룹 및 비타민 세부 순서 결정
-  // Group 1: 비타민 (A -> B1 -> B2 -> B3 -> B5 -> B6 -> B7 -> B9(엽산) -> B12 -> 기타 비타민B -> C -> D -> E -> K)
+  // Group 1: 비타민 (A -> B1 -> B2 -> B3 -> B5 -> B6 -> B7 -> 엽산(B9) -> B12 -> 기타 비타민B -> C -> D -> E -> K)
   // Group 2: 미네랄 (알파벳순)
   // Group 3: 나머지 성분 (알파벳순)
   const VITAMIN_ORDER_MAP: Record<string, number> = {
@@ -1826,6 +1845,7 @@ export function resolveIngredientDisplayInfo(
     '비타민B5': 25,
     '비타민B6': 26,
     '비타민B7': 27,
+    '엽산': 29,
     '비타민B9(엽산)': 29,
     '비타민B12': 32,
     '기타 비타민B': 39,
@@ -1840,19 +1860,32 @@ export function resolveIngredientDisplayInfo(
   };
 
   const MINERAL_CATEGORIES = new Set([
+    '칼슘',
     '칼슘(Ca)',
+    '마그네슘',
     '마그네슘(Mg)',
+    '아연',
     '아연(Zn)',
+    '철',
     '철(Fe)',
+    '제1철',
+    '제2철',
     '제1철 (Ferrous)',
     '제2철 (Ferric)',
+    '셀레늄',
     '셀레늄(Se)',
+    '구리',
     '구리(Cu)',
     '동(Cu)',
+    '망간',
     '망간(Mn)',
+    '크롬',
     '크롬(Cr)',
+    '몰리브덴',
     '몰리브덴(Mo)',
+    '요오드',
     '요오드(I)',
+    '칼륨',
     '칼륨(K)',
     '무기질(Mineral)제제'
   ]);

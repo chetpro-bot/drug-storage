@@ -638,16 +638,23 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </div>
           </div>
 
-          {/* SECTION 2: 표시 함량 (약효분류 태그 - 영문 성분명 - 함량(실제 환산량) - 상한섭취량 표기) */}
+          {/* SECTION 2: 성분 / 함량 (약효분류 | 성분 함량 | 상한섭취량 3열 세로줄 구분 정렬) */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-extrabold text-slate-500">표시 함량</h3>
-              <span className="text-[11px] font-semibold text-slate-500">
-                1회 섭취량 ({servingUnitLabel}) 기준 · 총 {sortedIngredients.length}종
-              </span>
+              <h3 className="text-xs font-extrabold text-slate-500">
+                성분 / 함량 ({servingUnitLabel})
+              </h3>
             </div>
 
-            <div className="divide-y divide-slate-100 border border-slate-200 rounded-xl overflow-hidden bg-white">
+            <div className="divide-y divide-slate-200 border border-slate-200 rounded-xl overflow-hidden bg-white">
+              {/* 테이블 컬럼 헤더 */}
+              <div className="grid grid-cols-[100px_1fr_180px] divide-x divide-slate-200 bg-slate-50 text-[11px] font-extrabold text-slate-600">
+                <div className="px-2 py-2 text-center">약효분류</div>
+                <div className="px-3.5 py-2 text-center">성분 함량</div>
+                <div className="px-2.5 py-2 text-center">상한섭취량</div>
+              </div>
+
+              {/* 성분 행 목록 */}
               {sortedIngredients.map((ing, idx) => {
                 const info = resolveIngredientDisplayInfo(ing, product.productName);
                 const badgeStyle = getDarkCategoryBadgeStyle(info.categoryTag);
@@ -655,44 +662,44 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 return (
                   <div
                     key={ing.ingredientId || idx}
-                    className="py-2.5 px-3 flex items-center justify-between gap-3 hover:bg-sky-50/40 transition-colors flex-wrap sm:flex-nowrap"
+                    className="grid grid-cols-[100px_1fr_180px] divide-x divide-slate-200 hover:bg-sky-50/40 transition-colors"
                   >
-                    {/* 좌측: [약효분류 태그] + [영문 성분명] */}
-                    <div className="flex items-center gap-2.5 min-w-0">
+                    {/* 1열: 약효분류 태그 (작은 사이즈) */}
+                    <div className="px-2 py-2 flex items-center justify-center">
                       <span
-                        className={`text-[11px] font-bold px-2 py-0.5 rounded-md border shrink-0 whitespace-nowrap ${badgeStyle}`}
+                        className={`text-[10px] font-bold px-1.5 py-0.5 rounded border leading-tight text-center ${badgeStyle}`}
                       >
                         {info.categoryTag}
                       </span>
-                      <span className="text-xs font-bold text-slate-900 font-mono truncate">
-                        {info.englishName}
-                      </span>
                     </div>
 
-                    {/* 우측: [표시 함량] + [(실제 성분 환산량)] + [/ 1회 섭취량] + [상한량(UL) 배지] */}
-                    <div className="flex items-center gap-2 shrink-0 ml-auto font-mono">
-                      <div className="text-right">
-                        <span className="text-xs font-extrabold text-slate-900">
-                          {ing.rawAmount.toLocaleString()} {ing.unit}
+                    {/* 2열: 성분 함량 + 하단 (실제 환산 성분량) */}
+                    <div className="px-3.5 py-2 flex flex-col justify-center min-w-0 font-mono">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="text-xs font-bold text-slate-900 truncate">
+                          {info.englishName}
                         </span>
-                        {info.convertedText && (
-                          <span className="text-[11px] font-bold text-emerald-600 ml-1.5">
-                            ({info.convertedText})
-                          </span>
-                        )}
-                        <span className="text-xs font-semibold text-slate-400 ml-1">
-                          / {servingUnitLabel}
+                        <span className="text-xs font-extrabold text-slate-900 shrink-0">
+                          {ing.rawAmount.toLocaleString()}{ing.unit}
                         </span>
                       </div>
+                      {info.convertedText && (
+                        <div className="text-[11px] font-bold text-emerald-600 text-right mt-0.5">
+                          ({info.convertedText})
+                        </div>
+                      )}
+                    </div>
 
-                      {info.ulText && (
+                    {/* 3열: 상한섭취량 */}
+                    <div className="px-2 py-2 flex items-center justify-center font-mono">
+                      {info.ulText ? (
                         <span
                           title={info.ulNote || '2025 한국인 영양소 섭취기준(KDRIs) 성인 1일 상한섭취량(UL)'}
-                          className="text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md whitespace-nowrap"
+                          className="text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded whitespace-nowrap"
                         >
                           {info.ulText}
                         </span>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 );

@@ -3,9 +3,28 @@ export function normalizeCategory(cat: string): string {
   let res = cat.replace(/^비타민([A-Za-z0-9]+)\s*제제$/, '비타민$1');
   res = res.replace(/\s*보충$/, '');
   res = res.trim();
-  if (res === '엽산' || res === '폴산' || res === '비타민B9') {
-    return '비타민B9(엽산)';
+
+  // 엽산 / 폴산 / 비타민B9는 모두 '엽산'으로 표기 통일 (정렬 순서는 B9 위치 유지)
+  if (res === '엽산' || res === '폴산' || res === '비타민B9' || res === '비타민B9(엽산)') {
+    return '엽산';
   }
+
+  // 미네랄 원소기호 제거
+  if (res === '마그네슘(Mg)') return '마그네슘';
+  if (res === '아연(Zn)') return '아연';
+  if (res === '칼슘(Ca)') return '칼슘';
+  if (res === '셀레늄(Se)' || res === '셀렌') return '셀레늄';
+  if (res === '크롬(Cr)') return '크롬';
+  if (res === '구리(Cu)' || res === '동(Cu)') return '구리';
+  if (res === '망간(Mn)') return '망간';
+  if (res === '요오드(I)') return '요오드';
+  if (res === '몰리브덴(Mo)') return '몰리브덴';
+  if (res === '칼륨(K)') return '칼륨';
+  if (res === '철(Fe)' || res === '제1철 (Ferrous)' || res === '제2철 (Ferric)') return '철';
+
+  // 기타 괄호 원소기호 패턴 제거 (예: '마그네슘(Mg)' -> '마그네슘')
+  res = res.replace(/\([A-Z][a-z]?\)$/, '').trim();
+
   return res;
 }
 
@@ -17,7 +36,7 @@ export const STANDARD_EFFICACY_CATEGORIES = [
   '비타민B5',
   '비타민B6',
   '비타민B7',
-  '비타민B9(엽산)',
+  '엽산',
   '비타민B12',
   '기타 비타민B',
   '비타민C',
@@ -25,14 +44,14 @@ export const STANDARD_EFFICACY_CATEGORIES = [
   '비타민D3',
   '비타민E',
   '비타민K',
-  '마그네슘(Mg)',
-  '아연(Zn)',
-  '칼슘(Ca)',
-  '셀레늄(Se)',
-  '크롬(Cr)',
-  '제1철 (Ferrous)',
-  '동(Cu)',
-  '망간(Mn)',
+  '마그네슘',
+  '아연',
+  '칼슘',
+  '셀레늄',
+  '크롬',
+  '철',
+  '구리',
+  '망간',
   '소화효소제',
   '소염효소',
   '장내 가스 제거제',
@@ -64,8 +83,8 @@ export function getCategoryColor(cat: string): string {
       return 'bg-teal-50 text-teal-800 border-teal-200';
     case '비타민B7':
       return 'bg-emerald-50 text-emerald-800 border-emerald-200';
-    case '비타민B9(엽산)':
     case '엽산':
+    case '비타민B9(엽산)':
     case '엽산 보충':
       return 'bg-green-50 text-green-800 border-green-200';
     case '비타민B12':
@@ -87,25 +106,23 @@ export function getCategoryColor(cat: string): string {
     case '비타민K':
     case '비타민K 제제':
       return 'bg-teal-50 text-teal-700 border-teal-200';
-    case '마그네슘(Mg)':
+    case '마그네슘':
       return 'bg-indigo-50 text-indigo-700 border-indigo-200';
-    case '아연(Zn)':
+    case '아연':
       return 'bg-violet-50 text-violet-700 border-violet-200';
-    case '칼슘(Ca)':
+    case '칼슘':
       return 'bg-cyan-50 text-cyan-700 border-cyan-200';
-    case '셀레늄(Se)':
+    case '셀레늄':
       return 'bg-blue-50 text-blue-700 border-blue-200';
-    case '크롬(Cr)':
+    case '크롬':
       return 'bg-purple-50 text-purple-700 border-purple-200';
-    case '제1철 (Ferrous)':
-    case '제2철 (Ferric)':
-    case '철(Fe)':
+    case '철':
       return 'bg-purple-50 text-purple-800 border-purple-200';
-    case '구리(Cu)':
-    case '동(Cu)':
-    case '망간(Mn)':
-    case '요오드(I)':
-    case '몰리브덴(Mo)':
+    case '구리':
+    case '망간':
+    case '요오드':
+    case '몰리브덴':
+    case '칼륨':
       return 'bg-indigo-50 text-indigo-700 border-indigo-200';
     case '소화효소제':
       return 'bg-blue-50 text-blue-700 border-blue-200';

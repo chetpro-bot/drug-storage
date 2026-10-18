@@ -1,6 +1,5 @@
-import React from 'react';
-import { Search, Plus, Filter, Package, AlertCircle, LayoutGrid, MapPin } from 'lucide-react';
-import { useProductStore } from '../stores/useProductStore';
+import { Search, Plus, Filter, Package, AlertCircle, LayoutGrid, MapPin, ArrowUpDown } from 'lucide-react';
+import { useProductStore, ProductSortOption } from '../stores/useProductStore';
 import { ProductClassification } from '../types/classification';
 
 interface SidebarProps {
@@ -19,7 +18,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenNewProductModal }) => {
     setClassificationFilter,
     selectedTag,
     setSelectedTag,
-    getFilteredProducts
+    getFilteredProducts,
+    sortBy,
+    setSortBy
   } = useProductStore();
 
   const filteredProducts = getFilteredProducts();
@@ -128,12 +129,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenNewProductModal }) => {
         </div>
       </div>
 
-      {/* 리스트 요약 카운트 및 활성 효능 태그 표시 */}
-      <div className="px-3.5 py-1.5 bg-slate-100/70 border-b border-slate-200 text-[11px] text-slate-500 flex justify-between items-center">
-        <div className="flex items-center gap-1.5">
-          <span>취급 목록 ({filteredProducts.length}건)</span>
+      {/* 리스트 요약 카운트 및 활성 효능 태그 표시 & 정렬 선택 */}
+      <div className="px-3 py-1.5 bg-slate-100/70 border-b border-slate-200 text-[11px] text-slate-500 flex justify-between items-center gap-2">
+        <div className="flex items-center gap-1.5 truncate">
+          <span className="font-semibold text-slate-700">목록 ({filteredProducts.length})</span>
           {selectedTag && (
-            <span className="px-1.5 py-0.2 rounded bg-sky-100 text-sky-800 font-bold text-[10px] flex items-center gap-1">
+            <span className="px-1.5 py-0.2 rounded bg-sky-100 text-sky-800 font-bold text-[10px] flex items-center gap-1 shrink-0">
               #{selectedTag}
               <button
                 onClick={() => setSelectedTag(null)}
@@ -144,7 +145,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ onOpenNewProductModal }) => {
             </span>
           )}
         </div>
-        <span className="text-[10px] text-slate-400">클릭 시 상세 조회</span>
+        <div className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-md border border-slate-200 text-[11px] shrink-0">
+          <ArrowUpDown className="w-3 h-3 text-sky-600" />
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as ProductSortOption)}
+            className="bg-transparent text-[11px] font-bold text-slate-600 focus:outline-none cursor-pointer"
+            aria-label="사이드바 제품 정렬 기준"
+          >
+            <option value="NAME_ASC">가나다순</option>
+            <option value="CREATED_DESC">등록순</option>
+            <option value="UPDATED_DESC">수정순</option>
+          </select>
+        </div>
       </div>
 
       {/* 품목 리스트 */}

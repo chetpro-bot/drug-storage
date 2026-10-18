@@ -14,6 +14,7 @@ import {
 import { isLiveFirebaseConfigured } from '../services/firebase';
 
 export type MainViewMode = 'CATALOG' | 'DETAIL';
+export type ProductSortOption = 'NAME_ASC' | 'CREATED_DESC' | 'UPDATED_DESC';
 
 interface ProductState {
   products: ProductItem[];
@@ -22,6 +23,7 @@ interface ProductState {
   searchQuery: string;
   classificationFilter: ProductClassification | 'ALL';
   selectedTag: string | null;
+  sortBy: ProductSortOption;
   isLiveSyncActive: boolean;
   isSyncing: boolean;
 
@@ -31,6 +33,7 @@ interface ProductState {
   setSearchQuery: (query: string) => void;
   setClassificationFilter: (filter: ProductClassification | 'ALL') => void;
   setSelectedTag: (tag: string | null) => void;
+  setSortBy: (sort: ProductSortOption) => void;
   
   // Realtime Cloud Init
   initRealtimeSubscription: () => () => void;
@@ -51,6 +54,49 @@ interface ProductState {
 
 const LOCAL_STORAGE_KEY = 'pharmassist_products_v3';
 const DELETED_IDS_KEY = 'pharmassist_deleted_ids_v1';
+const SORT_BY_STORAGE_KEY = 'pharmassist_sort_by_v1';
+
+export function getSavedSortBy(): ProductSortOption {
+  try {
+    const saved = localStorage.getItem(SORT_BY_STORAGE_KEY);
+    if (saved === 'NAME_ASC' || saved === 'CREATED_DESC' || saved === 'UPDATED_DESC') {
+      return saved;
+    }
+  } catch (e) {}
+  return 'NAME_ASC';
+}
+
+export function sortProducts(products: ProductItem[], sortBy: ProductSortOption = 'NAME_ASC'): ProductItem[] {
+  return [...products].sort((a, b) => {
+    if (sortBy === 'NAME_ASC') {
+      const cmp = (a.productName || '').localeCompare(b.productName || '', 'ko', {
+        sensitivity: 'base',
+        numeric: true
+      });
+      if (cmp !== 0) return cmp;
+      return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+    }
+    if (sortBy === 'CREATED_DESC') {
+      const timeDiff = new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+      if (timeDiff !== 0) return timeDiff;
+      return (a.productName || '').localeCompare(b.productName || '', 'ko', {
+        sensitivity: 'base',
+        numeric: true
+      });
+    }
+    if (sortBy === 'UPDATED_DESC') {
+      const timeDiff =
+        new Date(b.updatedAt || b.createdAt || 0).getTime() -
+        new Date(a.updatedAt || a.createdAt || 0).getTime();
+      if (timeDiff !== 0) return timeDiff;
+      return (a.productName || '').localeCompare(b.productName || '', 'ko', {
+        sensitivity: 'base',
+        numeric: true
+      });
+    }
+    return 0;
+  });
+}
 
 const OLD_NUTRITION_CATEGORIES = new Set([
   '에너지 대사',
@@ -265,7 +311,8 @@ function getInitialProducts(): ProductItem[] {
     }
   });
 
-  const migrated = migrateAndEnsureKpic(loadedProducts);
+  const currentSort = getSavedSortBy();
+  const migrated = sortProducts(migrateAndEnsureKpic(loadedProducts), currentSort);
   persistToLocal(migrated);
   return migrated;
 }
@@ -280,6 +327,7 @@ function persistToLocal(products: ProductItem[]) {
 
 export const useProductStore = create<ProductState>((set, get) => {
   const initialProducts = getInitialProducts();
+  const initialSort = getSavedSortBy();
 
   return {
     products: initialProducts,
@@ -288,6 +336,7 @@ export const useProductStore = create<ProductState>((set, get) => {
     searchQuery: '',
     classificationFilter: 'ALL',
     selectedTag: null,
+    sortBy: initialSort,
     isLiveSyncActive: isLiveFirebaseConfigured(),
     isSyncing: false,
 
@@ -296,6 +345,14 @@ export const useProductStore = create<ProductState>((set, get) => {
     setSearchQuery: (query) => set({ searchQuery: query }),
     setClassificationFilter: (filter) => set({ classificationFilter: filter }),
     setSelectedTag: (tag) => set({ selectedTag: tag }),
+    setSortBy: (sort) => {
+      try {
+        localStorage.setItem(SORT_BY_STORAGE_KEY, sort);
+      } catch (e) {}
+      const sorted = sortProducts(get().products, sort);
+      persistToLocal(sorted);
+      set({ sortBy: sort, products: sorted });
+    },
 
     initRealtimeSubscription: () => {
       set({ isSyncing: true });
@@ -326,11 +383,11 @@ export const useProductStore = create<ProductState>((set, get) => {
           }
         });
 
-        // 등록/수정일시 최신순으로 정렬 및 KPIC 약효분류 체계 자동 마이그레이션 적용
-        const mergedList = migrateAndEnsureKpic(Array.from(mergedMap.values())).sort(
-          (a, b) =>
-            new Date(b.updatedAt || b.createdAt).getTime() -
-            new Date(a.updatedAt || a.createdAt).getTime()
+        // 선택된 정렬 기준(기본: 가나다순) 적용 및 KPIC 약효분류 체계 자동 마이그레이션 적용
+        const currentSort = get().sortBy || 'NAME_ASC';
+        const mergedList = sortProducts(
+          migrateAndEnsureKpic(Array.from(mergedMap.values())),
+          currentSort
         );
 
         // 로컬에만 있고 Firestore에는 아직 저장되지 않은 제품들은 백그라운드로 보강 동기화
@@ -353,7 +410,11 @@ export const useProductStore = create<ProductState>((set, get) => {
 
     addProduct: async (product) => {
       unmarkDeletedId(product.id);
-      const next = [product, ...get().products.filter((p) => p.id !== product.id)];
+      const currentSort = get().sortBy || 'NAME_ASC';
+      const next = sortProducts(
+        [product, ...get().products.filter((p) => p.id !== product.id)],
+        currentSort
+      );
       persistToLocal(next);
       set({ products: next, selectedProductId: product.id });
       try {
@@ -494,10 +555,10 @@ export const useProductStore = create<ProductState>((set, get) => {
 
 
   getFilteredProducts: () => {
-    const { products, searchQuery, classificationFilter, selectedTag } = get();
+    const { products, searchQuery, classificationFilter, selectedTag, sortBy } = get();
     const query = searchQuery.trim().toLowerCase();
 
-    return products.filter((item) => {
+    const filtered = products.filter((item) => {
       if (classificationFilter !== 'ALL' && item.classification !== classificationFilter) {
         return false;
       }
@@ -527,6 +588,8 @@ export const useProductStore = create<ProductState>((set, get) => {
         Boolean(matchBarcode)
       );
     });
+
+    return sortProducts(filtered, sortBy);
   },
 
   getSelectedProduct: () => {

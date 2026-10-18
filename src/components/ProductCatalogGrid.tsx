@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { useProductStore } from '../stores/useProductStore';
+import { useProductStore, ProductSortOption } from '../stores/useProductStore';
 import { ProductItem, getProductThumbnail } from '../types/product';
 import { ProductClassification } from '../types/classification';
 import {
@@ -19,7 +19,8 @@ import {
   Check,
   X,
   Edit3,
-  Tag
+  Tag,
+  ArrowUpDown
 } from 'lucide-react';
 
 interface ProductCatalogGridProps {
@@ -43,7 +44,9 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
     setSelectedTag,
     setSelectedProductId,
     updateProduct,
-    getFilteredProducts
+    getFilteredProducts,
+    sortBy,
+    setSortBy
   } = useProductStore();
 
   const filteredProducts = getFilteredProducts();
@@ -274,6 +277,21 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
                   </button>
                 );
               })}
+            </div>
+
+            {/* 정렬 선택 드롭다운 (가나다순 / 최근 등록순 / 최근 수정순) */}
+            <div className="flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200/80 shadow-2xs">
+              <ArrowUpDown className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as ProductSortOption)}
+                className="bg-transparent text-xs font-bold text-slate-700 focus:outline-none cursor-pointer pr-1"
+                aria-label="제품 정렬 기준"
+              >
+                <option value="NAME_ASC">가나다순 (기본)</option>
+                <option value="CREATED_DESC">최근 등록순</option>
+                <option value="UPDATED_DESC">최근 수정순</option>
+              </select>
             </div>
 
             <button

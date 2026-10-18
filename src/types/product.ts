@@ -54,6 +54,7 @@ export interface ProductItem {
   dailyServings: number;                // 1일 복용 횟수 (예: 1회)
   amountPerServing: number;             // 1회 복용량 (예: 1정)
   servingUnitKorean: string;            // 단위 (정, 캡슐, 포, ml)
+  ingredientBasis?: 'PER_UNIT' | 'PER_DAILY'; // 성분 함량 기재 기준 (1알/1포당 vs 하루 섭취량당)
 
   // 성분 리스트 (모든 유효성분은 영문 INN 기준 매핑)
   ingredients: ProductIngredientEntry[];

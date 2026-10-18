@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ProductItem } from '../types/product';
+import { ProductIngredientEntry } from '../types/ingredient';
 import { useProductStore } from '../stores/useProductStore';
 import {
   fetchMfdsDrugDetail,
@@ -526,6 +527,18 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [isFetchingFullApiText, setIsFetchingFullApiText] = useState(false);
   const [isIndicationsFullModalOpen, setIsIndicationsFullModalOpen] = useState(false);
   const [isPrecautionsFullModalOpen, setIsPrecautionsFullModalOpen] = useState(false);
+  // 성분 함량 표시 기준 (1알/1포당 vs 하루 섭취량당)
+  const [displayBasis, setDisplayBasis] = useState<'PER_UNIT' | 'PER_DAILY'>('PER_UNIT');
+
+  // 제품이 변경될 때마다 기본 표시 기준 동기화 (건기식은 기본 하루 복용량 기준, 의약품은 1알 기준)
+  useEffect(() => {
+    if (product) {
+      setDisplayBasis(
+        product.ingredientBasis ||
+          (product.classification === 'HEALTH_FUNCTIONAL_FOOD' ? 'PER_DAILY' : 'PER_UNIT')
+      );
+    }
+  }, [product?.id, product?.classification, product?.ingredientBasis]);
 
   // 기존 DB에 저장된 제품의 주의사항이나 의약품 효능·효과가 요약본(placeholder)인 경우,
   // 모달 오픈 시 오픈API에서 전문(Full Text)을 자동으로 가져와 즉시 표시 및 DB 업데이트
@@ -703,7 +716,25 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     product.otcDetail?.dosageAndAdministrationKorean ||
     `1일 ${product.dailyServings}회, 1회 ${product.amountPerServing}${product.servingUnitKorean}을(를) 충분한 물과 함께 섭취하십시오.`;
 
-  const servingUnitLabel = `${product.amountPerServing || 1}${product.servingUnitKorean || '개'}`;
+  const unitName = product.servingUnitKorean || '정';
+  const dailyServings = product.dailyServings || 1;
+  const amountPerServing = product.amountPerServing || 1;
+  const totalDailyDose = dailyServings * amountPerServing;
+
+  // 제품의 원본 성분 데이터가 어떤 기준(1알/1포당 vs 하루 섭취량당)으로 등록되었는지 판별
+  const storedBasis: 'PER_UNIT' | 'PER_DAILY' =
+    product.ingredientBasis ||
+    (product.classification === 'HEALTH_FUNCTIONAL_FOOD' ? 'PER_DAILY' : 'PER_UNIT');
+
+  // 현재 사용자가 선택한 표시 기준(displayBasis)에 맞춰 성분 함량을 환산할 배율(factor) 계산
+  let doseFactor = 1;
+  if (storedBasis === 'PER_UNIT' && displayBasis === 'PER_DAILY') {
+    // 1알당 저장 데이터 -> 하루 섭취량 보기 (x totalDailyDose)
+    doseFactor = totalDailyDose;
+  } else if (storedBasis === 'PER_DAILY' && displayBasis === 'PER_UNIT') {
+    // 하루 섭취량 저장 데이터 -> 1알당 보기 (÷ totalDailyDose)
+    doseFactor = totalDailyDose > 0 ? 1 / totalDailyDose : 1;
+  }
 
   // 성분 정렬 (비타민 A, B1..B9..B12, C, D, E, K -> 미네랄 알파벳순 -> 기타 성분 알파벳순; 동일 분류 내 알파벳순)
   const sortedIngredients = sortProductIngredients(product.ingredients, product.productName);
@@ -909,10 +940,59 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
           {/* SECTION 2: 성분 / 함량 (약효분류 | 성분 함량 | 상한섭취량 3열 세로줄 구분 정렬) */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-extrabold text-slate-500">
-                성분 / 함량 ({servingUnitLabel})
-              </h3>
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-3">
+                <h3 className="text-xs font-extrabold text-slate-700">
+                  성분 / 함량
+                </h3>
+
+                {/* 1알/1포 vs 하루 섭취량 선택 토글 세그먼트 */}
+                <div className="inline-flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() => setDisplayBasis('PER_UNIT')}
+                    className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                      displayBasis === 'PER_UNIT'
+                        ? 'bg-white text-sky-700 shadow-2xs font-extrabold'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    1{unitName} 기준
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDisplayBasis('PER_DAILY')}
+                    className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                      displayBasis === 'PER_DAILY'
+                        ? 'bg-white text-sky-700 shadow-2xs font-extrabold'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    하루 섭취량 ({totalDailyDose}{unitName}) 기준
+                  </button>
+                </div>
+              </div>
+
+              {/* 기본 등록 기준 및 환산 배율 안내 & 원본 등록 기준 전환 버튼 */}
+              <div className="flex items-center gap-1.5 text-[11px]">
+                <span className="text-slate-400">등록 기준:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextBasis = storedBasis === 'PER_UNIT' ? 'PER_DAILY' : 'PER_UNIT';
+                    updateProduct(product.id, { ingredientBasis: nextBasis });
+                  }}
+                  title="클릭 시 이 제품의 원본 등록 기준(1알당 vs 하루 섭취량당)을 변경하여 저장합니다"
+                  className="font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 px-2 py-0.5 rounded cursor-pointer transition-colors"
+                >
+                  {storedBasis === 'PER_UNIT' ? `1${unitName}당` : `하루 섭취량(${totalDailyDose}${unitName})당`} ⇄
+                </button>
+                {doseFactor !== 1 && (
+                  <span className="text-sky-700 font-bold bg-sky-50 border border-sky-200 px-1.5 py-0.5 rounded text-[10px]">
+                    {doseFactor > 1 ? `x${doseFactor}배 환산` : `1/${totalDailyDose} 환산`}
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
@@ -920,20 +1000,36 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 <thead>
                   <tr className="bg-slate-50 text-[11px] font-extrabold text-slate-600 border-b border-slate-200">
                     <th className="w-[100px] px-2 py-2 text-center border-r border-slate-200">약효분류</th>
-                    <th className="px-4 py-2 text-center border-r border-slate-200">성분 함량</th>
+                    <th className="px-4 py-2 text-center border-r border-slate-200">
+                      성분 함량 ({displayBasis === 'PER_UNIT' ? `1${unitName}` : `하루 ${totalDailyDose}${unitName}`})
+                    </th>
                     <th className="w-[160px] px-2.5 py-2 text-center">상한섭취량</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs text-slate-800">
                   {(() => {
-                    // 성분 표시 정보 사전 계산
-                    const itemsWithInfo = sortedIngredients.map((ing) => ({
-                      ing,
-                      info: resolveIngredientDisplayInfo(ing, product.productName),
-                      badgeStyle: getDarkCategoryBadgeStyle(
-                        resolveIngredientDisplayInfo(ing, product.productName).categoryTag
-                      )
-                    }));
+                    // 성분 표시 정보 사전 계산 (선택된 기준에 따라 배율 적용)
+                    const itemsWithInfo = sortedIngredients.map((ing) => {
+                      const scaledIng: ProductIngredientEntry =
+                        doseFactor === 1
+                          ? ing
+                          : {
+                              ...ing,
+                              rawAmount: parseFloat((ing.rawAmount * doseFactor).toFixed(2)),
+                              elementalAmount:
+                                ing.elementalAmount !== undefined
+                                  ? parseFloat((ing.elementalAmount * doseFactor).toFixed(2))
+                                  : undefined
+                            };
+
+                      const info = resolveIngredientDisplayInfo(scaledIng, product.productName);
+
+                      return {
+                        ing: scaledIng,
+                        info,
+                        badgeStyle: getDarkCategoryBadgeStyle(info.categoryTag)
+                      };
+                    });
 
                     // 연속된 동일 약효분류 병합(rowSpan 계산)
                     return itemsWithInfo.map((item, idx) => {

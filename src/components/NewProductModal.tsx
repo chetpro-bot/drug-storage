@@ -79,6 +79,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
   const [dosageInstruction, setDosageInstruction] = useState('');
   const [indicationsText, setIndicationsText] = useState('');
   const [precautionsText, setPrecautionsText] = useState('');
+  const [ingredientBasis, setIngredientBasis] = useState<'PER_UNIT' | 'PER_DAILY'>('PER_UNIT');
 
   // 검수 중인 성분 테이블 목록
   const [verifiedIngredients, setVerifiedIngredients] = useState<ProductIngredientEntry[]>([]);
@@ -161,6 +162,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
     setDosageInstruction('');
     setIndicationsText('');
     setPrecautionsText('');
+    setIngredientBasis('PER_UNIT');
     setVerifiedIngredients([]);
     setIsSubmitting(false);
     setShowOcrPanel(false);
@@ -176,6 +178,9 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
     setProductName(p.productName || '');
     setManufacturer(p.manufacturer || '');
     setClassification(p.classification || 'OTC_DRUG');
+    setIngredientBasis(
+      p.ingredientBasis || (p.classification === 'HEALTH_FUNCTIONAL_FOOD' ? 'PER_DAILY' : 'PER_UNIT')
+    );
     setIsLoadingPublicData(false);
     setSearchResults([]);
     setShowSearchResults(false);
@@ -312,6 +317,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
     setManufacturer(item.manufacturer);
     setProductName(item.productName);
     setClassification(item.classification);
+    setIngredientBasis(item.classification === 'HEALTH_FUNCTIONAL_FOOD' ? 'PER_DAILY' : 'PER_UNIT');
 
     // 2. 표준 규격 데이터 변환 및 성분 검수 테이블 세팅 (식약처 상세 실시간 호출 포함)
     setIsLoadingPublicData(true);
@@ -331,6 +337,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
 
   const applyOcrResult = (result: OcrParseResult) => {
     setClassification('HEALTH_FUNCTIONAL_FOOD');
+    setIngredientBasis('PER_DAILY');
     setDailyServings(result.servingInfo.dailyServings);
     setAmountPerServing(result.servingInfo.amountPerServing);
     setServingUnitKorean(result.servingInfo.servingUnit);
@@ -665,6 +672,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
           dailyServings,
           amountPerServing,
           servingUnitKorean,
+          ingredientBasis,
           priceRetailKrw,
           storageLocation: storageLocation.trim() || undefined,
           imageUrl: productImageUrl || undefined,
@@ -718,6 +726,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
         dailyServings,
         amountPerServing,
         servingUnitKorean,
+        ingredientBasis,
         priceRetailKrw,
         storageLocation: storageLocation.trim() || undefined,
         imageUrl: productImageUrl || undefined,
@@ -886,7 +895,11 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                 </label>
                 <select
                   value={classification}
-                  onChange={(e) => setClassification(e.target.value as ProductClassification)}
+                  onChange={(e) => {
+                    const val = e.target.value as ProductClassification;
+                    setClassification(val);
+                    setIngredientBasis(val === 'HEALTH_FUNCTIONAL_FOOD' ? 'PER_DAILY' : 'PER_UNIT');
+                  }}
                   className="w-full p-2 bg-white border border-slate-300 rounded-lg font-semibold text-xs"
                 >
                   <option value="OTC_DRUG">일반의약품</option>
@@ -1299,21 +1312,50 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
           {/* STEP 2. 약사 검수(Verification) 및 정밀 성분 매트릭스 편집 */}
           {verifiedIngredients.length > 0 && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-emerald-600" />
                   <h4 className="font-bold text-slate-900 text-xs">
                     [2단계] 약사 임상 검수 (Verification Table) — 성분명(English INN), 함량 확인
                   </h4>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleAddCustomIngredient}
-                  className="flex items-center gap-1 text-[11px] font-bold text-sky-600 hover:text-sky-800 bg-sky-50 border border-sky-200 px-2.5 py-1 rounded-md"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>배합 성분 추가</span>
-                </button>
+
+                <div className="flex items-center gap-2">
+                  {/* 성분 입력 기준 (1알/1포당 vs 하루 섭취량당) 선택 */}
+                  <div className="inline-flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px] font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setIngredientBasis('PER_UNIT')}
+                      className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                        ingredientBasis === 'PER_UNIT'
+                          ? 'bg-white text-sky-700 shadow-2xs font-extrabold'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      1{servingUnitKorean || '알'}당 함량
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIngredientBasis('PER_DAILY')}
+                      className={`px-2 py-0.5 rounded transition-all cursor-pointer ${
+                        ingredientBasis === 'PER_DAILY'
+                          ? 'bg-white text-sky-700 shadow-2xs font-extrabold'
+                          : 'text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      하루 섭취량 ({dailyServings * amountPerServing}{servingUnitKorean || '알'})당 함량
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleAddCustomIngredient}
+                    className="flex items-center gap-1 text-[11px] font-bold text-sky-600 hover:text-sky-800 bg-sky-50 border border-sky-200 px-2.5 py-1 rounded-md cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>배합 성분 추가</span>
+                  </button>
+                </div>
               </div>
 
               {/* 성분 검수 테이블 (약효 분류, 원료 형태 포함) */}
@@ -1323,7 +1365,9 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                     <tr className="bg-slate-100 text-slate-600 text-[11px] font-bold uppercase tracking-wider border-b border-slate-200">
                       <th className="py-2.5 px-3">성분명 (English INN)</th>
                       <th className="py-2.5 px-3 w-[150px]">약효 분류</th>
-                      <th className="py-2.5 px-3 w-[110px] text-right">투입 함량</th>
+                      <th className="py-2.5 px-3 w-[120px] text-right">
+                        투입 함량 ({ingredientBasis === 'PER_UNIT' ? `1${servingUnitKorean || '알'}` : '하루'})
+                      </th>
                       <th className="py-2.5 px-3 w-[80px]">단위</th>
                       <th className="py-2.5 px-3 w-[110px] text-right">순수 원소량</th>
                       <th className="py-2.5 px-3 w-[160px]">원료 형태</th>

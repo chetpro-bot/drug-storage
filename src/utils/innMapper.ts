@@ -1823,7 +1823,7 @@ export function resolveIngredientDisplayInfo(
             '2025 KDRIs 비타민 B3 상한섭취량: 원료 형태에 따라 니코틴산(Nicotinic acid) 35 mg NE/일, 니코틴산아미드(Nicotinamide) 850 mg NE/일 적용';
         }
       } else if (standardKey === 'VITAMIN_E') {
-        ulText = '540mg α-TE';
+        ulText = '540mg α-TE (800IU)';
       } else if (standardKey === 'VITAMIN_A') {
         ulText = '3,000μg RAE';
       } else {

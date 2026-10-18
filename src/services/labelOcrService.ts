@@ -657,11 +657,17 @@ export function parseFoodNutritionLabel(rawText: string): {
     rawMaterialsText = rawText;
   }
 
-  // 원료들을 콤마/줄바꿈/세미콜론 단위로 분리 (괄호 부가설명 임시 제외)
-  const rawMaterialTokens = rawMaterialsText
-    .split(/[,;\n\r]+/)
-    .map((s) => s.replace(/\([^)]*\)/g, '').trim())
-    .filter(Boolean);
+  // 원료명 섹션에서 토큰 및 괄호 속 원료(예: "아쿠아민솔루블(해조칼슘)") 분리 추출
+  const rawMaterialTokens: string[] = [];
+  rawMaterialsText.split(/[,;\n\r]+/).forEach((token) => {
+    const trimmed = token.trim();
+    if (!trimmed) return;
+    rawMaterialTokens.push(trimmed);
+    const inParen = trimmed.match(/\(([^)]+)\)/);
+    if (inParen && inParen[1]) {
+      rawMaterialTokens.push(inParen[1].trim());
+    }
+  });
 
   // 3. 주요 미네랄 및 비타민 정의
   interface NutrientRuleDef {
@@ -680,7 +686,7 @@ export function parseFoodNutritionLabel(rawText: string): {
       nutrientName: '마그네슘',
       standardKey: 'MAGNESIUM',
       unit: 'mg',
-      detectRegex: /(?:마그네[슘슴]|magnesium)\s*[:：]?\s*([0-9\.,]+)\s*(?:mg|밀리그램)?/i,
+      detectRegex: /(?:마\s*그\s*네\s*[슘슴]|magnesium)[^0-9\n\r]{0,15}?([0-9\.,]+)\s*(?:mg|밀리그램)?/i,
       rawMaterialMatchRegex: /마그네[슘슴]/i,
       defaultClinicalSummary: '• 에너지 이용 및 신경·근육 기능 유지에 관여 (복합 마그네슘 급원)'
     },
@@ -689,8 +695,8 @@ export function parseFoodNutritionLabel(rawText: string): {
       nutrientName: '칼슘',
       standardKey: 'CALCIUM',
       unit: 'mg',
-      detectRegex: /(?:칼[슘슴]|calcium)\s*[:：]?\s*([0-9\.,]+)\s*(?:mg|밀리그램)?/i,
-      rawMaterialMatchRegex: /칼[슘슴]/i,
+      detectRegex: /(?:칼\s*[슘슴]|calcium)[^0-9\n\r]{0,15}?([0-9\.,]+)\s*(?:mg|밀리그램)?/i,
+      rawMaterialMatchRegex: /(?:칼[슘슴]|calcium|아쿠아민|해조)/i,
       defaultClinicalSummary: '• 뼈와 치아 형성, 신경과 근육 기능 유지에 관여 (복합 칼슘 급원)'
     },
     {
@@ -698,7 +704,7 @@ export function parseFoodNutritionLabel(rawText: string): {
       nutrientName: '아연',
       standardKey: 'ZINC',
       unit: 'mg',
-      detectRegex: /(?:아연|zinc)\s*[:：]?\s*([0-9\.,]+)\s*(?:mg|밀리그램)?/i,
+      detectRegex: /(?:아\s*연|zinc)[^0-9\n\r]{0,15}?([0-9\.,]+)\s*(?:mg|밀리그램)?/i,
       rawMaterialMatchRegex: /아연/i,
       defaultClinicalSummary: '• 정상적인 면역기능 및 정상적인 세포분열에 필요'
     },
@@ -707,7 +713,7 @@ export function parseFoodNutritionLabel(rawText: string): {
       nutrientName: '철',
       standardKey: 'IRON',
       unit: 'mg',
-      detectRegex: /(?:철분?|iron)\s*[:：]?\s*([0-9\.,]+)\s*(?:mg|밀리그램)?/i,
+      detectRegex: /(?:철\s*분?|iron)[^0-9\n\r]{0,15}?([0-9\.,]+)\s*(?:mg|밀리그램)?/i,
       rawMaterialMatchRegex: /철|fumarate|ferrous/i,
       defaultClinicalSummary: '• 체내 산소운반과 혈액생성에 필요'
     },
@@ -716,7 +722,7 @@ export function parseFoodNutritionLabel(rawText: string): {
       nutrientName: '셀레늄',
       standardKey: 'SELENIUM',
       unit: 'ug',
-      detectRegex: /(?:셀레늄|셀렌|selenium)\s*[:：]?\s*([0-9\.,]+)\s*(?:ug|㎍|μg|µg)?/i,
+      detectRegex: /(?:셀\s*레\s*늄|셀\s*렌|selenium)[^0-9\n\r]{0,15}?([0-9\.,]+)\s*(?:ug|㎍|μg|µg)?/i,
       rawMaterialMatchRegex: /셀레/i,
       defaultClinicalSummary: '• 유해산소로부터 세포를 보호하는데 필요'
     },
@@ -725,7 +731,7 @@ export function parseFoodNutritionLabel(rawText: string): {
       nutrientName: '구리',
       standardKey: 'COPPER',
       unit: 'ug',
-      detectRegex: /(?:구리|copper)\s*[:：]?\s*([0-9\.,]+)\s*(?:ug|㎍|μg|µg|mg)?/i,
+      detectRegex: /(?:구\s*리|copper)[^0-9\n\r]{0,15}?([0-9\.,]+)\s*(?:ug|㎍|μg|µg|mg)?/i,
       rawMaterialMatchRegex: /구리|copper/i,
       defaultClinicalSummary: '• 철의 운반과 이용, 결합조직 형성에 관여'
     },
@@ -734,7 +740,7 @@ export function parseFoodNutritionLabel(rawText: string): {
       nutrientName: '망간',
       standardKey: 'MANGANESE',
       unit: 'mg',
-      detectRegex: /(?:망간|manganese)\s*[:：]?\s*([0-9\.,]+)\s*(?:mg|밀리그램)?/i,
+      detectRegex: /(?:망\s*간|manganese)[^0-9\n\r]{0,15}?([0-9\.,]+)\s*(?:mg|밀리그램)?/i,
       rawMaterialMatchRegex: /망간/i,
       defaultClinicalSummary: '• 뼈 형성 및 에너지 이용, 유해산소 보호'
     },
@@ -743,7 +749,7 @@ export function parseFoodNutritionLabel(rawText: string): {
       nutrientName: '요오드',
       standardKey: 'IODINE',
       unit: 'ug',
-      detectRegex: /(?:요오드|iodine)\s*[:：]?\s*([0-9\.,]+)\s*(?:ug|㎍|μg|µg)?/i,
+      detectRegex: /(?:요\s*오\s*드|iodine)[^0-9\n\r]{0,15}?([0-9\.,]+)\s*(?:ug|㎍|μg|µg)?/i,
       rawMaterialMatchRegex: /요오드/i,
       defaultClinicalSummary: '• 갑상선 호르몬 합성 및 에너지 생성에 관여'
     },
@@ -752,7 +758,7 @@ export function parseFoodNutritionLabel(rawText: string): {
       nutrientName: '비타민C',
       standardKey: 'VITAMIN_C',
       unit: 'mg',
-      detectRegex: /(?:비타민\s*C|아스코르브산)\s*[:：]?\s*([0-9\.,]+)\s*(?:mg|밀리그램)?/i,
+      detectRegex: /(?:비타민\s*C|아스코르브산)[^0-9\n\r]{0,15}?([0-9\.,]+)\s*(?:mg|밀리그램)?/i,
       rawMaterialMatchRegex: /아스코르브|비타민\s*C/i,
       defaultClinicalSummary: '• 결합조직 형성과 기능유지, 항산화 작용'
     },
@@ -761,7 +767,7 @@ export function parseFoodNutritionLabel(rawText: string): {
       nutrientName: '비타민D',
       standardKey: 'VITAMIN_D',
       unit: 'ug',
-      detectRegex: /(?:비타민\s*D|콜레칼시페롤)\s*[:：]?\s*([0-9\.,]+)\s*(?:ug|㎍|μg|µg|IU)?/i,
+      detectRegex: /(?:비타민\s*D|콜레칼시페롤)[^0-9\n\r]{0,15}?([0-9\.,]+)\s*(?:ug|㎍|μg|µg|IU)?/i,
       rawMaterialMatchRegex: /비타민\s*D|콜레칼시페롤/i,
       defaultClinicalSummary: '• 칼슘과 인 흡수 이용 및 뼈 형성과 유지'
     }
@@ -769,14 +775,20 @@ export function parseFoodNutritionLabel(rawText: string): {
 
   // 한국어 원료명 띄어쓰기 정돈 헬퍼
   const formatRawMaterialSpacing = (name: string): string => {
-    return name
+    let clean = name.replace(/\([^)]*\)/g, '').trim();
+    if (name.includes('아쿠아민') || name.includes('해조')) {
+      if (!clean.includes('칼슘')) clean = '해조 칼슘';
+    }
+    return clean
       .replace(/글루콘산마그네[슘슴]/g, '글루콘산 마그네슘')
       .replace(/염화마그네[슘슴]/g, '염화 마그네슘')
       .replace(/산화마그네[슘슴]/g, '산화 마그네슘')
+      .replace(/구연산마그네[슘슴]/g, '구연산 마그네슘')
       .replace(/젖산칼[슘슴]/g, '젖산 칼슘')
       .replace(/황산칼[슘슴]/g, '황산 칼슘')
       .replace(/탄산칼[슘슴]/g, '탄산 칼슘')
       .replace(/구연산칼[슘슴]/g, '구연산 칼슘')
+      .replace(/해조칼[슘슴]/g, '해조 칼슘')
       .replace(/글루콘산아연/g, '글루콘산 아연')
       .replace(/산화아연/g, '산화 아연')
       .replace(/황산아연/g, '황산 아연')
@@ -797,6 +809,16 @@ export function parseFoodNutritionLabel(rawText: string): {
       }
     }
 
+    if (matchedAmount === null) {
+      const mFull = rawText.match(def.detectRegex);
+      if (mFull) {
+        const val = parseFloat(mFull[1].replace(/,/g, ''));
+        if (!isNaN(val) && val > 0) {
+          matchedAmount = val;
+        }
+      }
+    }
+
     if (matchedAmount !== null) {
       const matchedMaterials: string[] = [];
       rawMaterialTokens.forEach((mat) => {
@@ -808,22 +830,25 @@ export function parseFoodNutritionLabel(rawText: string): {
         }
       });
 
-      const ingredientTitle =
-        matchedMaterials.length > 0 ? matchedMaterials.join(', ') : def.nutrientName;
+      const saltsList = matchedMaterials.length > 0 ? matchedMaterials.join(', ') : '-';
+      const formattedSpec =
+        saltsList !== '-'
+          ? `${def.nutrientName} ${matchedAmount}${def.unit} (${saltsList})`
+          : `${def.nutrientName} ${matchedAmount}${def.unit}`;
 
       ingredients.push({
         ingredientId: `ing_food_${def.key.toLowerCase()}_${Date.now()}_${ingredients.length}`,
-        englishInn: ingredientTitle,
-        koreanName: ingredientTitle,
+        englishInn: def.nutrientName,
+        koreanName: def.nutrientName,
         functionalCategory: def.nutrientName,
         rawAmount: matchedAmount,
         unit: def.unit,
         standardKey: def.standardKey,
-        chemicalFormName: '-',
-        formattedSpecification: `${ingredientTitle} ${matchedAmount}${def.unit}`,
+        chemicalFormName: saltsList,
+        formattedSpecification: formattedSpec,
         isMainActive: true,
         clinicalSummary: def.defaultClinicalSummary,
-        noteKorean: `1포당 ${matchedAmount}${def.unit} (${def.nutrientName} 급원)`
+        noteKorean: `1포당 ${matchedAmount}${def.unit}`
       });
     }
   });

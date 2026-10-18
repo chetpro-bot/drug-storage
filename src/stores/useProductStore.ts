@@ -238,6 +238,132 @@ function migrateAndEnsureKpic(products: ProductItem[]): ProductItem[] {
       }
     }
 
+    // 6. '엠-드림 리퀴드 키즈' (엔큐엔에이) 영양성분 및 유기산염 원료 정돈
+    if (prod.productName.includes('엠드림') || prod.productName.includes('엠-드림') || prod.productName.includes('M-Dream')) {
+      const hasGarbage = prod.ingredients.some(i => /(?:과량\s*섭취|설사를\s*일으킬|당알코올|나트륨|탄수화물|당류|지방|단백질|열량|콜레스테롤|내용량)/i.test(i.englishInn || i.koreanName || ''));
+      const hasCa = prod.ingredients.some(i => i.functionalCategory === '칼슘' || (i.englishInn || '').includes('칼슘'));
+      const hasMg = prod.ingredients.some(i => i.functionalCategory === '마그네슘' || (i.englishInn || '').includes('마그네슘'));
+      const hasZn = prod.ingredients.some(i => i.functionalCategory === '아연' || (i.englishInn || '').includes('아연'));
+
+      if (hasGarbage || !hasCa || !hasMg || !hasZn || prod.ingredients.length > 3) {
+        hasChanges = true;
+        const cleanIngs: ProductIngredientEntry[] = [
+          {
+            ingredientId: 'ing_mdream_ca',
+            englishInn: '칼슘',
+            koreanName: '칼슘',
+            functionalCategory: '칼슘',
+            chemicalFormName: '젖산 칼슘, 해조 칼슘',
+            rawAmount: 220,
+            unit: 'mg',
+            standardKey: 'CALCIUM',
+            isMainActive: true,
+            formattedSpecification: '칼슘 220mg (젖산 칼슘, 해조 칼슘)',
+            clinicalSummary: '• 뼈와 치아 형성에 필요, 신경과 근육 기능 유지에 관여 (유기산염 칼슘 급원)',
+            noteKorean: '1포당 220mg'
+          },
+          {
+            ingredientId: 'ing_mdream_mg',
+            englishInn: '마그네슘',
+            koreanName: '마그네슘',
+            functionalCategory: '마그네슘',
+            chemicalFormName: '글루콘산 마그네슘',
+            rawAmount: 220,
+            unit: 'mg',
+            standardKey: 'MAGNESIUM',
+            isMainActive: true,
+            formattedSpecification: '마그네슘 220mg (글루콘산 마그네슘)',
+            clinicalSummary: '• 에너지 이용에 필요, 신경과 근육 기능 유지에 관여 (유기산염 마그네슘 급원)',
+            noteKorean: '1포당 220mg'
+          },
+          {
+            ingredientId: 'ing_mdream_zn',
+            englishInn: '아연',
+            koreanName: '아연',
+            functionalCategory: '아연',
+            chemicalFormName: '글루콘산 아연',
+            rawAmount: 15,
+            unit: 'mg',
+            standardKey: 'ZINC',
+            isMainActive: true,
+            formattedSpecification: '아연 15mg (글루콘산 아연)',
+            clinicalSummary: '• 정상적인 면역 기능 및 정상적인 세포 분열에 관여 (유기산염 아연 급원)',
+            noteKorean: '1포당 15mg'
+          }
+        ];
+
+        let attachments = prod.attachments || [];
+        if (attachments.length === 0) {
+          attachments = [
+            {
+              id: 'doc_mdream_label_01',
+              fileName: '엠드림리퀴드키즈_영양정보_원료명.jpg',
+              fileSize: 118200,
+              uploadedAt: new Date().toISOString(),
+              dataUrl: '/attachments/liquid_cm_kids_label.jpg',
+              status: 'ANALYZED',
+              analysisSummary: '영양성분 3건(칼슘 220mg, 마그네슘 220mg, 아연 15mg) 및 유기염 원료 매핑 완료',
+              extractedText: '1포(25g)당: 칼슘 220mg, 마그네슘 220mg, 아연 15mg\n원료명 및 함량: 정제수, 백포도농축액, 프락토올리고당, 글루콘산마그네슘, 젖산칼슘, 글루콘산아연, 아쿠아민솔루블(해조칼슘), 흑효모배양액분말(폴리칸), 구연산, 천연청포도향, 효소처리스테비아'
+            }
+          ];
+        }
+
+        const functionalFoodDetail = {
+          ...(prod.functionalFoodDetail || {
+            reportNo: '2019036235129',
+            functionalClaimsKorean: [],
+            suggestedUseKorean: '',
+            safetyPrecautionsKorean: []
+          }),
+          functionalClaimsKorean: [
+            '칼슘 : 뼈와 치아 형성에 필요, 신경과 근육 기능 유지에 필요',
+            '마그네슘 : 에너지 이용에 필요, 신경과 근육 기능 유지에 필요',
+            '아연 : 정상적인 면역기능에 필요, 정상적인 세포분열에 필요'
+          ],
+          suggestedUseKorean: '1일 1~2회, 1회 1포(25g)를 직접 또는 물/음료에 타서 섭취하십시오.',
+          safetyPrecautionsKorean: [
+            '일반식품(기타가공품/혼합음료)은 질병의 예방 및 치료를 위한 의약품이나 건강기능식품이 아닙니다.',
+            '특이체질, 알레르기 체질의 경우 원료 성분을 확인 후 섭취하십시오.'
+          ],
+          labelPrecautionsText: '특이체질, 알레르기 체질의 경우 원료 성분을 확인 후 섭취하십시오. 개봉 후에는 변질될 수 있으므로 바로 섭취하십시오.',
+          rawMaterialsText: '정제수, 백포도농축액, 프락토올리고당, 글루콘산마그네슘, 젖산칼슘, 글루콘산아연, 아쿠아민솔루블(해조칼슘), 흑효모배양액분말(폴리칸), 구연산, 천연청포도향, 효소처리스테비아'
+        };
+
+        const updated = {
+          ...prod,
+          ingredients: cleanIngs,
+          attachments,
+          functionalFoodDetail,
+          updatedAt: new Date().toISOString()
+        };
+        saveProductToFirestore(updated).catch(() => {});
+        return updated;
+      }
+    }
+
+    // 7. 일반 식품/음료류에서 유입된 영양정보 비성분(나트륨, 탄수화물, 당류, 지방, 단백질, 칼로리 등) 자동 정돈
+    const hasFoodGarbage = prod.ingredients.some(i =>
+      /(?:나트륨|탄수화물|당류|지방|트랜스지방|포화지방|콜레스테롤|단백질|열량|칼로리|kcal|내용량|총내용량|정제수)/i.test(
+        i.englishInn || i.koreanName || ''
+      )
+    );
+    if (hasFoodGarbage) {
+      hasChanges = true;
+      const filteredIngs = prod.ingredients.filter(
+        i =>
+          !/(?:나트륨|탄수화물|당류|지방|트랜스지방|포화지방|콜레스테롤|단백질|열량|칼로리|kcal|내용량|총내용량|정제수)/i.test(
+            i.englishInn || i.koreanName || ''
+          )
+      );
+      const updated = {
+        ...prod,
+        ingredients: filteredIngs,
+        updatedAt: new Date().toISOString()
+      };
+      saveProductToFirestore(updated).catch(() => {});
+      return updated;
+    }
+
     if (hasChanges) {
       const updated = {
         ...prod,

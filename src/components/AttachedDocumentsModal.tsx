@@ -188,14 +188,19 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
       // 성분표 반영 추적
       const appliedList: string[] = [];
 
-      // 기존 성분 중 경고문구나 비성분 텍스트 필터링
+      // 기존 성분 중 경고문구나 일반 식품 매크로 비성분(나트륨, 탄수화물 등) 필터링
+      const isMacroOrGarbage = (text: string) =>
+        /(?:과량\s*섭취|설사를\s*일으킬|당알코올|주의사항|보관방법|유통기한|소비기한|나트륨|탄수화물|당류|지방|트랜스지방|포화지방|콜레스테롤|단백질|열량|칼로리|kcal|내용량|총내용량|정제수)/i.test(
+          text
+        );
+
       const validExisting = (product.ingredients || []).filter((i) => {
         const checkStr = `${i.englishInn || ''} ${i.koreanName || ''}`;
-        return !/(?:과량\s*섭취|설사를\s*일으킬|당알코올|주의사항|보관방법|유통기한|소비기한)/i.test(checkStr);
+        return !isMacroOrGarbage(checkStr);
       });
       const updatedIngredients = [...validExisting];
 
-      // A) 일반식품 영양성분표(마그네슘 35mg, 칼슘 55mg 등 원료 결합 형태) 최우선 매핑
+      // A) 일반식품 영양성분표(마그네슘, 칼슘, 아연 등 원료염 결합 형태) 최우선 매핑
       if (foodIngredients.length > 0) {
         foodIngredients.forEach((fi) => {
           const fiNameClean = fi.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
@@ -279,24 +284,27 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
         }
       });
 
-      // C) 기존 성분표에 없던 새로운 성분이 문서에서 감지된 경우 성분표에 자동 추가 (식품 파서 미적용 성분 대상)
+      // C) 신규 성분 추가: 식품(혼합음료 등)의 경우 매크로 영양소(탄수화물, 당류, 지방, 단백질, 나트륨 등) 유입 차단
+      const isFoodProduct = product.classification === 'GENERAL_FOOD' || foodIngredients.length > 0;
       const existingNames = new Set(
         updatedIngredients.map((i) => i.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, ''))
       );
       const newItemsToAdd: ProductIngredientEntry[] = [];
 
-      [...parsedIngredients, ...nutritionIngredients].forEach((pe) => {
-        const peName = pe.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
-        if (
-          peName.length >= 2 &&
-          !existingNames.has(peName) &&
-          !/(?:과량\s*섭취|설사를\s*일으킬|당알코올|주의사항|보관방법|유통기한|소비기한)/i.test(pe.englishInn)
-        ) {
-          existingNames.add(peName);
-          newItemsToAdd.push(pe);
-          appliedList.push(`[신규 성분] ${pe.englishInn} (${pe.rawAmount}${pe.unit}) - ${pe.functionalCategory}`);
-        }
-      });
+      if (!isFoodProduct) {
+        [...parsedIngredients, ...nutritionIngredients].forEach((pe) => {
+          const peName = pe.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+          if (
+            peName.length >= 2 &&
+            !existingNames.has(peName) &&
+            !isMacroOrGarbage(pe.englishInn)
+          ) {
+            existingNames.add(peName);
+            newItemsToAdd.push(pe);
+            appliedList.push(`[신규 성분] ${pe.englishInn} (${pe.rawAmount}${pe.unit}) - ${pe.functionalCategory}`);
+          }
+        });
+      }
 
       const finalIngredients = [...updatedIngredients, ...newItemsToAdd];
 
@@ -431,10 +439,15 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
     const foodParsed = parseFoodNutritionLabel(directText);
     const foodIngredients = foodParsed.ingredients || [];
 
-    // 기존 성분 중 유효하지 않은 경고문구 제외
+    // 기존 성분 중 유효하지 않은 경고문구 및 매크로 비성분 제외
+    const isMacroOrGarbage = (text: string) =>
+      /(?:과량\s*섭취|설사를\s*일으킬|당알코올|주의사항|보관방법|유통기한|소비기한|나트륨|탄수화물|당류|지방|트랜스지방|포화지방|콜레스테롤|단백질|열량|칼로리|kcal|내용량|총내용량|정제수)/i.test(
+        text
+      );
+
     const validExisting = (product.ingredients || []).filter((i) => {
       const checkStr = `${i.englishInn || ''} ${i.koreanName || ''}`;
-      return !/(?:과량\s*섭취|설사를\s*일으킬|당알코올|주의사항|보관방법|유통기한|소비기한)/i.test(checkStr);
+      return !isMacroOrGarbage(checkStr);
     });
     const updatedIngredients = [...validExisting];
     const appliedList: string[] = [];
@@ -505,23 +518,26 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
       }
     });
 
-    // 신규 성분 추가
+    // 신규 성분 추가 (식품인 경우 매크로 비성분 차단)
+    const isFoodProduct = product.classification === 'GENERAL_FOOD' || foodIngredients.length > 0;
     const existingNames = new Set(
       updatedIngredients.map((i) => i.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, ''))
     );
     const newItems: ProductIngredientEntry[] = [];
-    parsedIngredients.forEach((pe) => {
-      const peName = pe.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
-      if (
-        peName.length >= 2 &&
-        !existingNames.has(peName) &&
-        !/(?:과량\s*섭취|설사를\s*일으킬|당알코올|주의사항|보관방법|유통기한|소비기한)/i.test(pe.englishInn)
-      ) {
-        existingNames.add(peName);
-        newItems.push(pe);
-        appliedList.push(`[신규] ${pe.englishInn} (${pe.rawAmount}${pe.unit}) - ${pe.functionalCategory}`);
-      }
-    });
+    if (!isFoodProduct) {
+      parsedIngredients.forEach((pe) => {
+        const peName = pe.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+        if (
+          peName.length >= 2 &&
+          !existingNames.has(peName) &&
+          !isMacroOrGarbage(pe.englishInn)
+        ) {
+          existingNames.add(peName);
+          newItems.push(pe);
+          appliedList.push(`[신규] ${pe.englishInn} (${pe.rawAmount}${pe.unit}) - ${pe.functionalCategory}`);
+        }
+      });
+    }
 
     const finalIngredients = [...updatedIngredients, ...newItems];
 

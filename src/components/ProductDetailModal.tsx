@@ -1928,23 +1928,40 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                             </td>
                           )}
 
-                          {/* 2열: 성분 함량 (복합 원료염 지원: 예: 칼슘 55mg (젖산 칼슘, 황산 칼슘)) */}
+                          {/* 2열: 성분 함량 (단일/복합 원료염 지원: 예: 칼슘 220mg (젖산 칼슘), 칼슘 55mg (젖산 칼슘, 황산 칼슘)) */}
                           <td className="px-4 py-2.5 border-r border-slate-200 align-middle">
                             {(() => {
-                              const hasMultipleSalts =
-                                item.info.englishName.includes(',') ||
-                                (item.ing.chemicalFormName && item.ing.chemicalFormName.includes(','));
+                              const explicitSalt =
+                                item.ing.chemicalFormName && item.ing.chemicalFormName !== '-'
+                                  ? item.ing.chemicalFormName
+                                  : null;
 
-                              if (hasMultipleSalts) {
-                                const nutrientTitle =
-                                  item.info.categoryTag && item.info.categoryTag !== '기타'
-                                    ? item.info.categoryTag
-                                    : item.ing.functionalCategory && item.ing.functionalCategory !== '기타'
-                                    ? item.ing.functionalCategory
-                                    : item.info.englishName;
-                                const saltsText = item.info.englishName.includes(',')
-                                  ? item.info.englishName
-                                  : item.ing.chemicalFormName;
+                              const nutrientCategory =
+                                item.info.categoryTag && item.info.categoryTag !== '기타'
+                                  ? item.info.categoryTag
+                                  : item.ing.functionalCategory && item.ing.functionalCategory !== '기타'
+                                  ? item.ing.functionalCategory
+                                  : null;
+
+                              // 원료염이 명시되어 있거나, 성분명 자체가 원료염(예: 글루콘산 마그네슘, 젖산 칼슘 등)인 경우 포맷 적용
+                              const hasSaltDetail =
+                                Boolean(explicitSalt) ||
+                                item.info.englishName.includes(',') ||
+                                Boolean(
+                                  nutrientCategory &&
+                                    item.info.englishName !== nutrientCategory &&
+                                    /(?:글루콘산|젖산|황산|탄산|구연산|산화|염화|해조|푸마르산|락트산)/.test(
+                                      item.info.englishName
+                                    )
+                                );
+
+                              if (hasSaltDetail) {
+                                const nutrientTitle = nutrientCategory || item.info.englishName;
+                                const saltsText =
+                                  explicitSalt ||
+                                  (item.info.englishName.includes(',') || item.info.englishName !== nutrientTitle
+                                    ? item.info.englishName
+                                    : null);
 
                                 return (
                                   <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
@@ -1954,9 +1971,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                     <span className="font-bold text-slate-900 tracking-tight">
                                       {item.ing.rawAmount.toLocaleString()}{item.ing.unit}
                                     </span>
-                                    <span className="font-normal text-slate-600 text-[11px] tracking-tight">
-                                      ({saltsText})
-                                    </span>
+                                    {saltsText && (
+                                      <span className="font-normal text-slate-600 text-[11px] tracking-tight">
+                                        ({saltsText})
+                                      </span>
+                                    )}
                                   </div>
                                 );
                               }

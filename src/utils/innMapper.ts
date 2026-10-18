@@ -346,7 +346,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   '콜린타르타르산염': {
     englishInn: 'Choline bitartrate',
     functionalCategory: '기타 비타민B',
-    chemicalFormName: '주석산염 (콜린타르타르산염)',
+    chemicalFormName: '주석산수소콜린',
     defaultUnit: 'mg',
     standardKey: 'CHOLINE',
     elementalRatio: 0.4113,
@@ -394,7 +394,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   '셀레늄함유건조효모': {
     englishInn: 'Selenium in dried yeast',
     functionalCategory: '셀레늄(Se)',
-    chemicalFormName: '유기 셀레늄 (건조효모 결합형)',
+    chemicalFormName: '건조효모 결합형 (셀레늄)',
     defaultUnit: 'ug',
     standardKey: 'SELENIUM',
     elementalRatio: 0.54,
@@ -538,7 +538,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   '크롬함유건조효모': {
     englishInn: 'Chromium in dried yeast',
     functionalCategory: '크롬(Cr)',
-    chemicalFormName: '유기 크롬 (건조효모 결합형)',
+    chemicalFormName: '건조효모 결합형 (크롬)',
     defaultUnit: 'mg',
     standardKey: 'CHROMIUM',
     elementalRatio: 2.0,
@@ -880,7 +880,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   '건조효모(셀렌함유)': {
     englishInn: 'Selenium in dried yeast',
     functionalCategory: '셀레늄(Se)',
-    chemicalFormName: '유기 셀레늄 (건조효모 결합형)',
+    chemicalFormName: '건조효모 결합형 (셀레늄)',
     defaultUnit: 'ug',
     standardKey: 'SELENIUM',
     clinicalSummary: '• 생체이용률이 우수한 효모 유래 유기 셀레늄, 항산화 세포 보호'
@@ -1636,7 +1636,10 @@ const ENG_ALIAS_TO_DICT_KEY: Record<string, string> = {
 };
 
 /**
- * 원료 형태/염(Form & Salt)의 특성(활성형 비타민, 유기염/무기염 미네랄 등)을 분석하여 표기용 뱃지와 상세 레이블 생성
+ * 원료 형태/염(Form & Salt)의 특성을 정리하여 본문 텍스트 형태로 표기
+ * - 인위적인 '활성형 (...)', '유기태 (...)', '무기염 (...)' 등의 수식어 래퍼를 배제하고 자연스러운 원문 원료 형태 표기 유지
+ * - '주석산염 (콜린염)' -> '주석산수소콜린' 정규화
+ * - '유기태' 표현 제거 및 효모 결합형태 정돈
  */
 export function analyzeChemicalFormFeature(
   rawForm: string,
@@ -1644,144 +1647,64 @@ export function analyzeChemicalFormFeature(
   englishName: string,
   rawInn: string
 ): ChemicalFormFeature {
-  const combined = `${rawForm} ${englishName} ${rawInn} ${categoryTag}`.toLowerCase();
+  let formText = (rawForm || '').trim();
 
-  // 1. 비타민류의 활성형 판별
-  const isActiveVitamin =
-    /활성형|조효소|fursultiamine|푸르설티아민|benfotiamine|벤포티아민|bisbentiamine|비스벤티아민|mecobalamin|메코발라민|메틸코발라민|pyridoxal|피리독살|riboflavin butyrate|리보플라빈부티레이트|5'-phosphate|포스페이트|dibencozide|코바마미드/i.test(combined);
-
-  if (isActiveVitamin) {
-    let detail = rawForm
-      .replace(/\(활성형[^\)]*\)/g, '')
-      .replace(/활성형[^\s,]*/g, '')
-      .replace(/조효소형/g, '')
-      .replace(/\(비타민\s*B\d+\)/g, '')
+  // 1. 이전 버전에서 감싸졌던 외곽 래퍼(활성형 (...), 유기태 (...), 무기염 (...), 유기염 (...), 아미드형 (...), 천연형 (...)) 안전하게 해제
+  for (let i = 0; i < 2; i++) {
+    formText = formText
+      .replace(/^활성형\s*\((.+)\)$/, '$1')
+      .replace(/^유기태\s*\((.+)\)$/, '$1')
+      .replace(/^유기염\s*\((.+)\)$/, '$1')
+      .replace(/^무기염\s*\((.+)\)$/, '$1')
+      .replace(/^아미드형\s*\((.+)\)$/, '$1')
+      .replace(/^천연형\s*\((.+)\)$/, '$1')
       .trim();
-    if (!detail || detail === '표준 정제 원료') {
-      if (/fursultiamine|푸르설티아민/i.test(combined)) detail = '프로설티아민 (지용성)';
-      else if (/benfotiamine|벤포티아민/i.test(combined)) detail = '벤포티아민 (생체이용 우수)';
-      else if (/bisbentiamine|비스벤티아민/i.test(combined)) detail = '비스벤티아민 (BBB 통과)';
-      else if (/butyrate|부티레이트/i.test(combined)) detail = '지용성 부티레이트';
-      else if (/pyridoxal|피리독살/i.test(combined)) detail = '조효소 PLP';
-      else if (/mecobalamin|메코발라민|메틸코발라민/i.test(combined)) detail = '메틸코발라민';
-      else detail = '활성 조효소 유도체';
-    }
-    detail = detail.replace(/^\((.*)\)$/, '$1').trim();
-    const displayText = detail ? `활성형 (${detail})` : '활성형';
-    return {
-      badgeType: 'ACTIVE_VITAMIN',
-      badgeLabel: '활성형',
-      detailLabel: detail || '생체이용 활성형',
-      displayText
-    };
   }
 
-  // 2. 미네랄류의 유기염 vs 무기염 판별
-  const isMineral =
-    categoryTag === '마그네슘' ||
-    categoryTag === '아연' ||
-    categoryTag === '칼슘' ||
-    categoryTag.includes('철') ||
-    categoryTag === '셀레늄' ||
-    categoryTag === '구리' ||
-    categoryTag === '망간' ||
-    categoryTag === '크롬' ||
-    categoryTag === '몰리브덴';
+  const combined = `${formText} ${englishName} ${rawInn} ${categoryTag}`.toLowerCase();
 
-  if (isMineral) {
-    const isOrganic =
-      /유기|글루콘산|gluconate|구연산|citrate|젖산|lactate|비스글리시네이트|bisglycinate|킬레이트|chelate|판토텐산|fumarate|푸마르산|건조효모|yeast|해조|식물성/i.test(combined);
-    const isInorganic =
-      /산화|oxide|탄산|carbonate|황산|sulfate|아셀렌산|selenite/i.test(combined);
+  // 2. 콜린 제제 정규화 ('주석산염 (콜린염)', '콜린타르타르산염' -> 표준 명칭 '주석산수소콜린')
+  if (/choline|콜린|bitartrate|타르타르/i.test(combined)) {
+    if (
+      !formText ||
+      formText === '콜린타르타르산염' ||
+      formText.includes('주석산염') ||
+      formText.includes('콜린염') ||
+      formText === '표준 정제 원료'
+    ) {
+      formText = '주석산수소콜린';
+    }
+  }
 
-    if (isOrganic) {
-      let detail = rawForm
-        .replace(/유기(산|인산)?염/g, '')
-        .replace(/\(유기[^\)]*\)/g, '')
+  // 3. '유기태' 표현 제거 및 효모 결합 미네랄 정돈
+  formText = formText.replace(/유기태/g, '').trim();
+  if (/yeast|건조효모/i.test(combined)) {
+    if (/selenium|셀레늄|셀렌/i.test(combined)) {
+      formText = '건조효모 결합형 (셀레늄)';
+    } else if (/chromium|크롬/i.test(combined)) {
+      formText = '건조효모 결합형 (크롬)';
+    } else {
+      formText = formText
+        .replace(/유기\s*(크롬|셀레늄|셀렌)?/g, '')
+        .replace(/\(\s*\)/g, '')
         .trim();
-      detail = detail.replace(/^\((.*)\)$/, '$1').trim();
-      if (!detail || detail === '표준 정제 원료') {
-        if (/gluconate/i.test(combined)) detail = '글루콘산염 (흡수 우수)';
-        else if (/citrate/i.test(combined)) detail = '구연산염 (위장 부담 적음)';
-        else if (/lactate/i.test(combined)) detail = '젖산염';
-        else if (/bisglycinate|chelate/i.test(combined)) detail = '아미노산 킬레이트';
-        else if (/yeast|건조효모/i.test(combined)) detail = '건조효모';
-        else detail = '유기산염';
-      }
-      const displayText = /yeast|건조효모/i.test(combined)
-        ? `유기태 (${detail})`
-        : `유기염 (${detail})`;
-      return {
-        badgeType: 'ORGANIC_MINERAL',
-        badgeLabel: '유기염',
-        detailLabel: detail || '유기산염',
-        displayText
-      };
-    }
-
-    if (isInorganic) {
-      let detail = rawForm
-        .replace(/무기염/g, '')
-        .replace(/\(무기[^\)]*\)/g, '')
-        .trim();
-      detail = detail.replace(/^\((.*)\)$/, '$1').trim();
-      if (!detail || detail === '표준 정제 원료') {
-        if (/oxide|산화/i.test(combined)) detail = '산화물 (고밀도 원소)';
-        else if (/carbonate|탄산/i.test(combined)) detail = '탄산염';
-        else if (/sulfate|황산/i.test(combined)) detail = '황산염';
-        else detail = '무기염';
-      }
-      const displayText = detail === '무기염' ? '무기염' : `무기염 (${detail})`;
-      return {
-        badgeType: 'INORGANIC_MINERAL',
-        badgeLabel: '무기염',
-        detailLabel: detail || '무기염',
-        displayText
-      };
+      if (!formText) formText = '건조효모 결합형';
     }
   }
 
-  // 3. 비타민 B3 아미드형
-  if (categoryTag === '비타민B3' && /nicotinamide|아미드/i.test(combined)) {
-    return {
-      badgeType: 'AMIDE',
-      badgeLabel: '아미드형',
-      detailLabel: '나이아신아마이드',
-      displayText: '아미드형 (나이아신아마이드)'
-    };
+  // 4. 비어있거나 '표준 정제 원료'인 경우에만 기본 형태 보충
+  if (!formText || formText === '표준 정제 원료') {
+    if (categoryTag.startsWith('비타민')) formText = '일반(비활성)형';
+    else formText = '-';
   }
 
-  // 4. 천연형 비타민 E
-  if (categoryTag === '비타민E' && /d-α|천연/i.test(combined) && !/dl-α|합성/i.test(combined)) {
-    return {
-      badgeType: 'NATURAL',
-      badgeLabel: '천연형',
-      detailLabel: 'd-α-토코페롤',
-      displayText: '천연형 (d-α-토코페롤)'
-    };
-  }
-
-  // 5. 판토텐산칼슘 등 비타민B5 유기산염
-  if (categoryTag === '비타민B5' && /pantothenate|판토텐산/i.test(combined)) {
-    return {
-      badgeType: 'NONE',
-      detailLabel: '판토텐산칼슘 (유기산염)',
-      displayText: '판토텐산칼슘 (유기산염)'
-    };
-  }
-
-  // 6. 그 외 일반 형태
-  let cleanedForm = rawForm.trim();
-  if (cleanedForm === '표준 정제 원료' || !cleanedForm) {
-    if (categoryTag.startsWith('비타민')) cleanedForm = '일반(비활성)형';
-    else if (isMineral) cleanedForm = '표준염';
-    else cleanedForm = '-';
-  }
+  // 이중 괄호 방지: ((...)) -> (...)
+  formText = formText.replace(/\(\(/g, '(').replace(/\)\)/g, ')').trim();
 
   return {
     badgeType: 'NONE',
-    detailLabel: cleanedForm,
-    displayText: cleanedForm
+    detailLabel: formText,
+    displayText: formText
   };
 }
 

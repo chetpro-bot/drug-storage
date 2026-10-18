@@ -2635,11 +2635,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <a
-                    href="https://www.kns.or.kr/FileRoom/Kdrilist.asp"
+                    href="/docs/2025_KDRI_summary.pdf"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 shadow-2xs transition-colors cursor-pointer"
-                    title="보건복지부 · 한국영양학회 2025 한국인 영양소 섭취기준 공식 자료실 (원본 PDF) 새 창 열기"
+                    title="2025 한국인 영양소 섭취기준 요약본 원본 PDF 새 창 열기 / 다운로드"
                   >
                     <FileText className="w-3.5 h-3.5 text-sky-600" />
                     <span className="hidden sm:inline">2025 한국인 영양소 섭취기준 원본파일</span>

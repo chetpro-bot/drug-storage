@@ -1514,7 +1514,7 @@ export interface ResolvedIngredientDisplayInfo {
   childAgeRows?: { ageLabel: string; ulText: string; ulValue: number }[];
   chemicalFormFeature: ChemicalFormFeature;
   sortGroup: 1 | 2 | 3 | 4; // 1: 수용성 비타민, 2: 지용성 비타민, 3: 미네랄, 4: 기타 성분
-  vitaminSubOrder?: number;
+  subOrder?: number; // 수용성: B1~B12 -> C, 지용성: A -> D -> E -> K
 }
 
 const KOR_TO_ENG_DISPLAY_MAP: Record<string, string> = {
@@ -2221,6 +2221,54 @@ export function resolveIngredientDisplayInfo(
     }
   }
 
+  // 세부 정렬 순서 계산 (비타민은 기존 성분표 순서: 수용성은 B군->C, 지용성은 A->D->E->K)
+  let subOrder: number | undefined = undefined;
+  const checkText = `${categoryTag} ${englishName} ${rawInn}`.toLowerCase();
+
+  if (sortGroup === 1) {
+    if (categoryTag === '비타민B1' || /thiamin|benfotiamin|fursultiamin|bisbentiamin/i.test(checkText)) {
+      subOrder = 10;
+    } else if (categoryTag === '비타민B2' || /riboflavin/i.test(checkText)) {
+      subOrder = 20;
+    } else if (categoryTag === '비타민B3' || /nicotinamid|niacin|nicotinic/i.test(checkText)) {
+      subOrder = 30;
+    } else if (categoryTag === '비타민B5' || /pantothen/i.test(checkText)) {
+      subOrder = 50;
+    } else if (categoryTag === '비타민B6' || /pyridox/i.test(checkText)) {
+      subOrder = 60;
+    } else if (categoryTag === '비타민B7' || /biotin/i.test(checkText)) {
+      subOrder = 70;
+    } else if (
+      categoryTag === '엽산' ||
+      categoryTag === '비타민B9' ||
+      categoryTag === '비타민B9(엽산)' ||
+      categoryTag === '폴산' ||
+      /folic|folate/i.test(checkText)
+    ) {
+      subOrder = 90;
+    } else if (categoryTag === '비타민B12' || /cobalamin|cyanocobalamin|mecobalamin/i.test(checkText)) {
+      subOrder = 120;
+    } else if (categoryTag === '기타 비타민B' || categoryTag === '비타민B군' || /choline|inositol/i.test(checkText)) {
+      subOrder = 130;
+    } else if (categoryTag === '비타민C' || /ascorb/i.test(checkText)) {
+      subOrder = 150;
+    } else {
+      subOrder = 199;
+    }
+  } else if (sortGroup === 2) {
+    if (categoryTag === '비타민A' || categoryTag === '베타카로틴' || /retinol|retinyl|palmitate|carotene/i.test(checkText)) {
+      subOrder = 10;
+    } else if (categoryTag.startsWith('비타민D') || /cholecalciferol|ergocalciferol|vitamin d/i.test(checkText)) {
+      subOrder = 20;
+    } else if (categoryTag === '비타민E' || /tocopher/i.test(checkText)) {
+      subOrder = 30;
+    } else if (categoryTag.startsWith('비타민K') || /phylloquin|menaquin|vitamin k/i.test(checkText)) {
+      subOrder = 40;
+    } else {
+      subOrder = 99;
+    }
+  }
+
   const chemicalFormFeature = analyzeChemicalFormFeature(
     ing.chemicalFormName || meta?.chemicalFormName || '',
     categoryTag,
@@ -2241,14 +2289,19 @@ export function resolveIngredientDisplayInfo(
     childUlNote,
     childAgeRows,
     chemicalFormFeature,
-    sortGroup
+    sortGroup,
+    subOrder
   };
 }
 
 /**
  * 제품 성분 배열 정렬 함수:
- * 1) 수용성 비타민 -> 2) 지용성 비타민 -> 3) 미네랄 -> 4) 기타 성분 순
- * 각 카테고리(분류) 내에서는 영문 성분명 abc 알파벳순 정렬
+ * 1) 대분류: 수용성 비타민 -> 지용성 비타민 -> 미네랄 -> 기타 성분
+ * 2) 수용성 비타민: 기존 성분표 순서 (B1 -> B2 -> B3 -> B5 -> B6 -> B7 -> 엽산(B9) -> B12 -> 기타B -> C)
+ * 3) 지용성 비타민: 기존 성분표 순서 (A -> D -> E -> K)
+ * 4) 미네랄: 영문 성분명 abc 알파벳순
+ * 5) 기타 성분: 영문 성분명 abc 알파벳순
+ * (동일 비타민군 내부에서도 영문 성분명 abc 알파벳순)
  */
 export function sortProductIngredients(
   ingredients: ProductIngredientEntry[],
@@ -2263,7 +2316,12 @@ export function sortProductIngredients(
       return infoA.sortGroup - infoB.sortGroup;
     }
 
-    // 2차: 각 분류 내에서는 영문 성분명 abc 알파벳순
+    // 2차: 수용성 비타민 및 지용성 비타민은 비타민 기호/순서 순
+    if ((infoA.sortGroup === 1 || infoA.sortGroup === 2) && infoA.subOrder !== infoB.subOrder) {
+      return (infoA.subOrder ?? 999) - (infoB.subOrder ?? 999);
+    }
+
+    // 3차: 각 세부 비타민군 내, 미네랄, 기타 성분은 영문 성분명 abc 알파벳순
     return infoA.englishName.localeCompare(infoB.englishName, 'en', { sensitivity: 'base' });
   });
 }

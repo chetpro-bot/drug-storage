@@ -252,29 +252,16 @@ export interface PediatricUlReferenceItem {
 /**
  * 2025 보건복지부 · 한국영양학회 한국인 영양소 섭취기준(KDRIs)
  * 소아·청소년 연령별 1일 상한섭취량(UL) 기준표
- * 정렬 기준: 1) 수용성 비타민 -> 2) 지용성 비타민 -> 3) 미네랄 (분류 내 abc 알파벳순)
- */
+  * 정렬 기준: 1) 수용성 비타민(B1~B12 -> C) -> 2) 지용성 비타민(A -> D -> E -> K) -> 3) 미네랄 (성분명 abc 알파벳순)
+  */
 export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
-  // 1. 수용성 비타민 (Water-soluble vitamins - abc순)
+  // 1. 수용성 비타민 (B1 -> B2 -> B3 -> B5 -> B6 -> B7 -> B9 -> B12 -> C 순)
   {
-    id: 'ascorbic_acid',
+    id: 'thiamine',
     category: 'WATER_SOLUBLE',
     categoryTitle: '수용성 비타민',
-    nutrientName: '비타민 C (Ascorbic acid)',
-    subName: '아스코르브산',
-    age1_2: '400 mg',
-    age3_5: '600 mg',
-    age6_8: '900 mg',
-    age9_11: '1,200 mg',
-    age12_14: '1,600 mg',
-    age15_18: '1,800 mg',
-    adult: '2,000 mg'
-  },
-  {
-    id: 'biotin',
-    category: 'WATER_SOLUBLE',
-    categoryTitle: '수용성 비타민',
-    nutrientName: '비오틴 (Biotin, B7)',
+    nutrientName: '티아민 (Thiamine, B1)',
+    subName: '비타민B1',
     age1_2: '-',
     age3_5: '-',
     age6_8: '-',
@@ -286,11 +273,11 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
     note: 'UL 미설정'
   },
   {
-    id: 'cyanocobalamin',
+    id: 'riboflavin',
     category: 'WATER_SOLUBLE',
     categoryTitle: '수용성 비타민',
-    nutrientName: '코발라민 (Cobalamin, B12)',
-    subName: '시아노코발라민 등',
+    nutrientName: '리보플라빈 (Riboflavin, B2)',
+    subName: '비타민B2',
     age1_2: '-',
     age3_5: '-',
     age6_8: '-',
@@ -300,21 +287,6 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
     adult: '-',
     isNoUl: true,
     note: 'UL 미설정'
-  },
-  {
-    id: 'folic_acid',
-    category: 'WATER_SOLUBLE',
-    categoryTitle: '수용성 비타민',
-    nutrientName: '엽산 (Folic acid, B9)',
-    subName: '합성 폴산 기준',
-    age1_2: '300 μg',
-    age3_5: '400 μg',
-    age6_8: '500 μg',
-    age9_11: '700 μg',
-    age12_14: '800 μg',
-    age15_18: '900 μg',
-    adult: '1,000 μg',
-    note: '합성 보충제 기준'
   },
   {
     id: 'nicotinamide',
@@ -361,11 +333,10 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
     adult: '50 mg'
   },
   {
-    id: 'riboflavin',
+    id: 'biotin',
     category: 'WATER_SOLUBLE',
     categoryTitle: '수용성 비타민',
-    nutrientName: '리보플라빈 (Riboflavin, B2)',
-    subName: '비타민B2',
+    nutrientName: '비오틴 (Biotin, B7)',
     age1_2: '-',
     age3_5: '-',
     age6_8: '-',
@@ -377,11 +348,26 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
     note: 'UL 미설정'
   },
   {
-    id: 'thiamine',
+    id: 'folic_acid',
     category: 'WATER_SOLUBLE',
     categoryTitle: '수용성 비타민',
-    nutrientName: '티아민 (Thiamine, B1)',
-    subName: '비타민B1',
+    nutrientName: '엽산 (Folic acid, B9)',
+    subName: '합성 폴산 기준',
+    age1_2: '300 μg',
+    age3_5: '400 μg',
+    age6_8: '500 μg',
+    age9_11: '700 μg',
+    age12_14: '800 μg',
+    age15_18: '900 μg',
+    adult: '1,000 μg',
+    note: '합성 보충제 기준'
+  },
+  {
+    id: 'cyanocobalamin',
+    category: 'WATER_SOLUBLE',
+    categoryTitle: '수용성 비타민',
+    nutrientName: '코발라민 (Cobalamin, B12)',
+    subName: '시아노코발라민 등',
     age1_2: '-',
     age3_5: '-',
     age6_8: '-',
@@ -392,8 +378,22 @@ export const KDRI_2025_PEDIATRIC_REFERENCE_TABLE: PediatricUlReferenceItem[] = [
     isNoUl: true,
     note: 'UL 미설정'
   },
+  {
+    id: 'ascorbic_acid',
+    category: 'WATER_SOLUBLE',
+    categoryTitle: '수용성 비타민',
+    nutrientName: '비타민 C (Ascorbic acid)',
+    subName: '아스코르브산',
+    age1_2: '400 mg',
+    age3_5: '600 mg',
+    age6_8: '900 mg',
+    age9_11: '1,200 mg',
+    age12_14: '1,600 mg',
+    age15_18: '1,800 mg',
+    adult: '2,000 mg'
+  },
 
-  // 2. 지용성 비타민 (Fat-soluble vitamins - abc순)
+  // 2. 지용성 비타민 (A -> D -> E -> K 순)
   {
     id: 'vitA',
     category: 'FAT_SOLUBLE',

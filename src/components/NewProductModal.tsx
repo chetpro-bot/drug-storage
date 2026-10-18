@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useProductStore, getDeletedIds } from '../stores/useProductStore';
 import { ProductClassification, DosageForm } from '../types/classification';
-import { ProductItem, AttachedDocument, getProductThumbnail } from '../types/product';
+import { ProductItem, AttachedDocument } from '../types/product';
 import { ProductIngredientEntry } from '../types/ingredient';
 import { 
   searchPublicDrugDatabase, 
@@ -203,7 +203,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
     setServingUnitKorean(p.servingUnitKorean || '정');
     setPriceRetailKrw(p.priceRetailKrw || 0);
     setStorageLocation(p.storageLocation || '');
-    setProductImageUrl(p.imageUrl || getProductThumbnail(p) || '');
+    setProductImageUrl(p.imageUrl || '');
     setTags(p.tags?.join(', ') || '');
     setAttachedDocuments(p.attachments ? JSON.parse(JSON.stringify(p.attachments)) : []);
 

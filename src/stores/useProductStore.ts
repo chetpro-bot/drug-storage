@@ -303,6 +303,21 @@ function migrateAndEnsureKpic(products: ProductItem[]): ProductItem[] {
       };
     }
 
+    // 7. 성분/함량 추출용으로 첨부된 자료나 라벨 이미지가 과거 대표 사진(imageUrl)으로 잘못 저장된 경우 정리
+    if (
+      prod.imageUrl &&
+      (prod.imageUrl.includes('/attachments/') ||
+        prod.imageUrl.includes('영양기능정보') ||
+        prod.imageUrl.includes('성분표') ||
+        (prod.attachments && prod.attachments.some((a) => a.dataUrl === prod.imageUrl)))
+    ) {
+      hasChanges = true;
+      prod = {
+        ...prod,
+        imageUrl: undefined
+      };
+    }
+
     if (hasChanges) {
       const updated = {
         ...prod,

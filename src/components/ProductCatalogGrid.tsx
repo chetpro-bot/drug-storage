@@ -176,31 +176,6 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
     }
   };
 
-  const getDosageShortKorean = (dosageForm: ProductItem['dosageForm']) => {
-    switch (dosageForm) {
-      case 'FILM_COATED_TABLET':
-        return '필름코팅정';
-      case 'TABLET':
-        return '정제';
-      case 'ENTERIC_TABLET':
-        return '장용정';
-      case 'SOFT_CAPSULE':
-        return '연질캡슐';
-      case 'HARD_CAPSULE':
-        return '경질캡슐';
-      case 'LIQUID_ORAL':
-        return '액상/스틱';
-      case 'POWDER':
-        return '분말/산제';
-      case 'GRANULE':
-        return '과립제';
-      case 'JELLY':
-        return '젤리/츄어블';
-      default:
-        return dosageForm;
-    }
-  };
-
   return (
     <div className="flex-1 flex flex-col bg-[#f8fafc] text-slate-900 overflow-hidden">
       {/* 숨겨진 사진 업로드 input */}
@@ -458,11 +433,6 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
                         <Camera className="w-3 h-3 text-sky-600" />
                         <span>{thumbnail ? '사진 변경' : '사진 등록'}</span>
                       </button>
-
-                      {/* 좌측 상단: 제형 미니 배지 */}
-                      <span className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-white/90 text-slate-600 border border-slate-200/80 text-[10px] font-bold shadow-2xs">
-                        {getDosageShortKorean(product.dosageForm)}
-                      </span>
                     </div>
 
                     {/* 2. 분류 (일반의약품 / 건강기능식품 / 기타가공품) & 수정 버튼 */}

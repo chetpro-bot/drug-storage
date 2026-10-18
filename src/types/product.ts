@@ -53,17 +53,31 @@ export function isBackLabelAttachment(doc?: { id?: string; fileName?: string; do
 }
 
 /**
- * 제품 대표 썸네일 반환 (imageUrl 우선, 없으면 뒷면 라벨을 제외한 일반 첨부 이미지 반환)
- * 뒷면 라벨 사진은 절대 카탈로그 대표 썸네일로 사용되지 않음
+ * 제품 대표 썸네일 반환
+ * - 오직 사용자가 직접 등록한 제품 대표 사진(product.imageUrl)만 카탈로그 대표 사진으로 사용합니다.
+ * - 성분/함량 추출용으로 첨부된 자료, 영양정보표, 라벨 사진 등(attachments)은 절대 카탈로그 대표 사진으로 노출되지 않습니다.
  */
 export function getProductThumbnail(product?: Partial<ProductItem> | null): string | undefined {
   if (!product) return undefined;
-  if (product.imageUrl) return product.imageUrl;
-  if (product.attachments && product.attachments.length > 0) {
-    const frontDoc = product.attachments.find((a) => !isBackLabelAttachment(a));
-    if (frontDoc) return frontDoc.dataUrl;
+  if (!product.imageUrl) return undefined;
+
+  // 첨부자료 dataUrl이나 성분 추출용 라벨 이미지가 imageUrl에 잘못 들어가 있는 경우 차단
+  if (
+    product.attachments &&
+    product.attachments.some((a) => a.dataUrl === product.imageUrl)
+  ) {
+    return undefined;
   }
-  return undefined;
+
+  if (
+    product.imageUrl.includes('/attachments/') ||
+    product.imageUrl.includes('영양기능정보') ||
+    product.imageUrl.includes('성분표')
+  ) {
+    return undefined;
+  }
+
+  return product.imageUrl;
 }
 
 

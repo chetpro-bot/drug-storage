@@ -70,6 +70,19 @@ export function subscribeToProducts(
   }
 }
 
+function sanitizeForFirestore(obj: any): any {
+  if (obj === undefined) return null;
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(sanitizeForFirestore);
+  const result: any = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined) {
+      result[key] = sanitizeForFirestore(value);
+    }
+  }
+  return result;
+}
+
 /**
  * 신규 제품 Firestore 저장 또는 업데이트 (Write)
  */
@@ -80,10 +93,11 @@ export async function saveProductToFirestore(product: ProductItem): Promise<void
 
   try {
     const docRef = doc(db, PRODUCTS_COLLECTION, product.id);
-    await setDoc(docRef, {
+    const dataToSave = sanitizeForFirestore({
       ...product,
       updatedAt: new Date().toISOString()
-    }, { merge: true });
+    });
+    await setDoc(docRef, dataToSave, { merge: true });
   } catch (e: any) {
     console.warn('Firestore 저장 알림 (로컬에 안전하게 보존됩니다):', e?.message || e);
   }

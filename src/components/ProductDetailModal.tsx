@@ -952,36 +952,44 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     setIsEditingDosage(true);
   };
 
-  // 복용 방법 수정 저장 (줄바꿈 보존)
+  // 복용 방법 수정 저장 (줄바꿈 보존 및 즉각 UI 반영)
   const handleSaveDosage = async () => {
     if (!product) return;
     const trimmed = editDosageValue.trim();
-    if (product.classification === 'HEALTH_FUNCTIONAL_FOOD') {
-      await updateProduct(product.id, {
-        functionalFoodDetail: {
-          ...(product.functionalFoodDetail || {
-            reportNo: '',
-            functionalClaimsKorean: [],
-            safetyPrecautionsKorean: []
-          }),
-          suggestedUseKorean: trimmed
-        }
-      });
-    } else {
-      await updateProduct(product.id, {
-        otcDetail: {
-          ...(product.otcDetail || {
-            itemSeq: '',
-            permitDate: '',
-            indicationsKorean: [],
-            storageMethodKorean: '',
-            precautionsSummaryKorean: []
-          }),
-          dosageAndAdministrationKorean: trimmed
-        }
-      });
-    }
+
+    // 1. 입력창 즉시 닫기 (UI 즉시 반영)
     setIsEditingDosage(false);
+
+    try {
+      if (product.classification === 'OTC_DRUG') {
+        await updateProduct(product.id, {
+          otcDetail: {
+            ...(product.otcDetail || {
+              itemSeq: '',
+              permitDate: '',
+              indicationsKorean: [],
+              storageMethodKorean: '',
+              precautionsSummaryKorean: []
+            }),
+            dosageAndAdministrationKorean: trimmed
+          }
+        });
+      } else {
+        // 건강기능식품(HEALTH_FUNCTIONAL_FOOD) 및 일반식품/기타가공품(GENERAL_FOOD)
+        await updateProduct(product.id, {
+          functionalFoodDetail: {
+            ...(product.functionalFoodDetail || {
+              reportNo: '',
+              functionalClaimsKorean: [],
+              safetyPrecautionsKorean: []
+            }),
+            suggestedUseKorean: trimmed
+          }
+        });
+      }
+    } catch (err) {
+      console.error('용법 저장 처리 오류:', err);
+    }
   };
 
   // 식품안전나라 부원료(기타원료 목록) 조회 로딩 상태
@@ -1473,6 +1481,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     /어린이|키즈|마이타민|베베|아이/i.test(product.productName);
 
   const dosageMethodText =
+    (product.classification === 'OTC_DRUG'
+      ? product.otcDetail?.dosageAndAdministrationKorean
+      : product.functionalFoodDetail?.suggestedUseKorean) ||
     product.functionalFoodDetail?.suggestedUseKorean ||
     product.otcDetail?.dosageAndAdministrationKorean ||
     `1일 ${product.dailyServings}회, 1회 ${product.amountPerServing}${product.servingUnitKorean}을(를) 충분한 물과 함께 섭취하십시오.`;

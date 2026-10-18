@@ -285,11 +285,10 @@ export const useProductStore = create<ProductState>((set, get) => {
       persistToLocal(next);
       set({ products: next });
 
-      try {
-        await saveProductToFirestore(updated);
-      } catch (e) {
+      // 백그라운드 Firestore 동기화 (UI 블로킹 방지)
+      saveProductToFirestore(updated).catch((e) => {
         console.warn('Firestore 업데이트 비동기 처리 알림:', e);
-      }
+      });
     },
 
     deleteProduct: async (id) => {

@@ -705,7 +705,7 @@ export function parseFoodNutritionLabel(rawText: string): {
       standardKey: 'CALCIUM',
       unit: 'mg',
       detectRegex: /(?:칼\s*슘|calcium)[^\d\n\r]*?(\d+(?:\.\d+)?)\s*(?:mg|밀리그램)?/i,
-      rawMaterialMatchRegex: /(?:칼[슘슴]|calcium|아쿠아민|해조|라마르)/i,
+      rawMaterialMatchRegex: /(?:칼[슘슴]|calcium|아쿠아민|해조)/i,
       defaultClinicalSummary: '• 뼈와 치아 형성, 신경과 근육 기능 유지에 관여 (복합 칼슘 급원)'
     },
     {
@@ -803,13 +803,11 @@ export function parseFoodNutritionLabel(rawText: string): {
   // 한국어 원료명 띄어쓰기 정돈 헬퍼
   const formatRawMaterialSpacing = (name: string): string => {
     let clean = name.replace(/\([^)]*\)/g, '').trim();
-    if (name.includes('아쿠아민') || name.includes('해조')) {
-      if (!clean.includes('칼슘')) clean = '수용성 아쿠아민(해조 칼슘)';
-    }
-    if (name.includes('라마르')) {
-      clean = '라마르미네600';
-    }
-    if (name.includes('메나큐') || name.includes('메나퀴') || name.includes('K2')) {
+    if (name.includes('수용성아쿠아민') || name.includes('수용성 아쿠아민')) {
+      clean = '수용성 아쿠아민';
+    } else if (name.includes('아쿠아민')) {
+      clean = '아쿠아민';
+    } else if (name.includes('메나큐') || name.includes('메나퀴') || name.includes('K2')) {
       clean = '비타민 K2(메나퀴논-7)';
     }
     return clean

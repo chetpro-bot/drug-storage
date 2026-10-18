@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { ProductItem } from '../types/product';
-import { ProductIngredientEntry } from '../types/ingredient';
 import { useProductStore } from '../stores/useProductStore';
 import {
   fetchMfdsDrugDetail,
@@ -8,6 +7,8 @@ import {
   convertMasterItemToFetchResult
 } from '../services/publicDataService';
 import { AttachedDocumentsModal } from './AttachedDocumentsModal';
+import { resolveIngredientDisplayInfo, sortProductIngredients } from '../utils/innMapper';
+import { getDarkCategoryBadgeStyle } from '../utils/categoryColors';
 import {
   X,
   Edit3,
@@ -24,76 +25,6 @@ interface ProductDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   onEditProduct: (product: ProductItem) => void;
-}
-
-/**
- * 표시 함량 표기를 위한 순수 영문 성분명(English INN) 반환
- * 한글명이 섞여 있더라도 표준 영문 성분명만 깔끔하게 표시
- */
-function getEnglishOnlyIngredientName(ing: ProductIngredientEntry): string {
-  const raw = (ing.englishInn || '').trim();
-
-  // 한글 원료명이 들어있는 경우 영문 표준명으로 매핑
-  const korToEngMap: Record<string, string> = {
-    '벤포티아민': 'Benfotiamine',
-    '푸르설티아민': 'Fursultiamine',
-    '비스벤티아민': 'Bisbentiamine',
-    '티아민염산염': 'Thiamine hydrochloride',
-    '티아민질산염': 'Thiamine mononitrate',
-    '리보플라빈부티레이트': 'Riboflavin butyrate',
-    '리보플라빈': 'Riboflavin',
-    '니코틴산아미드': 'Nicotinamide',
-    '나이아신': 'Nicotinamide',
-    '판토텐산칼슘': 'Calcium pantothenate',
-    '피리독신염산염': 'Pyridoxine hydrochloride',
-    '피리독살포스페이트': 'Pyridoxal phosphate hydrate',
-    '비오틴': 'Biotin',
-    '엽산': 'Folic acid',
-    '메코발라민': 'Mecobalamin',
-    '시아노코발라민': 'Cyanocobalamin',
-    '아스코르브산': 'Ascorbic acid',
-    '비타민C': 'Ascorbic acid',
-    '콜레칼시페롤': 'Cholecalciferol',
-    '토코페롤아세테이트': 'Tocopherol acetate',
-    '산화아연': 'Zinc oxide',
-    '글루콘산아연': 'Zinc gluconate',
-    '산화마그네슘': 'Magnesium oxide',
-    '셀레늄': 'Selenium',
-    '우르소데옥시콜산': 'Ursodeoxycholic acid',
-    '타우린': 'Taurine',
-    '이노시톨': 'Inositol',
-    '감마오리자놀': 'Gamma-oryzanol',
-    '콜린타르타르산염': 'Choline bitartrate',
-    '실리마린': 'Silymarin',
-    '밀크씨슬추출물': 'Milk thistle extract (Silymarin)',
-    '루테인': 'Lutein',
-    '프로바이오틱스': 'Probiotics',
-    'L-아르기닌': 'L-Arginine',
-    '아르기닌': 'L-Arginine',
-    '글루타치온': 'L-Glutathione',
-    '코엔자임Q10': 'Coenzyme Q10 (Ubidecarenone)',
-    '홍삼': 'Korean Red Ginseng extract',
-    '오메가3': 'Omega-3 (EPA & DHA)',
-    '테아닌': 'L-Theanine',
-    '바나바잎추출물': 'Banaba leaf extract (Corosolic acid)'
-  };
-
-  if (korToEngMap[raw]) {
-    return korToEngMap[raw];
-  }
-
-  // 괄호 안이나 뒤에 한글 설명이 붙어 있다면 제거하고 순수 영문만 반환
-  const stripped = raw
-    .replace(/\([가-힣\s·,0-9]+\)/g, '')
-    .replace(/[가-힣]+/g, '')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
-
-  if (stripped && /[A-Za-z]/.test(stripped)) {
-    return stripped;
-  }
-
-  return raw || 'Active Ingredient';
 }
 
 /**
@@ -495,6 +426,29 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       }
     };
 
+    // 올대원맥스정 등 기존 저장 데이터에 Riboflavin 90mg이 과거 버그로 Riboflavin 5'-phosphate sodium으로 저장되어 있거나
+    // 엽산 분류가 '엽산'으로 남아있는 경우 DB에서도 즉시 보정
+    if (product.productName.includes('올대원맥스')) {
+      const hasLegacyRiboBug = product.ingredients.some(
+        (ing) => ing.rawAmount === 90 && (ing.englishInn || '').includes("5'-phosphate")
+      );
+      if (hasLegacyRiboBug) {
+        const fixedIngredients = product.ingredients.map((ing) => {
+          if (ing.rawAmount === 90 && (ing.englishInn || '').includes("5'-phosphate")) {
+            return {
+              ...ing,
+              englishInn: 'Riboflavin',
+              functionalCategory: '비타민B2',
+              chemicalFormName: '수용성 리보플라빈 (비타민 B2)',
+              elementalAmount: undefined
+            };
+          }
+          return ing;
+        });
+        updateProduct(product.id, { ingredients: fixedIngredients });
+      }
+    }
+
     checkAndFetchFullText();
 
     return () => {
@@ -517,6 +471,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     `1일 ${product.dailyServings}회, 1회 ${product.amountPerServing}${product.servingUnitKorean}을(를) 충분한 물과 함께 섭취하십시오.`;
 
   const servingUnitLabel = `${product.amountPerServing || 1}${product.servingUnitKorean || '개'}`;
+
+  // 성분 정렬 (비타민 A, B1..B9..B12, C, D, E, K -> 미네랄 알파벳순 -> 기타 성분 알파벳순; 동일 분류 내 알파벳순)
+  const sortedIngredients = sortProductIngredients(product.ingredients, product.productName);
 
   // 일반의약품: 식약처 효능·효과 전문 텍스트
   const otcIndicationsFullText = (product.otcDetail?.indicationsKorean || []).join('\n');
@@ -679,46 +636,61 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </p>
           </div>
 
-          {/* SECTION 2: 표시 함량 (영문 성분명 전용) */}
+          {/* SECTION 2: 표시 함량 (약효분류 태그 - 영문 성분명 - 함량(실제 환산량) - 상한섭취량 표기) */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold text-slate-400">표시 함량</h3>
               <span className="text-[11px] text-slate-400">
-                1회 섭취량 ({servingUnitLabel}) 기준 · 총 {product.ingredients.length}종
+                1회 섭취량 ({servingUnitLabel}) 기준 · 총 {sortedIngredients.length}종
               </span>
             </div>
 
             <div className="divide-y divide-slate-700/70 border-t border-b border-slate-700/70">
-              {product.ingredients.map((ing, idx) => {
-                const englishName = getEnglishOnlyIngredientName(ing);
-                const hasElemental =
-                  ing.elementalAmount !== undefined &&
-                  ing.elementalAmount > 0 &&
-                  ing.elementalAmount !== ing.rawAmount;
+              {sortedIngredients.map((ing, idx) => {
+                const info = resolveIngredientDisplayInfo(ing, product.productName);
+                const badgeStyle = getDarkCategoryBadgeStyle(info.categoryTag);
 
                 return (
                   <div
                     key={ing.ingredientId || idx}
-                    className="py-2.5 px-1 flex items-center justify-between gap-4 hover:bg-slate-800/60 transition-colors"
+                    className="py-2.5 px-1.5 flex items-center justify-between gap-3 hover:bg-slate-800/60 transition-colors flex-wrap sm:flex-nowrap"
                   >
-                    <div className="min-w-0">
-                      <span className="text-xs font-bold text-slate-100 font-mono truncate block">
-                        {englishName}
+                    {/* 좌측: [약효분류 태그] + [영문 성분명] */}
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span
+                        className={`text-[11px] font-bold px-2 py-0.5 rounded-md border shrink-0 whitespace-nowrap ${badgeStyle}`}
+                      >
+                        {info.categoryTag}
+                      </span>
+                      <span className="text-xs font-bold text-slate-100 font-mono truncate">
+                        {info.englishName}
                       </span>
                     </div>
 
-                    <div className="text-right shrink-0 font-mono">
-                      <span className="text-xs font-extrabold text-white">
-                        {ing.rawAmount.toLocaleString()} {ing.unit}
-                      </span>
-                      {hasElemental && (
-                        <span className="text-[11px] font-semibold text-emerald-400 ml-1.5">
-                          ({ing.elementalAmount?.toLocaleString()} {ing.unit})
+                    {/* 우측: [표시 함량] + [(실제 성분 환산량)] + [/ 1회 섭취량] + [상한량(UL) 배지] */}
+                    <div className="flex items-center gap-2 shrink-0 ml-auto font-mono">
+                      <div className="text-right">
+                        <span className="text-xs font-extrabold text-white">
+                          {ing.rawAmount.toLocaleString()} {ing.unit}
+                        </span>
+                        {info.convertedText && (
+                          <span className="text-[11px] font-semibold text-emerald-400 ml-1.5">
+                            ({info.convertedText})
+                          </span>
+                        )}
+                        <span className="text-xs font-semibold text-slate-400 ml-1">
+                          / {servingUnitLabel}
+                        </span>
+                      </div>
+
+                      {info.ulText && (
+                        <span
+                          title={info.ulNote || '2025 한국인 영양소 섭취기준(KDRIs) 성인 1일 상한섭취량(UL)'}
+                          className="text-[10px] font-bold text-amber-300 bg-amber-950/50 border border-amber-700/60 px-2 py-0.5 rounded-md whitespace-nowrap"
+                        >
+                          {info.ulText}
                         </span>
                       )}
-                      <span className="text-xs font-semibold text-slate-400 ml-1">
-                        / {servingUnitLabel}
-                      </span>
                     </div>
                   </div>
                 );

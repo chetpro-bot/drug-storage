@@ -17,7 +17,9 @@ export type NutrientStandardKey =
   | 'VITAMIN_B9' // Folate / Folic acid
   | 'VITAMIN_B12'// Cobalamin
   | 'VITAMIN_C'
+  | 'CHOLINE'
   | 'CALCIUM'
+  | 'PHOSPHORUS'
   | 'MAGNESIUM'
   | 'IRON'
   | 'ZINC'

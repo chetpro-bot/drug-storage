@@ -1,5 +1,7 @@
 import { EfficacyCategory, NutrientStandardKey, ProductIngredientEntry } from '../types/ingredient';
 import kpicMasterData from '../constants/kpicMasterDatabase.json';
+import { KDRI_2025_ADULT_STANDARDS } from '../constants/kdri2025';
+import { normalizeCategory } from './categoryColors';
 
 export const KPIC_MASTER_DATABASE: Record<string, string> = kpicMasterData;
 
@@ -60,7 +62,9 @@ export interface InnMappingMeta {
   defaultUnit: 'mg' | 'ug' | 'IU' | 'g';
   standardKey?: NutrientStandardKey;
   clinicalSummary: string;
-  elementalRatio?: number; // 원소 환산비 (예: 산화아연 0.803, 글루콘산아연 0.1435)
+  elementalRatio?: number; // 원소/유효성분 환산비 (예: 벤포티아민 0.7231, 산화아연 0.803)
+  elementalTargetLabel?: string; // 환산 기준 성분 표기 (예: '티아민염산염으로서', '리보플라빈으로서', '마그네슘으로서')
+  elementalUnit?: 'mg' | 'ug' | 'IU' | 'g'; // 환산 단위가 다른 경우 (예: 콜레칼시페롤농축분말 10mg -> 1,000IU)
 }
 
 const LEARNED_DICT_STORAGE_KEY = 'pharmassist_learned_inn_dict_v1';
@@ -101,25 +105,31 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   '벤포티아민': {
     englishInn: 'Benfotiamine',
     functionalCategory: '비타민B1',
-    chemicalFormName: '지용성 활성형 비타민 B1 (에스테르 유도체)',
+    chemicalFormName: '지용성 S-아실 티아민 유도체 (활성형 비타민 B1)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B1',
+    elementalRatio: 0.723,
+    elementalTargetLabel: '티아민염산염으로서',
     clinicalSummary: '• 수용성 티아민 대비 높은 생체이용률, 근육 및 신경 ATP 생성 촉진\n• 젖산 축적 억제로 만성 피로 회복 가속'
   },
   '비스벤티아민': {
     englishInn: 'Bisbentiamine',
     functionalCategory: '비타민B1',
-    chemicalFormName: '뇌 투과형 지용성 활성 비타민 B1 (이량체)',
+    chemicalFormName: '지용성 다이설파이드 티아민 이량체 (활성형 비타민 B1)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B1',
+    elementalRatio: 0.875,
+    elementalTargetLabel: '티아민염산염으로서',
     clinicalSummary: '• BBB(Blood-Brain Barrier - 뇌혈관장벽) 통과율 우수, 뇌세포 당대사 활성화\n• 뇌 피로 회복 및 신경 전달 조절'
   },
   '푸르설티아민': {
     englishInn: 'Fursultiamine',
     functionalCategory: '비타민B1',
-    chemicalFormName: '프로설티아민 유도체 지용성 비타민 B1',
+    chemicalFormName: '지용성 다이설파이드 티아민 유도체 (활성형 비타민 B1)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B1',
+    elementalRatio: 0.8463,
+    elementalTargetLabel: '티아민염산염으로서',
     clinicalSummary: '• 뇌혈관장벽(BBB) 및 세포막 통과 우수, 활성형 조효소 TPP 전환\n• 신경통, 관절통 증상 완화'
   },
   '티아민질산염': {
@@ -141,7 +151,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   '리보플라빈': {
     englishInn: 'Riboflavin',
     functionalCategory: '비타민B2',
-    chemicalFormName: '순수 리보플라빈 (비타민 B2)',
+    chemicalFormName: '수용성 리보플라빈 (비타민 B2)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B2',
     clinicalSummary: '• 미토콘드리아 FMN/FAD 조효소 전구체, 체내 에너지 생성 및 점막 보호'
@@ -149,18 +159,36 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   '리보플라빈포스페이트나트륨': {
     englishInn: "Riboflavin 5'-phosphate sodium",
     functionalCategory: '비타민B2',
-    chemicalFormName: '수용성 활성 에스테르염 (인산나트륨 형태)',
+    chemicalFormName: '활성 조효소형(FMN) 인산나트륨염 (비타민 B2)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B2',
+    elementalRatio: 0.787,
+    elementalTargetLabel: '리보플라빈으로서',
     clinicalSummary: '• 용해도 우수한 활성형 B2, 점막 세포 재생 및 에너지 대사'
   },
   '니코틴산아미드': {
     englishInn: 'Nicotinamide',
     functionalCategory: '비타민B3',
-    chemicalFormName: '아미드형 (비타민 B3)',
+    chemicalFormName: '아미드형 (비타민 B3 — 니코틴산아미드, 상한 850mg)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B3',
-    clinicalSummary: '• 안면 홍조(Flushing) 위험 없는 아미드 형태, 산화환원 반응 NAD 조효소 합성'
+    clinicalSummary: '• 안면 홍조(Flushing) 위험 없는 아미드 형태, 산화환원 반응 NAD 조효소 합성\n• 2025 KDRIs 성인 상한섭취량(UL): 850mg NE/일 (니코틴산아미드 기준)'
+  },
+  '니코틴아미드': {
+    englishInn: 'Nicotinamide',
+    functionalCategory: '비타민B3',
+    chemicalFormName: '아미드형 (비타민 B3 — 니코틴산아미드, 상한 850mg)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_B3',
+    clinicalSummary: '• 안면 홍조(Flushing) 위험 없는 아미드 형태, 산화환원 반응 NAD 조효소 합성\n• 2025 KDRIs 성인 상한섭취량(UL): 850mg NE/일 (니코틴산아미드 기준)'
+  },
+  '니코틴산': {
+    englishInn: 'Nicotinic acid',
+    functionalCategory: '비타민B3',
+    chemicalFormName: '산(Acid)형 (비타민 B3 — 니코틴산, 상한 35mg)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_B3',
+    clinicalSummary: '• NAD/NADP 산화환원 조효소 합성 및 지질 대사 관여\n• 2025 KDRIs 성인 상한섭취량(UL): 35mg NE/일 (초과 시 안면홍조/Flushing 유발 주의)'
   },
   '판토텐산칼슘': {
     englishInn: 'Calcium pantothenate',
@@ -168,6 +196,8 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '칼슘염 (비타민 B5)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B5',
+    elementalRatio: 0.9201,
+    elementalTargetLabel: '판토텐산으로서',
     clinicalSummary: '• 조효소 Coenzyme A 구성 성분, 지방산 대사 및 부신피질 호르몬 합성 지원'
   },
   '칼슘판토테네이트': {
@@ -176,14 +206,18 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '칼슘염 (비타민 B5)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B5',
+    elementalRatio: 0.9201,
+    elementalTargetLabel: '판토텐산으로서',
     clinicalSummary: '• 조효소 Coenzyme A 구성 성분, 지방산 대사 및 부신피질 호르몬 합성 지원'
   },
   '피리독신염산염': {
     englishInn: 'Pyridoxine hydrochloride',
     functionalCategory: '비타민B6',
-    chemicalFormName: '염산염 (비타민 B6)',
+    chemicalFormName: '염산염 (수용성 비타민 B6)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B6',
+    elementalRatio: 0.8227,
+    elementalTargetLabel: '피리독신으로서',
     clinicalSummary: '• 아미노산 대사 및 신경전달물질(GABA, Serotonin) 합성 보조'
   },
   '피리독살포스페이트': {
@@ -192,12 +226,14 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '활성 조효소형 비타민 B6 (PLP)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B6',
+    elementalRatio: 0.638,
+    elementalTargetLabel: '피리독신으로서',
     clinicalSummary: '• 간 대사 불필요한 즉각적 활성 조효소형, 호모시스테인 대사 정상화'
   },
   '메코발라민': {
     englishInn: 'Mecobalamin',
     functionalCategory: '비타민B12',
-    chemicalFormName: '체내 직접 작용 활성 비타민 B12 (메틸코발라민)',
+    chemicalFormName: '활성 조효소형 비타민 B12 (메틸코발라민)',
     defaultUnit: 'ug',
     standardKey: 'VITAMIN_B12',
     clinicalSummary: '• 신경초(Myelin sheath) 재생 직접 관여, 말초신경 장애 및 손발저림 완화'
@@ -205,15 +241,15 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   '시아노코발라민': {
     englishInn: 'Cyanocobalamin',
     functionalCategory: '비타민B12',
-    chemicalFormName: '합성형 비타민 B12',
+    chemicalFormName: '시아노코발라민 (비타민 B12)',
     defaultUnit: 'ug',
     standardKey: 'VITAMIN_B12',
     clinicalSummary: '• 엽산 대사 조효소 작용, 정상 적혈구 생성 및 거대적혈모구빈혈 예방'
   },
   '폴산': {
     englishInn: 'Folic acid',
-    functionalCategory: '엽산',
-    chemicalFormName: '합성 엽산 (비타민 B9)',
+    functionalCategory: '비타민B9(엽산)',
+    chemicalFormName: '모노글루타메이트형 엽산 (비타민 B9)',
     defaultUnit: 'ug',
     standardKey: 'VITAMIN_B9',
     clinicalSummary: '• 세포 분열 및 DNA 합성 필수, 태아 신경관 정상 발달'
@@ -221,7 +257,15 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   '비오틴': {
     englishInn: 'Biotin',
     functionalCategory: '비타민B7',
-    chemicalFormName: '순수 비오틴 (비타민 B7)',
+    chemicalFormName: 'D-비오틴 (비타민 B7)',
+    defaultUnit: 'ug',
+    standardKey: 'VITAMIN_B7',
+    clinicalSummary: '• 탄수화물, 단백질, 지방 대사 조효소, 케라틴 단백질 구조 강화'
+  },
+  'D-비오틴': {
+    englishInn: 'D-Biotin',
+    functionalCategory: '비타민B7',
+    chemicalFormName: 'D-비오틴 (비타민 B7)',
     defaultUnit: 'ug',
     standardKey: 'VITAMIN_B7',
     clinicalSummary: '• 탄수화물, 단백질, 지방 대사 조효소, 케라틴 단백질 구조 강화'
@@ -234,7 +278,8 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '무기염 (산화아연)',
     defaultUnit: 'mg',
     standardKey: 'ZINC',
-    elementalRatio: 0.803,
+    elementalRatio: 0.8034,
+    elementalTargetLabel: '아연으로서',
     clinicalSummary: '• DNA/RNA 합성 및 T림프구 분화 촉진, 면역 방어력 강화'
   },
   '글루콘산아연': {
@@ -244,6 +289,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     defaultUnit: 'mg',
     standardKey: 'ZINC',
     elementalRatio: 0.1435,
+    elementalTargetLabel: '아연으로서',
     clinicalSummary: '• 위산 의존도 낮은 유기염으로 위장관 자극(GI Distress) 최소화 및 높은 생체이용률'
   },
   '산화마그네슘': {
@@ -253,15 +299,17 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     defaultUnit: 'mg',
     standardKey: 'MAGNESIUM',
     elementalRatio: 0.603,
+    elementalTargetLabel: '마그네슘으로서',
     clinicalSummary: '• 신경 자극 전달 조절 및 근육 수축·이완 정상화, 세포 내 ATP 결합 안정화'
   },
   '글리세로인산마그네슘': {
     englishInn: 'Magnesium glycerophosphate',
     functionalCategory: '마그네슘(Mg)',
-    chemicalFormName: '유기 유도체염 (글리세로인산마그네슘)',
+    chemicalFormName: '유기인산염 (글리세로인산마그네슘)',
     defaultUnit: 'mg',
     standardKey: 'MAGNESIUM',
     elementalRatio: 0.125,
+    elementalTargetLabel: '마그네슘으로서',
     clinicalSummary: '• 설사 유발 위험이 적고 생체흡수율이 뛰어난 유기염 마그네슘'
   },
   '탄산칼슘': {
@@ -271,6 +319,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     defaultUnit: 'mg',
     standardKey: 'CALCIUM',
     elementalRatio: 0.40,
+    elementalTargetLabel: '칼슘으로서',
     clinicalSummary: '• 뼈와 치아 형성의 주요 원소, 혈액 응고 및 신경 자극 전달'
   },
   '구연산칼슘': {
@@ -280,23 +329,28 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     defaultUnit: 'mg',
     standardKey: 'CALCIUM',
     elementalRatio: 0.21,
+    elementalTargetLabel: '칼슘으로서',
     clinicalSummary: '• 위산 저하증 환자나 공복 복용 시에도 흡수가 우수한 유기염 칼슘'
   },
   '푸마르산제일철': {
     englishInn: 'Ferrous fumarate',
     functionalCategory: '제1철 (Ferrous)',
-    chemicalFormName: '유기산 2가 철 (푸마르산염)',
+    chemicalFormName: '유기산 2가 철 (푸마르산제일철)',
     defaultUnit: 'mg',
     standardKey: 'IRON',
-    elementalRatio: 0.33,
+    elementalRatio: 0.3287,
+    elementalTargetLabel: '철로서',
     clinicalSummary: '• 헤모글로빈 구성 성분으로 체내 산소 운반 및 혈액 생성'
   },
 
   '콜린타르타르산염': {
     englishInn: 'Choline bitartrate',
     functionalCategory: '기타 비타민B',
-    chemicalFormName: '주석산염 (콜린염)',
+    chemicalFormName: '주석산염 (콜린타르타르산염)',
     defaultUnit: 'mg',
+    standardKey: 'CHOLINE',
+    elementalRatio: 0.4113,
+    elementalTargetLabel: '콜린으로서',
     clinicalSummary: '• 신경전달물질 아세틸콜린(Acetylcholine) 합성 전구체, 뇌 신경 신호 전달 촉진'
   },
   '이노시톨': {
@@ -309,9 +363,11 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   '리보플라빈부티레이트': {
     englishInn: 'Riboflavin butyrate',
     functionalCategory: '비타민B2',
-    chemicalFormName: '지용성 부티레이트 에스테르형 활성 비타민 B2',
+    chemicalFormName: '지용성 부티르산 에스테르 유도체 (활성형 비타민 B2)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B2',
+    elementalRatio: 0.573,
+    elementalTargetLabel: '리보플라빈으로서',
     clinicalSummary: '• 수용성 B2 대비 지질 친화성이 높아 체내 체류시간이 길고 지속적 에너지 생성 지원'
   },
   '피리독살포스페이트수화물': {
@@ -320,14 +376,19 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '활성 조효소형 비타민 B6 수화물 (PLP)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B6',
+    elementalRatio: 0.638,
+    elementalTargetLabel: '피리독신으로서',
     clinicalSummary: '• 간 대사 불필요한 즉각적 활성 조효소형, 호모시스테인 대사 정상화 및 신경전달물질 합성'
   },
   '농축콜레칼시페롤': {
     englishInn: 'Cholecalciferol concentrated',
     functionalCategory: '비타민D3',
-    chemicalFormName: '농축 천연 비타민 D3 유도체',
+    chemicalFormName: '농축 콜레칼시페롤 (비타민 D3)',
     defaultUnit: 'IU',
     standardKey: 'VITAMIN_D',
+    elementalRatio: 100,
+    elementalTargetLabel: '비타민D로서',
+    elementalUnit: 'IU',
     clinicalSummary: '• 소장 내 칼슘 흡수 촉진, 골밀도 유지 및 선천 면역 세포 조절'
   },
   '셀레늄함유건조효모': {
@@ -336,12 +397,15 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '유기 셀레늄 (건조효모 결합형)',
     defaultUnit: 'ug',
     standardKey: 'SELENIUM',
+    elementalRatio: 0.54,
+    elementalTargetLabel: '셀레늄으로서',
+    elementalUnit: 'ug',
     clinicalSummary: '• 글루타티온 과산화효소(GSH-Px) 핵심 조효소, 유해 활성산소 강력 소거'
   },
   '토코페롤아세테이트': {
     englishInn: 'Tocopherol acetate',
     functionalCategory: '비타민E',
-    chemicalFormName: '합성 비타민 E 에스테르',
+    chemicalFormName: '토코페롤 아세테이트 에스테르 (비타민 E)',
     defaultUnit: 'IU',
     standardKey: 'VITAMIN_E',
     clinicalSummary: '• 세포막 지질 과산화 방지, 말초 혈액순환 개선'
@@ -349,7 +413,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   '우르소데옥시콜산': {
     englishInn: 'Ursodeoxycholic acid',
     functionalCategory: '담석용해제',
-    chemicalFormName: '친수성 담즙산 (UDCA: Ursodeoxycholic Acid)',
+    chemicalFormName: '친수성 2차 담즙산 (UDCA)',
     defaultUnit: 'mg',
     clinicalSummary: '• 간세포 보호막 형성, 담즙 분비 촉진(이담 작용) 및 해독 대사 활성화'
   },
@@ -357,7 +421,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   '콜레칼시페롤': {
     englishInn: 'Cholecalciferol',
     functionalCategory: '비타민D3',
-    chemicalFormName: '천연 비타민 D3 유도체',
+    chemicalFormName: '콜레칼시페롤 (비타민 D3)',
     defaultUnit: 'IU',
     standardKey: 'VITAMIN_D',
     clinicalSummary: '• 소장 내 칼슘 흡수 촉진, 뼈 건강 유지 및 선천 면역 세포 조절'
@@ -366,7 +430,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   '아스코르브산': {
     englishInn: 'Ascorbic acid',
     functionalCategory: '비타민C',
-    chemicalFormName: '순수 L-아스코르브산 (비타민 C)',
+    chemicalFormName: 'L-아스코르브산 (비타민 C)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_C',
     clinicalSummary: '• 결합조직 형성 및 콜라겐 합성 필수 조효소, 유해 활성산소 소거'
@@ -374,31 +438,36 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   'L-아르기닌': {
     englishInn: 'L-Arginine',
     functionalCategory: '간보호제',
-    chemicalFormName: '유리 L-아르기닌',
+    chemicalFormName: 'L-아르기닌 (유리 아미노산)',
     defaultUnit: 'mg',
     clinicalSummary: '• 산화질소(NO) 생성 전구체, 혈관 확장 및 대사 활력 지원'
   },
   '타우린': {
     englishInn: 'Taurine',
     functionalCategory: '비필수 아미노산제제',
-    chemicalFormName: '유리 아미노산',
+    chemicalFormName: '함황 아미노설폰산 (타우린)',
     defaultUnit: 'mg',
     clinicalSummary: '• 담즙산 결합 및 삼투압 조절, 심근 수축력 및 근육 피로 완화'
   },
   '제피아스코르브산': {
     englishInn: 'Ascorbic acid coated',
     functionalCategory: '비타민C',
-    chemicalFormName: '코팅 제피 비타민 C (아스코르브산)',
+    chemicalFormName: '코팅 제피 아스코르브산 (비타민 C)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_C',
+    elementalRatio: 0.97,
+    elementalTargetLabel: '아스코르브산으로서',
     clinicalSummary: '• 산화 방지 및 위장 자극 경감 코팅 비타민 C, 결합조직 형성 및 항산화 작용'
   },
   '콜레칼시페롤농축분말': {
     englishInn: 'Cholecalciferol concentrate powder',
     functionalCategory: '비타민D3',
-    chemicalFormName: '농축 분말형 비타민 D3',
+    chemicalFormName: '농축 분말형 콜레칼시페롤 (비타민 D3)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_D',
+    elementalRatio: 100,
+    elementalTargetLabel: '비타민D로서',
+    elementalUnit: 'IU',
     clinicalSummary: '• 장관 내 칼슘 흡수 촉진 및 골밀도 유지, 면역 세포 수용체 활성화'
   },
   '토코페롤아세테이트2배산': {
@@ -407,6 +476,9 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '비타민 E 아세테이트 2배산',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_E',
+    elementalRatio: 0.5,
+    elementalTargetLabel: '비타민E로서',
+    elementalUnit: 'IU',
     clinicalSummary: '• 말초 혈관 순환 촉진, 세포막 불포화지방산 산화 억제'
   },
   '토코페롤아세테이트 2배산': {
@@ -415,6 +487,9 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '비타민 E 아세테이트 2배산',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_E',
+    elementalRatio: 0.5,
+    elementalTargetLabel: '비타민E로서',
+    elementalUnit: 'IU',
     clinicalSummary: '• 말초 혈관 순환 촉진, 세포막 불포화지방산 산화 억제'
   },
   '토코페롤아세테이트50%': {
@@ -423,6 +498,9 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '비타민 E 아세테이트 50%',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_E',
+    elementalRatio: 0.5,
+    elementalTargetLabel: '비타민E로서',
+    elementalUnit: 'IU',
     clinicalSummary: '• 말초 혈관 순환 촉진, 세포막 불포화지방산 산화 억제'
   },
   '토코페롤아세테이트 50%': {
@@ -431,6 +509,9 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '비타민 E 아세테이트 50%',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_E',
+    elementalRatio: 0.5,
+    elementalTargetLabel: '비타민E로서',
+    elementalUnit: 'IU',
     clinicalSummary: '• 말초 혈관 순환 촉진, 세포막 불포화지방산 산화 억제'
   },
   '감마-오리자놀': {
@@ -460,6 +541,9 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '유기 크롬 (건조효모 결합형)',
     defaultUnit: 'mg',
     standardKey: 'CHROMIUM',
+    elementalRatio: 2.0,
+    elementalTargetLabel: '크롬으로서',
+    elementalUnit: 'ug',
     clinicalSummary: '• GTF(Glucose Tolerance Factor) 인슐린 보조인자, 혈당 대사 및 당뇨 예방 보조'
   },
   '유비데카레논': {
@@ -644,12 +728,20 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     clinicalSummary: '• 체내 에너지 생성에 필요, 구내염 및 점막 보호'
   },
   '나이아신': {
-    englishInn: 'Nicotinamide',
+    englishInn: 'Niacin',
     functionalCategory: '비타민B3',
-    chemicalFormName: '나이아신 (니코틴산아미드)',
+    chemicalFormName: '나이아신 (원료 형태별 상한 상이: 니코틴산 35mg / 니코틴산아미드 850mg)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B3',
-    clinicalSummary: '• 체내 에너지 생성 및 NAD/NADP 산화환원 조효소 작용'
+    clinicalSummary: '• 체내 에너지 생성 및 NAD/NADP 산화환원 조효소 작용\n• 원료 형태에 따라 상한섭취량 상이 (니코틴산 35mg NE vs 니코틴산아미드 850mg NE)'
+  },
+  '니아신': {
+    englishInn: 'Niacin',
+    functionalCategory: '비타민B3',
+    chemicalFormName: '나이아신 (원료 형태별 상한 상이: 니코틴산 35mg / 니코틴산아미드 850mg)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_B3',
+    clinicalSummary: '• 체내 에너지 생성 및 NAD/NADP 산화환원 조효소 작용\n• 원료 형태에 따라 상한섭취량 상이 (니코틴산 35mg NE vs 니코틴산아미드 850mg NE)'
   },
   '판토텐산': {
     englishInn: 'Calcium pantothenate',
@@ -709,7 +801,7 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '엽산': {
     englishInn: 'Folic acid',
-    functionalCategory: '엽산',
+    functionalCategory: '비타민B9(엽산)',
     chemicalFormName: '엽산 (비타민 B9)',
     defaultUnit: 'ug',
     standardKey: 'VITAMIN_B9',
@@ -1267,31 +1359,56 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
       nameRaw = engKorMatch[2].trim();
     }
 
-    // 사전에서 매핑되는 영문 INN 찾기 (학습 사전 + 기본 사전 부분 일치 검사)
+    // 사전에서 매핑되는 영문 INN 찾기 (1순위: 완전 일치, 2순위: 영문 INN 완전 일치, 3순위: 입력 문자열이 사전 키를 포함하는 가장 긴 키 매칭)
+    // ※ 주의: dictKey.includes(nameRaw) (역방향 포함)를 허용하면 '리보플라빈' 입력이 더 긴 키인 '리보플라빈포스페이트나트륨'으로 잘못 매칭되므로 금지!
     const learnedDict = getLearnedDict();
     const combinedDict: Record<string, InnMappingMeta> = { ...INN_DICTIONARY, ...learnedDict };
 
     let matchedKey: string | null = null;
-    const lookupKey = (nameRaw || detectedInn).toLowerCase();
+    const normNameRaw = nameRaw.replace(/\s+/g, '').toLowerCase();
+    const normDetectedInn = detectedInn.replace(/\s+/g, '').toLowerCase();
     const sortedDictKeys = Object.keys(combinedDict).sort((a, b) => b.length - a.length);
 
+    // 1단계: 한글 키 완전 일치 (공백 무시)
     for (const dictKey of sortedDictKeys) {
-      const cleanDictKey = dictKey.toLowerCase();
-      if (
-        nameRaw === dictKey ||
-        nameRaw.includes(dictKey) ||
-        dictKey.includes(nameRaw) ||
-        lookupKey.includes(cleanDictKey) ||
-        cleanDictKey.includes(lookupKey)
-      ) {
+      const normDictKey = dictKey.replace(/\s+/g, '').toLowerCase();
+      if (normNameRaw && normNameRaw === normDictKey) {
         matchedKey = dictKey;
         break;
       }
     }
 
+    // 2단계: 영문 INN 완전 일치 (공백 무시)
+    if (!matchedKey && (normDetectedInn || normNameRaw)) {
+      const targetEng = normDetectedInn || normNameRaw;
+      for (const dictKey of sortedDictKeys) {
+        const metaEng = combinedDict[dictKey].englishInn.replace(/\s+/g, '').toLowerCase();
+        if (targetEng === metaEng) {
+          matchedKey = dictKey;
+          break;
+        }
+      }
+    }
+
+    // 3단계: 입력된 원료명이 사전 키를 포함하는 경우 (예: "비타민B1염산염(고시형)" -> "비타민B1염산염")
+    // 긴 사전 키부터 정렬되어 있으므로 복합염('리보플라빈포스페이트나트륨')이 단일성분('리보플라빈')보다 먼저 정확히 매칭됨
+    if (!matchedKey) {
+      for (const dictKey of sortedDictKeys) {
+        const normDictKey = dictKey.replace(/\s+/g, '').toLowerCase();
+        if (normDictKey.length < 2) continue;
+        if (
+          (normNameRaw && normNameRaw.includes(normDictKey)) ||
+          (normDetectedInn && normDetectedInn.includes(normDictKey))
+        ) {
+          matchedKey = dictKey;
+          break;
+        }
+      }
+    }
+
     // 1. KPIC 약학정보원 마스터 데이터베이스에서 공식 약효분류 조회 (정확도 우선순위 검색)
     let kpicCategory: string | undefined = undefined;
-    const testKeys = [detectedInn, nameRaw, lookupKey].filter(Boolean);
+    const testKeys = [detectedInn, nameRaw, normNameRaw].filter(Boolean);
     // 1-1. 완전 일치 우선 검색
     for (const tk of testKeys) {
       const cleanTk = tk.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
@@ -1349,9 +1466,9 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
       // 미등록 성분: 한글 단어 영문 매핑 재검색 시도 후 기본 영문 INN 추정
       let fallbackInn = detectedInn || nameRaw;
       if (/^[가-힣]/.test(fallbackInn)) {
-        for (const [k, meta] of Object.entries(INN_DICTIONARY)) {
-          if (fallbackInn.includes(k) || k.includes(fallbackInn)) {
-            fallbackInn = meta.englishInn;
+        for (const k of sortedDictKeys) {
+          if (fallbackInn.includes(k)) {
+            fallbackInn = INN_DICTIONARY[k]?.englishInn || fallbackInn;
             break;
           }
         }
@@ -1375,4 +1492,422 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
 
   return results;
 }
+
+export interface ResolvedIngredientDisplayInfo {
+  englishName: string;
+  categoryTag: string;
+  convertedAmount?: number;
+  convertedUnit?: string;
+  convertedLabel?: string;
+  convertedText: string | null;
+  ulText: string | null;
+  ulNote?: string;
+  sortGroup: 1 | 2 | 3; // 1: 비타민, 2: 미네랄, 3: 기타 성분
+  vitaminSubOrder: number; // 비타민 내 정렬 순서 (A=10, B1=21..B9=29..B12=32, 기타B=39, C=40, D=50, E=60, K=70)
+}
+
+const KOR_TO_ENG_DISPLAY_MAP: Record<string, string> = {
+  '벤포티아민': 'Benfotiamine',
+  '푸르설티아민': 'Fursultiamine',
+  '비스벤티아민': 'Bisbentiamine',
+  '티아민염산염': 'Thiamine hydrochloride',
+  '티아민질산염': 'Thiamine mononitrate',
+  '리보플라빈부티레이트': 'Riboflavin butyrate',
+  '리보플라빈포스페이트나트륨': "Riboflavin 5'-phosphate sodium",
+  '리보플라빈': 'Riboflavin',
+  '니코틴산아미드': 'Nicotinamide',
+  '니코틴아미드': 'Nicotinamide',
+  '니코틴산': 'Nicotinic acid',
+  '나이아신': 'Niacin',
+  '니아신': 'Niacin',
+  '판토텐산칼슘': 'Calcium pantothenate',
+  '피리독신염산염': 'Pyridoxine hydrochloride',
+  '피리독살포스페이트': "Pyridoxal 5'-phosphate",
+  '피리독살포스페이트수화물': 'Pyridoxal phosphate hydrate',
+  '비오틴': 'Biotin',
+  'D-비오틴': 'D-Biotin',
+  '엽산': 'Folic acid',
+  '폴산': 'Folic acid',
+  '메코발라민': 'Mecobalamin',
+  '시아노코발라민': 'Cyanocobalamin',
+  '아스코르브산': 'Ascorbic acid',
+  '제피아스코르브산': 'Ascorbic acid coated',
+  '비타민C': 'Ascorbic acid',
+  '콜레칼시페롤': 'Cholecalciferol',
+  '콜레칼시페롤농축분말': 'Cholecalciferol concentrate powder',
+  '농축콜레칼시페롤': 'Cholecalciferol concentrated',
+  '토코페롤아세테이트': 'Tocopherol acetate',
+  '토코페롤아세테이트2배산': 'Tocopherol Acetate Powder 50%',
+  '산화아연': 'Zinc oxide',
+  '글루콘산아연': 'Zinc gluconate',
+  '산화마그네슘': 'Magnesium oxide',
+  '글리세로인산마그네슘': 'Magnesium glycerophosphate',
+  '탄산칼슘': 'Calcium carbonate',
+  '구연산칼슘': 'Calcium citrate',
+  '푸마르산제일철': 'Ferrous fumarate',
+  '셀레늄': 'Selenium',
+  '셀레늄함유건조효모': 'Selenium in dried yeast',
+  '크롬함유건조효모': 'Chromium in dried yeast',
+  '우르소데옥시콜산': 'Ursodeoxycholic acid',
+  '타우린': 'Taurine',
+  '이노시톨': 'Inositol',
+  '감마오리자놀': 'Gamma-oryzanol',
+  '감마-오리자놀': 'Gamma-oryzanol',
+  'γ-오리자놀': 'Gamma-oryzanol',
+  '콜린타르타르산염': 'Choline bitartrate',
+  '실리마린': 'Silymarin',
+  '밀크씨슬추출물': 'Milk thistle extract (Silymarin)',
+  '루테인': 'Lutein',
+  '프로바이오틱스': 'Probiotics',
+  'L-아르기닌': 'L-Arginine',
+  '아르기닌': 'L-Arginine',
+  '글루타치온': 'L-Glutathione',
+  '코엔자임Q10': 'Coenzyme Q10 (Ubidecarenone)',
+  '유비데카레논': 'Ubidecarenone',
+  '홍삼': 'Korean Red Ginseng extract',
+  '오메가3': 'Omega-3 (EPA & DHA)',
+  '테아닌': 'L-Theanine',
+  '바나바잎추출물': 'Banaba leaf extract (Corosolic acid)'
+};
+
+const ENG_ALIAS_TO_DICT_KEY: Record<string, string> = {
+  benfotiamine: '벤포티아민',
+  bisbentiamine: '비스벤티아민',
+  bisbenthiamine: '비스벤티아민',
+  fursultiamine: '푸르설티아민',
+  thiaminehydrochloride: '티아민염산염',
+  thiaminemononitrate: '티아민질산염',
+  riboflavin: '리보플라빈',
+  riboflavinbutyrate: '리보플라빈부티레이트',
+  riboflavintetrabutyrate: '리보플라빈부티레이트',
+  "riboflavin5'-phosphatesodium": '리보플라빈포스페이트나트륨',
+  riboflavinphosphatesodium: '리보플라빈포스페이트나트륨',
+  nicotinamide: '니코틴산아미드',
+  niacinamide: '니코틴산아미드',
+  nicotinicacid: '니코틴산',
+  niacin: '나이아신',
+  calciumpantothenate: '판토텐산칼슘',
+  pyridoxinehydrochloride: '피리독신염산염',
+  "pyridoxal5'-phosphate": '피리독살포스페이트',
+  pyridoxalphosphatehydrate: '피리독살포스페이트수화물',
+  biotin: '비오틴',
+  'd-biotin': 'D-비오틴',
+  dbiotin: 'D-비오틴',
+  folicacid: '폴산',
+  folate: '폴산',
+  cyanocobalamin: '시아노코발라민',
+  mecobalamin: '메코발라민',
+  cholinebitartrate: '콜린타르타르산염',
+  inositol: '이노시톨',
+  ascorbicacid: '아스코르브산',
+  ascorbicacidcoated: '제피아스코르브산',
+  coatedascorbicacid: '제피아스코르브산',
+  cholecalciferol: '콜레칼시페롤',
+  cholecalciferolconcentratepowder: '콜레칼시페롤농축분말',
+  cholecalciferolconcentrated: '농축콜레칼시페롤',
+  concentratedcholecalciferolpowder: '콜레칼시페롤농축분말',
+  tocopherolacetate: '토코페롤아세테이트',
+  'tocopherolacetatepowder50%': '토코페롤아세테이트2배산',
+  'tocopherolacetate50%': '토코페롤아세테이트50%',
+  zincoxide: '산화아연',
+  zincgluconate: '글루콘산아연',
+  magnesiumoxide: '산화마그네슘',
+  magnesiumglycerophosphate: '글리세로인산마그네슘',
+  calciumcarbonate: '탄산칼슘',
+  calciumcitrate: '구연산칼슘',
+  ferrousfumarate: '푸마르산제일철',
+  seleniumindriedyeast: '셀레늄함유건조효모',
+  chromiumindriedyeast: '크롬함유건조효모',
+  ursodeoxycholicacid: '우르소데옥시콜산',
+  'gamma-oryzanol': '감마-오리자놀',
+  gammaoryzanol: '감마-오리자놀',
+  'γ-oryzanol': '감마-오리자놀',
+  ubidecarenone: '유비데카레논',
+  taurine: '타우린',
+  'l-arginine': 'L-아르기닌'
+};
+
+/**
+ * 개별 성분의 표시용 영문명, 약효분류 태그, 실제 유효/원소 환산량, 2025 KDRIs 상한섭취량(UL), 정렬 그룹을 계산
+ */
+export function resolveIngredientDisplayInfo(
+  ing: ProductIngredientEntry,
+  productName?: string
+): ResolvedIngredientDisplayInfo {
+  let rawInn = (ing.englishInn || '').trim();
+
+  // 기존 DB 저장본 중 올대원맥스정의 리보플라빈 90mg이 과거 부분매칭 버그로 Riboflavin 5'-phosphate sodium으로 저장된 경우 자동 보정
+  if (
+    productName?.includes('올대원맥스') &&
+    ing.rawAmount === 90 &&
+    rawInn.toLowerCase().includes('riboflavin')
+  ) {
+    rawInn = 'Riboflavin';
+  }
+
+  // 1. 순수 영문 성분명 정제
+  let englishName = KOR_TO_ENG_DISPLAY_MAP[rawInn] || '';
+  if (!englishName) {
+    const stripped = rawInn
+      .replace(/\([가-힣\s·,0-9]+\)/g, '')
+      .replace(/[가-힣]+/g, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim();
+    englishName = stripped && /[A-Za-z]/.test(stripped) ? stripped : rawInn || 'Active Ingredient';
+  }
+  // γ-Oryzanol은 알파벳 정렬을 위해 Gamma-oryzanol로 통일
+  if (/^γ-?oryzanol$/i.test(englishName)) {
+    englishName = 'Gamma-oryzanol';
+  }
+
+  // 2. 사전 메타데이터 조회
+  const learnedDict = getLearnedDict();
+  const combinedDict: Record<string, InnMappingMeta> = { ...INN_DICTIONARY, ...learnedDict };
+  const normEng = englishName.toLowerCase().replace(/\s+/g, '');
+  const normKor = (ing.koreanName || rawInn).replace(/\s+/g, '').toLowerCase();
+
+  let meta: InnMappingMeta | undefined = undefined;
+  const aliasDictKey = ENG_ALIAS_TO_DICT_KEY[normEng];
+  if (aliasDictKey && combinedDict[aliasDictKey]) {
+    meta = combinedDict[aliasDictKey];
+  } else if (combinedDict[rawInn]) {
+    meta = combinedDict[rawInn];
+  } else {
+    for (const [k, v] of Object.entries(combinedDict)) {
+      const kNorm = k.replace(/\s+/g, '').toLowerCase();
+      const vEngNorm = v.englishInn.replace(/\s+/g, '').toLowerCase();
+      if (normEng === vEngNorm || (normKor && normKor === kNorm)) {
+        meta = v;
+        break;
+      }
+    }
+  }
+
+  // 3. 약효분류 태그 결정 (엽산 -> 비타민B9(엽산) 등 표준화)
+  let rawCategory =
+    ing.functionalCategory && ing.functionalCategory !== '기타'
+      ? ing.functionalCategory
+      : meta?.functionalCategory || resolveKpicCategory(englishName) || resolveKpicCategory(rawInn) || '기타';
+
+  let categoryTag = normalizeCategory(rawCategory);
+  if (normEng === 'folicacid' || normEng === 'folate' || categoryTag === '엽산' || categoryTag === '폴산') {
+    categoryTag = '비타민B9(엽산)';
+  }
+
+  // 4. 실제 성분량(원소량 / 활성 유효성분량) 환산 계산
+  let convertedAmount: number | undefined = undefined;
+  let convertedUnit: string = meta?.elementalUnit || ing.unit;
+  let convertedLabel: string | undefined = meta?.elementalTargetLabel;
+
+  // 올대원맥스정 90mg Riboflavin 보정 시에는 환산량 없음
+  const isPureRiboflavin90 =
+    productName?.includes('올대원맥스') && ing.rawAmount === 90 && englishName === 'Riboflavin';
+
+  if (!isPureRiboflavin90) {
+    if (
+      ing.elementalAmount !== undefined &&
+      ing.elementalAmount > 0 &&
+      ing.elementalAmount !== ing.rawAmount
+    ) {
+      convertedAmount = ing.elementalAmount;
+    } else if (meta?.elementalRatio && ing.rawAmount > 0) {
+      // 단위가 이미 환산 단위와 동일한 특수 케이스(예: 콜레칼시페롤이 이미 IU 단위로 입력된 경우)는 중복 곱셈 방지
+      const skipConversion = meta.elementalUnit === 'IU' && ing.unit === 'IU';
+      if (!skipConversion) {
+        convertedAmount = +(ing.rawAmount * meta.elementalRatio).toFixed(2);
+      }
+    }
+  }
+
+  // 환산 라벨이 사전에 없을 경우 카테고리/성분명 기반 기본 라벨 부여
+  if (convertedAmount !== undefined && !convertedLabel) {
+    if (categoryTag === '마그네슘(Mg)') convertedLabel = '마그네슘으로서';
+    else if (categoryTag === '아연(Zn)') convertedLabel = '아연으로서';
+    else if (categoryTag === '칼슘(Ca)') convertedLabel = '칼슘으로서';
+    else if (categoryTag.includes('철')) convertedLabel = '철로서';
+    else if (categoryTag === '셀레늄(Se)') convertedLabel = '셀레늄으로서';
+    else if (categoryTag === '크롬(Cr)') convertedLabel = '크롬으로서';
+    else if (categoryTag.startsWith('비타민D')) convertedLabel = '비타민D로서';
+    else if (categoryTag === '비타민E') convertedLabel = '비타민E로서';
+    else if (categoryTag === '비타민B1') convertedLabel = '티아민염산염으로서';
+    else if (categoryTag === '비타민B2') convertedLabel = '리보플라빈으로서';
+    else if (categoryTag === '비타민B5') convertedLabel = '판토텐산으로서';
+    else if (categoryTag === '비타민B6') convertedLabel = '피리독신으로서';
+    else if (categoryTag === '비타민C') convertedLabel = '아스코르브산으로서';
+  }
+
+  const convertedText =
+    convertedAmount !== undefined
+      ? convertedLabel
+        ? `${convertedLabel} ${convertedAmount.toLocaleString()} ${convertedUnit}`
+        : `${convertedAmount.toLocaleString()} ${convertedUnit}`
+      : null;
+
+  // 5. 2025 한국인 영양소 섭취기준(KDRIs) 성인 상한섭취량(UL) 매칭
+  let standardKey: NutrientStandardKey | undefined = ing.standardKey || meta?.standardKey;
+  if (!standardKey) {
+    if (categoryTag === '비타민A' && !normEng.includes('betacarotene') && !normEng.includes('beta-carotene')) {
+      standardKey = 'VITAMIN_A';
+    } else if (categoryTag === '비타민B3') standardKey = 'VITAMIN_B3';
+    else if (categoryTag === '비타민B6') standardKey = 'VITAMIN_B6';
+    else if (categoryTag === '비타민B9(엽산)') standardKey = 'VITAMIN_B9';
+    else if (categoryTag === '비타민C') standardKey = 'VITAMIN_C';
+    else if (categoryTag === '비타민D' || categoryTag === '비타민D3' || categoryTag === '비타민D2') {
+      standardKey = 'VITAMIN_D';
+    } else if (categoryTag === '비타민E') standardKey = 'VITAMIN_E';
+    else if (categoryTag === '칼슘(Ca)') standardKey = 'CALCIUM';
+    else if (categoryTag === '마그네슘(Mg)') standardKey = 'MAGNESIUM';
+    else if (categoryTag === '아연(Zn)') standardKey = 'ZINC';
+    else if (categoryTag === '제1철 (Ferrous)' || categoryTag === '제2철 (Ferric)' || categoryTag === '철(Fe)') {
+      standardKey = 'IRON';
+    } else if (categoryTag === '셀레늄(Se)') standardKey = 'SELENIUM';
+    else if (categoryTag === '구리(Cu)' || categoryTag === '동(Cu)') standardKey = 'COPPER';
+    else if (categoryTag === '망간(Mn)') standardKey = 'MANGANESE';
+    else if (categoryTag === '요오드(I)') standardKey = 'IODINE';
+    else if (categoryTag === '몰리브덴(Mo)') standardKey = 'MOLYBDENUM';
+    else if (normEng.includes('choline')) standardKey = 'CHOLINE';
+  }
+
+  let ulText: string | null = null;
+  let ulNote: string | undefined = undefined;
+  if (standardKey) {
+    const std = KDRI_2025_ADULT_STANDARDS.find((s) => s.nutrientKey === standardKey);
+    if (std?.ul !== undefined) {
+      ulNote = std.clinicalWarningThresholdNote;
+      if (standardKey === 'VITAMIN_D') {
+        ulText = '상한 4,000 IU (100 μg)';
+      } else if (standardKey === 'VITAMIN_B3') {
+        // 비타민 B3(니아신)는 원료 형태에 따라 상한섭취량(UL)이 완전히 다름 (2025 KDRIs 기준)
+        // 1) 니코틴산(Nicotinic acid): 상한 35 mg NE/일 (초과 시 안면홍조/Flushing 위험)
+        // 2) 니코틴산아미드(Nicotinamide / Niacinamide): 상한 850 mg NE/일
+        // 3) 단순히 '나이아신(Niacin)'으로만 표기되어 형태가 특정되지 않은 경우: 두 기준 모두 병기
+        const fullCheckStr = `${normEng} ${rawInn} ${ing.koreanName || ''} ${ing.chemicalFormName || ''}`.toLowerCase();
+        const isNicotinicAcid =
+          normEng.includes('nicotinicacid') ||
+          (fullCheckStr.includes('니코틴산') && !fullCheckStr.includes('아미드'));
+        const isNicotinamide =
+          normEng.includes('nicotinamide') ||
+          normEng.includes('niacinamide') ||
+          fullCheckStr.includes('아미드');
+
+        if (isNicotinicAcid) {
+          ulText = '상한 35 mg (니코틴산)';
+          ulNote =
+            '2025 KDRIs 비타민 B3 상한섭취량: 니코틴산(Nicotinic acid) 성인 35 mg NE/일 — 초과 시 프로스타글란딘 매개 혈관확장·안면홍조(Flushing) 유발 가능 (참고: 니코틴산아미드는 850 mg NE/일)';
+        } else if (isNicotinamide) {
+          ulText = '상한 850 mg (니코틴산아미드)';
+          ulNote =
+            '2025 KDRIs 비타민 B3 상한섭취량: 니코틴산아미드(Nicotinamide) 성인 850 mg NE/일 (참고: 니코틴산은 35 mg NE/일)';
+        } else {
+          ulText = '상한 35 mg(니코틴산) · 850 mg(아미드)';
+          ulNote =
+            '2025 KDRIs 비타민 B3 상한섭취량: 원료 형태에 따라 니코틴산(Nicotinic acid) 35 mg NE/일, 니코틴산아미드(Nicotinamide) 850 mg NE/일 적용';
+        }
+      } else if (standardKey === 'VITAMIN_E') {
+        ulText = '상한 540 mg α-TE';
+      } else if (standardKey === 'VITAMIN_A') {
+        ulText = '상한 3,000 μg RAE';
+      } else {
+        const displayUnit = std.unit === 'ug' ? 'μg' : std.unit;
+        ulText = `상한 ${std.ul.toLocaleString()} ${displayUnit}`;
+      }
+    }
+  }
+
+  // 6. 정렬 그룹 및 비타민 세부 순서 결정
+  // Group 1: 비타민 (A -> B1 -> B2 -> B3 -> B5 -> B6 -> B7 -> B9(엽산) -> B12 -> 기타 비타민B -> C -> D -> E -> K)
+  // Group 2: 미네랄 (알파벳순)
+  // Group 3: 나머지 성분 (알파벳순)
+  const VITAMIN_ORDER_MAP: Record<string, number> = {
+    '비타민A': 10,
+    '비타민B1': 21,
+    '비타민B2': 22,
+    '비타민B3': 23,
+    '비타민B5': 25,
+    '비타민B6': 26,
+    '비타민B7': 27,
+    '비타민B9(엽산)': 29,
+    '비타민B12': 32,
+    '기타 비타민B': 39,
+    '비타민C': 40,
+    '비타민D': 50,
+    '비타민D2': 50,
+    '비타민D3': 50,
+    '비타민E': 60,
+    '비타민K': 70,
+    '비타민K1': 70,
+    '비타민K2': 70
+  };
+
+  const MINERAL_CATEGORIES = new Set([
+    '칼슘(Ca)',
+    '마그네슘(Mg)',
+    '아연(Zn)',
+    '철(Fe)',
+    '제1철 (Ferrous)',
+    '제2철 (Ferric)',
+    '셀레늄(Se)',
+    '구리(Cu)',
+    '동(Cu)',
+    '망간(Mn)',
+    '크롬(Cr)',
+    '몰리브덴(Mo)',
+    '요오드(I)',
+    '칼륨(K)',
+    '무기질(Mineral)제제'
+  ]);
+
+  let sortGroup: 1 | 2 | 3 = 3;
+  let vitaminSubOrder = 999;
+
+  if (VITAMIN_ORDER_MAP[categoryTag] !== undefined) {
+    sortGroup = 1;
+    vitaminSubOrder = VITAMIN_ORDER_MAP[categoryTag];
+  } else if (MINERAL_CATEGORIES.has(categoryTag)) {
+    sortGroup = 2;
+  }
+
+  return {
+    englishName,
+    categoryTag,
+    convertedAmount,
+    convertedUnit,
+    convertedLabel,
+    convertedText,
+    ulText,
+    ulNote,
+    sortGroup,
+    vitaminSubOrder
+  };
+}
+
+/**
+ * 제품 성분 배열 정렬 함수:
+ * 1) 비타민: A -> B1 -> B2 -> ... -> B9(엽산) -> B12 -> 기타B -> C -> D -> E -> K 순 (동일 약효분류 내에서는 영문 성분명 알파벳순)
+ * 2) 미네랄: 영문 성분명 알파벳순
+ * 3) 나머지 성분 (또는 비타민·미네랄이 없는 일반 의약품): 영문 성분명 알파벳순
+ */
+export function sortProductIngredients(
+  ingredients: ProductIngredientEntry[],
+  productName?: string
+): ProductIngredientEntry[] {
+  return [...ingredients].sort((a, b) => {
+    const infoA = resolveIngredientDisplayInfo(a, productName);
+    const infoB = resolveIngredientDisplayInfo(b, productName);
+
+    // 1차: 그룹 비교 (1: 비타민 -> 2: 미네랄 -> 3: 기타 성분)
+    if (infoA.sortGroup !== infoB.sortGroup) {
+      return infoA.sortGroup - infoB.sortGroup;
+    }
+
+    // 2차: 비타민 그룹 내에서는 비타민 세부 번호(A, B1..B12, C, D, E, K) 순
+    if (infoA.sortGroup === 1 && infoA.vitaminSubOrder !== infoB.vitaminSubOrder) {
+      return infoA.vitaminSubOrder - infoB.vitaminSubOrder;
+    }
+
+    // 3차: 같은 비타민 분류 내, 또는 미네랄 그룹 내, 또는 기타 성분 그룹 내에서는 영문 성분명 알파벳순 정렬
+    return infoA.englishName.localeCompare(infoB.englishName, 'en', { sensitivity: 'base' });
+  });
+}
+
 

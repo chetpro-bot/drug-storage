@@ -1,32 +1,38 @@
 export function normalizeCategory(cat: string): string {
-  if (!cat) return '';
+  if (!cat) return '기타';
   let res = cat.replace(/^비타민([A-Za-z0-9]+)\s*제제$/, '비타민$1');
   res = res.replace(/\s*보충$/, '');
-  return res.trim();
+  res = res.trim();
+  if (res === '엽산' || res === '폴산' || res === '비타민B9') {
+    return '비타민B9(엽산)';
+  }
+  return res;
 }
 
 export const STANDARD_EFFICACY_CATEGORIES = [
+  '비타민A',
   '비타민B1',
   '비타민B2',
   '비타민B3',
   '비타민B5',
   '비타민B6',
   '비타민B7',
+  '비타민B9(엽산)',
   '비타민B12',
   '기타 비타민B',
   '비타민C',
   '비타민D',
   '비타민D3',
   '비타민E',
-  '비타민A',
   '비타민K',
-  '엽산',
   '마그네슘(Mg)',
   '아연(Zn)',
   '칼슘(Ca)',
   '셀레늄(Se)',
   '크롬(Cr)',
   '제1철 (Ferrous)',
+  '동(Cu)',
+  '망간(Mn)',
   '소화효소제',
   '소염효소',
   '장내 가스 제거제',
@@ -55,6 +61,10 @@ export function getCategoryColor(cat: string): string {
       return 'bg-teal-100 text-teal-800 border-teal-200';
     case '비타민B7':
       return 'bg-emerald-100 text-emerald-800 border-emerald-200';
+    case '비타민B9(엽산)':
+    case '엽산':
+    case '엽산 보충':
+      return 'bg-green-100 text-green-800 border-green-200';
     case '비타민B12':
     case '비타민B12 보충':
       return 'bg-rose-100 text-rose-800 border-rose-200';
@@ -77,9 +87,6 @@ export function getCategoryColor(cat: string): string {
     case '비타민K':
     case '비타민K 제제':
       return 'bg-teal-100 text-teal-800 border-teal-200';
-    case '엽산':
-    case '엽산 보충':
-      return 'bg-green-100 text-green-800 border-green-200';
     case '마그네슘(Mg)':
       return 'bg-indigo-100 text-indigo-800 border-indigo-200';
     case '아연(Zn)':
@@ -114,3 +121,32 @@ export function getCategoryColor(cat: string): string {
       return 'bg-slate-100 text-slate-800 border-slate-200';
   }
 }
+
+/**
+ * 다크 모드 상세 모달(ProductDetailModal) 전용 약효분류 태그 스타일
+ */
+export function getDarkCategoryBadgeStyle(cat: string): string {
+  const norm = normalizeCategory(cat);
+  if (norm.startsWith('비타민')) {
+    return 'bg-amber-950/70 text-amber-300 border-amber-700/70';
+  }
+  if (
+    norm.includes('마그네슘') ||
+    norm.includes('아연') ||
+    norm.includes('칼슘') ||
+    norm.includes('셀레늄') ||
+    norm.includes('크롬') ||
+    norm.includes('철') ||
+    norm.includes('동(Cu)') ||
+    norm.includes('망간') ||
+    norm.includes('요오드') ||
+    norm.includes('몰리브덴')
+  ) {
+    return 'bg-indigo-950/80 text-indigo-300 border-indigo-700/70';
+  }
+  if (norm.includes('간보호') || norm.includes('담석') || norm.includes('간장')) {
+    return 'bg-emerald-950/70 text-emerald-300 border-emerald-700/70';
+  }
+  return 'bg-slate-800 text-slate-300 border-slate-600/80';
+}
+

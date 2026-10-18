@@ -24,23 +24,56 @@ export const ClinicalSafetyPanel: React.FC<ClinicalSafetyPanelProps> = ({ produc
       const kdriRef = MOCK_KDRI_STANDARDS.find((k) => k.nutrientKey === ing.standardKey);
       if (!kdriRef) return null;
 
+      let effectiveUl = kdriRef.ul;
+      let effectiveNameKorean = kdriRef.nutrientNameKorean;
+      let effectiveWarningNote = kdriRef.clinicalWarningThresholdNote;
+
+      // 비타민 B3(니아신) 원료 형태별 상한섭취량(UL) 분기 처리 (니코틴산 35mg vs 니코틴산아미드 850mg)
+      if (ing.standardKey === 'VITAMIN_B3') {
+        const checkStr = `${ing.englishInn || ''} ${ing.koreanName || ''} ${ing.chemicalFormName || ''}`.toLowerCase();
+        const isNicotinicAcid =
+          checkStr.includes('nicotinic acid') ||
+          checkStr.includes('nicotinicacid') ||
+          (checkStr.includes('니코틴산') && !checkStr.includes('아미드'));
+        const isNicotinamide =
+          checkStr.includes('nicotinamide') ||
+          checkStr.includes('niacinamide') ||
+          checkStr.includes('아미드');
+
+        if (isNicotinicAcid) {
+          effectiveUl = 35;
+          effectiveNameKorean = '니아신 (니코틴산, B3)';
+          effectiveWarningNote =
+            '니코틴산(Nicotinic acid) 성인 상한 35mg NE/일 초과 시 혈관확장·안면홍조(Flushing) 및 가려움증 유발 위험';
+        } else if (isNicotinamide) {
+          effectiveUl = 850;
+          effectiveNameKorean = '니아신 (니코틴산아미드, B3)';
+          effectiveWarningNote =
+            '니코틴산아미드(Nicotinamide) 성인 상한 850mg NE/일 초과 시 간독성 및 위장장애 위험 (참고: 니코틴산은 상한 35mg)';
+        } else {
+          effectiveNameKorean = '니아신 (비타민 B3)';
+          effectiveWarningNote =
+            '원료 형태에 따라 상한섭취량 상이: 니코틴산(Nicotinic acid) 35mg/일 vs 니코틴산아미드(Nicotinamide) 850mg/일';
+        }
+      }
+
       const dailyAmount = (ing.elementalAmount ?? ing.rawAmount) * product.dailyServings;
       const rniPercent = Math.round((dailyAmount / kdriRef.rni) * 100);
-      const isUlExceeded = kdriRef.ul ? dailyAmount > kdriRef.ul : false;
-      const isUlApproaching = kdriRef.ul ? dailyAmount >= kdriRef.ul * 0.8 && !isUlExceeded : false;
+      const isUlExceeded = effectiveUl ? dailyAmount > effectiveUl : false;
+      const isUlApproaching = effectiveUl ? dailyAmount >= effectiveUl * 0.8 && !isUlExceeded : false;
 
       return {
         key: ing.standardKey!,
-        nameKorean: kdriRef.nutrientNameKorean,
+        nameKorean: effectiveNameKorean,
         englishInn: ing.englishInn,
         dailyAmount,
         unit: ing.unit,
         rni: kdriRef.rni,
-        ul: kdriRef.ul,
+        ul: effectiveUl,
         rniPercent,
         isUlExceeded,
         isUlApproaching,
-        warningNote: kdriRef.clinicalWarningThresholdNote
+        warningNote: effectiveWarningNote
       };
     })
     .filter((item): item is NonNullable<typeof item> => item !== null);
@@ -76,7 +109,7 @@ export const ClinicalSafetyPanel: React.FC<ClinicalSafetyPanelProps> = ({ produc
             <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
               <span>권장섭취량(RNI: Recommended Nutrient Intake) 대비 충족률</span>
             </h4>
-            <span className="text-[11px] text-slate-400">2020 KDRIs 기준</span>
+            <span className="text-[11px] text-slate-400">2025 KDRIs 기준</span>
           </div>
 
           <div className="space-y-3 bg-slate-50 p-3.5 rounded-lg border border-slate-200/80">

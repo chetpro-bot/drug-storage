@@ -2,6 +2,7 @@ import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { ProductItem } from '../types/product';
 import { Layers, HelpCircle, GripVertical, SlidersHorizontal } from 'lucide-react';
 import { normalizeCategory, getCategoryColor } from '../utils/categoryColors';
+import { resolveIngredientDisplayInfo, sortProductIngredients } from '../utils/innMapper';
 import { EfficacyClassificationModal } from './EfficacyClassificationModal';
 
 interface ColumnDef {
@@ -97,17 +98,26 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
     document.addEventListener('mouseup', handleMouseUp);
   };
 
-  // 제품 내 존재하는 KPIC 약효 분류 카테고리 추출 (기본: 가나다순)
+  // 표준 성분 정렬 (비타민 A, B1..B9..B12, C, D, E, K -> 미네랄 알파벳순 -> 기타 성분 알파벳순)
+  const baseSortedIngredients = useMemo(() => {
+    return sortProductIngredients(product.ingredients, product.productName);
+  }, [product.ingredients, product.productName]);
+
+  // 제품 내 존재하는 KPIC 약효 분류 카테고리 추출 (기본: 표준 비타민->미네랄->기타 순서)
   const availableCategories = useMemo(() => {
     return Array.from(
-      new Set(product.ingredients.map((ing) => normalizeCategory(ing.functionalCategory)))
-    ).filter(Boolean).sort((a, b) => a.localeCompare(b, 'ko'));
-  }, [product.ingredients]);
+      new Set(
+        baseSortedIngredients.map(
+          (ing) => resolveIngredientDisplayInfo(ing, product.productName).categoryTag
+        )
+      )
+    ).filter(Boolean);
+  }, [baseSortedIngredients, product.productName]);
 
-  // 사용자가 드래그로 조정한 약효 분류 순서 (localStorage에 보관)
+  // 사용자가 드래그로 조정한 약효 분류 순서 (localStorage에 보관, v2 키 사용)
   const [categoryOrder, setCategoryOrder] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem(`pharmassist_cat_order_${product.id}`);
+      const saved = localStorage.getItem(`pharmassist_cat_order_v2_${product.id}`);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
@@ -122,9 +132,9 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
 
   // 제품이 바뀌거나 가용 카테고리가 달라질 때 categoryOrder 동기화
   useEffect(() => {
-    setCategoryOrder((prev) => {
+    setCategoryOrder(() => {
       try {
-        const saved = localStorage.getItem(`pharmassist_cat_order_${product.id}`);
+        const saved = localStorage.getItem(`pharmassist_cat_order_v2_${product.id}`);
         if (saved) {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed)) {
@@ -134,11 +144,7 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
           }
         }
       } catch (e) {}
-
-      const valid = prev.filter((c) => availableCategories.includes(c));
-      const missing = availableCategories.filter((c) => !valid.includes(c));
-      const combined = [...valid, ...missing];
-      return combined.length > 0 ? combined : availableCategories;
+      return availableCategories;
     });
   }, [product.id, availableCategories]);
 
@@ -175,7 +181,7 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
       const [moved] = next.splice(draggedCatIndex, 1);
       next.splice(targetIndex, 0, moved);
       try {
-        localStorage.setItem(`pharmassist_cat_order_${product.id}`, JSON.stringify(next));
+        localStorage.setItem(`pharmassist_cat_order_v2_${product.id}`, JSON.stringify(next));
       } catch (err) {}
       return next;
     });
@@ -192,35 +198,35 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
     }, 60);
   };
 
-  // 1차: 약효 분류 버튼 배치 순서(categoryOrder), 2차: 영문 성분명(English INN) 알파벳 abc순 정렬
+  // 사용자가 드래그로 약효 분류 순서를 바꾼 경우에만 categoryOrder를 반영하고, 기본 상태에서는 baseSortedIngredients 순서 유지
   const sortedIngredients = useMemo(() => {
-    return [...product.ingredients].sort((a, b) => {
-      const catA = normalizeCategory(a.functionalCategory);
-      const catB = normalizeCategory(b.functionalCategory);
+    const isCustomOrder =
+      categoryOrder.length === availableCategories.length &&
+      categoryOrder.some((c, i) => c !== availableCategories[i]);
 
-      const idxA = categoryOrder.indexOf(catA);
-      const idxB = categoryOrder.indexOf(catB);
+    if (!isCustomOrder) {
+      return baseSortedIngredients;
+    }
 
-      if (idxA !== -1 && idxB !== -1) {
-        if (idxA !== idxB) return idxA - idxB;
-      } else if (idxA !== -1) {
-        return -1;
-      } else if (idxB !== -1) {
-        return 1;
-      } else {
-        const catComp = catA.localeCompare(catB, 'ko');
-        if (catComp !== 0) return catComp;
+    return [...baseSortedIngredients].sort((a, b) => {
+      const infoA = resolveIngredientDisplayInfo(a, product.productName);
+      const infoB = resolveIngredientDisplayInfo(b, product.productName);
+
+      const idxA = categoryOrder.indexOf(infoA.categoryTag);
+      const idxB = categoryOrder.indexOf(infoB.categoryTag);
+
+      if (idxA !== -1 && idxB !== -1 && idxA !== idxB) {
+        return idxA - idxB;
       }
-
-      const nameA = a.englishInn || '';
-      const nameB = b.englishInn || '';
-      return nameA.localeCompare(nameB, 'en', { sensitivity: 'base' });
+      return infoA.englishName.localeCompare(infoB.englishName, 'en', { sensitivity: 'base' });
     });
-  }, [product.ingredients, categoryOrder]);
+  }, [baseSortedIngredients, categoryOrder, availableCategories, product.productName]);
 
   const filteredIngredients = selectedCategory === 'ALL'
     ? sortedIngredients
-    : sortedIngredients.filter((ing) => normalizeCategory(ing.functionalCategory) === selectedCategory);
+    : sortedIngredients.filter(
+        (ing) => resolveIngredientDisplayInfo(ing, product.productName).categoryTag === selectedCategory
+      );
 
   return (
     <div className="flex-1 bg-white border border-slate-200 rounded-xl flex flex-col shadow-xs overflow-hidden">

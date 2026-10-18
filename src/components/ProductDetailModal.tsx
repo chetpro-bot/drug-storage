@@ -1937,125 +1937,128 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </div>
 
             <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 text-[11px] font-extrabold text-slate-600 border-b border-slate-200">
-                    <th className="w-[108px] sm:w-[116px] px-2 py-2 text-center border-r border-slate-200">
-                      약효분류
-                    </th>
-                    <th className="px-3 sm:px-4 py-2 text-center border-r border-slate-200">
-                      성분 함량
-                    </th>
-                    {product.classification === 'OTC_DRUG' && (
-                      <th className="w-[240px] sm:w-[260px] px-3 py-2 text-center border-r border-slate-200">
-                        원료 형태
-                      </th>
-                    )}
-                    <th className={`${product.classification === 'OTC_DRUG' ? 'w-[160px] sm:w-[175px]' : 'w-[170px] sm:w-[210px]'} px-2.5 py-2 text-center`}>
-                      {ulViewMode === 'CHILD' ? (
-                        <span className="text-amber-700">상한섭취량 (소아)</span>
-                      ) : (
-                        <span>상한섭취량 (성인)</span>
-                      )}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-xs text-slate-800">
-                  {(() => {
-                    const isOtcDrug = product.classification === 'OTC_DRUG';
+              {(() => {
+                const isSeparatedFormat =
+                  product.classification === 'OTC_DRUG' || product.classification === 'HEALTH_FUNCTIONAL_FOOD';
 
-                    // 성분 표시 정보 사전 계산 (선택된 기준에 따라 배율 적용)
-                    const itemsWithInfo = sortedIngredients.map((ing) => {
-                      const scaledIng: ProductIngredientEntry =
-                        doseFactor === 1
-                          ? ing
-                          : {
-                              ...ing,
-                              rawAmount: parseFloat((ing.rawAmount * doseFactor).toFixed(2)),
-                              elementalAmount:
-                                ing.elementalAmount !== undefined
-                                  ? parseFloat((ing.elementalAmount * doseFactor).toFixed(2))
-                                  : undefined
-                            };
-
-                      const info = resolveIngredientDisplayInfo(scaledIng, product.productName);
-
-                      return {
-                        ing: scaledIng,
-                        info,
-                        badgeStyle: getDarkCategoryBadgeStyle(info.categoryTag)
-                      };
-                    });
-
-                    // 연속된 동일 약효분류 병합(rowSpan 계산)
-                    return itemsWithInfo.map((item, idx) => {
-                      const isFirstOfCategory =
-                        idx === 0 || itemsWithInfo[idx - 1].info.categoryTag !== item.info.categoryTag;
-
-                      let rowSpan = 1;
-                      if (isFirstOfCategory) {
-                        for (let j = idx + 1; j < itemsWithInfo.length; j++) {
-                          if (itemsWithInfo[j].info.categoryTag === item.info.categoryTag) {
-                            rowSpan++;
-                          } else {
-                            break;
-                          }
-                        }
-                      }
-
-                      return (
-                        <tr
-                          key={item.ing.ingredientId || idx}
-                          className="hover:bg-sky-50/30 transition-colors"
-                        >
-                          {/* 1열: 약효분류 (동일 분류일 경우 셀 병합) */}
-                          {isFirstOfCategory && (
-                            <td
-                              rowSpan={rowSpan}
-                              className="px-2 py-2.5 text-center align-middle border-r border-slate-200 bg-slate-50/40"
-                            >
-                              <span
-                                className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded border leading-tight whitespace-nowrap ${item.badgeStyle}`}
-                              >
-                                {item.info.categoryTag}
-                              </span>
-                            </td>
-                          )}
-
-                          {/* 의약품(OTC_DRUG): 실제 영문성분명 + 함량 및 별도 분리된 원료형태 열 */}
-                          {isOtcDrug ? (
-                            <>
-                              {/* 2열: 성분 함량 (실제 영문 성분명 + 함량) */}
-                              <td className="px-4 py-2.5 border-r border-slate-200 align-middle">
-                                <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                                  <span className="font-semibold text-slate-900 tracking-tight">
-                                    {item.info.englishName || item.ing.englishInn}
-                                  </span>
-                                  <span className="font-bold text-slate-900 tracking-tight">
-                                    {item.ing.rawAmount.toLocaleString()}{item.ing.unit === 'ug' ? 'µg' : item.ing.unit}
-                                  </span>
-                                  {item.info.convertedText && (
-                                    <span className="font-medium text-emerald-600 text-[11px]">
-                                      ({item.info.convertedText})
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
-
-                              {/* 3열: 원료 형태 (의약품 분리 열) */}
-                              <td className="px-3 py-2.5 border-r border-slate-200 align-middle">
-                                <span className="text-xs text-slate-800 font-medium leading-snug">
-                                  {item.ing.chemicalFormName && item.ing.chemicalFormName !== '-'
-                                    ? item.ing.chemicalFormName
-                                    : item.info.chemicalFormFeature?.displayText && item.info.chemicalFormFeature.displayText !== '-'
-                                    ? item.info.chemicalFormFeature.displayText
-                                    : '-'}
-                                </span>
-                              </td>
-                            </>
+                return (
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-slate-50 text-[11px] font-extrabold text-slate-600 border-b border-slate-200">
+                        <th className="w-[108px] sm:w-[116px] px-2 py-2 text-center border-r border-slate-200">
+                          약효분류
+                        </th>
+                        <th className="px-3 sm:px-4 py-2 text-center border-r border-slate-200">
+                          성분 함량
+                        </th>
+                        {isSeparatedFormat && (
+                          <th className="w-[240px] sm:w-[260px] px-3 py-2 text-center border-r border-slate-200">
+                            원료 형태
+                          </th>
+                        )}
+                        <th className={`${isSeparatedFormat ? 'w-[160px] sm:w-[175px]' : 'w-[170px] sm:w-[210px]'} px-2.5 py-2 text-center`}>
+                          {ulViewMode === 'CHILD' ? (
+                            <span className="text-amber-700">상한섭취량 (소아)</span>
                           ) : (
-                            /* 건기식 및 일반식품: 기존 표시 설정 유지 */
-                            <td className="px-4 py-2.5 border-r border-slate-200 align-middle">
+                            <span>상한섭취량 (성인)</span>
+                          )}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-xs text-slate-800">
+                      {(() => {
+                        // 성분 표시 정보 사전 계산 (선택된 기준에 따라 배율 적용)
+                        const itemsWithInfo = sortedIngredients.map((ing) => {
+                          const scaledIng: ProductIngredientEntry =
+                            doseFactor === 1
+                              ? ing
+                              : {
+                                  ...ing,
+                                  rawAmount: parseFloat((ing.rawAmount * doseFactor).toFixed(2)),
+                                  elementalAmount:
+                                    ing.elementalAmount !== undefined
+                                      ? parseFloat((ing.elementalAmount * doseFactor).toFixed(2))
+                                      : undefined
+                                };
+
+                          const info = resolveIngredientDisplayInfo(scaledIng, product.productName);
+
+                          return {
+                            ing: scaledIng,
+                            info,
+                            badgeStyle: getDarkCategoryBadgeStyle(info.categoryTag)
+                          };
+                        });
+
+                        // 연속된 동일 약효분류 병합(rowSpan 계산)
+                        return itemsWithInfo.map((item, idx) => {
+                          const isFirstOfCategory =
+                            idx === 0 || itemsWithInfo[idx - 1].info.categoryTag !== item.info.categoryTag;
+
+                          let rowSpan = 1;
+                          if (isFirstOfCategory) {
+                            for (let j = idx + 1; j < itemsWithInfo.length; j++) {
+                              if (itemsWithInfo[j].info.categoryTag === item.info.categoryTag) {
+                                rowSpan++;
+                              } else {
+                                break;
+                              }
+                            }
+                          }
+
+                          return (
+                            <tr
+                              key={item.ing.ingredientId || idx}
+                              className="hover:bg-sky-50/30 transition-colors"
+                            >
+                              {/* 1열: 약효분류 (동일 분류일 경우 셀 병합) */}
+                              {isFirstOfCategory && (
+                                <td
+                                  rowSpan={rowSpan}
+                                  className="px-2 py-2.5 text-center align-middle border-r border-slate-200 bg-slate-50/40"
+                                >
+                                  <span
+                                    className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded border leading-tight whitespace-nowrap ${item.badgeStyle}`}
+                                  >
+                                    {item.info.categoryTag}
+                                  </span>
+                                </td>
+                              )}
+
+                              {/* 의약품 및 건강기능식품: 실제 영문성분명 + 함량 및 별도 분리된 원료형태 열 */}
+                              {isSeparatedFormat ? (
+                                <>
+                                  {/* 2열: 성분 함량 (실제 영문 성분명 + 함량) */}
+                                  <td className="px-4 py-2.5 border-r border-slate-200 align-middle">
+                                    <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
+                                      <span className="font-semibold text-slate-900 tracking-tight">
+                                        {item.info.englishName || item.ing.englishInn}
+                                      </span>
+                                      <span className="font-bold text-slate-900 tracking-tight">
+                                        {item.ing.rawAmount.toLocaleString()}{item.ing.unit === 'ug' ? 'µg' : item.ing.unit}
+                                      </span>
+                                      {item.info.convertedText && (
+                                        <span className="font-medium text-emerald-600 text-[11px]">
+                                          ({item.info.convertedText})
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+
+                                  {/* 3열: 원료 형태 (분리 열) */}
+                                  <td className="px-3 py-2.5 border-r border-slate-200 align-middle">
+                                    <span className="text-xs text-slate-800 font-medium leading-snug">
+                                      {item.ing.chemicalFormName && item.ing.chemicalFormName !== '-'
+                                        ? item.ing.chemicalFormName
+                                        : item.info.chemicalFormFeature?.displayText && item.info.chemicalFormFeature.displayText !== '-'
+                                        ? item.info.chemicalFormFeature.displayText
+                                        : '-'}
+                                    </span>
+                                  </td>
+                                </>
+                              ) : (
+                                /* 일반식품(기타가공품 등): 기존 표시 설정 유지 */
+                                <td className="px-4 py-2.5 border-r border-slate-200 align-middle">
                               {(() => {
                                 const nutrientCategory =
                                   item.info.categoryTag && item.info.categoryTag !== '기타'
@@ -2185,7 +2188,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   })()}
                 </tbody>
               </table>
-            </div>
+            );
+          })()}
+        </div>
 
             {/* 식품안전나라 기준 및 규격(STDR_STND) 원문이 있을 경우 토글 제공 */}
             {product.functionalFoodDetail?.standardSpecificationKorean && (

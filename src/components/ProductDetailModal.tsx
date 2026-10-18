@@ -10,7 +10,7 @@ import {
 import { AttachedDocumentsModal } from './AttachedDocumentsModal';
 import { resolveIngredientDisplayInfo, sortProductIngredients } from '../utils/innMapper';
 import { getDarkCategoryBadgeStyle } from '../utils/categoryColors';
-import { recognizeUniversalDocument, fileToDataUrl } from '../services/labelOcrService';
+import { recognizeUniversalDocument, fileToDataUrl, isMeaningfulKoreanText } from '../services/labelOcrService';
 import {
   X,
   Edit3,
@@ -23,7 +23,8 @@ import {
   Camera,
   Upload,
   CheckCircle2,
-  Loader2
+  Loader2,
+  Sparkles
 } from 'lucide-react';
 
 interface ProductDetailModalProps {
@@ -539,8 +540,78 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [backPhotoStatusMessage, setBackPhotoStatusMessage] = useState('');
   const backPhotoInputRef = React.useRef<HTMLInputElement>(null);
 
+  // 실물 라벨 주의사항 직접 입력/수정 상태
+  const [isEditingLabelPrecautions, setIsEditingLabelPrecautions] = useState(false);
+  const [editLabelPrecautionsValue, setEditLabelPrecautionsValue] = useState('');
+
   // 성분 함량 표시 기준 (1알/1포당 vs 하루 섭취량당)
   const [displayBasis, setDisplayBasis] = useState<'PER_UNIT' | 'PER_DAILY'>('PER_UNIT');
+
+  // 건기식 표준 주의사항 템플릿
+  const STANDARD_HFF_PRECAUTIONS_TEMPLATE = `1. 이상사례 발생 시 섭취를 중단하고 전문가와 상담하십시오.
+2. 특이체질, 알레르기 체질의 경우 개인에 따라 과민반응을 나타낼 수 있으므로 원료를 확인한 후 섭취하십시오.
+3. 제품 개봉 또는 섭취 시 포장재에 의해 상처를 입을 수 있으니 주의하십시오.
+4. 어린이가 함부로 섭취하지 않도록 일일섭취량 방법을 지도하십시오.
+5. 원료 성분에 의해 침전물이 생길 수 있으나 변질이 아니오니 잘 흔들어 드십시오.
+6. 포장이 변형, 팽창, 손상되었거나 내용물이 변질되었을 경우 섭취하지 마십시오.`;
+
+  // 라벨 주의사항 직접 수정 시작
+  const handleStartEditLabelPrecautions = () => {
+    setEditLabelPrecautionsValue(product?.functionalFoodDetail?.labelPrecautionsText || '');
+    setIsEditingLabelPrecautions(true);
+  };
+
+  // 라벨 주의사항 수정 저장
+  const handleSaveEditedLabelPrecautions = async () => {
+    if (!product) return;
+    const trimmed = editLabelPrecautionsValue.trim();
+    const updatedList = trimmed
+      ? trimmed.split(/[\r\n]+/).map((s) => s.replace(/^[•·\-\*\d\.\)\s]+/, '').trim()).filter(Boolean)
+      : [];
+
+    await updateProduct(product.id, {
+      functionalFoodDetail: {
+        ...(product.functionalFoodDetail || {
+          reportNo: '',
+          functionalClaimsKorean: [],
+          suggestedUseKorean: '',
+          safetyPrecautionsKorean: []
+        }),
+        labelPrecautionsText: trimmed || undefined,
+        safetyPrecautionsKorean: updatedList.length > 0 ? updatedList : product.functionalFoodDetail?.safetyPrecautionsKorean || []
+      }
+    });
+
+    setIsEditingLabelPrecautions(false);
+    alert('✅ 실물 라벨 주의사항이 저장되었습니다!');
+  };
+
+  // 라벨 주의사항 삭제/초기화
+  const handleClearLabelPrecautions = async () => {
+    if (!product) return;
+    if (!window.confirm('등록된 실물 라벨 주의사항 텍스트를 삭제하시겠습니까?')) return;
+
+    await updateProduct(product.id, {
+      functionalFoodDetail: {
+        ...(product.functionalFoodDetail || {
+          reportNo: '',
+          functionalClaimsKorean: [],
+          suggestedUseKorean: '',
+          safetyPrecautionsKorean: []
+        }),
+        labelPrecautionsText: undefined
+      }
+    });
+
+    setIsEditingLabelPrecautions(false);
+    setEditLabelPrecautionsValue('');
+    alert('🗑️ 실물 라벨 주의사항이 삭제되었습니다.');
+  };
+
+  // 건기식 표준 템플릿 적용
+  const handleApplyStandardHffTemplate = () => {
+    setEditLabelPrecautionsValue(STANDARD_HFF_PRECAUTIONS_TEMPLATE);
+  };
 
   // 제품 뒷면 사진 선택 및 주의사항 자동 추출 핸들러
   const handleBackPhotoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -562,7 +633,26 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       });
 
       const extractedPrecautions = result.extractedPrecautions;
-      const precautionsFullText = extractedPrecautions?.precautionsFullText || result.rawText;
+      const parsedPrecText = extractedPrecautions?.precautionsFullText || '';
+      const isParsedValid = isMeaningfulKoreanText(parsedPrecText);
+
+      // OCR 결과가 깨진 영문 잡음이거나 판독 불가인 경우: 깨진 텍스트로 DB를 오염시키지 않고 직접 수정 모드로 전환
+      if (!isParsedValid) {
+        setIsEditingLabelPrecautions(true);
+        setEditLabelPrecautionsValue(
+          isMeaningfulKoreanText(result.rawText) ? result.rawText : ''
+        );
+        setPrecautionsModalTab('LABEL');
+        setIsPrecautionsFullModalOpen(true);
+        alert(
+          '⚠️ 사진의 빛 반사, 곡면, 또는 작은 글씨 크기로 인해 한글 주의사항이 선명하게 자동 판독되지 못했습니다.\n\n' +
+          '• [수정/직접 입력] 창이 열렸으니, 라벨 문구를 직접 입력하시거나 [✨ 건기식 표준 템플릿 채우기] 버튼을 이용해주세요.\n' +
+          '• 또는 주의사항 문구가 크게 보이도록 가까이에서 수평으로 선명하게 다시 촬영하실 수 있습니다.'
+        );
+        return;
+      }
+
+      const precautionsFullText = parsedPrecText;
       const precautionsList = extractedPrecautions?.precautionsList?.length
         ? extractedPrecautions.precautionsList
         : [precautionsFullText];
@@ -594,6 +684,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         }
       });
 
+      setIsEditingLabelPrecautions(false);
       setPrecautionsModalTab('LABEL');
       setIsPrecautionsFullModalOpen(true);
       alert('📸 제품 뒷면 사진에서 [섭취 시 주의사항]이 성공적으로 추출되어 전문보기에 등록되었습니다!');
@@ -1380,19 +1471,41 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
                 {/* 실물 라벨 추출 텍스트가 있을 경우 실물 라벨 우선 표시 */}
                 {product.functionalFoodDetail?.labelPrecautionsText ? (
-                  <div className="space-y-1 pt-1 border-t border-rose-100">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-bold text-emerald-700">
-                        📸 제품사진 뒷면 실물 라벨 주의사항
-                      </span>
-                      <span className="text-[10px] text-slate-400">
-                        상세내용은 [전문보기] 클릭
-                      </span>
+                  !isMeaningfulKoreanText(product.functionalFoodDetail.labelPrecautionsText) ? (
+                    <div className="space-y-1 pt-1 border-t border-rose-100">
+                      <div className="flex items-center justify-between text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+                        <span className="text-[11px] font-bold flex items-center gap-1.5">
+                          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                          <span>사진 글자 인식 오류 (외계어 감지됨)</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPrecautionsModalTab('LABEL');
+                            setIsPrecautionsFullModalOpen(true);
+                            handleStartEditLabelPrecautions();
+                          }}
+                          className="text-[11px] font-extrabold text-amber-900 bg-amber-200/80 hover:bg-amber-300 px-2 py-0.5 rounded cursor-pointer transition-colors"
+                        >
+                          직접 수정 / 템플릿 적용
+                        </button>
+                      </div>
                     </div>
-                    <p className="text-xs text-slate-700 leading-relaxed line-clamp-3 whitespace-pre-line font-medium">
-                      {product.functionalFoodDetail.labelPrecautionsText}
-                    </p>
-                  </div>
+                  ) : (
+                    <div className="space-y-1 pt-1 border-t border-rose-100">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-emerald-700">
+                          📸 제품사진 뒷면 실물 라벨 주의사항
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          상세내용은 [전문보기] 클릭
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-700 leading-relaxed line-clamp-3 whitespace-pre-line font-medium">
+                        {product.functionalFoodDetail.labelPrecautionsText}
+                      </p>
+                    </div>
+                  )
                 ) : (
                   /* 요약 항목이 하나도 매칭되지 않은 경우 안전하게 앞부분 2~3줄 요약 노출 */
                   !summarizedPrecautions.ageContraindication &&
@@ -1484,7 +1597,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         <Camera className="w-3.5 h-3.5 text-rose-600" />
                         <span>📸 실물 라벨 뒷면 주의사항</span>
                         {product.functionalFoodDetail?.labelPrecautionsText && (
-                          <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+                          <span className={`w-2 h-2 rounded-full inline-block ${
+                            isMeaningfulKoreanText(product.functionalFoodDetail.labelPrecautionsText)
+                              ? 'bg-emerald-500'
+                              : 'bg-amber-500'
+                          }`} />
                         )}
                       </button>
                       <button
@@ -1504,7 +1621,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setIsPrecautionsFullModalOpen(false)}
+                    onClick={() => {
+                      setIsPrecautionsFullModalOpen(false);
+                      setIsEditingLabelPrecautions(false);
+                    }}
                     className="w-7 h-7 rounded-full bg-white hover:bg-slate-200 flex items-center justify-center text-slate-500 border border-slate-200 transition-colors cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
@@ -1514,27 +1634,154 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
               <div className="p-6 overflow-y-auto max-h-[75vh] bg-white select-text">
                 {product.classification === 'HEALTH_FUNCTIONAL_FOOD' && precautionsModalTab === 'LABEL' ? (
-                  product.functionalFoodDetail?.labelPrecautionsText ? (
+                  isEditingLabelPrecautions ? (
+                    /* 1. 직접 수정 / 편집 모드 */
                     <div className="space-y-4">
                       <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                        <span className="text-xs font-bold text-slate-500">
-                          실물 제품 패키지 뒷면 라벨에서 OCR 판독된 주의사항 전문입니다.
+                        <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                          <Edit3 className="w-4 h-4 text-rose-600" />
+                          <span>실물 패키지 라벨 섭취 시 주의사항 편집</span>
                         </span>
                         <button
                           type="button"
-                          onClick={() => backPhotoInputRef.current?.click()}
-                          disabled={isUploadingBackPhoto}
+                          onClick={handleApplyStandardHffTemplate}
                           className="text-xs font-bold text-sky-700 hover:text-sky-800 bg-sky-50 border border-sky-200 px-2.5 py-1 rounded-md flex items-center gap-1 cursor-pointer transition-colors"
+                          title="식약처 표준 건기식 섭취 시 주의사항 문구를 자동으로 채워넣습니다"
                         >
-                          <Camera className="w-3 h-3" />
-                          <span>사진 다시 등록</span>
+                          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                          <span>✨ 건기식 표준 템플릿 채우기</span>
                         </button>
                       </div>
-                      <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-200 text-xs text-slate-800 leading-relaxed font-mono whitespace-pre-wrap">
-                        {product.functionalFoodDetail.labelPrecautionsText}
+
+                      <textarea
+                        value={editLabelPrecautionsValue}
+                        onChange={(e) => setEditLabelPrecautionsValue(e.target.value)}
+                        placeholder="실물 패키지 뒷면에 적힌 [섭취 시 주의사항] 문구를 직접 입력하거나 수정하세요.&#10;&#10;예시:&#10;1. 이상사례 발생 시 섭취를 중단하고 전문가와 상담하십시오.&#10;2. 특이체질, 알레르기 체질의 경우 개인에 따라 과민반응을 나타낼 수 있으므로 원료를 확인한 후 섭취하십시오.&#10;3. 제품 개봉 또는 섭취 시 포장재에 의해 상처를 입을 수 있으니 주의하십시오."
+                        className="w-full h-64 p-3.5 text-xs text-slate-800 font-mono leading-relaxed border border-slate-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:outline-none bg-slate-50/50 resize-y"
+                      />
+
+                      <div className="flex items-center justify-between pt-1">
+                        <button
+                          type="button"
+                          onClick={handleClearLabelPrecautions}
+                          className="text-xs font-bold text-rose-600 hover:text-rose-700 px-2.5 py-1 rounded flex items-center gap-1 cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>라벨 주의사항 초기화(삭제)</span>
+                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsEditingLabelPrecautions(false)}
+                            className="px-3.5 py-1.5 rounded-lg border border-slate-300 text-slate-600 font-bold text-xs cursor-pointer hover:bg-slate-100"
+                          >
+                            취소
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSaveEditedLabelPrecautions}
+                            className="px-4 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs cursor-pointer shadow-xs"
+                          >
+                            저장하기
+                          </button>
+                        </div>
                       </div>
                     </div>
+                  ) : product.functionalFoodDetail?.labelPrecautionsText ? (
+                    !isMeaningfulKoreanText(product.functionalFoodDetail.labelPrecautionsText) ? (
+                      /* 2. 외계어 / 깨진 글자가 인식된 경우 경고 안내 및 즉시 복구 패널 */
+                      <div className="space-y-4">
+                        <div className="bg-amber-50 border border-amber-300 rounded-2xl p-5 space-y-3.5">
+                          <div className="flex items-center gap-2.5 text-amber-900 font-extrabold text-sm">
+                            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+                            <span>사진 촬영 인식 오류 (외계어/깨진 글자 감지됨)</span>
+                          </div>
+                          <p className="text-xs text-amber-800 leading-relaxed">
+                            사진 촬영 시의 각도, 곡면 파우치 반사, 또는 작은 폰트 크기로 인해 영문 깨짐 현상이 발생했습니다.
+                            아래 버튼을 눌러 올바른 문구로 변경하시거나 표준 템플릿을 적용해주세요.
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditLabelPrecautionsValue(STANDARD_HFF_PRECAUTIONS_TEMPLATE);
+                                setIsEditingLabelPrecautions(true);
+                              }}
+                              className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs cursor-pointer shadow-xs flex items-center gap-1.5"
+                            >
+                              <Sparkles className="w-3.5 h-3.5" />
+                              <span>✨ 건기식 표준 템플릿 채우기 (추천)</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleStartEditLabelPrecautions}
+                              className="px-3 py-2 rounded-xl bg-white hover:bg-amber-100 text-amber-900 border border-amber-300 font-bold text-xs cursor-pointer"
+                            >
+                              ✏️ 직접 문구 입력/수정
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => backPhotoInputRef.current?.click()}
+                              disabled={isUploadingBackPhoto}
+                              className="px-3 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-bold text-xs cursor-pointer flex items-center gap-1"
+                            >
+                              <Camera className="w-3.5 h-3.5" />
+                              <span>📸 선명하게 다시 촬영</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleClearLabelPrecautions}
+                              className="px-3 py-2 rounded-xl bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 font-bold text-xs cursor-pointer"
+                            >
+                              🗑️ 깨진 텍스트 지우기
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* 판독 오류 원문 열람 토글 */}
+                        <details className="text-xs text-slate-500 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                          <summary className="cursor-pointer font-bold text-slate-600 select-none">
+                            🔍 인식된 원문 텍스트 확인하기 (오류 내용)
+                          </summary>
+                          <pre className="mt-2 text-[11px] font-mono text-slate-500 whitespace-pre-wrap max-h-40 overflow-y-auto">
+                            {product.functionalFoodDetail.labelPrecautionsText}
+                          </pre>
+                        </details>
+                      </div>
+                    ) : (
+                      /* 3. 정상적으로 인식된 실물 라벨 전문 */
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                          <span className="text-xs font-bold text-slate-500">
+                            실물 제품 패키지 뒷면 라벨에서 판독된 주의사항 전문입니다.
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={handleStartEditLabelPrecautions}
+                              className="text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 border border-slate-200 px-2.5 py-1 rounded-md flex items-center gap-1 cursor-pointer transition-colors"
+                            >
+                              <Edit3 className="w-3 h-3 text-slate-500" />
+                              <span>문구 수정</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => backPhotoInputRef.current?.click()}
+                              disabled={isUploadingBackPhoto}
+                              className="text-xs font-bold text-sky-700 hover:text-sky-800 bg-sky-50 border border-sky-200 px-2.5 py-1 rounded-md flex items-center gap-1 cursor-pointer transition-colors"
+                            >
+                              <Camera className="w-3 h-3" />
+                              <span>사진 다시 등록</span>
+                            </button>
+                          </div>
+                        </div>
+                        <div className="bg-slate-50/70 p-4 rounded-xl border border-slate-200 text-xs text-slate-800 leading-relaxed font-mono whitespace-pre-wrap">
+                          {product.functionalFoodDetail.labelPrecautionsText}
+                        </div>
+                      </div>
+                    )
                   ) : (
+                    /* 4. 라벨 사진이 등록되지 않은 경우 */
                     <div className="text-center py-12 px-6 space-y-4">
                       <div className="w-16 h-16 mx-auto rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center border border-rose-200">
                         <Camera className="w-8 h-8" />
@@ -1544,10 +1791,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                           제품사진 뒷면을 찍어 올리시면 실물 주의사항을 텍스트로 보여드립니다
                         </h5>
                         <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
-                          식약처 신고 API 데이터 외에, 제품 패키지 뒷면에 인쇄된 상세 섭취 시 주의사항(특이체질, 알레르기, 어린이 지도사항 등)을 AI로 자동 판독하여 등록합니다.
+                          식약처 신고 API 데이터 외에, 제품 패키지 뒷면에 인쇄된 상세 섭취 시 주의사항(특이체질, 알레르기, 어린이 지도사항 등)을 등록합니다.
                         </p>
                       </div>
-                      <div>
+                      <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
                         <button
                           type="button"
                           onClick={() => backPhotoInputRef.current?.click()}
@@ -1565,6 +1812,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                               <span>📸 제품 뒷면 사진 찍기 / 업로드</span>
                             </>
                           )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleStartEditLabelPrecautions}
+                          className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer transition-colors"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>✏️ 텍스트 직접 입력 / 템플릿</span>
                         </button>
                       </div>
                     </div>

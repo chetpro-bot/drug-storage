@@ -70,9 +70,9 @@ export async function preprocessImageForOcr(imageSource: File | Blob | string): 
         return;
       }
 
-      // 너무 큰 이미지는 브라우저 메모리 절약을 위해 최대 2000px로 리사이징
+      // 너무 큰 이미지는 브라우저 메모리 절약을 위해 최대 2600px로 리사이징
       let { width, height } = img;
-      const maxDim = 2000;
+      const maxDim = 2600;
       if (width > maxDim || height > maxDim) {
         if (width > height) {
           height = Math.round((height * maxDim) / width);
@@ -89,28 +89,23 @@ export async function preprocessImageForOcr(imageSource: File | Blob | string): 
       // 이미지 그리기
       ctx.drawImage(img, 0, 0, width, height);
 
-      // 그레이스케일 및 대비 강화(Binarization 대비 향상)
+      // 그레이스케일 처리 (과도한 대비 왜곡 없이 자연스러운 명암 보존)
       try {
         const imgData = ctx.getImageData(0, 0, width, height);
         const data = imgData.data;
-        const contrast = 1.35; // 대비 35% 증가
-        const factor = (259 * (contrast + 255)) / (255 * (259 - contrast));
 
         for (let i = 0; i < data.length; i += 4) {
-          const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-          const adjusted = factor * (gray - 128) + 128;
-          const clamped = Math.max(0, Math.min(255, adjusted));
-
-          data[i] = clamped;
-          data[i + 1] = clamped;
-          data[i + 2] = clamped;
+          const gray = Math.round(0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]);
+          data[i] = gray;
+          data[i + 1] = gray;
+          data[i + 2] = gray;
         }
         ctx.putImageData(imgData, 0, 0);
       } catch (e) {
         console.warn('캔버스 이미지 필터 처리 건너뜀:', e);
       }
 
-      resolve(canvas.toDataURL('image/jpeg', 0.9));
+      resolve(canvas.toDataURL('image/jpeg', 0.92));
     };
 
     img.onerror = () => reject(new Error('이미지를 불러올 수 없습니다. 유효한 이미지 파일인지 확인해주세요.'));
@@ -546,13 +541,29 @@ export function parseKpicEfficacyText(rawText: string): KpicEfficacyMapping[] {
 }
 
 /**
+ * 텍스트가 깨진 외계어/오인식인지 유효한 한글 문장인지 검증
+ */
+export function isMeaningfulKoreanText(text?: string | null): boolean {
+  if (!text || text.trim().length < 6) return false;
+  const koreanMatches = text.match(/[가-힣]/g) || [];
+  const engMatches = text.match(/[a-zA-Z]/g) || [];
+
+  // 한글 글자 수가 최소 10자 이상이어야 하며, 영문 알파벳이 한글보다 1.5배 이상 많으면 깨진 영문 오인식으로 판정
+  if (koreanMatches.length < 10) return false;
+  if (engMatches.length > koreanMatches.length * 1.5) return false;
+
+  return true;
+}
+
+/**
  * 패키지 뒷면 라벨 사진 OCR 텍스트에서 [섭취 시 주의사항] 섹션 정밀 추출
  */
 export function extractPrecautionsFromOcrText(rawText: string): {
   precautionsFullText: string;
   precautionsList: string[];
+  isGibberish?: boolean;
 } {
-  if (!rawText || !rawText.trim()) return { precautionsFullText: '', precautionsList: [] };
+  if (!rawText || !rawText.trim()) return { precautionsFullText: '', precautionsList: [], isGibberish: true };
 
   // 1. 주의사항 시작 헤더 탐색
   const headerRegex = /(?:\[\s*(?:섭취\s*시\s*)?주의사항\s*\]|섭취\s*시\s*주의사항|섭취\s*및\s*보관\s*시\s*주의사항|사용상의\s*주의사항|\[\s*주의사항\s*\])/i;
@@ -594,9 +605,12 @@ export function extractPrecautionsFromOcrText(rawText: string): {
     ? precautionsList.map((item, idx) => `${idx + 1}. ${item}`).join('\n')
     : '';
 
+  const isGibberish = !isMeaningfulKoreanText(precautionsFullText);
+
   return {
-    precautionsFullText,
-    precautionsList
+    precautionsFullText: isGibberish ? '' : precautionsFullText,
+    precautionsList: isGibberish ? [] : precautionsList,
+    isGibberish
   };
 }
 

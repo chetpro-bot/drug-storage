@@ -4,7 +4,8 @@ import { ProductIngredientEntry } from '../types/ingredient';
 import { 
   recognizeUniversalDocument, 
   parseKpicEfficacyText, 
-  fileToDataUrl 
+  fileToDataUrl,
+  isMeaningfulKoreanText
 } from '../services/labelOcrService';
 import { 
   saveLearnedIngredientMapping, 
@@ -234,7 +235,7 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
       let updatedFunctionalDetail = product.functionalFoodDetail ? { ...product.functionalFoodDetail } : undefined;
       let updatedOtcDetail = product.otcDetail ? { ...product.otcDetail } : undefined;
 
-      if (extractedPrecautions && extractedPrecautions.precautionsFullText) {
+      if (extractedPrecautions && extractedPrecautions.precautionsFullText && isMeaningfulKoreanText(extractedPrecautions.precautionsFullText)) {
         if (product.classification === 'HEALTH_FUNCTIONAL_FOOD' || updatedFunctionalDetail) {
           updatedFunctionalDetail = {
             ...(updatedFunctionalDetail || {

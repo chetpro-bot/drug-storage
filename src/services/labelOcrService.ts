@@ -655,39 +655,59 @@ export function parseFoodNutritionLabel(rawText: string): {
     }
   });
 
-  // 2. 원료명 및 함량 섹션 추출
+  // 2. 원료명 및 함량 섹션 추출 (섭취량, 보관방법, 영양정보 표 등 타 섹션으로의 침범 엄격 차단)
   let rawMaterialsText = '';
   const rawMatMatch = normalizedRaw.match(
-    /(?:원료명|원재료명|원재료)(?:\s*및\s*함량)?\s*[:：]?\s*([\s\S]+?)(?=\n\s*(?:※|\[|1일\s*영양|주의사항|보관|소비자|칼슘|$))/i
+    /(?:원료명|원재료명|원재료)(?:\s*및\s*함량)?\s*[:：]?\s*([\s\S]+?)(?=\n\s*(?:※|\[|섭취|주의사항|보관|소비자|영양정보|1일\s*영양|반품|제조|판매|품목|내용량|$))/i
   );
   if (rawMatMatch) {
     rawMaterialsText = rawMatMatch[1].trim();
   } else {
-    rawMaterialsText = normalizedRaw;
+    // 섹션 헤더가 명확하지 않은 경우 영양정보 표 이전 텍스트만 취함
+    const beforeNutrition = normalizedRaw.split(/영양정보|1일\s*영양성분/i)[0] || '';
+    rawMaterialsText = beforeNutrition.trim() || normalizedRaw;
   }
 
-  // 원료명 섹션에서 토큰 및 괄호 속 원료(예: "아쿠아민솔루블(해조칼슘)") 분리 추출
+  // 원료명 섹션에서 토큰 및 괄호 속 원료(예: "수용성아쿠아민") 분리 추출
   const rawMaterialTokens: string[] = [];
   rawMaterialsText.split(/[,;\n\r，]+/).forEach((token) => {
-    const trimmed = token.trim();
+    let trimmed = token.trim();
     if (!trimmed) return;
+
+    // 수치 비율(%), 총내용량, 섭취방법 등 영양성분표/잡음 토큰 배제
+    if (
+      /%|기준치|내용량|kcal|1포당|섭취량|보관방법|제조원|판매원|품목보고/.test(trimmed) ||
+      /^(?:칼[슘슴]|마그네[슘슴승]|아연|비타민\s*K)$/i.test(trimmed)
+    ) {
+      return;
+    }
+
     rawMaterialTokens.push(trimmed);
 
     // 복합 문장 또는 어절 분리 추출
     trimmed.split(/\s+/).forEach((sub) => {
       const subTrim = sub.trim().replace(/^[\.※\*\-\•]+|[\.※\*\-\•]+$/g, '');
-      if (subTrim && subTrim.length >= 2 && !rawMaterialTokens.includes(subTrim)) {
+      if (
+        subTrim &&
+        subTrim.length >= 2 &&
+        !rawMaterialTokens.includes(subTrim) &&
+        !/%|기준치|내용량|kcal|1포당/.test(subTrim) &&
+        !/^(?:칼[슘슴]|마그네[슘슴승]|아연|비타민\s*K)$/i.test(subTrim)
+      ) {
         rawMaterialTokens.push(subTrim);
       }
     });
 
     const inParen = trimmed.match(/\(([^)]+)\)/);
     if (inParen && inParen[1]) {
-      rawMaterialTokens.push(inParen[1].trim());
+      const parenVal = inParen[1].trim();
+      if (!/%|기준치|kcal/.test(parenVal) && !rawMaterialTokens.includes(parenVal)) {
+        rawMaterialTokens.push(parenVal);
+      }
     }
   });
 
-  // 3. 주요 미네랄 및 비타민 정의
+  // 3. 주요 미네랄 및 비타민 정의 (원료염 매칭 시 단순 성분명 단독 매칭 금지)
   interface NutrientRuleDef {
     key: string;
     nutrientName: string;
@@ -705,7 +725,8 @@ export function parseFoodNutritionLabel(rawText: string): {
       standardKey: 'CALCIUM',
       unit: 'mg',
       detectRegex: /(?:칼\s*슘|calcium)[^\d\n\r]*?(\d+(?:\.\d+)?)\s*(?:mg|밀리그램)?/i,
-      rawMaterialMatchRegex: /(?:칼[슘슴]|calcium|아쿠아민|해조)/i,
+      // 단순 "칼슘" 단독 매칭 금지 -> 실제 염 또는 구체적 원료 형태만 매칭
+      rawMaterialMatchRegex: /(?:젖산\s*칼[슘슴]|글루콘산\s*칼[슘슴]|탄산\s*칼[슘슴]|구연산\s*칼[슘슴]|황산\s*칼[슘슴]|아쿠아민|해조\s*칼[슘슴]|산호\s*칼[슘슴]|난각\s*칼[슘슴]|패각\s*칼[슘슴]|산화\s*칼[슘슴])/i,
       defaultClinicalSummary: '• 뼈와 치아 형성, 신경과 근육 기능 유지에 관여 (복합 칼슘 급원)'
     },
     {
@@ -714,7 +735,8 @@ export function parseFoodNutritionLabel(rawText: string): {
       standardKey: 'MAGNESIUM',
       unit: 'mg',
       detectRegex: /(?:마\s*그\s*네\s*슘|magnesium)[^\d\n\r]*?(\d+(?:\.\d+)?)\s*(?:mg|밀리그램)?/i,
-      rawMaterialMatchRegex: /마그네[슘슴승]/i,
+      // 단순 "마그네슘" 단독 매칭 금지 -> 실제 염 형태만 매칭
+      rawMaterialMatchRegex: /(?:글루콘산\s*마그네[슘슴승]|산화\s*마그네[슘슴승]|염화\s*마그네[슘슴승]|구연산\s*마그네[슘슴승]|황산\s*마그네[슘슴승]|젖산\s*마그네[슘슴승]|쌀\s*마그네[슘슴승])/i,
       defaultClinicalSummary: '• 에너지 이용 및 신경·근육 기능 유지에 관여 (복합 마그네슘 급원)'
     },
     {
@@ -723,7 +745,8 @@ export function parseFoodNutritionLabel(rawText: string): {
       standardKey: 'ZINC',
       unit: 'mg',
       detectRegex: /(?:아\s*연|zinc)[^\d\n\r]*?(\d+(?:\.\d+)?)\s*(?:mg|밀리그램)?/i,
-      rawMaterialMatchRegex: /아연/i,
+      // 단순 "아연" 단독 매칭 금지 -> 실제 염 형태만 매칭
+      rawMaterialMatchRegex: /(?:글루콘산\s*아연|산화\s*아연|황산\s*아연|아미노산킬레이트\s*아연|효모\s*아연)/i,
       defaultClinicalSummary: '• 정상적인 면역기능 및 정상적인 세포분열에 필요'
     },
     {
@@ -732,7 +755,7 @@ export function parseFoodNutritionLabel(rawText: string): {
       standardKey: 'VITAMIN_K',
       unit: 'ug',
       detectRegex: /(?:비타민\s*K|비타민\s*K2|비타민|메나퀴|피토나디온|vitamin\s*k)[^\d\n\r]*?(\d+(?:\.\d+)?)\s*(?:ug|㎍|μg|µg|pg)?/i,
-      rawMaterialMatchRegex: /(?:비타민\s*K|메나퀴|메나큐|K2)/i,
+      rawMaterialMatchRegex: /(?:비타민\s*K2|비타민\s*K|메나퀴논|메나큐|피토나디온)/i,
       defaultClinicalSummary: '• 정상적인 혈액응고 및 뼈의 구성에 필요 (비타민 K2 급원)'
     },
     {

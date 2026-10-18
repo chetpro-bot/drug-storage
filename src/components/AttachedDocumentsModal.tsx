@@ -236,9 +236,22 @@ export const AttachedDocumentsModal: React.FC<AttachedDocumentsModalProps> = ({
         });
       }
 
-      // B) 기존 성분들에 대해 KPIC 약효분류 및 규격 갱신
+      // B) 기존 성분들에 대해 KPIC 약효분류 및 규격 갱신 (식품 파서에서 도출된 영양소는 OCR 잡음 오염 방지를 위해 보호)
+      const foodKeys = new Set(
+        foodIngredients.flatMap((fi) => [
+          fi.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, ''),
+          (fi.functionalCategory || '').toLowerCase().replace(/[^a-z0-9가-힣]/g, '')
+        ]).filter(Boolean)
+      );
+
       updatedIngredients.forEach((ing) => {
         const ingNameClean = ing.englishInn.toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+        const ingCatClean = (ing.functionalCategory || '').toLowerCase().replace(/[^a-z0-9가-힣]/g, '');
+
+        // 일반식품 라벨에서 추출된 영양소(칼슘, 마그네슘, 아연, 비타민K 등)는 일반 의약품 텍스트/표 잡음으로 덮어쓰지 않음
+        if (foodKeys.has(ingNameClean) || foodKeys.has(ingCatClean)) {
+          return;
+        }
 
         // 1) 직접 KPIC 매핑이 있는지 확인
         const directFound = directKpic.find((km) => {

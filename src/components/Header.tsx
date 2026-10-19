@@ -6,7 +6,20 @@ import { useProductStore } from '../stores/useProductStore';
 
 export const Header: React.FC = () => {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
-  const { isLiveSyncActive, isSyncing } = useProductStore();
+  const { isLiveSyncActive, isSyncing, syncNow } = useProductStore();
+  const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
+
+  const handleManualSync = async () => {
+    if (isSyncing) return;
+    try {
+      await syncNow();
+      setSyncFeedback('동기화 완료');
+      setTimeout(() => setSyncFeedback(null), 3000);
+    } catch (e) {
+      setSyncFeedback('동기화 실패');
+      setTimeout(() => setSyncFeedback(null), 3000);
+    }
+  };
 
   return (
     <header className="h-14 bg-white border-b border-slate-200/90 text-slate-900 px-6 flex items-center justify-between shrink-0 select-none shadow-2xs z-10">
@@ -28,22 +41,24 @@ export const Header: React.FC = () => {
         </div>
       </div>
 
-      {/* 우측: 클라우드 동기화 상태 및 설정 버튼 */}
+      {/* 우측: 클라우드 동기화 상태(클릭 시 즉시 수동 동기화) 및 설정 버튼 */}
       <div className="flex items-center gap-2.5">
-        <div
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold shadow-2xs transition-all ${
+        <button
+          onClick={handleManualSync}
+          disabled={isSyncing}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold shadow-2xs transition-all cursor-pointer active:scale-95 ${
             isSyncing
-              ? 'bg-amber-50 border-amber-200 text-amber-700'
+              ? 'bg-amber-50 border-amber-200 text-amber-700 cursor-wait'
               : isLiveSyncActive
-              ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-              : 'bg-rose-50 border-rose-200 text-rose-700'
+              ? 'bg-emerald-50 hover:bg-emerald-100/90 border-emerald-200 text-emerald-700'
+              : 'bg-rose-50 hover:bg-rose-100/90 border-rose-200 text-rose-700'
           }`}
           title={
             isSyncing
               ? '서버와 제품 데이터를 동기화하는 중입니다...'
               : isLiveSyncActive
-              ? '약국 PC ↔ 자택 PC 실시간 클라우드 동기화 연결됨'
-              : '클라우드 동기화 미연결 (로컬 캐시 모드)'
+              ? '약국 PC ↔ 자택 PC 실시간 클라우드 동기화 연결됨 (클릭하여 지금 즉시 새로고침)'
+              : '클라우드 동기화 미연결 (클릭하여 재연결 시도)'
           }
         >
           {isSyncing ? (
@@ -54,9 +69,14 @@ export const Header: React.FC = () => {
             <CloudOff className="w-3.5 h-3.5 text-rose-600" />
           )}
           <span className="text-[11px]">
-            {isSyncing ? '동기화 중...' : isLiveSyncActive ? '실시간 동기화됨' : '로컬 모드'}
+            {isSyncing
+              ? '동기화 중...'
+              : syncFeedback || (isLiveSyncActive ? '실시간 동기화됨' : '로컬 모드')}
           </span>
-        </div>
+          <span className="text-[10px] text-slate-400 font-normal ml-0.5 hidden sm:inline">
+            (새로고침 ↻)
+          </span>
+        </button>
 
         <button
           onClick={() => setIsSettingsModalOpen(true)}

@@ -9,7 +9,8 @@ import { normalizeCategory } from '../utils/categoryColors';
 import { 
   subscribeToProducts, 
   saveProductToFirestore, 
-  deleteProductFromFirestore 
+  deleteProductFromFirestore,
+  fetchProductsOnce
 } from '../services/firestoreService';
 import { isLiveFirebaseConfigured } from '../services/firebase';
 
@@ -26,6 +27,7 @@ interface ProductState {
   sortBy: ProductSortOption;
   isLiveSyncActive: boolean;
   isSyncing: boolean;
+  lastSyncedAt: Date | null;
 
   // Actions
   setSelectedProductId: (id: string | null) => void;
@@ -35,8 +37,9 @@ interface ProductState {
   setSelectedTag: (tag: string | null) => void;
   setSortBy: (sort: ProductSortOption) => void;
   
-  // Realtime Cloud Init
+  // Realtime Cloud Init & Manual Sync
   initRealtimeSubscription: () => () => void;
+  syncNow: () => Promise<void>;
 
   // Cloud CRUD
   addProduct: (product: ProductItem) => Promise<void>;
@@ -633,6 +636,7 @@ export const useProductStore = create<ProductState>((set, get) => {
     sortBy: initialSort,
     isLiveSyncActive: isLiveFirebaseConfigured(),
     isSyncing: false,
+    lastSyncedAt: null,
 
     setSelectedProductId: (id) => set({ selectedProductId: id }),
     setViewMode: (mode) => set({ viewMode: mode }),
@@ -651,59 +655,59 @@ export const useProductStore = create<ProductState>((set, get) => {
     initRealtimeSubscription: () => {
       set({ isSyncing: true });
       const unsubscribe = subscribeToProducts((firestoreList) => {
-        const deletedIds = getDeletedIds();
-        const currentProducts = get().products;
-
-        // 1. Firestore에서 들어온 목록 중 사용자가 명시적으로 삭제한 ID 및 과거 목업 잔재 제외
-        const validFromFirestore = firestoreList.filter(
-          (p) => p.id !== 'prod_mdream_liquid_kids' && !deletedIds.has(p.id)
-        );
-
-        // Firestore에 과거 등록되었던 prod_mdream_liquid_kids 가 남아있다면 백그라운드로 안전하게 삭제
+        // 과거 목업 잔재 백그라운드 삭제
         if (firestoreList.some((p) => p.id === 'prod_mdream_liquid_kids')) {
           deleteProductFromFirestore('prod_mdream_liquid_kids').catch(() => {});
         }
 
-        // 2. 현재 로컬에 등록되어 있는 제품들과 안전하게 병합 (클라우드 단일 조회로 로컬 품목이 유실되는 현상 원천 방지)
+        const currentSort = get().sortBy || 'NAME_ASC';
+        const currentProducts = get().products;
+        const validFromFirestore = firestoreList.filter((p) => p.id !== 'prod_mdream_liquid_kids');
+        const firestoreIds = new Set(validFromFirestore.map((p) => p.id));
+
+        // Firestore에 존재하는 정상 제품 ID는 로컬 deletedIds 차단 목록에서 즉시 해제
+        validFromFirestore.forEach((p) => unmarkDeletedId(p.id));
+
         const mergedMap = new Map<string, ProductItem>();
 
-        // 우선 현재 로컬 제품들을 맵에 등록
-        currentProducts.forEach((p) => {
-          if (p.id !== 'prod_mdream_liquid_kids' && !deletedIds.has(p.id)) {
-            mergedMap.set(p.id, p);
-          }
-        });
-
-        // Firestore에서 온 제품들 반영 (최신 변경사항 반영하되, 첨부자료는 로컬 데이터 안전 보존)
+        // Firestore 데이터 적용 (첨부파일은 로컬 캐시 우선 보존)
         validFromFirestore.forEach((p) => {
-          const localP = mergedMap.get(p.id);
-          if (localP && localP.attachments && localP.attachments.length > 0 && (!p.attachments || p.attachments.length < localP.attachments.length)) {
+          const localP = currentProducts.find((lp) => lp.id === p.id);
+          if (
+            localP &&
+            localP.attachments &&
+            localP.attachments.length > 0 &&
+            (!p.attachments || p.attachments.length < localP.attachments.length)
+          ) {
             mergedMap.set(p.id, { ...p, attachments: localP.attachments });
           } else {
             mergedMap.set(p.id, p);
           }
         });
 
-        // 선택된 정렬 기준(기본: 가나다순) 적용 및 KPIC 약효분류 체계 자동 마이그레이션 적용
-        const currentSort = get().sortBy || 'NAME_ASC';
+        // 오프라인 상태에서 방금 신규 등록된 로컬 제품(최근 5분 이내)은 보존 및 Firestore 백그라운드 전송
+        const now = Date.now();
+        currentProducts.forEach((p) => {
+          if (!firestoreIds.has(p.id) && p.id !== 'prod_mdream_liquid_kids') {
+            const createdTime = new Date(p.createdAt || 0).getTime();
+            if (now - createdTime < 5 * 60 * 1000) {
+              mergedMap.set(p.id, p);
+              saveProductToFirestore(p).catch(() => {});
+            }
+          }
+        });
+
         const mergedList = sortProducts(
           migrateAndEnsureKpic(Array.from(mergedMap.values())),
           currentSort
         );
-
-        // 로컬에만 있고 Firestore에는 아직 저장되지 않은 제품들은 백그라운드로 보강 동기화
-        const firestoreIds = new Set(validFromFirestore.map((p) => p.id));
-        mergedList.forEach((prod) => {
-          if (!firestoreIds.has(prod.id)) {
-            saveProductToFirestore(prod).catch(() => {});
-          }
-        });
 
         persistToLocal(mergedList);
         set((state) => ({
           products: mergedList,
           isSyncing: false,
           isLiveSyncActive: true,
+          lastSyncedAt: new Date(),
           selectedProductId: state.selectedProductId || mergedList[0]?.id || null
         }));
       }, (error) => {
@@ -711,6 +715,66 @@ export const useProductStore = create<ProductState>((set, get) => {
         set({ isSyncing: false, isLiveSyncActive: false });
       });
       return unsubscribe;
+    },
+
+    syncNow: async () => {
+      set({ isSyncing: true });
+      try {
+        const firestoreList = await fetchProductsOnce();
+        if (firestoreList.some((p) => p.id === 'prod_mdream_liquid_kids')) {
+          deleteProductFromFirestore('prod_mdream_liquid_kids').catch(() => {});
+        }
+
+        const currentSort = get().sortBy || 'NAME_ASC';
+        const currentProducts = get().products;
+        const validFromFirestore = firestoreList.filter((p) => p.id !== 'prod_mdream_liquid_kids');
+        const firestoreIds = new Set(validFromFirestore.map((p) => p.id));
+
+        validFromFirestore.forEach((p) => unmarkDeletedId(p.id));
+
+        const mergedMap = new Map<string, ProductItem>();
+        validFromFirestore.forEach((p) => {
+          const localP = currentProducts.find((lp) => lp.id === p.id);
+          if (
+            localP &&
+            localP.attachments &&
+            localP.attachments.length > 0 &&
+            (!p.attachments || p.attachments.length < localP.attachments.length)
+          ) {
+            mergedMap.set(p.id, { ...p, attachments: localP.attachments });
+          } else {
+            mergedMap.set(p.id, p);
+          }
+        });
+
+        const now = Date.now();
+        currentProducts.forEach((p) => {
+          if (!firestoreIds.has(p.id) && p.id !== 'prod_mdream_liquid_kids') {
+            const createdTime = new Date(p.createdAt || 0).getTime();
+            if (now - createdTime < 5 * 60 * 1000) {
+              mergedMap.set(p.id, p);
+              saveProductToFirestore(p).catch(() => {});
+            }
+          }
+        });
+
+        const mergedList = sortProducts(
+          migrateAndEnsureKpic(Array.from(mergedMap.values())),
+          currentSort
+        );
+
+        persistToLocal(mergedList);
+        set((state) => ({
+          products: mergedList,
+          isSyncing: false,
+          isLiveSyncActive: true,
+          lastSyncedAt: new Date(),
+          selectedProductId: state.selectedProductId || mergedList[0]?.id || null
+        }));
+      } catch (err) {
+        console.warn('수동 동기화 실패:', err);
+        set({ isSyncing: false });
+      }
     },
 
     addProduct: async (product) => {

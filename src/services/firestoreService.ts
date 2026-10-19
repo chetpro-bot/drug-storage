@@ -15,7 +15,7 @@ import { MOCK_PRODUCTS } from '../constants/mockProducts';
 import { MOCK_KDRI_STANDARDS } from '../constants/kdri2020';
 import { CLINICAL_DDI_RULES } from '../constants/ddiRules';
 
-const PRODUCTS_COLLECTION = 'products';
+export const PRODUCTS_COLLECTION = 'products';
 const KDRI_COLLECTION = 'kdri_standards';
 const DDI_COLLECTION = 'ddi_rules';
 
@@ -67,6 +67,28 @@ export function subscribeToProducts(
     console.warn('Firestore 연결 실패:', err);
     onUpdate(MOCK_PRODUCTS);
     return () => {};
+  }
+}
+
+/**
+ * Firestore 최신 제품 목록 1회 즉시 조회 (수동 동기화용)
+ */
+export async function fetchProductsOnce(): Promise<ProductItem[]> {
+  if (!isLiveFirebaseConfigured()) {
+    return MOCK_PRODUCTS;
+  }
+  try {
+    const productsRef = collection(db, PRODUCTS_COLLECTION);
+    const q = query(productsRef, orderBy('updatedAt', 'desc'));
+    const snap = await getDocs(q);
+    const list: ProductItem[] = [];
+    snap.forEach((docSnap) => {
+      list.push(docSnap.data() as ProductItem);
+    });
+    return list;
+  } catch (err) {
+    console.warn('Firestore 직접 조회 실패:', err);
+    throw err;
   }
 }
 

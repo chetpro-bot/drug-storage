@@ -193,22 +193,15 @@ function migrateAndEnsureKpic(products: ProductItem[]): ProductItem[] {
         hasChanges = true;
       }
 
-      // 5. [철저한 환산 규칙] 식약처 품목 허가 상세에서 '성분정보'가 공란인 성분은 과거 저장된 임의 환산량(elementalAmount) 영구 제거
-      const isExcludedFromConversion =
-        /pantothen|판토텐산/i.test(`${ing.englishInn} ${ing.koreanName || ''}`) ||
-        /pyridox|피리독신|피리독살/i.test(`${ing.englishInn} ${ing.koreanName || ''}`) ||
-        /choline|콜린|bitartrate/i.test(`${ing.englishInn} ${ing.koreanName || ''}`) ||
-        /nicotinamid|niacinamid|니코틴산아미드|니코틴아미드/i.test(`${ing.englishInn} ${ing.koreanName || ''}`) ||
-        /biotin|비오틴/i.test(`${ing.englishInn} ${ing.koreanName || ''}`) ||
-        /folic|엽산|폴산/i.test(`${ing.englishInn} ${ing.koreanName || ''}`) ||
-        /cobalamin|코발라민|메코발라민/i.test(`${ing.englishInn} ${ing.koreanName || ''}`) ||
-        /taurine|타우린/i.test(`${ing.englishInn} ${ing.koreanName || ''}`) ||
-        /inositol|이노시톨/i.test(`${ing.englishInn} ${ing.koreanName || ''}`) ||
-        /ursodeoxy|우르소/i.test(`${ing.englishInn} ${ing.koreanName || ''}`) ||
-        /oryzanol|오리자놀/i.test(`${ing.englishInn} ${ing.koreanName || ''}`);
+      // 5. [철저한 환산 규칙] 비맥스제트 허가 상세에서 '성분정보'가 공란인 성분은 과거 저장된 임의 환산량(elementalAmount) 영구 제거
+      const isExcludedForBmax =
+        prod.productName.includes('비맥스제트') &&
+        (/pantothen|판토텐산/i.test(`${ing.englishInn} ${ing.koreanName || ''}`) ||
+         /pyridox|피리독신|피리독살/i.test(`${ing.englishInn} ${ing.koreanName || ''}`) ||
+         /choline|콜린|bitartrate/i.test(`${ing.englishInn} ${ing.koreanName || ''}`));
 
       let cleanElemental = ing.elementalAmount;
-      if (isExcludedFromConversion && cleanElemental !== undefined) {
+      if (isExcludedForBmax && cleanElemental !== undefined) {
         cleanElemental = undefined;
         hasChanges = true;
       }
@@ -435,9 +428,11 @@ function migrateAndEnsureKpic(products: ProductItem[]): ProductItem[] {
             chemicalFormName: '유기염 (시트르산마그네슘수화물)',
             rawAmount: 50,
             unit: 'mg',
+            elementalAmount: 5.9,
+            elementalLabel: '마그네슘',
             standardKey: 'MAGNESIUM',
             isMainActive: true,
-            formattedSpecification: 'Magnesium Citrate Hydrate 50mg',
+            formattedSpecification: 'Magnesium Citrate Hydrate 50mg (Magnesium 5.9mg)',
             clinicalSummary: '• 흡수율과 생체이용률이 우수하고 위장 부담이 적은 유기산염(구연산) 마그네슘 수화물'
           },
           {
@@ -462,6 +457,8 @@ function migrateAndEnsureKpic(products: ProductItem[]): ProductItem[] {
             rawAmount: 142.8571,
             unit: 'mg',
             elementalAmount: 100,
+            elementalUnit: 'IU',
+            elementalLabel: '비타민E',
             standardKey: 'VITAMIN_E',
             isMainActive: true,
             formattedSpecification: 'D-Alpha-Tocopherol Acetate 142.8571mg (Vitamin E 100IU)',
@@ -488,9 +485,12 @@ function migrateAndEnsureKpic(products: ProductItem[]): ProductItem[] {
             chemicalFormName: '농축 분말 (콜레칼시페롤)',
             rawAmount: 10,
             unit: 'mg',
+            elementalAmount: 1000,
+            elementalUnit: 'IU',
+            elementalLabel: '비타민D',
             standardKey: 'VITAMIN_D',
             isMainActive: false,
-            formattedSpecification: 'Cholecalciferol Concentrated Powder 10mg',
+            formattedSpecification: 'Cholecalciferol Concentrated Powder 10mg (Vitamin D 1,000IU)',
             clinicalSummary: '• 칼슘 및 마그네슘 대사 조절, 뼈 형성 및 근육 기능 유지'
           }
         ];
@@ -554,7 +554,6 @@ function migrateAndEnsureKpic(products: ProductItem[]): ProductItem[] {
             chemicalFormName: '염산염 (수용성 비타민 B6)',
             rawAmount: 75,
             unit: 'mg',
-            elementalAmount: 61.7,
             standardKey: 'VITAMIN_B6',
             isMainActive: true,
             formattedSpecification: 'Pyridoxine hydrochloride 75mg',

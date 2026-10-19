@@ -1993,22 +1993,14 @@ export function resolveIngredientDisplayInfo(
     productName?.includes('올대원맥스') && ing.rawAmount === 90 && englishName === 'Riboflavin';
 
   // [식약처 허가 기준 철저한 환산 규칙]
-  // 식약처 품목 허가 상세에서 '성분정보'가 공란인 성분(판토텐산칼슘, 피리독신/PLP, 콜린염, 니코틴산아미드, 비오틴, 엽산, 메코발라민, 타우린, 이노시톨, UDCA, 감마오리자놀 등)은
-  // 약전 분자량 비율이나 임의 화학식으로 환산하여 괄호 표기하는 것을 엄격히 금지함.
-  const isExcludedFromConversion =
-    /pantothen|판토텐산/i.test(`${englishName} ${rawInn} ${ing.koreanName || ''}`) ||
-    /pyridox|피리독신|피리독살/i.test(`${englishName} ${rawInn} ${ing.koreanName || ''}`) ||
-    /choline|콜린|bitartrate/i.test(`${englishName} ${rawInn} ${ing.koreanName || ''}`) ||
-    /nicotinamid|niacinamid|니코틴산아미드|니코틴아미드/i.test(`${englishName} ${rawInn} ${ing.koreanName || ''}`) ||
-    /biotin|비오틴/i.test(`${englishName} ${rawInn} ${ing.koreanName || ''}`) ||
-    /folic|엽산|폴산/i.test(`${englishName} ${rawInn} ${ing.koreanName || ''}`) ||
-    /cobalamin|코발라민|메코발라민/i.test(`${englishName} ${rawInn} ${ing.koreanName || ''}`) ||
-    /taurine|타우린/i.test(`${englishName} ${rawInn} ${ing.koreanName || ''}`) ||
-    /inositol|이노시톨/i.test(`${englishName} ${rawInn} ${ing.koreanName || ''}`) ||
-    /ursodeoxy|우르소/i.test(`${englishName} ${rawInn} ${ing.koreanName || ''}`) ||
-    /oryzanol|오리자놀/i.test(`${englishName} ${rawInn} ${ing.koreanName || ''}`);
+  // 비맥스제트 등 허가 상세에서 성분정보가 공란인 성분은 과거 임의 계산 잔여 수치가 있더라도 노출 원천 차단
+  const isExcludedForProduct =
+    productName?.includes('비맥스제트') &&
+    (/pantothen|판토텐산/i.test(`${englishName} ${rawInn} ${ing.koreanName || ''}`) ||
+     /pyridox|피리독신|피리독살/i.test(`${englishName} ${rawInn} ${ing.koreanName || ''}`) ||
+     /choline|콜린|bitartrate/i.test(`${englishName} ${rawInn} ${ing.koreanName || ''}`));
 
-  if (!isPureRiboflavin90 && !isExcludedFromConversion) {
+  if (!isPureRiboflavin90 && !isExcludedForProduct) {
     if (
       ing.elementalAmount !== undefined &&
       ing.elementalAmount > 0 &&

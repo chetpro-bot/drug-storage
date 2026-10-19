@@ -100,6 +100,27 @@ export function saveLearnedIngredientMapping(nameOrInn: string, meta: Partial<In
   }
 }
 
+/**
+ * 해당 성분이 시스템 표준 사전(INN_DICTIONARY) 또는 사용자 학습 사전(learnedDict)에 등록되어 있는지 확인
+ */
+export function isRegisteredIngredient(nameOrInn?: string): boolean {
+  if (!nameOrInn || !nameOrInn.trim()) return false;
+  const clean = nameOrInn.trim().toLowerCase().replace(/\s+/g, '');
+  const learned = getLearnedDict();
+
+  for (const k of Object.keys(INN_DICTIONARY)) {
+    if (k.toLowerCase().replace(/\s+/g, '') === clean) return true;
+    if (INN_DICTIONARY[k].englishInn?.toLowerCase().replace(/\s+/g, '') === clean) return true;
+  }
+
+  for (const k of Object.keys(learned)) {
+    if (k.toLowerCase().replace(/\s+/g, '') === clean) return true;
+    if (learned[k].englishInn?.toLowerCase().replace(/\s+/g, '') === clean) return true;
+  }
+
+  return false;
+}
+
 export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   // 비타민 B군
   '벤포티아민': {
@@ -1352,6 +1373,11 @@ export function formatKpaicSpecification(rawItem: string): string {
     const sortedKeys = Object.keys(INN_DICTIONARY).sort((a, b) => b.length - a.length);
     for (const k of sortedKeys) {
       if (str.includes(k)) {
+        // 단순 원소명('마그네슘', '칼슘' 등)이 부분 포함되더라도 str이 더 긴 복합염('피돌산마그네슘', '말산마그네슘' 등)이면 덮어쓰지 않고 원문 유지
+        const GENERIC_MINERALS = ['마그네슘', '칼슘', '아연', '철', '구리', '망간', '셀레늄'];
+        if (GENERIC_MINERALS.includes(k) && str.length > k.length + 1) {
+          continue;
+        }
         matchedDict = INN_DICTIONARY[k].englishInn;
         break;
       }
@@ -1520,6 +1546,17 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
 
     if (matchedKey) {
       const meta = combinedDict[matchedKey];
+
+      // 단순 기본 원소('마그네슘', '칼슘' 등) 키가 부분일치로 잡혔으나 입력된 원문에 구체적인 염 형태나 detectedInn이 존재하는 경우:
+      const GENERIC_MINERAL_KEYS = new Set(['마그네슘', '칼슘', '아연', '철', '구리', '망간', '셀레늄', '크롬']);
+      const isGenericMineral = GENERIC_MINERAL_KEYS.has(matchedKey);
+      const isCompoundSalt = isGenericMineral && (normNameRaw !== matchedKey.toLowerCase() || Boolean(detectedInn));
+
+      const finalInn = detectedInn || (isCompoundSalt ? nameRaw : meta.englishInn);
+      const finalFormName = isCompoundSalt
+        ? (meta.chemicalFormName && meta.chemicalFormName !== matchedKey ? meta.chemicalFormName : `유기염 (${nameRaw})`)
+        : meta.chemicalFormName;
+
       const finalElemental = elementalAmount ?? (meta.elementalRatio ? +(amount * meta.elementalRatio).toFixed(2) : undefined);
       const resolvedCategory =
         learnedDict[matchedKey]?.functionalCategory ||
@@ -1527,20 +1564,27 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
         kpicCategory ||
         '기타';
 
+      const finalSpec = isCompoundSalt
+        ? `${finalInn} ${amount}${unit}${elementalAmount ? ` (${meta.standardKey === 'MAGNESIUM' ? 'Magnesium' : 'Elemental'} ${elementalAmount}${unit})` : ''}`
+        : formattedSpecification;
+
       results.push({
         ingredientId: `ing_auto_${Date.now()}_${index}`,
-        englishInn: detectedInn || meta.englishInn,
+        englishInn: finalInn,
+        koreanName: nameRaw,
         functionalCategory: resolvedCategory,
-        chemicalFormName: meta.chemicalFormName,
+        chemicalFormName: finalFormName,
         rawAmount: amount || 10,
         unit: (unit || meta.defaultUnit) as 'mg' | 'ug' | 'IU' | 'g',
         elementalAmount: finalElemental,
         // 주요(Main Active) 기준: 첫 번째 처방 주성분이거나, 단위가 mg일 때 투입량이 30mg 이상인 고함량 성분
         isMainActive: index === 0 || (unit === 'mg' && amount >= 30),
         standardKey: meta.standardKey,
-        clinicalSummary: meta.clinicalSummary,
+        clinicalSummary: isCompoundSalt
+          ? `• ${nameRaw} (${finalInn}) 복합 원료\n${meta.clinicalSummary}`
+          : meta.clinicalSummary,
         noteKorean: undefined,
-        formattedSpecification
+        formattedSpecification: finalSpec
       });
     } else {
       // 미등록 성분: 한글 단어 영문 매핑 재검색 시도 후 기본 영문 INN 추정
@@ -1556,16 +1600,17 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
 
       results.push({
         ingredientId: `ing_auto_${Date.now()}_${index}`,
-        englishInn: fallbackInn,
+        englishInn: detectedInn || fallbackInn,
+        koreanName: nameRaw,
         functionalCategory: kpicCategory || '기타',
-        chemicalFormName: '표준 정제 원료',
+        chemicalFormName: `${nameRaw} (미등록 신규 성분)`,
         rawAmount: amount || 10,
         unit,
         elementalAmount,
         isMainActive: index === 0 || (unit === 'mg' && amount >= 30),
         clinicalSummary: `• ${nameRaw} 활성 성분 영양 및 생리 활성 지원`,
         noteKorean: undefined,
-        formattedSpecification
+        formattedSpecification: `${detectedInn || nameRaw} ${amount}${unit}${elementalAmount ? ` (${elementalAmount}${unit})` : ''}`
       });
     }
   });

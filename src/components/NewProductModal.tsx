@@ -18,7 +18,7 @@ import {
   fileToDataUrl,
   OcrParseResult 
 } from '../services/labelOcrService';
-import { saveLearnedIngredientMapping } from '../utils/innMapper';
+import { saveLearnedIngredientMapping, isRegisteredIngredient } from '../utils/innMapper';
 import { STANDARD_EFFICACY_CATEGORIES } from '../utils/categoryColors';
 import { STANDARD_EFFICACY_TAGS, inferInitialEfficacyTags } from '../constants/efficacyTags';
 import { 
@@ -759,6 +759,50 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
         ? precautionsText.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)
         : publicDataFetched?.precautionsSummary || [];
 
+      // 시스템 정식 사전에 미등록된 신규 성분 자동 영구 학습 및 사전 등록
+      verifiedIngredients.forEach((ing) => {
+        const innKey = (ing.englishInn || '').trim();
+        const korKey = (ing.koreanName || '').trim();
+        if (innKey && !isRegisteredIngredient(innKey)) {
+          saveLearnedIngredientMapping(innKey, {
+            englishInn: innKey,
+            functionalCategory: ing.functionalCategory,
+            chemicalFormName: ing.chemicalFormName,
+            defaultUnit: ing.unit === 'CFU' ? 'mg' : ing.unit,
+            standardKey: ing.standardKey,
+            elementalRatio:
+              ing.elementalAmount && ing.rawAmount
+                ? +(ing.elementalAmount / ing.rawAmount).toFixed(4)
+                : undefined,
+            elementalTargetLabel: ing.elementalAmount
+              ? `${ing.functionalCategory || '유효성분'}으로서`
+              : undefined,
+            clinicalSummary:
+              ing.clinicalSummary ||
+              `• ${innKey} (${ing.chemicalFormName || '표준 규격 원료'})`
+          });
+        }
+        if (korKey && korKey !== innKey && !isRegisteredIngredient(korKey)) {
+          saveLearnedIngredientMapping(korKey, {
+            englishInn: innKey || korKey,
+            functionalCategory: ing.functionalCategory,
+            chemicalFormName: ing.chemicalFormName,
+            defaultUnit: ing.unit === 'CFU' ? 'mg' : ing.unit,
+            standardKey: ing.standardKey,
+            elementalRatio:
+              ing.elementalAmount && ing.rawAmount
+                ? +(ing.elementalAmount / ing.rawAmount).toFixed(4)
+                : undefined,
+            elementalTargetLabel: ing.elementalAmount
+              ? `${ing.functionalCategory || '유효성분'}으로서`
+              : undefined,
+            clinicalSummary:
+              ing.clinicalSummary ||
+              `• ${korKey} (${ing.chemicalFormName || '표준 규격 원료'})`
+          });
+        }
+      });
+
       if (isEditMode && productToEdit) {
         const updatedProduct: Partial<ProductItem> = {
           productName: productName.trim(),
@@ -1467,14 +1511,24 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                       <tr key={idx} className="hover:bg-slate-50 transition-colors">
                         {/* 성분명 (English INN) */}
                         <td className="p-2">
-                          <input
-                            type="text"
-                            value={ing.englishInn}
-                            onChange={(e) =>
-                              handleUpdateIngredient(idx, { englishInn: e.target.value })
-                            }
-                            className="w-full p-1.5 border border-slate-300 rounded font-bold text-slate-900 bg-white"
-                          />
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="text"
+                              value={ing.englishInn}
+                              onChange={(e) =>
+                                handleUpdateIngredient(idx, { englishInn: e.target.value })
+                              }
+                              className="w-full p-1.5 border border-slate-300 rounded font-bold text-slate-900 bg-white"
+                            />
+                            {!isRegisteredIngredient(ing.englishInn || ing.koreanName) && (
+                              <span
+                                className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 select-none cursor-help"
+                                title="시스템 성분 사전에 미등록된 신규 원료입니다. 제품 등록 시 입력하신 약효분류 및 원료형태가 사전에 자동 영구 학습됩니다."
+                              >
+                                ✨ 신규
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         {/* 약효 분류 */}

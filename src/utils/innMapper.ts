@@ -140,8 +140,6 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '지용성 다이설파이드 티아민 이량체 (활성형 비타민 B1)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B1',
-    elementalRatio: 0.875,
-    elementalTargetLabel: '티아민염산염으로서',
     clinicalSummary: '• BBB(Blood-Brain Barrier - 뇌혈관장벽) 통과율 우수, 뇌세포 당대사 활성화\n• 뇌 피로 회복 및 신경 전달 조절'
   },
   '푸르설티아민': {
@@ -218,8 +216,6 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '칼슘염 (비타민 B5)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B5',
-    elementalRatio: 0.9201,
-    elementalTargetLabel: '판토텐산으로서',
     clinicalSummary: '• 조효소 Coenzyme A 구성 성분, 지방산 대사 및 부신피질 호르몬 합성 지원'
   },
   '칼슘판토테네이트': {
@@ -228,8 +224,6 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '칼슘염 (비타민 B5)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B5',
-    elementalRatio: 0.9201,
-    elementalTargetLabel: '판토텐산으로서',
     clinicalSummary: '• 조효소 Coenzyme A 구성 성분, 지방산 대사 및 부신피질 호르몬 합성 지원'
   },
   '피리독신염산염': {
@@ -238,8 +232,6 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '염산염 (수용성 비타민 B6)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B6',
-    elementalRatio: 0.8227,
-    elementalTargetLabel: '피리독신으로서',
     clinicalSummary: '• 아미노산 대사 및 신경전달물질(GABA, Serotonin) 합성 보조'
   },
   '피리독살포스페이트': {
@@ -248,8 +240,6 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '활성 조효소형 비타민 B6 (PLP)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B6',
-    elementalRatio: 0.638,
-    elementalTargetLabel: '피리독신으로서',
     clinicalSummary: '• 간 대사 불필요한 즉각적 활성 조효소형, 호모시스테인 대사 정상화'
   },
   '메코발라민': {
@@ -431,8 +421,6 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '주석산수소콜린',
     defaultUnit: 'mg',
     standardKey: 'CHOLINE',
-    elementalRatio: 0.4113,
-    elementalTargetLabel: '콜린으로서',
     clinicalSummary: '• 신경전달물질 아세틸콜린(Acetylcholine) 합성 전구체, 뇌 신경 신호 전달 촉진'
   },
   '이노시톨': {
@@ -448,8 +436,6 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '지용성 부티르산 에스테르 유도체 (활성형 비타민 B2)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B2',
-    elementalRatio: 0.573,
-    elementalTargetLabel: '리보플라빈으로서',
     clinicalSummary: '• 수용성 B2 대비 지질 친화성이 높아 체내 체류시간이 길고 지속적 에너지 생성 지원'
   },
   '피리독살포스페이트수화물': {
@@ -458,8 +444,6 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '활성 조효소형 비타민 B6 수화물 (PLP)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B6',
-    elementalRatio: 0.638,
-    elementalTargetLabel: '피리독신으로서',
     clinicalSummary: '• 간 대사 불필요한 즉각적 활성 조효소형, 호모시스테인 대사 정상화 및 신경전달물질 합성'
   },
   '농축콜레칼시페롤': {
@@ -479,9 +463,6 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '건조효모 결합형 (셀레늄)',
     defaultUnit: 'ug',
     standardKey: 'SELENIUM',
-    elementalRatio: 0.54,
-    elementalTargetLabel: '셀레늄으로서',
-    elementalUnit: 'ug',
     clinicalSummary: '• 글루타티온 과산화효소(GSH-Px) 핵심 조효소, 유해 활성산소 강력 소거'
   },
   '토코페롤아세테이트': {
@@ -537,8 +518,6 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '코팅 제피 아스코르브산 (비타민 C)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_C',
-    elementalRatio: 0.97,
-    elementalTargetLabel: '아스코르브산으로서',
     clinicalSummary: '• 산화 방지 및 위장 자극 경감 코팅 비타민 C, 결합조직 형성 및 항산화 작용'
   },
   '콜레칼시페롤농축분말': {
@@ -634,9 +613,6 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '건조효모 결합형 (크롬)',
     defaultUnit: 'mg',
     standardKey: 'CHROMIUM',
-    elementalRatio: 2.0,
-    elementalTargetLabel: '크롬으로서',
-    elementalUnit: 'ug',
     clinicalSummary: '• GTF(Glucose Tolerance Factor) 인슐린 보조인자, 혈당 대사 및 당뇨 예방 보조'
   },
   '유비데카레논': {
@@ -2016,7 +1992,23 @@ export function resolveIngredientDisplayInfo(
   const isPureRiboflavin90 =
     productName?.includes('올대원맥스') && ing.rawAmount === 90 && englishName === 'Riboflavin';
 
-  if (!isPureRiboflavin90) {
+  // [식약처 허가 기준 철저한 환산 규칙]
+  // 식약처 품목 허가 상세에서 '성분정보'가 공란인 성분(판토텐산칼슘, 피리독신/PLP, 콜린염, 니코틴산아미드, 비오틴, 엽산, 메코발라민, 타우린, 이노시톨, UDCA, 감마오리자놀 등)은
+  // 약전 분자량 비율이나 임의 화학식으로 환산하여 괄호 표기하는 것을 엄격히 금지함.
+  const isExcludedFromConversion =
+    /pantothen|판토텐산/i.test(`${englishName} ${rawInn} ${ing.koreanName || ''}`) ||
+    /pyridox|피리독신|피리독살/i.test(`${englishName} ${rawInn} ${ing.koreanName || ''}`) ||
+    /choline|콜린|bitartrate/i.test(`${englishName} ${rawInn} ${ing.koreanName || ''}`) ||
+    /nicotinamid|niacinamid|니코틴산아미드|니코틴아미드/i.test(`${englishName} ${rawInn} ${ing.koreanName || ''}`) ||
+    /biotin|비오틴/i.test(`${englishName} ${rawInn} ${ing.koreanName || ''}`) ||
+    /folic|엽산|폴산/i.test(`${englishName} ${rawInn} ${ing.koreanName || ''}`) ||
+    /cobalamin|코발라민|메코발라민/i.test(`${englishName} ${rawInn} ${ing.koreanName || ''}`) ||
+    /taurine|타우린/i.test(`${englishName} ${rawInn} ${ing.koreanName || ''}`) ||
+    /inositol|이노시톨/i.test(`${englishName} ${rawInn} ${ing.koreanName || ''}`) ||
+    /ursodeoxy|우르소/i.test(`${englishName} ${rawInn} ${ing.koreanName || ''}`) ||
+    /oryzanol|오리자놀/i.test(`${englishName} ${rawInn} ${ing.koreanName || ''}`);
+
+  if (!isPureRiboflavin90 && !isExcludedFromConversion) {
     if (
       ing.elementalAmount !== undefined &&
       ing.elementalAmount > 0 &&

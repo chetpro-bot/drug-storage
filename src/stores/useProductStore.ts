@@ -193,11 +193,115 @@ function migrateAndEnsureKpic(products: ProductItem[]): ProductItem[] {
         hasChanges = true;
       }
 
-      if (currentCat !== ing.functionalCategory) {
-        return { ...ing, functionalCategory: currentCat };
+      // 5. [철저한 환산 규칙] 식약처 품목 허가 상세에서 '성분정보'가 공란인 성분은 과거 저장된 임의 환산량(elementalAmount) 영구 제거
+      const isExcludedFromConversion =
+        /pantothen|판토텐산/i.test(`${ing.englishInn} ${ing.koreanName || ''}`) ||
+        /pyridox|피리독신|피리독살/i.test(`${ing.englishInn} ${ing.koreanName || ''}`) ||
+        /choline|콜린|bitartrate/i.test(`${ing.englishInn} ${ing.koreanName || ''}`) ||
+        /nicotinamid|niacinamid|니코틴산아미드|니코틴아미드/i.test(`${ing.englishInn} ${ing.koreanName || ''}`) ||
+        /biotin|비오틴/i.test(`${ing.englishInn} ${ing.koreanName || ''}`) ||
+        /folic|엽산|폴산/i.test(`${ing.englishInn} ${ing.koreanName || ''}`) ||
+        /cobalamin|코발라민|메코발라민/i.test(`${ing.englishInn} ${ing.koreanName || ''}`) ||
+        /taurine|타우린/i.test(`${ing.englishInn} ${ing.koreanName || ''}`) ||
+        /inositol|이노시톨/i.test(`${ing.englishInn} ${ing.koreanName || ''}`) ||
+        /ursodeoxy|우르소/i.test(`${ing.englishInn} ${ing.koreanName || ''}`) ||
+        /oryzanol|오리자놀/i.test(`${ing.englishInn} ${ing.koreanName || ''}`);
+
+      let cleanElemental = ing.elementalAmount;
+      if (isExcludedFromConversion && cleanElemental !== undefined) {
+        cleanElemental = undefined;
+        hasChanges = true;
+      }
+
+      if (currentCat !== ing.functionalCategory || cleanElemental !== ing.elementalAmount) {
+        return {
+          ...ing,
+          functionalCategory: currentCat,
+          elementalAmount: cleanElemental
+        };
       }
       return ing;
     });
+
+    // 5-1. 비맥스제트(100정 등) 등록 제품의 식약처 허가(202300436) 공식 21종 배합 성분 100% 동기화
+    if (prod.productName.includes('비맥스제트')) {
+      const BMAX_OFFICIAL_MAP: Record<string, { raw: number; unit: 'mg' | 'ug' | 'IU'; elemental?: number; label?: string; elUnit?: string }> = {
+        'benfotiamine': { raw: 100, unit: 'mg', elemental: 72.3, label: '티아민염산염' },
+        '벤포티아민': { raw: 100, unit: 'mg', elemental: 72.3, label: '티아민염산염' },
+        'bisbenthiamine': { raw: 30, unit: 'mg', elemental: 26.2, label: '티아민염산염' },
+        '비스벤티아민': { raw: 30, unit: 'mg', elemental: 26.2, label: '티아민염산염' },
+        'riboflavin butyrate': { raw: 50, unit: 'mg', elemental: 28.7, label: '리보플라빈' },
+        '리보플라빈부티레이트': { raw: 50, unit: 'mg', elemental: 28.7, label: '리보플라빈' },
+        'nicotinamide': { raw: 10, unit: 'mg' },
+        '니코틴산아미드': { raw: 10, unit: 'mg' },
+        'calcium pantothenate': { raw: 100, unit: 'mg' },
+        '판토텐산칼슘': { raw: 100, unit: 'mg' },
+        'pyridoxal phosphate': { raw: 50, unit: 'mg' },
+        '피리독살포스페이트': { raw: 50, unit: 'mg' },
+        '피리독살포스페이트수화물': { raw: 50, unit: 'mg' },
+        'biotin': { raw: 0.2, unit: 'mg' },
+        '비오틴': { raw: 0.2, unit: 'mg' },
+        'folic acid': { raw: 0.5, unit: 'mg' },
+        '폴산': { raw: 0.5, unit: 'mg' },
+        '엽산': { raw: 0.5, unit: 'mg' },
+        'mecobalamin': { raw: 1, unit: 'mg' },
+        '메코발라민': { raw: 1, unit: 'mg' },
+        'ascorbic acid coated': { raw: 51.15, unit: 'mg', elemental: 50, label: '아스코르브산' },
+        '제피아스코르브산': { raw: 51.15, unit: 'mg', elemental: 50, label: '아스코르브산' },
+        'taurine': { raw: 100, unit: 'mg' },
+        '타우린': { raw: 100, unit: 'mg' },
+        'chromium in dried yeast': { raw: 20, unit: 'mg', elemental: 10, label: '크롬', elUnit: 'ug' },
+        '크롬함유건조효모': { raw: 20, unit: 'mg', elemental: 10, label: '크롬', elUnit: 'ug' },
+        'inositol': { raw: 100, unit: 'mg' },
+        '이노시톨': { raw: 100, unit: 'mg' },
+        'cholecalciferol concentrate powder': { raw: 10, unit: 'mg', elemental: 1000, label: '비타민D', elUnit: 'IU' },
+        '콜레칼시페롤농축분말': { raw: 10, unit: 'mg', elemental: 1000, label: '비타민D', elUnit: 'IU' },
+        'choline bitartrate': { raw: 100, unit: 'mg' },
+        '콜린타르타르산염': { raw: 100, unit: 'mg' },
+        'zinc oxide': { raw: 30, unit: 'mg', elemental: 24.1, label: '아연' },
+        '산화아연': { raw: 30, unit: 'mg', elemental: 24.1, label: '아연' },
+        'ursodeoxycholic acid': { raw: 60, unit: 'mg' },
+        '우르소데옥시콜산': { raw: 60, unit: 'mg' },
+        'selenium in dried yeast': { raw: 40.8, unit: 'mg', elemental: 22, label: '셀레늄', elUnit: 'ug' },
+        '셀레늄함유건조효모': { raw: 40.8, unit: 'mg', elemental: 22, label: '셀레늄', elUnit: 'ug' },
+        'tocopherol acetate powder 50%': { raw: 20, unit: 'mg', elemental: 10, label: '비타민E', elUnit: 'IU' },
+        '토코페롤아세테이트2배산': { raw: 20, unit: 'mg', elemental: 10, label: '비타민E', elUnit: 'IU' },
+        '토코페롤아세테이트 2배산': { raw: 20, unit: 'mg', elemental: 10, label: '비타민E', elUnit: 'IU' },
+        'gamma oryzanol': { raw: 3, unit: 'mg' },
+        '감마-오리자놀': { raw: 3, unit: 'mg' },
+        '감마오리자놀': { raw: 3, unit: 'mg' },
+        'magnesium oxide': { raw: 100, unit: 'mg', elemental: 60.3, label: '마그네슘' },
+        '산화마그네슘': { raw: 100, unit: 'mg', elemental: 60.3, label: '마그네슘' }
+      };
+
+      for (let i = 0; i < updatedIngredients.length; i++) {
+        const ing = updatedIngredients[i];
+        const matchKey = Object.keys(BMAX_OFFICIAL_MAP).find(
+          k =>
+            (ing.koreanName && ing.koreanName.toLowerCase().replace(/\s+/g, '').includes(k.replace(/\s+/g, ''))) ||
+            (ing.englishInn && ing.englishInn.toLowerCase().replace(/[\s\-\']/g, '').includes(k.replace(/[\s\-\']/g, '')))
+        );
+        if (matchKey) {
+          const expected = BMAX_OFFICIAL_MAP[matchKey];
+          if (
+            ing.elementalAmount !== expected.elemental ||
+            ing.rawAmount !== expected.raw ||
+            ing.unit !== expected.unit ||
+            ing.elementalLabel !== expected.label
+          ) {
+            hasChanges = true;
+            updatedIngredients[i] = {
+              ...ing,
+              rawAmount: expected.raw,
+              unit: expected.unit,
+              elementalAmount: expected.elemental,
+              elementalLabel: expected.label,
+              elementalUnit: expected.elUnit || (expected.elemental ? expected.unit : undefined)
+            };
+          }
+        }
+      }
+    }
 
     // 5. '리퀴드씨엠키즈' 등 일반식품 영양성분 및 경고 문구 정돈
     if (prod.productName.includes('리퀴드씨엠') || prod.functionalFoodDetail?.reportNo === '20090435035193') {

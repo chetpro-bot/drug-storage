@@ -173,7 +173,6 @@ export const MOCK_PRODUCTS: ProductItem[] = [
         chemicalFormName: '체내 직접 작용 활성형 비타민 B12 (메틸코발라민)',
         rawAmount: 1,
         unit: 'mg',
-        elementalAmount: 1,
         isMainActive: true,
         standardKey: 'VITAMIN_B12',
         clinicalSummary: '• 시아노코발라민과 달리 체내 대사 변환 없이 신경초(Myelin sheath) 재생 직접 관여\n• 말초신경 장애, 손발저림, 당뇨병성 신경병증 완화 작용',

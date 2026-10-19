@@ -152,6 +152,14 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     elementalTargetLabel: '티아민염산염으로서',
     clinicalSummary: '• 뇌혈관장벽(BBB) 및 세포막 통과 우수, 활성형 조효소 TPP 전환\n• 신경통, 관절통 증상 완화'
   },
+  '푸르설티아민염산염': {
+    englishInn: 'Fursultiamine hydrochloride',
+    functionalCategory: '비타민B1',
+    chemicalFormName: '염산염 (활성형 비타민 B1)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_B1',
+    clinicalSummary: '• 뇌혈관장벽(BBB) 및 세포막 통과 우수, 활성형 조효소 TPP 전환\n• 신경통, 관절통 증상 완화'
+  },
   '티아민질산염': {
     englishInn: 'Thiamine mononitrate',
     functionalCategory: '비타민B1',
@@ -414,6 +422,14 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     elementalTargetLabel: '철로서',
     clinicalSummary: '• 헤모글로빈 구성 성분으로 체내 산소 운반 및 혈액 생성'
   },
+  '푸마르산철': {
+    englishInn: 'Ferrous fumarate',
+    functionalCategory: '철',
+    chemicalFormName: '유기산 2가 철 (푸마르산철)',
+    defaultUnit: 'mg',
+    standardKey: 'IRON',
+    clinicalSummary: '• 헤모글로빈 구성 성분으로 체내 산소 운반 및 혈액 생성'
+  },
 
   '콜린타르타르산염': {
     englishInn: 'Choline bitartrate',
@@ -519,6 +535,36 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_C',
     clinicalSummary: '• 산화 방지 및 위장 자극 경감 코팅 비타민 C, 결합조직 형성 및 항산화 작용'
+  },
+  '아스코르브산 과립97%': {
+    englishInn: 'Ascorbic acid granules 97%',
+    functionalCategory: '비타민C',
+    chemicalFormName: '과립형 비타민 C (L-아스코르브산)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_C',
+    clinicalSummary: '• 결합조직 형성과 기능유지에 필요, 철의 흡수 및 항산화 작용'
+  },
+  '아스코르브산과립97%': {
+    englishInn: 'Ascorbic acid granules 97%',
+    functionalCategory: '비타민C',
+    chemicalFormName: '과립형 비타민 C (L-아스코르브산)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_C',
+    clinicalSummary: '• 결합조직 형성과 기능유지에 필요, 철의 흡수 및 항산화 작용'
+  },
+  'L-시스테인': {
+    englishInn: 'L-Cysteine',
+    functionalCategory: '비필수 아미노산제제',
+    chemicalFormName: 'L-시스테인 (아미노산)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 글루타티온 생합성 전구체, 멜라닌 억제 및 피부 대사 활성화'
+  },
+  '시스테인': {
+    englishInn: 'L-Cysteine',
+    functionalCategory: '비필수 아미노산제제',
+    chemicalFormName: 'L-시스테인 (아미노산)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 글루타티온 생합성 전구체, 멜라닌 억제 및 피부 대사 활성화'
   },
   '콜레칼시페롤농축분말': {
     englishInn: 'Cholecalciferol concentrate powder',
@@ -876,6 +922,30 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     standardKey: 'VITAMIN_B9',
     clinicalSummary: '• 세포와 혈액 생성에 필요, 태아 신경관의 정상 발달에 필요'
   },
+  '레티놀아세테이트 과립': {
+    englishInn: 'Retinol acetate granules',
+    functionalCategory: '비타민A',
+    chemicalFormName: '비타민 A (레티놀아세테이트)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_A',
+    clinicalSummary: '• 어두운 곳에서 시각 적응을 위해 필요, 피부와 점막을 형성하고 기능을 유지'
+  },
+  '레티놀아세테이트과립': {
+    englishInn: 'Retinol acetate granules',
+    functionalCategory: '비타민A',
+    chemicalFormName: '비타민 A (레티놀아세테이트)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_A',
+    clinicalSummary: '• 어두운 곳에서 시각 적응을 위해 필요, 피부와 점막을 형성하고 기능을 유지'
+  },
+  '레티놀아세테이트': {
+    englishInn: 'Retinol acetate',
+    functionalCategory: '비타민A',
+    chemicalFormName: '비타민 A (레티놀아세테이트)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_A',
+    clinicalSummary: '• 어두운 곳에서 시각 적응을 위해 필요, 피부와 점막을 형성하고 기능을 유지'
+  },
   '비타민A': {
     englishInn: 'Retinol',
     functionalCategory: '비타민A',
@@ -943,6 +1013,14 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     functionalCategory: '셀레늄(Se)',
     chemicalFormName: '무기염 셀레늄 (아셀렌산나트륨)',
     defaultUnit: 'ug',
+    standardKey: 'SELENIUM',
+    clinicalSummary: '• 글루타티온 과산화효소 활성화, 유해산소로부터 세포를 보호'
+  },
+  '아셀렌산나트륨오수화물': {
+    englishInn: 'Sodium selenite pentahydrate',
+    functionalCategory: '셀레늄(Se)',
+    chemicalFormName: '무기염 셀레늄 오수화물 (아셀렌산나트륨오수화물)',
+    defaultUnit: 'mg',
     standardKey: 'SELENIUM',
     clinicalSummary: '• 글루타티온 과산화효소 활성화, 유해산소로부터 세포를 보호'
   },
@@ -1401,6 +1479,7 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
     let elementalAmount: number | undefined = undefined;
     let elementalLabel: string | undefined = undefined;
     let elementalUnit: string | undefined = undefined;
+    let ingredientInfoText: string | undefined = undefined;
 
     const elementalMatch = item.match(
       /\(\s*(.*?)(?:(?:\(으\)|으)?로서)\s*([0-9\.,]+)\s*(밀리그램|마이크로그램|아이\.유|mg|ug|㎍|μg|µg|iu|g)?\s*\)\s*$/i
@@ -1417,6 +1496,9 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
       else if (/mg|밀리그램/i.test(rawUnit)) elementalUnit = 'mg';
       else if (/g|그램/i.test(rawUnit)) elementalUnit = 'g';
       else elementalUnit = 'mg';
+
+      const dispUnit = elementalUnit === 'ug' ? 'µg' : elementalUnit;
+      ingredientInfoText = `${elementalLabel} ${elementalAmount.toLocaleString()}${dispUnit}`.trim();
     }
 
     // 괄호 환산량 부분 제외한 본문
@@ -1572,6 +1654,7 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
         elementalAmount: finalElemental,
         elementalUnit,
         elementalLabel,
+        ingredientInfoText,
         // 주요(Main Active) 기준: 첫 번째 처방 주성분이거나, 단위가 mg일 때 투입량이 30mg 이상인 고함량 성분
         isMainActive: index === 0 || (unit === 'mg' && amount >= 30),
         standardKey: meta.standardKey,
@@ -1604,6 +1687,7 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
         elementalAmount,
         elementalUnit,
         elementalLabel,
+        ingredientInfoText,
         isMainActive: index === 0 || (unit === 'mg' && amount >= 30),
         clinicalSummary: `• ${nameRaw} 활성 성분 영양 및 생리 활성 지원`,
         noteKorean: undefined,
@@ -1640,8 +1724,12 @@ export interface ResolvedIngredientDisplayInfo {
 }
 
 const KOR_TO_ENG_DISPLAY_MAP: Record<string, string> = {
+  '레티놀아세테이트 과립': 'Retinol acetate granules',
+  '레티놀아세테이트과립': 'Retinol acetate granules',
+  '레티놀아세테이트': 'Retinol acetate',
   '벤포티아민': 'Benfotiamine',
   '푸르설티아민': 'Fursultiamine',
+  '푸르설티아민염산염': 'Fursultiamine hydrochloride',
   '비스벤티아민': 'Bisbentiamine',
   '티아민염산염': 'Thiamine hydrochloride',
   '티아민질산염': 'Thiamine mononitrate',
@@ -1664,6 +1752,8 @@ const KOR_TO_ENG_DISPLAY_MAP: Record<string, string> = {
   '메코발라민': 'Mecobalamin',
   '시아노코발라민': 'Cyanocobalamin',
   '아스코르브산': 'Ascorbic acid',
+  '아스코르브산 과립97%': 'Ascorbic acid granules 97%',
+  '아스코르브산과립97%': 'Ascorbic acid granules 97%',
   '제피아스코르브산': 'Ascorbic acid coated',
   '비타민C': 'Ascorbic acid',
   '비타민K': 'Vitamin K',
@@ -1678,6 +1768,7 @@ const KOR_TO_ENG_DISPLAY_MAP: Record<string, string> = {
   '농축콜레칼시페롤': 'Cholecalciferol concentrated',
   '토코페롤아세테이트': 'Tocopherol acetate',
   '토코페롤아세테이트2배산': 'Tocopherol Acetate Powder 50%',
+  '토코페롤아세테이트 2배산': 'Tocopherol Acetate Powder 50%',
   '산화아연': 'Zinc oxide',
   '글루콘산아연': 'Zinc gluconate',
   '산화마그네슘': 'Magnesium Oxide',
@@ -1697,6 +1788,9 @@ const KOR_TO_ENG_DISPLAY_MAP: Record<string, string> = {
   '탄산칼슘': 'Calcium carbonate',
   '구연산칼슘': 'Calcium citrate',
   '푸마르산제일철': 'Ferrous fumarate',
+  '푸마르산철': 'Ferrous fumarate',
+  '아셀렌산나트륨오수화물': 'Sodium selenite pentahydrate',
+  '아셀렌산나트륨': 'Sodium selenite',
   '셀레늄': 'Selenium',
   '셀레늄함유건조효모': 'Selenium in dried yeast',
   '크롬함유건조효모': 'Chromium in dried yeast',
@@ -1711,6 +1805,8 @@ const KOR_TO_ENG_DISPLAY_MAP: Record<string, string> = {
   '밀크씨슬추출물': 'Milk thistle extract (Silymarin)',
   '루테인': 'Lutein',
   '프로바이오틱스': 'Probiotics',
+  'L-시스테인': 'L-Cysteine',
+  '시스테인': 'L-Cysteine',
   'L-아르기닌': 'L-Arginine',
   '아르기닌': 'L-Arginine',
   '글루타치온': 'L-Glutathione',
@@ -1772,7 +1868,17 @@ const ENG_ALIAS_TO_DICT_KEY: Record<string, string> = {
   'd-alpha-tocopherolacetate': '초산디알파토코페롤',
   calciumcarbonate: '탄산칼슘',
   calciumcitrate: '구연산칼슘',
-  ferrousfumarate: '푸마르산제일철',
+  retinolacetategranules: '레티놀아세테이트 과립',
+  retinolacetate: '레티놀아세테이트',
+  fursultiaminehydrochloride: '푸르설티아민염산염',
+  'ascorbicacidgranules97%': '아스코르브산 과립97%',
+  ascorbicacidgranules: '아스코르브산 과립97%',
+  sodiumselenitepentahydrate: '아셀렌산나트륨오수화물',
+  sodiumselenite: '아셀렌산나트륨',
+  'l-cysteine': 'L-시스테인',
+  lcysteine: 'L-시스테인',
+  cysteine: 'L-시스테인',
+  ferrousfumarate: '푸마르산철',
   seleniumindriedyeast: '셀레늄함유건조효모',
   chromiumindriedyeast: '크롬함유건조효모',
   ursodeoxycholicacid: '우르소데옥시콜산',
@@ -1928,13 +2034,24 @@ export function resolveIngredientDisplayInfo(
 
   // 1. 순수 영문 성분명 정제
   let englishName = KOR_TO_ENG_DISPLAY_MAP[rawInn] || '';
+  if (!englishName && ing.koreanName && KOR_TO_ENG_DISPLAY_MAP[ing.koreanName]) {
+    englishName = KOR_TO_ENG_DISPLAY_MAP[ing.koreanName];
+  }
   if (!englishName) {
-    const stripped = rawInn
-      .replace(/\([가-힣\s·,0-9]+\)/g, '')
-      .replace(/[가-힣]+/g, '')
-      .replace(/\s{2,}/g, ' ')
-      .trim();
-    englishName = stripped && /[A-Za-z]/.test(stripped) ? stripped : rawInn || 'Active Ingredient';
+    if (/^[A-Za-z0-9\s\-,.'()%]+$/.test(rawInn)) {
+      englishName = rawInn;
+    } else {
+      const stripped = rawInn
+        .replace(/\([가-힣\s·,0-9]+\)/g, '')
+        .replace(/[가-힣]+/g, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+      if (stripped && /^[A-Za-z]{2,}/.test(stripped.replace(/^L-/, ''))) {
+        englishName = stripped;
+      } else {
+        englishName = rawInn || 'Active Ingredient';
+      }
+    }
   }
   // γ-Oryzanol은 알파벳 정렬을 위해 Gamma-oryzanol로 통일
   if (/^γ-?oryzanol$/i.test(englishName)) {
@@ -1986,6 +2103,9 @@ export function resolveIngredientDisplayInfo(
   // ※ 약전 화학식이나 사전 환산율(elementalRatio)로 임의 계산하지 않고 오직 API에서 명시된 정보만 사용
   let convertedAmount: number | undefined = undefined;
   let convertedUnit: string = ing.elementalUnit || meta?.elementalUnit || ing.unit;
+  if (convertedUnit === 'g' && ing.unit === 'mg') {
+    convertedUnit = 'mg';
+  }
   let convertedLabel: string | undefined = ing.elementalLabel || meta?.elementalTargetLabel;
 
   // 올대원맥스정 90mg Riboflavin 보정 시에는 환산량 없음
@@ -2039,6 +2159,8 @@ export function resolveIngredientDisplayInfo(
       ? cleanConvertedLabel
         ? `${cleanConvertedLabel} ${convertedAmount.toLocaleString()}${displayConvertedUnit}`
         : `${convertedAmount.toLocaleString()}${displayConvertedUnit}`
+      : ing.ingredientInfoText && ing.ingredientInfoText.trim()
+      ? ing.ingredientInfoText.replace(/(으로서|로서)$/, '').trim()
       : null;
 
   // 5. 2025 한국인 영양소 섭취기준(KDRIs) 성인 상한섭취량(UL) 매칭
@@ -2515,6 +2637,68 @@ export function sortProductIngredients(
     // 3차: 각 세부 분류 내, 미네랄, 기타 성분은 영문 성분명 abc 알파벳순
     return infoA.englishName.localeCompare(infoB.englishName, 'en', { sensitivity: 'base' });
   });
+}
+
+/**
+ * 식약처/API 성분정보 원문 포맷팅 (예: { elementalLabel: '비타민A', elementalAmount: 1000, elementalUnit: 'IU' } -> "비타민A 1000IU")
+ */
+export function formatIngredientInfoString(ing: {
+  elementalLabel?: string;
+  elementalAmount?: number;
+  elementalUnit?: string;
+  ingredientInfoText?: string;
+}): string {
+  if (ing.ingredientInfoText && ing.ingredientInfoText.trim()) {
+    return ing.ingredientInfoText.trim();
+  }
+  if (ing.elementalAmount === undefined || ing.elementalAmount === null) return '';
+  const cleanLabel = ing.elementalLabel ? `${ing.elementalLabel.replace(/(으로서|로서)$/, '').trim()} ` : '';
+  const displayUnit = ing.elementalUnit === 'ug' ? 'µg' : ing.elementalUnit || '';
+  return `${cleanLabel}${ing.elementalAmount.toLocaleString()}${displayUnit}`.trim();
+}
+
+/**
+ * 성분정보 입력 문자열 파싱 (예: "비타민A 1000IU", "아연 15mg", "비타민A(으)로서 1000 아이.유", "1000IU" 등)
+ */
+export function parseIngredientInfoString(text: string): {
+  elementalLabel?: string;
+  elementalAmount?: number;
+  elementalUnit?: string;
+  ingredientInfoText?: string;
+} {
+  const trimmed = text.trim();
+  if (!trimmed) {
+    return {
+      elementalLabel: undefined,
+      elementalAmount: undefined,
+      elementalUnit: undefined,
+      ingredientInfoText: undefined
+    };
+  }
+  const m = trimmed.match(/^(?:(.*?)(?:\(으\)|으)?로서\s*|(.*?)\s+)?([0-9\.,]+)\s*([a-zA-Z가-힣㎍μµ\.]+)?$/);
+  if (m) {
+    let rawLabel = (m[1] || m[2] || '').trim();
+    const num = parseFloat((m[3] || '').replace(/,/g, ''));
+    let unitStr = (m[4] || '').trim();
+
+    if (/^(아이\.?유|iu)$/i.test(unitStr)) unitStr = 'IU';
+    else if (/^(밀리그램|mg)$/i.test(unitStr)) unitStr = 'mg';
+    else if (/^(마이크로그램|ug|μg|µg)$/i.test(unitStr)) unitStr = 'ug';
+    else if (/^(그램|g)$/i.test(unitStr) && !unitStr.includes('밀리')) unitStr = 'g';
+
+    return {
+      elementalLabel: rawLabel || undefined,
+      elementalAmount: isNaN(num) ? undefined : num,
+      elementalUnit: unitStr || undefined,
+      ingredientInfoText: trimmed
+    };
+  }
+  return {
+    elementalLabel: trimmed,
+    elementalAmount: undefined,
+    elementalUnit: undefined,
+    ingredientInfoText: trimmed
+  };
 }
 
 

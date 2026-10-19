@@ -13,10 +13,9 @@ interface ColumnDef {
 }
 
 const COLUMNS: ColumnDef[] = [
-  { id: 'category', label: '약효 분류', defaultWidth: 130, minWidth: 90 },
-  { id: 'specification', label: '성분 / 함량', defaultWidth: 380, minWidth: 180 },
-  { id: 'summary', label: '핵심 특징 및 작용 원리 요약', defaultWidth: 400, minWidth: 180 },
-  { id: 'form', label: '원료 형태', defaultWidth: 240, minWidth: 120 },
+  { id: 'category', label: '약효 분류', defaultWidth: 140, minWidth: 90 },
+  { id: 'specification', label: '성분 / 함량', defaultWidth: 420, minWidth: 200 },
+  { id: 'summary', label: '핵심 특징 및 작용 원리 요약', defaultWidth: 460, minWidth: 220 },
 ];
 
 const COLUMN_STORAGE_KEY = 'pharmassist_matrix_column_widths_v2';
@@ -436,13 +435,6 @@ export const IngredientMatrix: React.FC<IngredientMatrixProps> = ({ product }) =
                   <td className="py-3 px-4">
                     <div className="text-slate-700 text-xs leading-relaxed whitespace-pre-line bg-slate-50/70 p-2.5 rounded-lg border border-slate-100 break-words">
                       {ing.clinicalSummary}
-                    </div>
-                  </td>
-
-                  {/* 4. 원료 형태 */}
-                  <td className="py-3 px-3.5">
-                    <div className="text-slate-700 font-medium text-xs leading-relaxed break-words">
-                      {ing.chemicalFormName}
                     </div>
                   </td>
                 </tr>

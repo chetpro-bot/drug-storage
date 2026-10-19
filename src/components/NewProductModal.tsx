@@ -18,7 +18,12 @@ import {
   fileToDataUrl,
   OcrParseResult 
 } from '../services/labelOcrService';
-import { saveLearnedIngredientMapping, isRegisteredIngredient } from '../utils/innMapper';
+import { 
+  saveLearnedIngredientMapping, 
+  isRegisteredIngredient,
+  formatIngredientInfoString,
+  parseIngredientInfoString
+} from '../utils/innMapper';
 import { STANDARD_EFFICACY_CATEGORIES } from '../utils/categoryColors';
 import { STANDARD_EFFICACY_TAGS, inferInitialEfficacyTags } from '../constants/efficacyTags';
 import { 
@@ -669,12 +674,15 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
   const handleAddCustomIngredient = () => {
     const newEntry: ProductIngredientEntry = {
       ingredientId: `ing_manual_${Date.now()}`,
-      englishInn: 'Zinc gluconate',
-      functionalCategory: '면역/세포분열',
-      chemicalFormName: '유기산염 (글루콘산아연)',
-      rawAmount: 50,
+      englishInn: 'Zinc oxide',
+      functionalCategory: '아연',
+      chemicalFormName: '표준 규격 원료',
+      rawAmount: 18.66,
       unit: 'mg',
-      elementalAmount: 7.17,
+      elementalAmount: 15,
+      elementalUnit: 'mg',
+      elementalLabel: '아연',
+      ingredientInfoText: '아연 15mg',
       isMainActive: false,
       standardKey: 'ZINC',
       clinicalSummary: '• 정상적인 면역 기능 및 세포 분열 지원'
@@ -767,38 +775,22 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
           saveLearnedIngredientMapping(innKey, {
             englishInn: innKey,
             functionalCategory: ing.functionalCategory,
-            chemicalFormName: ing.chemicalFormName,
+            chemicalFormName: '표준 규격 원료',
             defaultUnit: ing.unit === 'CFU' ? 'mg' : ing.unit,
             standardKey: ing.standardKey,
-            elementalRatio:
-              ing.elementalAmount && ing.rawAmount
-                ? +(ing.elementalAmount / ing.rawAmount).toFixed(4)
-                : undefined,
-            elementalTargetLabel: ing.elementalAmount
-              ? `${ing.functionalCategory || '유효성분'}으로서`
-              : undefined,
-            clinicalSummary:
-              ing.clinicalSummary ||
-              `• ${innKey} (${ing.chemicalFormName || '표준 규격 원료'})`
+            elementalTargetLabel: ing.elementalLabel,
+            clinicalSummary: ing.clinicalSummary || `• ${innKey} 효능 및 대사 작용`
           });
         }
         if (korKey && korKey !== innKey && !isRegisteredIngredient(korKey)) {
           saveLearnedIngredientMapping(korKey, {
             englishInn: innKey || korKey,
             functionalCategory: ing.functionalCategory,
-            chemicalFormName: ing.chemicalFormName,
+            chemicalFormName: '표준 규격 원료',
             defaultUnit: ing.unit === 'CFU' ? 'mg' : ing.unit,
             standardKey: ing.standardKey,
-            elementalRatio:
-              ing.elementalAmount && ing.rawAmount
-                ? +(ing.elementalAmount / ing.rawAmount).toFixed(4)
-                : undefined,
-            elementalTargetLabel: ing.elementalAmount
-              ? `${ing.functionalCategory || '유효성분'}으로서`
-              : undefined,
-            clinicalSummary:
-              ing.clinicalSummary ||
-              `• ${korKey} (${ing.chemicalFormName || '표준 규격 원료'})`
+            elementalTargetLabel: ing.elementalLabel,
+            clinicalSummary: ing.clinicalSummary || `• ${korKey} 효능 및 대사 작용`
           });
         }
       });
@@ -1501,8 +1493,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                         투입 함량 ({ingredientBasis === 'PER_UNIT' ? `1${servingUnitKorean || '알'}` : '하루'})
                       </th>
                       <th className="py-2.5 px-3 w-[80px]">단위</th>
-                      <th className="py-2.5 px-3 w-[110px] text-right">순수 원소량</th>
-                      <th className="py-2.5 px-3 w-[160px]">원료 형태</th>
+                      <th className="py-2.5 px-3 w-[220px]">성분정보</th>
                       <th className="py-2.5 px-2 w-[45px] text-center">삭제</th>
                     </tr>
                   </thead>
@@ -1523,7 +1514,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                             {!isRegisteredIngredient(ing.englishInn || ing.koreanName) && (
                               <span
                                 className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300 select-none cursor-help"
-                                title="시스템 성분 사전에 미등록된 신규 원료입니다. 제품 등록 시 입력하신 약효분류 및 원료형태가 사전에 자동 영구 학습됩니다."
+                                title="시스템 성분 사전에 미등록된 신규 원료입니다. 제품 등록 시 입력하신 약효분류가 사전에 자동 영구 학습됩니다."
                               >
                                 ✨ 신규
                               </span>
@@ -1575,31 +1566,27 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                           </select>
                         </td>
 
-                        {/* 순수 원소량 */}
-                        <td className="p-2 text-right">
-                          <input
-                            type="number"
-                            placeholder="원소량"
-                            value={ing.elementalAmount ?? ''}
-                            onChange={(e) =>
-                              handleUpdateIngredient(idx, {
-                                elementalAmount: e.target.value ? parseFloat(e.target.value) : undefined
-                              })
-                            }
-                            className="w-full p-1.5 border border-slate-200 rounded text-right font-mono text-[11px] text-emerald-700 bg-emerald-50/50"
-                          />
-                        </td>
-
-                        {/* 원료 형태 */}
+                        {/* 성분정보 (비타민A 1000IU, 아연 15mg 등 식약처 API 실제 정보) */}
                         <td className="p-2">
                           <input
                             type="text"
-                            placeholder="예: 벤포티아민"
-                            value={ing.chemicalFormName || ''}
-                            onChange={(e) =>
-                              handleUpdateIngredient(idx, { chemicalFormName: e.target.value })
+                            placeholder="예: 비타민A 1000IU, 아연 15mg"
+                            value={
+                              ing.ingredientInfoText !== undefined
+                                ? ing.ingredientInfoText
+                                : formatIngredientInfoString(ing)
                             }
-                            className="w-full p-1.5 border border-slate-200 rounded font-medium text-[11px] text-slate-700 bg-white"
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              const parsed = parseIngredientInfoString(val);
+                              handleUpdateIngredient(idx, {
+                                ingredientInfoText: val,
+                                elementalLabel: parsed.elementalLabel,
+                                elementalAmount: parsed.elementalAmount,
+                                elementalUnit: parsed.elementalUnit
+                              });
+                            }}
+                            className="w-full p-1.5 border border-slate-300 rounded font-medium text-[11px] text-emerald-800 bg-emerald-50/40 focus:bg-white focus:border-emerald-500"
                           />
                         </td>
 

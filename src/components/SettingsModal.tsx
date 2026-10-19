@@ -183,6 +183,58 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [matchModalLoading, setMatchModalLoading] = useState<boolean>(false);
   const [matchModalResults, setMatchModalResults] = useState<PublicDrugMasterItem[]>([]);
 
+  // 체크박스 다중 선택 및 삭제 상태
+  const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
+
+  // 개별 품목 행 삭제 핸들러
+  const handleDeleteRow = (rowId: string) => {
+    setParsedRows((prev) =>
+      prev
+        .filter((r) => r.id !== rowId)
+        .map((r, idx) => ({ ...r, index: idx + 1 }))
+    );
+    setSelectedRowIds((prev) => prev.filter((id) => id !== rowId));
+    if (activeMatchRowId === rowId) {
+      setActiveMatchRowId(null);
+    }
+  };
+
+  // 선택된 여러 품목 일괄 삭제 핸들러
+  const handleDeleteSelectedRows = () => {
+    if (selectedRowIds.length === 0) return;
+    if (
+      window.confirm(
+        `선택하신 ${selectedRowIds.length}개 품목을 목록에서 삭제하시겠습니까?`
+      )
+    ) {
+      setParsedRows((prev) =>
+        prev
+          .filter((r) => !selectedRowIds.includes(r.id))
+          .map((r, idx) => ({ ...r, index: idx + 1 }))
+      );
+      if (activeMatchRowId && selectedRowIds.includes(activeMatchRowId)) {
+        setActiveMatchRowId(null);
+      }
+      setSelectedRowIds([]);
+    }
+  };
+
+  // 전체 품목 선택/해제 토글
+  const handleToggleSelectAll = () => {
+    if (selectedRowIds.length === parsedRows.length) {
+      setSelectedRowIds([]);
+    } else {
+      setSelectedRowIds(parsedRows.map((r) => r.id));
+    }
+  };
+
+  // 개별 품목 선택 체크박스 토글
+  const handleToggleSelectRow = (rowId: string) => {
+    setSelectedRowIds((prev) =>
+      prev.includes(rowId) ? prev.filter((id) => id !== rowId) : [...prev, rowId]
+    );
+  };
+
   // 검색어 정제 헬퍼 (괄호 규격 등 제거)
   const cleanSearchKeyword = (rawName: string): string => {
     return rawName
@@ -259,6 +311,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const parseExcelFile = (file: File) => {
     setUploadedFileName(file.name);
     setImportResult(null);
+    setSelectedRowIds([]);
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -1127,6 +1180,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
 
                     <div className="flex items-center gap-2">
+                      {selectedRowIds.length > 0 && (
+                        <button
+                          onClick={handleDeleteSelectedRows}
+                          className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs animate-in fade-in"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                          <span>선택한 {selectedRowIds.length}개 품목 삭제</span>
+                        </button>
+                      )}
+
                       <button
                         onClick={handleBatchSearchCandidates}
                         disabled={isBatchSearching}
@@ -1152,6 +1215,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         onClick={() => {
                           setParsedRows([]);
                           setUploadedFileName('');
+                          setSelectedRowIds([]);
                         }}
                         className="text-xs text-slate-400 hover:text-slate-600 font-semibold cursor-pointer px-2 py-1"
                       >
@@ -1162,15 +1226,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <div className="max-h-80 overflow-y-auto border border-slate-200 rounded-xl">
                     <table className="w-full text-left text-xs border-collapse">
-                      <thead className="bg-slate-50 sticky top-0 border-b border-slate-200 text-slate-600 font-bold text-[11px]">
+                      <thead className="bg-slate-50 sticky top-0 border-b border-slate-200 text-slate-600 font-bold text-[11px] z-10">
                         <tr>
-                          <th className="p-2.5 w-10 text-center">No</th>
+                          <th className="p-2.5 w-14 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <input
+                                type="checkbox"
+                                checked={parsedRows.length > 0 && selectedRowIds.length === parsedRows.length}
+                                onChange={handleToggleSelectAll}
+                                className="rounded text-sky-600 focus:ring-sky-500 cursor-pointer"
+                                title="전체 선택 / 해제"
+                              />
+                              <span>No</span>
+                            </div>
+                          </th>
                           <th className="p-2.5 w-32">제품 구분 (필수)</th>
                           <th className="p-2.5">제품명 (필수)</th>
                           <th className="p-2.5 w-36">제약회사(판매사)</th>
                           <th className="p-2.5 w-24">규격/가격</th>
                           <th className="p-2.5">공공 API 매칭 및 선택</th>
                           <th className="p-2.5 w-20 text-center">상태</th>
+                          <th className="p-2.5 w-12 text-center">삭제</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -1180,9 +1256,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           const isSelectedNone = row.selectedMaster === 'NONE';
 
                           return (
-                            <tr key={row.id} className="hover:bg-slate-50/70 transition-colors">
+                            <tr key={row.id} className={`hover:bg-slate-50/70 transition-colors ${selectedRowIds.includes(row.id) ? 'bg-sky-50/40' : ''}`}>
                               <td className="p-2.5 text-center font-mono text-slate-400 text-[11px]">
-                                {row.index}
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedRowIds.includes(row.id)}
+                                    onChange={() => handleToggleSelectRow(row.id)}
+                                    className="rounded text-sky-600 focus:ring-sky-500 cursor-pointer"
+                                  />
+                                  <span>{row.index}</span>
+                                </div>
                               </td>
 
                               {/* 제품 구분 (필수) — 드롭다운 인라인 수정 가능 */}
@@ -1351,6 +1435,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                     {row.validationError}
                                   </span>
                                 )}
+                              </td>
+
+                              {/* 개별 품목 삭제 버튼 */}
+                              <td className="p-2.5 text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteRow(row.id)}
+                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                  title="목록에서 이 품목 삭제"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
                               </td>
                             </tr>
                           );
@@ -1663,14 +1759,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </div>
 
                       {/* 모달 푸터 (이전/다음 내비게이션 지원) */}
-                      <div className="px-5 py-3 bg-slate-100 border-t border-slate-200 flex items-center justify-between text-xs shrink-0">
-                        <button
-                          type="button"
-                          onClick={handleSelectNone}
-                          className="px-3 py-1.5 bg-white hover:bg-slate-200 text-slate-700 font-bold rounded-lg border border-slate-300 transition-colors cursor-pointer"
-                        >
-                          공공데이터 연동 안함 (입력값 유지)
-                        </button>
+                      <div className="px-5 py-3 bg-slate-100 border-t border-slate-200 flex items-center justify-between text-xs shrink-0 flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={handleSelectNone}
+                            className="px-3 py-1.5 bg-white hover:bg-slate-200 text-slate-700 font-bold rounded-lg border border-slate-300 transition-colors cursor-pointer"
+                          >
+                            공공데이터 연동 안함 (입력값 유지)
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`'${row.productName}' 품목을 등록 목록에서 삭제하시겠습니까?`)) {
+                                handleDeleteRow(row.id);
+                              }
+                            }}
+                            className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-lg border border-rose-200 transition-colors cursor-pointer flex items-center gap-1"
+                            title="이 품목을 등록 목록에서 제거"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                            <span>품목 삭제</span>
+                          </button>
+                        </div>
 
                         <div className="flex items-center gap-2">
                           <button

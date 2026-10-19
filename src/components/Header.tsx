@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Pill, Settings } from 'lucide-react';
+import { Pill, Settings, Cloud, CloudOff, RefreshCw } from 'lucide-react';
 import { APP_VERSION } from '../version';
 import { SettingsModal } from './SettingsModal';
+import { useProductStore } from '../stores/useProductStore';
 
 export const Header: React.FC = () => {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const { isLiveSyncActive, isSyncing } = useProductStore();
 
   return (
     <header className="h-14 bg-white border-b border-slate-200/90 text-slate-900 px-6 flex items-center justify-between shrink-0 select-none shadow-2xs z-10">
@@ -26,8 +28,36 @@ export const Header: React.FC = () => {
         </div>
       </div>
 
-      {/* 우측: 설정 버튼 */}
+      {/* 우측: 클라우드 동기화 상태 및 설정 버튼 */}
       <div className="flex items-center gap-2.5">
+        <div
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold shadow-2xs transition-all ${
+            isSyncing
+              ? 'bg-amber-50 border-amber-200 text-amber-700'
+              : isLiveSyncActive
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+              : 'bg-rose-50 border-rose-200 text-rose-700'
+          }`}
+          title={
+            isSyncing
+              ? '서버와 제품 데이터를 동기화하는 중입니다...'
+              : isLiveSyncActive
+              ? '약국 PC ↔ 자택 PC 실시간 클라우드 동기화 연결됨'
+              : '클라우드 동기화 미연결 (로컬 캐시 모드)'
+          }
+        >
+          {isSyncing ? (
+            <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-600" />
+          ) : isLiveSyncActive ? (
+            <Cloud className="w-3.5 h-3.5 text-emerald-600" />
+          ) : (
+            <CloudOff className="w-3.5 h-3.5 text-rose-600" />
+          )}
+          <span className="text-[11px]">
+            {isSyncing ? '동기화 중...' : isLiveSyncActive ? '실시간 동기화됨' : '로컬 모드'}
+          </span>
+        </div>
+
         <button
           onClick={() => setIsSettingsModalOpen(true)}
           className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300/80 text-slate-700 font-bold text-xs shadow-2xs transition-all active:scale-95 cursor-pointer"

@@ -611,11 +611,12 @@ export const useProductStore = create<ProductState>((set, get) => {
         set((state) => ({
           products: mergedList,
           isSyncing: false,
+          isLiveSyncActive: true,
           selectedProductId: state.selectedProductId || mergedList[0]?.id || null
         }));
       }, (error) => {
         console.warn('Firestore 리스너 에러 (로컬 캐시 안전 모드):', error);
-        set({ isSyncing: false });
+        set({ isSyncing: false, isLiveSyncActive: false });
       });
       return unsubscribe;
     },

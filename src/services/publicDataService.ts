@@ -2046,7 +2046,24 @@ function resolveKpaicEnglishIngredientName(korName: string, mainIngrEng?: string
     '유비데카레논': 'Ubidecarenone',
     'DL-메티오닌': 'DL-Methionine',
     '오로트산수화물': 'Orotic Acid Hydrate',
-    '베타카로틴20%': 'Beta-Carotene 20%'
+    '베타카로틴20%': 'Beta-Carotene 20%',
+    '베타카로틴20%과립': 'Beta-Carotene 20% Granules',
+    '무수인산수소칼슘': 'Anhydrous Dibasic Calcium Phosphate',
+    '황산칼륨': 'Potassium Sulfate',
+    '황산제이구리수화물': 'Cupric Sulfate Hydrate',
+    '황산제이구리': 'Cupric Sulfate',
+    '황산망간': 'Manganese Sulfate',
+    '염화크롬수화물': 'Chromic Chloride Hydrate',
+    '요오드화칼륨': 'Potassium Iodide',
+    '몰리브덴산나트륨': 'Sodium Molybdate',
+    '피토나디온5%': 'Phytonadione 5%',
+    '피토나디온': 'Phytonadione',
+    '셀레늄가루0.1%': 'Selenium Powder 0.1%',
+    '셀레늄가루': 'Selenium Powder',
+    '콜레칼시페롤과립': 'Cholecalciferol Granules',
+    '아스코르브산97%과립': 'Ascorbic Acid Granules 97%',
+    '시아노코발라민1000배산': 'Cyanocobalamin 1000x Powder',
+    '푸마르산철': 'Ferrous Fumarate'
   };
 
   if (kpaicStandardMap[cleanKor]) {

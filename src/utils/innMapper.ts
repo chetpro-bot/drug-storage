@@ -1328,6 +1328,155 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     defaultUnit: 'mg',
     standardKey: 'CHROMIUM',
     clinicalSummary: '• 체내 탄수화물, 지방, 단백질 대사에 관여'
+  },
+  '피토나디온 5%': {
+    englishInn: 'Phytonadione 5%',
+    functionalCategory: '비타민K',
+    chemicalFormName: '지용성 비타민 K1 5% 혼합제제',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_K',
+    clinicalSummary: '• 정상적인 혈액응고에 필요, 뼈의 구성에 필요'
+  },
+  '피토나디온5%': {
+    englishInn: 'Phytonadione 5%',
+    functionalCategory: '비타민K',
+    chemicalFormName: '지용성 비타민 K1 5% 혼합제제',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_K',
+    clinicalSummary: '• 정상적인 혈액응고에 필요, 뼈의 구성에 필요'
+  },
+  '피토나디온': {
+    englishInn: 'Phytonadione',
+    functionalCategory: '비타민K',
+    chemicalFormName: '비타민 K1 (피토나디온)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_K',
+    clinicalSummary: '• 정상적인 혈액응고에 필요, 뼈의 구성에 필요'
+  },
+  '황산제이구리수화물': {
+    englishInn: 'Cupric sulfate hydrate',
+    functionalCategory: '구리(Cu)',
+    chemicalFormName: '무기염 (황산제이구리수화물)',
+    defaultUnit: 'mg',
+    standardKey: 'COPPER',
+    clinicalSummary: '• 철의 운반과 이용에 필요, 유해산소로부터 세포를 보호하는데 필요'
+  },
+  '황산제이구리': {
+    englishInn: 'Cupric sulfate',
+    functionalCategory: '구리(Cu)',
+    chemicalFormName: '무기염 (황산제이구리)',
+    defaultUnit: 'mg',
+    standardKey: 'COPPER',
+    clinicalSummary: '• 철의 운반과 이용에 필요, 유해산소로부터 세포를 보호하는데 필요'
+  },
+  '몰리브덴산나트륨': {
+    englishInn: 'Sodium molybdate',
+    functionalCategory: '몰리브덴(Mo)',
+    chemicalFormName: '무기염 (몰리브덴산나트륨)',
+    defaultUnit: 'mg',
+    standardKey: 'MOLYBDENUM',
+    clinicalSummary: '• 산화·환원 효소의 활성에 필요, 요산 대사 조절'
+  },
+  '염화크롬수화물': {
+    englishInn: 'Chromic chloride hydrate',
+    functionalCategory: '크롬(Cr)',
+    chemicalFormName: '무기염 (염화크롬수화물)',
+    defaultUnit: 'mg',
+    standardKey: 'CHROMIUM',
+    clinicalSummary: '• 체내 탄수화물, 지방, 단백질 대사 및 인슐린 작용 보조'
+  },
+  '요오드화칼륨': {
+    englishInn: 'Potassium iodide',
+    functionalCategory: '요오드(I)',
+    chemicalFormName: '무기염 (요오드화칼륨)',
+    defaultUnit: 'mg',
+    standardKey: 'IODINE',
+    clinicalSummary: '• 갑상선 호르몬의 합성에 필요, 에너지 생성 및 신경 발달'
+  },
+  '요오드': {
+    englishInn: 'Iodine',
+    functionalCategory: '요오드(I)',
+    chemicalFormName: '미량 미네랄 (요오드)',
+    defaultUnit: 'ug',
+    standardKey: 'IODINE',
+    clinicalSummary: '• 갑상선 호르몬의 합성에 필요, 에너지 생성 및 신경 발달'
+  },
+  '황산칼륨': {
+    englishInn: 'Potassium sulfate',
+    functionalCategory: '칼륨(K)',
+    chemicalFormName: '무기염 (황산칼륨)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 체내 물과 전해질 균형 유지, 신경 전달 및 근육 기능 정상화'
+  },
+  '칼륨': {
+    englishInn: 'Potassium',
+    functionalCategory: '칼륨(K)',
+    chemicalFormName: '필수 전해질 미네랄 (칼륨)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 체내 물과 전해질 균형 유지, 신경 전달 및 근육 기능 정상화'
+  },
+  '셀레늄가루 0.1%': {
+    englishInn: 'Selenium powder 0.1%',
+    functionalCategory: '셀레늄(Se)',
+    chemicalFormName: '0.1% 희석 분말 (셀레늄)',
+    defaultUnit: 'mg',
+    standardKey: 'SELENIUM',
+    clinicalSummary: '• 글루타티온 과산화효소 구성 성분, 유해산소로부터 세포 보호'
+  },
+  '셀레늄가루0.1%': {
+    englishInn: 'Selenium powder 0.1%',
+    functionalCategory: '셀레늄(Se)',
+    chemicalFormName: '0.1% 희석 분말 (셀레늄)',
+    defaultUnit: 'mg',
+    standardKey: 'SELENIUM',
+    clinicalSummary: '• 글루타티온 과산화효소 구성 성분, 유해산소로부터 세포 보호'
+  },
+  '셀레늄가루': {
+    englishInn: 'Selenium powder',
+    functionalCategory: '셀레늄(Se)',
+    chemicalFormName: '셀레늄 분말',
+    defaultUnit: 'mg',
+    standardKey: 'SELENIUM',
+    clinicalSummary: '• 글루타티온 과산화효소 구성 성분, 유해산소로부터 세포 보호'
+  },
+  '무수인산수소칼슘': {
+    englishInn: 'Anhydrous dibasic calcium phosphate',
+    functionalCategory: '칼슘(Ca)',
+    chemicalFormName: '무기염 (무수인산수소칼슘)',
+    defaultUnit: 'mg',
+    standardKey: 'CALCIUM',
+    clinicalSummary: '• 뼈와 치아 형성에 필요, 신경과 근육 기능 유지 및 혈액응고 관여'
+  },
+  '시아노코발라민1000배산': {
+    englishInn: 'Cyanocobalamin 1000x powder',
+    functionalCategory: '비타민B12',
+    chemicalFormName: '1,000배 희석 분말 (비타민 B12)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_B12',
+    clinicalSummary: '• 정상적인 엽산 대사에 필요, 신경 기능 유지'
+  },
+  '베타카로틴20%과립': {
+    englishInn: 'Beta-carotene 20% granules',
+    functionalCategory: '비타민A',
+    chemicalFormName: '천연 프로비타민 A 20% 과립',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 체내 필요 시 비타민 A로 전환, 시각 기능 및 피부·점막 세포 재생'
+  },
+  '콜레칼시페롤과립': {
+    englishInn: 'Cholecalciferol granules',
+    functionalCategory: '비타민D3',
+    chemicalFormName: '과립형 비타민 D3',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_D',
+    clinicalSummary: '• 칼슘과 인이 흡수되고 이용되는데 필요, 뼈의 형성 및 골다공증 발생 위험 감소'
+  },
+  '아스코르브산97%과립': {
+    englishInn: 'Ascorbic acid granules 97%',
+    functionalCategory: '비타민C',
+    chemicalFormName: '과립형 비타민 C (L-아스코르브산)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_C',
+    clinicalSummary: '• 결합조직 형성과 기능유지에 필요, 철의 흡수 및 항산화 작용'
   }
 };
 
@@ -1358,18 +1507,34 @@ export function formatKpaicSpecification(rawItem: string): string {
     '피리독신': 'Pyridoxine',
     '시아노코발라민': 'Cyanocobalamin',
     '메코발라민': 'Mecobalamin',
+    '비타민A': 'Vitamin A',
+    '비타민 a': 'Vitamin A',
+    '비타민 A': 'Vitamin A',
     '비타민D': 'Vitamin D',
     '비타민 d': 'Vitamin D',
     '비타민 D': 'Vitamin D',
     '비타민E': 'Vitamin E',
     '비타민 e': 'Vitamin E',
     '비타민 E': 'Vitamin E',
+    '비타민K': 'Vitamin K',
+    '비타민 k': 'Vitamin K',
+    '비타민 K': 'Vitamin K',
+    '판토텐산': 'Pantothenic Acid',
+    '비오틴': 'Biotin',
+    '엽산': 'Folic Acid',
+    '폴산': 'Folic Acid',
+    '니코틴산아미드': 'Nicotinamide',
     '아연': 'Zinc',
     '마그네슘': 'Magnesium',
     '칼슘': 'Calcium',
     '셀레늄': 'Selenium',
     '크롬': 'Chromium',
-    '철': 'Iron'
+    '철': 'Iron',
+    '구리': 'Copper',
+    '망간': 'Manganese',
+    '몰리브덴': 'Molybdenum',
+    '요오드': 'Iodine',
+    '칼륨': 'Potassium'
   };
 
   // 3. 괄호 부분 "(아스코르브산(으)로서 50mg)" 처리
@@ -1413,7 +1578,7 @@ export function formatKpaicSpecification(rawItem: string): string {
 
   // 5. 한글 이름 제거하고 영문 이름만 추출
   // 5-A. 약학정보원 표준 포맷: "벤포티아민 (Benfotiamine)" 처럼 괄호 안에 영문명이 있는 경우
-  const korWithEngParenMatch = str.match(/^([가-힣0-9\s·\-]+?)\s*\(([A-Za-zγ][A-Za-z0-9\s\-\'\,\%\.\/·]+)\)$/);
+  const korWithEngParenMatch = str.match(/^([가-힣0-9\s·\-\%\.]+?)\s*\(([A-Za-zγ][A-Za-z0-9\s\-\'\,\%\.\/·]+)\)$/);
   // 5-B. 영문명이 앞에 있는 경우: "Ascorbic Acid Coated  제피아스코르브산" -> "Ascorbic Acid Coated"
   const engPrefixMatch = str.match(/^([A-Za-z][A-Za-z0-9\s\-\'\,\%\.\/]*?)(?:\s+[가-힣]+.*)?$/);
 
@@ -1452,15 +1617,45 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
   if (!rawText || !rawText.trim()) return [];
 
   const results: ProductIngredientEntry[] = [];
-  // 줄바꿈, 세미콜론, 또는 숫자 천단위 쉼표(예: 1,000IU)가 아닌 쉼표 단위로 항목 분리
-  const rawItems = rawText
-    .split(/(?:[\r\n;]+|,(?![0-9]{3}))+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+  // 괄호 안의 쉼표(예: "(칼슘으로서 124.175mg, 인으로서 96mg)")는 분리하지 않고 줄바꿈, 세미콜론, 또는 괄호 밖 쉼표 단위로 안전하게 항목 분리
+  const splitItemsSafely = (text: string): string[] => {
+    const items: string[] = [];
+    let current = '';
+    let parenDepth = 0;
 
-  // 성분명 및 수치/단위 추출 정규식
-  // 예: "벤포티아민 (Benfotiamine) 100mg", "벤포티아민 100mg", "산화아연(KP) 30mg", "시아노코발라민1000배산 500㎍"
-  const regex = /([가-힣A-Za-z0-9γ\s\(\)·\-\'\_\%\/]+?)\s*[:：]?\s*([0-9\.,]+)\s*(mg|ug|㎍|μg|µg|IU|g|밀리그램|마이크로그램|아이\.유)?$/i;
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      if (char === '(') {
+        parenDepth++;
+        current += char;
+      } else if (char === ')') {
+        if (parenDepth > 0) parenDepth--;
+        current += char;
+      } else if (parenDepth === 0 && (char === '\n' || char === '\r' || char === ';')) {
+        if (current.trim()) items.push(current.trim());
+        current = '';
+      } else if (parenDepth === 0 && char === ',') {
+        // 숫자 천단위 쉼표 검사 (예: 1,000)
+        const isThousandsComma = /^[0-9]{3}(?![0-9])/.test(text.slice(i + 1));
+        if (isThousandsComma) {
+          current += char;
+        } else {
+          if (current.trim()) items.push(current.trim());
+          current = '';
+        }
+      } else {
+        current += char;
+      }
+    }
+    if (current.trim()) items.push(current.trim());
+    return items;
+  };
+
+  const rawItems = splitItemsSafely(rawText);
+
+  // 성분명 및 수치/단위 추출 정규식 (앞단 ^ 앵커로 0.1% 같은 소수점 원료명이 중간부터 잘리는 버그 방지)
+  // 예: "벤포티아민 (Benfotiamine) 100mg", "벤포티아민 100mg", "산화아연(KP) 30mg", "셀레늄가루 0.1% 29.5mg"
+  const regex = /^([가-힣A-Za-z0-9γ\s\(\)·\-\'\_\%\/\.]+?)\s*[:：]?\s*([0-9\.,]+)\s*(mg|ug|㎍|μg|µg|IU|g|밀리그램|마이크로그램|아이\.유)?$/i;
 
   rawItems.forEach((item, index) => {
     // 주의사항, 경고문, 보관방법, 당알코올 설사 안내 등 비성분 문장 유입 원천 배제
@@ -1475,14 +1670,14 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
     // 영문 표준 간결 형식 성분표 규격 생성
     const formattedSpecification = formatKpaicSpecification(item);
 
-    // 1. 원소 환산량 괄호 추출 (API 고시 정보 파싱, 예: "(티아민염산염(비타민 B1)으로서 72.3 mg)", "(아연(으)로서 15mg)", "(비타민D로서 1,000IU)")
+    // 1. 원소 환산량 괄호 추출 (API 고시 정보 파싱, 예: "(티아민염산염(비타민 B1)으로서 72.3 mg)", "(아연(으)로서 15mg)", "(칼슘으로서 124.175mg, 인으로서 96mg)")
     let elementalAmount: number | undefined = undefined;
     let elementalLabel: string | undefined = undefined;
     let elementalUnit: string | undefined = undefined;
     let ingredientInfoText: string | undefined = undefined;
 
     const elementalMatch = item.match(
-      /\(\s*(.*?)(?:(?:\(으\)|으)?로서)\s*([0-9\.,]+)\s*(밀리그램|마이크로그램|아이\.유|mg|ug|㎍|μg|µg|iu|g)?\s*\)\s*$/i
+      /\(\s*([^,)]+?)(?:(?:\(으\)|으)?로서)\s*([0-9\.,]+)\s*(밀리그램|마이크로그램|아이\.유|mg|ug|㎍|μg|µg|iu|g)?/i
     );
     if (elementalMatch) {
       elementalLabel = elementalMatch[1]
@@ -1529,8 +1724,8 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
     // Case A: "벤포티아민 (Benfotiamine)" (한글명 + 괄호 영문명)
     // Case B: "Benfotiamine 벤포티아민" (영문명 + 한글명)
     let detectedInn = '';
-    const korParenEngMatch = nameRaw.match(/^([가-힣0-9γ\s·\-\%]+?)\s*\(([A-Za-zγ][A-Za-z0-9\s\-\'\,\%\.\/·]+)\)$/);
-    const engKorMatch = nameRaw.match(/^([A-Za-z0-9γ\s\-\'\,\%\.]+)\s+([가-힣0-9\s\(\)·\-\%]+)$/);
+    const korParenEngMatch = nameRaw.match(/^([가-힣0-9γ\s·\-\%\.]+?)\s*\(([A-Za-zγ][A-Za-z0-9\s\-\'\,\%\.\/·]+)\)$/);
+    const engKorMatch = nameRaw.match(/^([A-Za-z0-9γ\s\-\'\,\%\.]+)\s+([가-힣0-9\s\(\)·\-\%\.]+)$/);
     if (korParenEngMatch) {
       nameRaw = korParenEngMatch[1].trim();
       detectedInn = korParenEngMatch[2].trim();
@@ -1812,6 +2007,27 @@ const KOR_TO_ENG_DISPLAY_MAP: Record<string, string> = {
   '글루타치온': 'L-Glutathione',
   '코엔자임Q10': 'Coenzyme Q10 (Ubidecarenone)',
   '유비데카레논': 'Ubidecarenone',
+  '무수인산수소칼슘': 'Anhydrous dibasic calcium phosphate',
+  '시아노코발라민1000배산': 'Cyanocobalamin 1000x powder',
+  '염화크롬수화물': 'Chromic chloride hydrate',
+  '요오드화칼륨': 'Potassium iodide',
+  '요오드': 'Iodine',
+  '몰리브덴산나트륨': 'Sodium molybdate',
+  '몰리브덴': 'Sodium molybdate',
+  '피토나디온 5%': 'Phytonadione 5%',
+  '피토나디온5%': 'Phytonadione 5%',
+  '피토나디온': 'Phytonadione',
+  '베타카로틴20%과립': 'Beta-carotene 20% granules',
+  '콜레칼시페롤과립': 'Cholecalciferol granules',
+  '황산제이구리수화물': 'Cupric sulfate hydrate',
+  '황산제이구리': 'Cupric sulfate',
+  '황산망간': 'Manganese sulfate',
+  '황산칼륨': 'Potassium sulfate',
+  '칼륨': 'Potassium',
+  '셀레늄가루 0.1%': 'Selenium powder 0.1%',
+  '셀레늄가루0.1%': 'Selenium powder 0.1%',
+  '셀레늄가루': 'Selenium powder',
+  '아스코르브산97%과립': 'Ascorbic acid granules 97%',
   '홍삼': 'Korean Red Ginseng extract',
   '오메가3': 'Omega-3 (EPA & DHA)',
   '테아닌': 'L-Theanine',
@@ -1884,7 +2100,26 @@ const ENG_ALIAS_TO_DICT_KEY: Record<string, string> = {
   ursodeoxycholicacid: '우르소데옥시콜산',
   'gamma-oryzanol': '감마-오리자놀',
   gammaoryzanol: '감마-오리자놀',
-  'γ-oryzanol': '감마-오리자놀',
+  anhydrousdibasiccalciumphosphate: '무수인산수소칼슘',
+  cyanocobalamin1000xpowder: '시아노코발라민1000배산',
+  chromicchloridehydrate: '염화크롬수화물',
+  potassiumiodide: '요오드화칼륨',
+  iodine: '요오드',
+  sodiummolybdate: '몰리브덴산나트륨',
+  molybdenum: '몰리브덴산나트륨',
+  'phytonadione5%': '피토나디온 5%',
+  phytonadione5: '피토나디온 5%',
+  phytonadione: '피토나디온',
+  'beta-carotene20%granules': '베타카로틴20%과립',
+  betacarotene20granules: '베타카로틴20%과립',
+  cholecalciferolgranules: '콜레칼시페롤과립',
+  cupricsulfatehydrate: '황산제이구리수화물',
+  cupricsulfate: '황산제이구리',
+  manganesesulfate: '황산망간',
+  potassiumsulfate: '황산칼륨',
+  potassium: '황산칼륨',
+  'seleniumpowder0.1%': '셀레늄가루 0.1%',
+  seleniumpowder: '셀레늄가루',
   ubidecarenone: '유비데카레논',
   taurine: '타우린',
   'l-arginine': 'L-아르기닌'
@@ -2526,13 +2761,13 @@ export function resolveIngredientDisplayInfo(
     sortGroup = 2;
   } else {
     if (
-      /retinol|retinyl|carotene|thiamin|benfotiamin|fursultiamin|riboflavin|niacin|nicotinamid|pantothen|pyridox|biotin|folic|folate|cobalamin|cyanocobalamin|ascorb|cholecalciferol|ergocalciferol|tocopher|phylloquin|menaquin|vitamin/i.test(
+      /retinol|retinyl|carotene|thiamin|benfotiamin|fursultiamin|riboflavin|niacin|nicotinamid|pantothen|pyridox|biotin|folic|folate|cobalamin|cyanocobalamin|ascorb|cholecalciferol|ergocalciferol|tocopher|phylloquin|menaquin|phytonadione|피토나디온|vitamin/i.test(
         checkText
       )
     ) {
       sortGroup = 1;
     } else if (
-      /calcium|magnesium|zinc|iron|ferrous|ferric|selenium|copper|cupric|manganese|chromium|molybdenum|iodine|potassium/i.test(
+      /calcium|magnesium|zinc|iron|ferrous|ferric|selenium|copper|cupric|manganese|chromium|molybdenum|iodine|iodide|molybdate|potassium/i.test(
         checkText
       )
     ) {
@@ -2575,7 +2810,7 @@ export function resolveIngredientDisplayInfo(
       subOrder = 50;
     } else if (categoryTag === '비타민E' || /tocopher/i.test(checkText)) {
       subOrder = 60;
-    } else if (categoryTag.startsWith('비타민K') || /phylloquin|menaquin|vitamin k/i.test(checkText)) {
+    } else if (categoryTag.startsWith('비타민K') || /phylloquin|menaquin|phytonadione|피토나디온|vitamin k/i.test(checkText)) {
       subOrder = 70;
     } else {
       subOrder = 99;

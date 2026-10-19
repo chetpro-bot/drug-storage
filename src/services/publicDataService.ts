@@ -2132,13 +2132,13 @@ function normalizeNedrugUnit(rawUnit: string = ''): string {
 }
 
 /**
- * 의약품안전나라 ingrInfo 문자열(예: "티아민염산염(으)로서 72.3 밀리그램", "비타민 D(으)로서 1000 아이.유")을
- * 약학정보원(KPIC) 표준 표기(예: "티아민염산염으로서 72.3mg", "비타민D로서 1,000IU")로 정제
+ * 단일 의약품안전나라 ingrInfo 세그먼트 포맷팅
  */
-function formatNedrugIngrInfo(rawInfo?: string | null): string {
-  if (!rawInfo || !rawInfo.trim()) return '';
-  const m = rawInfo.trim().match(/^(.+?)(?:\(으\)|으)?로서\s*([0-9\.,]+)\s*(.*)$/);
-  if (!m) return rawInfo.trim();
+function formatSingleNedrugIngrInfo(rawSegment: string): string {
+  const trimmed = rawSegment.trim();
+  if (!trimmed) return '';
+  const m = trimmed.match(/^(.+?)(?:\(으\)|으)?로서\s*([0-9\.,]+)\s*(.*)$/);
+  if (!m) return trimmed;
 
   let targetName = m[1].trim().replace(/^비타민\s+([A-Za-z0-9]+)/i, '비타민$1');
   let numStr = m[2].trim();
@@ -2163,6 +2163,19 @@ function formatNedrugIngrInfo(rawInfo?: string | null): string {
   }
 
   return `${targetName}${particle} ${numStr}${unitStr}`;
+}
+
+/**
+ * 의약품안전나라 ingrInfo 문자열(예: "티아민염산염(으)로서 72.3 밀리그램", "칼슘으로서 124.175mg, 총 인으로서 96mg", "판토텐산으로서 9mg,칼슘으로서 0.825mg")을
+ * 약학정보원(KPIC) 표준 표기(예: "티아민염산염으로서 72.3mg", "칼슘으로서 124.175mg, 총 인으로서 96mg")로 정제
+ */
+function formatNedrugIngrInfo(rawInfo?: string | null): string {
+  if (!rawInfo || !rawInfo.trim()) return '';
+  const parts = rawInfo.split(/[,;]/).map(s => s.trim()).filter(Boolean);
+  if (parts.length > 1) {
+    return parts.map(formatSingleNedrugIngrInfo).join(', ');
+  }
+  return formatSingleNedrugIngrInfo(rawInfo);
 }
 
 /**

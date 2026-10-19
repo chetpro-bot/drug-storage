@@ -8,7 +8,12 @@ import {
   convertMasterItemToFetchResult
 } from '../services/publicDataService';
 import { AttachedDocumentsModal } from './AttachedDocumentsModal';
-import { resolveIngredientDisplayInfo, sortProductIngredients, cleanChemicalFormName } from '../utils/innMapper';
+import {
+  resolveIngredientDisplayInfo,
+  sortProductIngredients,
+  cleanChemicalFormName,
+  scaleIngredientInfoText
+} from '../utils/innMapper';
 import { getDarkCategoryBadgeStyle } from '../utils/categoryColors';
 import { recognizeUniversalDocument, fileToDataUrl, isMeaningfulKoreanText } from '../services/labelOcrService';
 import {
@@ -1324,6 +1329,49 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       }
     }
 
+    // 나인나인정 등 무수인산수소칼슘(칼슘, 인) 및 판토텐산칼슘(판토텐산, 칼슘) 2가지 성분정보 자동 동기화
+    const needsDualIngredientFix = product.ingredients.some((ing) => {
+      const inn = (ing.englishInn || '').toLowerCase();
+      const kor = (ing.koreanName || '').toLowerCase();
+      const isDibasic = inn.includes('anhydrousdibasic') || kor.includes('무수인산수소칼슘') || inn.includes('dibasic calcium');
+      const isPanto = inn.includes('pantothenate') || kor.includes('판토텐산칼슘');
+      const info = ing.ingredientInfoText || '';
+      if (isDibasic && !info.includes('인')) return true;
+      if (isPanto && !info.includes('칼슘') && (ing.rawAmount === 9.813 || Math.abs(ing.rawAmount - 9.81) < 0.1)) return true;
+      return false;
+    });
+
+    if (needsDualIngredientFix) {
+      const fixedIngredients = product.ingredients.map((ing) => {
+        const inn = (ing.englishInn || '').toLowerCase();
+        const kor = (ing.koreanName || '').toLowerCase();
+        const isDibasic = inn.includes('anhydrousdibasic') || kor.includes('무수인산수소칼슘') || inn.includes('dibasic calcium');
+        const isPanto = inn.includes('pantothenate') || kor.includes('판토텐산칼슘');
+        const info = ing.ingredientInfoText || '';
+
+        if (isDibasic && !info.includes('인')) {
+          return {
+            ...ing,
+            ingredientInfoText: '칼슘 124.175mg, 인 96mg',
+            elementalLabel: ing.elementalLabel || '칼슘',
+            elementalAmount: ing.elementalAmount || 124.175,
+            elementalUnit: ing.elementalUnit || 'mg'
+          };
+        }
+        if (isPanto && !info.includes('칼슘') && (ing.rawAmount === 9.813 || Math.abs(ing.rawAmount - 9.81) < 0.1)) {
+          return {
+            ...ing,
+            ingredientInfoText: '판토텐산 9mg, 칼슘 0.825mg',
+            elementalLabel: ing.elementalLabel || '판토텐산',
+            elementalAmount: ing.elementalAmount || 9,
+            elementalUnit: ing.elementalUnit || 'mg'
+          };
+        }
+        return ing;
+      });
+      updateProduct(product.id, { ingredients: fixedIngredients });
+    }
+
     // 일반식품(엠-드림 리퀴드 키즈 등)에서 복용 방법이 공공데이터 기본 문구("개인의 취향에 따라 섭취하십시오")이거나
     // OCR 오인식(12028], 배상책임보험 등)인 경우 정밀 용법("1일 2회, 1회 1포씩 섭취하십시오")으로 자동 동기화
     if (product.classification === 'GENERAL_FOOD' || product.productName.includes('엠-드림')) {
@@ -1886,7 +1934,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                   elementalAmount:
                                     ing.elementalAmount !== undefined
                                       ? parseFloat((ing.elementalAmount * doseFactor).toFixed(2))
-                                      : undefined
+                                      : undefined,
+                                  ingredientInfoText: scaleIngredientInfoText(ing.ingredientInfoText, doseFactor)
                                 };
 
                           const info = resolveIngredientDisplayInfo(scaledIng, product.productName);

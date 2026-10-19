@@ -27,7 +27,7 @@ import * as XLSX from 'xlsx';
 import { useProductStore } from '../stores/useProductStore';
 import { ProductItem } from '../types/product';
 import { ProductClassification, DosageForm } from '../types/classification';
-import { STANDARD_EFFICACY_TAGS } from '../constants/efficacyTags';
+import { STANDARD_EFFICACY_TAGS, cleanProductTags } from '../constants/efficacyTags';
 import {
   searchPublicDrugDatabase,
   convertMasterItemToFetchResult,
@@ -56,6 +56,7 @@ interface ParsedBulkRow {
   tags: string[];
   isValid: boolean;
   validationError?: string;
+  isImported?: boolean;
 
   // 공공 API 매칭 및 사용자 선택 상태
   searchStatus?: 'IDLE' | 'SEARCHING' | 'DONE' | 'ERROR';
@@ -71,6 +72,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const {
     products,
+    customTags,
     getActiveTags,
     addCustomTag,
     renameTag,
@@ -84,11 +86,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [tagSearchQuery, setTagSearchQuery] = useState('');
   const [newTagInput, setNewTagInput] = useState('');
   const [editingTag, setEditingTag] = useState<{ oldName: string; newName: string } | null>(null);
+  const [tagVersion, setTagVersion] = useState<number>(0);
 
   // 모든 활성 태그 및 각 태그별 제품 수
   const allActiveTags = useMemo(() => {
     return getActiveTags();
-  }, [getActiveTags, products]);
+  }, [getActiveTags, products, customTags, tagVersion]);
 
   const tagProductCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -112,6 +115,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     if (!trimmed) return;
     addCustomTag(trimmed);
     setNewTagInput('');
+    setTagVersion((v) => v + 1);
   };
 
   const handleStartRenameTag = (tag: string) => {
@@ -137,6 +141,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
     await renameTag(oldName, cleanNew);
     setEditingTag(null);
+    setTagVersion((v) => v + 1);
   };
 
   const handleDeleteTag = async (tag: string) => {
@@ -148,6 +153,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
     if (window.confirm(msg)) {
       await deleteTag(tag);
+      setTagVersion((v) => v + 1);
     }
   };
 
@@ -219,12 +225,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
-  // 전체 품목 선택/해제 토글
+  // 전체 품목 선택/해제 토글 (아직 등록되지 않은 품목 대상)
   const handleToggleSelectAll = () => {
-    if (selectedRowIds.length === parsedRows.length) {
-      setSelectedRowIds([]);
+    const selectableRows = parsedRows.filter((r) => !r.isImported);
+    if (selectableRows.length === 0) return;
+
+    const allSelected = selectableRows.every((r) => selectedRowIds.includes(r.id));
+    if (allSelected) {
+      setSelectedRowIds((prev) => prev.filter((id) => !selectableRows.some((r) => r.id === id)));
     } else {
-      setSelectedRowIds(parsedRows.map((r) => r.id));
+      setSelectedRowIds(Array.from(new Set([...selectedRowIds, ...selectableRows.map((r) => r.id)])));
     }
   };
 
@@ -482,9 +492,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
   // 일괄 API 후보 조회 핸들러
   const handleBatchSearchCandidates = async () => {
-    const validRows = parsedRows.filter((r) => r.isValid && r.classification);
+    const validRows = parsedRows.filter((r) => r.isValid && r.classification && !r.isImported);
     if (validRows.length === 0) {
-      alert('공공데이터를 조회할 유효한 품목이 없습니다. 제품명과 구분을 먼저 확인해주세요.');
+      alert('공공데이터를 조회할 유효한 대기 품목이 없습니다. 제품명과 구분을 먼저 확인해주세요.');
       return;
     }
 
@@ -693,11 +703,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     }
   };
 
-  // 대량 등록 최종 실행 (사용자 검수/선택 결과 완벽 반영)
+  // 등록 대상 유효 품목 (이미 등록 완료된 품목 제외, 체크박스 선택 시 선택된 품목 우선)
+  const rowsToImport = useMemo(() => {
+    const selectedValidUnimported = parsedRows.filter(
+      (r) => r.isValid && !r.isImported && selectedRowIds.includes(r.id)
+    );
+    if (selectedRowIds.length > 0) {
+      return selectedValidUnimported;
+    }
+    return parsedRows.filter((r) => r.isValid && !r.isImported);
+  }, [parsedRows, selectedRowIds]);
+
+  // 대량 등록 최종 실행 (사용자 검수/선택 결과 완벽 반영, 등록 완료 후 리스트 유지)
   const handleExecuteBulkImport = async () => {
-    const validRows = parsedRows.filter((r) => r.isValid);
+    const validRows = rowsToImport;
     if (validRows.length === 0) {
-      alert('등록 가능한 유효 품목이 없습니다. 필수 항목(제품명, 제품 구분, 제약회사)을 확인해주세요.');
+      alert('등록 가능한 유효 대기 품목이 없습니다. 필수 항목(제품명, 제품 구분, 제약회사)을 확인해주세요.');
       return;
     }
 
@@ -766,7 +787,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         dailyServings: enrichedData?.dailyServings || 1,
         amountPerServing: enrichedData?.amountPerServing || 1,
         servingUnitKorean: enrichedData?.servingUnitKorean || '정',
-        tags: Array.from(new Set([...(row.tags || []), ...(enrichedData?.indicationsSummary || []).slice(0, 3)])),
+        tags: cleanProductTags(row.tags || []),
         ingredients: enrichedData?.parsedIngredients || [],
         isActive: true,
         createdAt: now,
@@ -805,8 +826,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         manualCount,
         failedCount
       });
-      setParsedRows([]);
-      setUploadedFileName('');
+
+      // 리스트 유지: 등록 완료된 행들을 isImported: true로 업데이트
+      const importedIdSet = new Set(validRows.map((r) => r.id));
+      setParsedRows((prev) =>
+        prev.map((r) => (importedIdSet.has(r.id) ? { ...r, isImported: true } : r))
+      );
+
+      // 선택 목록에서 등록 완료된 행 해제
+      setSelectedRowIds((prev) => prev.filter((id) => !importedIdSet.has(id)));
     } catch (e) {
       console.error('대량 저장 에러:', e);
       alert('품목 대량 저장 중 오류가 발생했습니다.');
@@ -1158,12 +1186,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         </span>
                       </h4>
 
-                      <div className="flex items-center gap-1.5 text-[11px]">
+                      <div className="flex items-center gap-1.5 text-[11px] flex-wrap">
+                        {parsedRows.some((r) => r.isImported) && (
+                          <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-bold border border-blue-200">
+                            등록 완료:{' '}
+                            {parsedRows.filter((r) => r.isImported).length}건
+                          </span>
+                        )}
                         <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">
                           선택 완료:{' '}
                           {
                             parsedRows.filter(
-                              (r) => r.selectedMaster && r.selectedMaster !== null
+                              (r) => !r.isImported && r.selectedMaster && r.selectedMaster !== null
                             ).length
                           }
                           건
@@ -1172,11 +1206,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           미선택:{' '}
                           {
                             parsedRows.filter(
-                              (r) => r.isValid && (r.selectedMaster === null || r.selectedMaster === undefined)
+                              (r) => !r.isImported && r.isValid && (r.selectedMaster === null || r.selectedMaster === undefined)
                             ).length
                           }
                           건
                         </span>
+                        {parsedRows.some((r) => !r.isImported && !r.isValid) && (
+                          <span className="px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 font-bold border border-rose-200">
+                            누락:{' '}
+                            {parsedRows.filter((r) => !r.isImported && !r.isValid).length}건
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -1225,29 +1265,32 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     </div>
                   </div>
 
-                  <div className="max-h-80 overflow-y-auto border border-slate-200 rounded-xl">
-                    <table className="w-full text-left text-xs border-collapse">
+                  <div className="max-h-80 overflow-y-auto overflow-x-auto border border-slate-200 rounded-xl">
+                    <table className="w-full text-left text-xs border-collapse min-w-[920px]">
                       <thead className="bg-slate-50 sticky top-0 border-b border-slate-200 text-slate-600 font-bold text-[11px] z-10">
                         <tr>
-                          <th className="p-2.5 w-14 text-center">
+                          <th className="p-2.5 w-14 min-w-[56px] text-center whitespace-nowrap">
                             <div className="flex items-center justify-center gap-1.5">
                               <input
                                 type="checkbox"
-                                checked={parsedRows.length > 0 && selectedRowIds.length === parsedRows.length}
+                                checked={
+                                  parsedRows.some((r) => !r.isImported) &&
+                                  parsedRows.filter((r) => !r.isImported).every((r) => selectedRowIds.includes(r.id))
+                                }
                                 onChange={handleToggleSelectAll}
                                 className="rounded text-sky-600 focus:ring-sky-500 cursor-pointer"
-                                title="전체 선택 / 해제"
+                                title="미등록 전체 선택 / 해제"
                               />
                               <span>No</span>
                             </div>
                           </th>
-                          <th className="p-2.5 w-32">제품 구분 (필수)</th>
-                          <th className="p-2.5">제품명 (필수)</th>
-                          <th className="p-2.5 w-36">제약회사(판매사)</th>
-                          <th className="p-2.5 w-24">규격/가격</th>
-                          <th className="p-2.5">공공 API 매칭 및 선택</th>
-                          <th className="p-2.5 w-20 text-center">상태</th>
-                          <th className="p-2.5 w-12 text-center">삭제</th>
+                          <th className="p-2.5 w-36 min-w-[130px] text-center whitespace-nowrap">구분 (필수)</th>
+                          <th className="p-2.5 min-w-[180px] text-center whitespace-nowrap">제품명 (필수)</th>
+                          <th className="p-2.5 w-32 min-w-[110px] text-center whitespace-nowrap">제약회사(판매사)</th>
+                          <th className="p-2.5 w-24 min-w-[85px] text-center whitespace-nowrap">규격/가격</th>
+                          <th className="p-2.5 min-w-[260px] text-center whitespace-nowrap">공공 API 매칭 및 선택</th>
+                          <th className="p-2.5 w-20 min-w-[65px] text-center whitespace-nowrap">상태</th>
+                          <th className="p-2.5 w-12 min-w-[48px] text-center whitespace-nowrap">삭제</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -1257,40 +1300,53 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           const isSelectedNone = row.selectedMaster === 'NONE';
 
                           return (
-                            <tr key={row.id} className={`hover:bg-slate-50/70 transition-colors ${selectedRowIds.includes(row.id) ? 'bg-sky-50/40' : ''}`}>
-                              <td className="p-2.5 text-center font-mono text-slate-400 text-[11px]">
+                            <tr
+                              key={row.id}
+                              className={`transition-colors ${
+                                row.isImported
+                                  ? 'bg-slate-50/70 text-slate-500'
+                                  : selectedRowIds.includes(row.id)
+                                  ? 'bg-sky-50/40 hover:bg-sky-50/60'
+                                  : 'hover:bg-slate-50/70'
+                              }`}
+                            >
+                              <td className="p-2.5 text-center font-mono text-slate-400 text-[11px] whitespace-nowrap">
                                 <div className="flex items-center justify-center gap-1.5">
                                   <input
                                     type="checkbox"
+                                    disabled={row.isImported}
                                     checked={selectedRowIds.includes(row.id)}
                                     onChange={() => handleToggleSelectRow(row.id)}
-                                    className="rounded text-sky-600 focus:ring-sky-500 cursor-pointer"
+                                    className="rounded text-sky-600 focus:ring-sky-500 cursor-pointer disabled:opacity-25 disabled:cursor-not-allowed"
                                   />
                                   <span>{row.index}</span>
                                 </div>
                               </td>
 
                               {/* 제품 구분 (필수) — 드롭다운 인라인 수정 가능 */}
-                              <td className="p-2.5">
+                              <td className="p-2.5 whitespace-nowrap">
                                 <select
                                   value={row.classification || ''}
+                                  disabled={row.isImported}
                                   onChange={(e) =>
                                     handleRowClassificationChange(
                                       row.id,
                                       e.target.value as ProductClassification
                                     )
                                   }
-                                  className={`w-full p-1.5 rounded-lg text-xs font-bold border transition-colors cursor-pointer ${
-                                    !row.classification
-                                      ? 'border-rose-300 bg-rose-50 text-rose-700 focus:ring-rose-400'
+                                  className={`w-full min-w-[125px] p-1.5 rounded-lg text-xs font-bold border transition-colors ${
+                                    row.isImported
+                                      ? 'border-slate-200 bg-slate-100 text-slate-500 cursor-default'
+                                      : !row.classification
+                                      ? 'border-rose-300 bg-rose-50 text-rose-700 focus:ring-rose-400 cursor-pointer'
                                       : row.classification === 'OTC_DRUG'
-                                      ? 'border-blue-200 bg-blue-50 text-blue-800'
+                                      ? 'border-blue-200 bg-blue-50 text-blue-800 cursor-pointer'
                                       : row.classification === 'HEALTH_FUNCTIONAL_FOOD'
-                                      ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
-                                      : 'border-slate-300 bg-slate-50 text-slate-800'
+                                      ? 'border-emerald-200 bg-emerald-50 text-emerald-800 cursor-pointer'
+                                      : 'border-slate-300 bg-slate-50 text-slate-800 cursor-pointer'
                                   }`}
                                 >
-                                  <option value="">-- 구분 필수 선택 --</option>
+                                  <option value="">구분</option>
                                   <option value="OTC_DRUG">일반의약품</option>
                                   <option value="HEALTH_FUNCTIONAL_FOOD">건강기능식품</option>
                                   <option value="GENERAL_FOOD">기타 (식품)</option>
@@ -1298,10 +1354,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               </td>
 
                               {/* 제품명 */}
-                              <td className="p-2.5 font-bold text-slate-900">
+                              <td className="p-2.5 font-bold text-slate-900 min-w-[180px]">
                                 {row.productName ? (
                                   <div>
-                                    <span>{row.productName}</span>
+                                    <span className="block break-keep">{row.productName}</span>
                                     {row.barcode && (
                                       <span className="block text-[10px] text-slate-400 font-mono">
                                         바코드: {row.barcode}
@@ -1316,7 +1372,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               </td>
 
                               {/* 제약회사 */}
-                              <td className="p-2.5 font-semibold text-slate-800">
+                              <td className="p-2.5 font-semibold text-slate-800 text-center whitespace-nowrap">
                                 {row.manufacturer || (
                                   <span className="text-rose-500 text-[11px] font-bold">
                                     (제약회사 누락)
@@ -1325,8 +1381,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               </td>
 
                               {/* 규격 및 가격 */}
-                              <td className="p-2.5 text-[11px]">
-                                <div className="text-slate-700">{row.packagingUnit}</div>
+                              <td className="p-2.5 text-[11px] text-center whitespace-nowrap">
+                                <div className="text-slate-700">{row.packagingUnit || '-'}</div>
                                 {row.priceRetailKrw ? (
                                   <div className="font-mono text-slate-900 font-semibold">
                                     {row.priceRetailKrw.toLocaleString()}원
@@ -1337,30 +1393,39 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               </td>
 
                               {/* 공공 API 후보 및 선택 열 (핵심 검수 UI) */}
-                              <td className="p-2.5">
-                                {hasSelectedMaster ? (
-                                  <div className="flex items-center justify-between gap-2 p-1.5 bg-emerald-50 border border-emerald-200 rounded-lg">
-                                    <div className="min-w-0 flex-1">
-                                      <div className="flex items-center gap-1.5 flex-wrap">
-                                        <span className="text-[10px] px-1 rounded font-bold bg-emerald-600 text-white">
-                                          ✓ 선택됨
-                                        </span>
-                                        <span className="font-bold text-xs text-emerald-950 truncate">
-                                          {(row.selectedMaster as PublicDrugMasterItem).productName}
-                                        </span>
-                                        <span className="text-[10px] text-emerald-800 bg-emerald-100 px-1 rounded">
-                                          {(row.selectedMaster as PublicDrugMasterItem).manufacturer}
-                                        </span>
-                                      </div>
-                                      <div className="text-[10px] text-emerald-700 font-mono mt-0.5 truncate">
-                                        코드: {(row.selectedMaster as PublicDrugMasterItem).regulatoryCode} •{' '}
-                                        {(row.selectedMaster as PublicDrugMasterItem).sourceOrigin}
-                                      </div>
+                              <td className="p-2.5 min-w-[260px]">
+                                {row.isImported ? (
+                                  <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 bg-slate-100/70 border border-slate-200 rounded-lg">
+                                    <div className="min-w-0 flex-1 flex items-center gap-1.5 truncate">
+                                      <span className="font-bold text-xs text-slate-700 truncate">
+                                        {hasSelectedMaster
+                                          ? (row.selectedMaster as PublicDrugMasterItem).productName
+                                          : row.productName}
+                                      </span>
+                                      <span className="text-[11px] text-slate-500 font-medium shrink-0">
+                                        ({hasSelectedMaster
+                                          ? (row.selectedMaster as PublicDrugMasterItem).manufacturer
+                                          : row.manufacturer})
+                                      </span>
+                                    </div>
+                                    <span className="text-[10px] text-blue-700 font-bold bg-blue-50 border border-blue-200 px-1.5 py-0.5 rounded shrink-0">
+                                      등록됨
+                                    </span>
+                                  </div>
+                                ) : hasSelectedMaster ? (
+                                  <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 bg-emerald-50 border border-emerald-200 rounded-lg">
+                                    <div className="min-w-0 flex-1 flex items-center gap-1.5 truncate">
+                                      <span className="font-bold text-xs text-emerald-950 truncate">
+                                        {(row.selectedMaster as PublicDrugMasterItem).productName}
+                                      </span>
+                                      <span className="text-[11px] text-emerald-700 font-medium shrink-0">
+                                        ({(row.selectedMaster as PublicDrugMasterItem).manufacturer})
+                                      </span>
                                     </div>
                                     <div className="flex items-center gap-1 shrink-0">
                                       <button
                                         onClick={() => handleOpenMatchModal(row)}
-                                        className="px-2 py-1 bg-white hover:bg-emerald-100 text-emerald-800 text-[11px] font-bold rounded border border-emerald-300 transition-colors cursor-pointer"
+                                        className="px-2 py-0.5 bg-white hover:bg-emerald-100 text-emerald-800 text-[11px] font-bold rounded border border-emerald-300 transition-colors cursor-pointer"
                                       >
                                         변경
                                       </button>
@@ -1374,13 +1439,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                                     </div>
                                   </div>
                                 ) : isSelectedNone ? (
-                                  <div className="flex items-center justify-between gap-2 p-1.5 bg-slate-100 border border-slate-200 rounded-lg text-slate-700">
-                                    <span className="text-[11px] font-medium">
-                                      ⊘ <strong>API 연동 안함</strong> (엑셀 입력값만 등록)
+                                  <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 bg-slate-100 border border-slate-200 rounded-lg text-slate-700">
+                                    <span className="text-xs font-medium text-slate-600 truncate">
+                                      API 연동 안함
                                     </span>
                                     <button
                                       onClick={() => handleOpenMatchModal(row)}
-                                      className="px-2 py-0.8 bg-white hover:bg-slate-200 text-slate-800 text-[10px] font-bold rounded border border-slate-300 cursor-pointer"
+                                      className="px-2 py-0.5 bg-white hover:bg-slate-200 text-slate-800 text-[11px] font-bold rounded border border-slate-300 cursor-pointer shrink-0"
                                     >
                                       API 매칭
                                     </button>
@@ -1426,20 +1491,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                               </td>
 
                               {/* 상태 */}
-                              <td className="p-2.5 text-center">
-                                {row.isValid ? (
-                                  <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                                    ✓ 유효
+                              <td className="p-2.5 text-center whitespace-nowrap">
+                                {row.isImported ? (
+                                  <span className="inline-flex items-center justify-center text-[11px] px-2 py-0.5 rounded-full font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                    완료
+                                  </span>
+                                ) : row.isValid ? (
+                                  <span className="inline-flex items-center justify-center text-[11px] px-2 py-0.5 rounded-full font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    유효
                                   </span>
                                 ) : (
-                                  <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                                    {row.validationError}
+                                  <span
+                                    title={row.validationError}
+                                    className="inline-flex items-center justify-center text-[11px] px-2 py-0.5 rounded-full font-bold bg-rose-50 text-rose-700 border border-rose-200 cursor-help"
+                                  >
+                                    누락
                                   </span>
                                 )}
                               </td>
 
                               {/* 개별 품목 삭제 버튼 */}
-                              <td className="p-2.5 text-center">
+                              <td className="p-2.5 text-center whitespace-nowrap">
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteRow(row.id)}
@@ -1491,12 +1563,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                       <button
                         onClick={handleExecuteBulkImport}
-                        disabled={parsedRows.filter((r) => r.isValid).length === 0}
-                        className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-300 text-white text-xs font-extrabold rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-[0.98]"
+                        disabled={rowsToImport.length === 0}
+                        className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-extrabold rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-[0.98]"
                       >
                         <PackagePlus className="w-4 h-4" />
                         <span>
-                          {parsedRows.filter((r) => r.isValid).length}개 품목 일괄 등록 실행
+                          {selectedRowIds.length > 0
+                            ? `선택한 ${rowsToImport.length}개 품목 일괄 등록 실행`
+                            : rowsToImport.length > 0
+                            ? `${rowsToImport.length}개 품목 일괄 등록 실행`
+                            : '등록할 유효 품목 없음'}
                         </span>
                       </button>
                     </div>

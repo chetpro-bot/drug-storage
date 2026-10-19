@@ -3,8 +3,14 @@ import { ProductItem } from '../types/product';
 import { ProductIngredientEntry } from '../types/ingredient';
 import { ProductClassification } from '../types/classification';
 import { MOCK_PRODUCTS } from '../constants/mockProducts';
-import { STANDARD_EFFICACY_TAGS, doesProductMatchEfficacyTag } from '../constants/efficacyTags';
+import { 
+  STANDARD_EFFICACY_TAGS, 
+  doesProductMatchEfficacyTag,
+  cleanProductTags,
+  isSentenceOrAutoTag
+} from '../constants/efficacyTags';
 import { resolveKpicCategory, saveLearnedIngredientMapping } from '../utils/innMapper';
+import { extractAgeContraindication } from '../utils/precautionsHelper';
 import { normalizeCategory } from '../utils/categoryColors';
 import { 
   subscribeToProducts, 
@@ -74,7 +80,9 @@ export function getSavedCustomTags(): string[] {
     const saved = localStorage.getItem(CUSTOM_TAGS_STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        return parsed.filter((t) => typeof t === 'string' && !isSentenceOrAutoTag(t));
+      }
     }
   } catch (e) {}
   return [];
@@ -532,7 +540,49 @@ function migrateAndEnsureKpic(products: ProductItem[]): ProductItem[] {
       };
     }
 
+    // 6. 자동 주입된 장문 효능 문장 태그 일괄 정돈
+    const originalTags = prod.tags || [];
+    const cleanedTags = cleanProductTags(originalTags);
+    if (cleanedTags.length !== originalTags.length) {
+      hasChanges = true;
+      prod = {
+        ...prod,
+        tags: cleanedTags
+      };
+    }
+
+    // 7. 사용상의 주의사항 요약: 연령금기 항목 최우선 맨 처음 배치 보장
+    if (prod.classification === 'OTC_DRUG' && prod.otcDetail?.precautionsSummaryKorean) {
+      const precs = prod.otcDetail.precautionsSummaryKorean;
+      // 요약형 리스트(길이 1~4줄)인 경우 연령금기를 맨 처음에 배치
+      if (precs.length > 0 && precs.length <= 4 && !precs[0].includes('■ 1.') && !precs[0].includes('다음과 같은 사람은')) {
+        if (prod.productName.includes('비맥스') && !precs.some((p) => p.includes('12개월'))) {
+          hasChanges = true;
+          prod = {
+            ...prod,
+            otcDetail: {
+              ...prod.otcDetail,
+              precautionsSummaryKorean: ['만 12개월 미만의 젖먹이: 복용 금기', ...precs]
+            }
+          };
+        } else {
+          const ageFound = extractAgeContraindication(precs);
+          if (ageFound && !precs[0].includes('금기') && !precs[0].includes(ageFound.split(':')[0])) {
+            hasChanges = true;
+            prod = {
+              ...prod,
+              otcDetail: {
+                ...prod.otcDetail,
+                precautionsSummaryKorean: [ageFound, ...precs.filter((p) => !p.includes(ageFound.split(':')[0]))]
+              }
+            };
+          }
+        }
+      }
+    }
+
     if (hasChanges) {
+
       const updated = {
         ...prod,
         ingredients: updatedIngredients,
@@ -837,14 +887,17 @@ export const useProductStore = create<ProductState>((set, get) => {
 
       // 2. 사용자 추가 커스텀 태그
       customTags.forEach((t) => {
-        if (!deletedSet.has(t)) tagSet.add(t);
+        const trimmed = t.trim();
+        if (trimmed && !deletedSet.has(trimmed) && !isSentenceOrAutoTag(trimmed)) tagSet.add(trimmed);
       });
 
       // 3. 현재 등록된 제품들에서 사용 중인 태그
       products.forEach((p) => {
-        p.tags.forEach((t) => {
+        (p.tags || []).forEach((t) => {
           const trimmed = t.trim();
-          if (trimmed && !deletedSet.has(trimmed)) tagSet.add(trimmed);
+          if (trimmed && !deletedSet.has(trimmed) && !isSentenceOrAutoTag(trimmed)) {
+            tagSet.add(trimmed);
+          }
         });
       });
 
@@ -861,7 +914,7 @@ export const useProductStore = create<ProductState>((set, get) => {
       if (!currentCustom.includes(trimmed)) {
         const next = [...currentCustom, trimmed];
         localStorage.setItem(CUSTOM_TAGS_STORAGE_KEY, JSON.stringify(next));
-        set({ customTags: next });
+        set({ customTags: next, products: [...get().products] });
       }
     },
 
@@ -907,6 +960,7 @@ export const useProductStore = create<ProductState>((set, get) => {
         });
       } else {
         set({
+          products: [...products],
           customTags: currentCustom,
           selectedTag: selectedTag === cleanOld ? cleanNew : selectedTag
         });
@@ -917,23 +971,22 @@ export const useProductStore = create<ProductState>((set, get) => {
       const cleanTag = tagToDelete.trim();
       if (!cleanTag) return;
 
-      const currentCustom = getSavedCustomTags().filter((t) => t !== cleanTag);
+      const currentCustom = getSavedCustomTags().filter((t) => t.trim().toLowerCase() !== cleanTag.toLowerCase());
       localStorage.setItem(CUSTOM_TAGS_STORAGE_KEY, JSON.stringify(currentCustom));
 
-      if (STANDARD_EFFICACY_TAGS.includes(cleanTag)) {
-        const deletedDefaults = getSavedDeletedDefaultTags();
-        if (!deletedDefaults.includes(cleanTag)) {
-          deletedDefaults.push(cleanTag);
-          localStorage.setItem(DELETED_DEFAULT_TAGS_STORAGE_KEY, JSON.stringify(deletedDefaults));
-        }
+      // 삭제된 태그 목록에 추가하여 모든 태그가 즉각 비활성화되도록 보장
+      const deletedDefaults = getSavedDeletedDefaultTags();
+      if (!deletedDefaults.some((t) => t.trim().toLowerCase() === cleanTag.toLowerCase())) {
+        deletedDefaults.push(cleanTag);
+        localStorage.setItem(DELETED_DEFAULT_TAGS_STORAGE_KEY, JSON.stringify(deletedDefaults));
       }
 
       const { products, selectedTag } = get();
       let hasChange = false;
       const nextProducts = products.map((p) => {
-        if (p.tags && p.tags.includes(cleanTag)) {
+        if (p.tags && p.tags.some((t) => t.trim().toLowerCase() === cleanTag.toLowerCase())) {
           hasChange = true;
-          const updatedTags = p.tags.filter((t) => t !== cleanTag);
+          const updatedTags = p.tags.filter((t) => t.trim().toLowerCase() !== cleanTag.toLowerCase());
           const updated = { ...p, tags: updatedTags, updatedAt: new Date().toISOString() };
           saveProductToFirestore(updated).catch(() => {});
           return updated;
@@ -943,17 +996,13 @@ export const useProductStore = create<ProductState>((set, get) => {
 
       if (hasChange) {
         persistToLocal(nextProducts);
-        set({
-          products: nextProducts,
-          customTags: currentCustom,
-          selectedTag: selectedTag === cleanTag ? null : selectedTag
-        });
-      } else {
-        set({
-          customTags: currentCustom,
-          selectedTag: selectedTag === cleanTag ? null : selectedTag
-        });
       }
+
+      set({
+        products: hasChange ? nextProducts : [...products],
+        customTags: currentCustom,
+        selectedTag: selectedTag?.toLowerCase() === cleanTag.toLowerCase() ? null : selectedTag
+      });
     },
 
     updateProduct: async (id, partial) => {

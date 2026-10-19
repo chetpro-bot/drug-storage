@@ -30,6 +30,34 @@ export const STANDARD_EFFICACY_TAGS: string[] = [
 ];
 
 /**
+ * 공공데이터 효능 문장 등 자동 주입된 부적절한 태그(문장형, 서식, 불필요한 효능 전문) 판별기
+ */
+export function isSentenceOrAutoTag(tag: string): boolean {
+  if (!tag) return true;
+  const t = tag.trim();
+  // 표준 효능 태그는 보존
+  if (STANDARD_EFFICACY_TAGS.includes(t)) return false;
+  // 1. 길이가 12자 초과인 경우 (문장형 텍스트)
+  if (t.length > 12) return true;
+  // 2. 특수기호나 번호로 시작하는 경우 (○, -, 1., 2., [ 등)
+  if (/^[○\-\d\.\s•\[:)]/.test(t)) return true;
+  // 3. HTML 태그나 엔티티 포함
+  if (/(?:<[^>]+>|&#\d+;)/.test(t)) return true;
+  // 4. 의약품/건기식 효능 전문 문구 패턴
+  if (/(?:보급|도움|다음과\s*같다|체력저하|기능무력|보조요법|보조제|임신|수유기|유산균|배변활동|순환장애|독성\s*간질환|골관절염|효능\s*효과)/.test(t)) {
+    return true;
+  }
+  return false;
+}
+
+export function cleanProductTags(tags: string[]): string[] {
+  if (!Array.isArray(tags)) return [];
+  return tags
+    .map((t) => (typeof t === 'string' ? t.trim() : ''))
+    .filter((t) => t.length > 0 && !isSentenceOrAutoTag(t));
+}
+
+/**
  * 제품에 부여된 태그 문자열(product.tags)과 표준 효능 태그 간 동의어 매핑
  * (성분 전체를 무분별하게 매칭하지 않고, 약사가 설정한 product.tags만을 기준으로 정확하게 매칭)
  */

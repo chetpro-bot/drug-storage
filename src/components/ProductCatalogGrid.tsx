@@ -42,6 +42,7 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
     setSelectedTag,
     setSelectedProductId,
     updateProduct,
+    customTags,
     getFilteredProducts,
     getActiveTags,
     sortBy,
@@ -65,7 +66,7 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
   // 현재 활성화된 효능 태그 목록 (설정 관리 및 제품 태그 연동)
   const activeTags = React.useMemo(() => {
     return getActiveTags();
-  }, [products, getActiveTags]);
+  }, [products, customTags, getActiveTags]);
 
   // 각 효능 태그별 매칭 제품 수 계산 (현재 분류 필터 기준)
   const getTagMatchCount = (tag: string) => {

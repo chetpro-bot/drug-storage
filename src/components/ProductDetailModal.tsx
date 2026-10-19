@@ -12,6 +12,11 @@ import { resolveIngredientDisplayInfo, sortProductIngredients, cleanChemicalForm
 import { getDarkCategoryBadgeStyle } from '../utils/categoryColors';
 import { recognizeUniversalDocument, fileToDataUrl, isMeaningfulKoreanText } from '../services/labelOcrService';
 import {
+  summarizePrecautions,
+  getPrecautionHighlightKeywords
+} from '../utils/precautionsHelper';
+
+import {
   X,
   Edit3,
   Trash2,
@@ -729,94 +734,8 @@ function summarizeIndications(rawLines: string[]): string[] {
   return summarized;
 }
 
-interface PrecautionsSummaryResult {
-  ageContraindication?: string; // 연령 금기
-  pregnancyContraindication?: string; // 임부 및 수유부 금기
-  drugInteractions: string[]; // 약물 및 병용 금기/주의 성분
-  generalWarning?: string; // 주요 신중투여/주의사항
-}
+// 주의사항 요약 및 연령금기 추출은 src/utils/precautionsHelper.ts 에서 관리됩니다.
 
-/**
- * 복약지도 핵심 기준(연령금기, 임부/수유부 금기, 약과 병용 금기 성분)으로 주의사항 전문 요약
- */
-function summarizePrecautions(rawLines: string[]): PrecautionsSummaryResult {
-  const fullText = (rawLines || []).join('\n');
-  const result: PrecautionsSummaryResult = {
-    drugInteractions: []
-  };
-
-  if (!fullText || fullText.includes('첨부문서 참조')) {
-    return result;
-  }
-
-  // 1. 연령 금기 추출
-  const ageMatch = fullText.match(
-    /(만\s*\d+\s*(?:개월|세)\s*(?:미만|이하)[^\n\.,]*?(?:투여하지\s*말|복용하지\s*말|금기|복용금지))/i
-  ) || fullText.match(/(\d+\s*(?:개월|세)\s*(?:미만|이하)[^\n\.,]*?(?:투여하지\s*말|복용하지\s*말|금기))/i);
-  if (ageMatch) {
-    result.ageContraindication = ageMatch[1].trim();
-  }
-
-  // 2. 임부 및 수유부 금기/주의 추출
-  if (/임부|임신하고\s*있을\s*가능성|수유부/i.test(fullText)) {
-    if (/임부[^\n\.]*?(?:투여하지\s*말|복용하지\s*말|금기)/i.test(fullText)) {
-      result.pregnancyContraindication = '임부 또는 임신 가능성 여성: 복용 금기';
-    } else if (/비타민\s*A[^\n\.]*?5,000\s*IU|기형아/i.test(fullText)) {
-      result.pregnancyContraindication = '임부(임신 3개월 이내 또는 임신 계획 여성): 비타민 A 1일 5,000 IU 이상 투여 금지(기형 유발 위험)';
-    } else if (/수유부[^\n\.]*?(?:투여하지\s*말|복용하지\s*말)/i.test(fullText)) {
-      result.pregnancyContraindication = '임부 및 수유부: 복용 전 의사/약사 상담 필수 (모유로 이행 가능)';
-    } else {
-      result.pregnancyContraindication = '임부 및 수유부: 복용 전 전문가 상담 필수 (고함량 복용 주의)';
-    }
-  }
-
-  // 3. 약물 병용 금기 성분 위주 추출
-  // 레보도파
-  if (/레보도파|levodopa/i.test(fullText)) {
-    result.drugInteractions.push(
-      '레보도파(Levodopa): 병용 금기 (피리독신이 레보도파의 말초 대사를 촉진하여 약효를 현저히 감소시킴)'
-    );
-  }
-  // 테트라사이클린계 항생제
-  if (/테트라사이클린|미노씬|독시사이클린|tetracycline/i.test(fullText)) {
-    result.drugInteractions.push(
-      '테트라사이클린(Tetracycline)계 항생제: 병용 주의 (미네랄과 착염 형성으로 흡수 저하, 2~4시간 간격 복용)'
-    );
-  }
-  // 퀴놀론계/플루오로퀴놀론계 항생제
-  if (/플루오로퀴놀론|퀴놀론|ciprofloxacin|levofloxacin|norfloxacin/i.test(fullText)) {
-    result.drugInteractions.push(
-      '퀴놀론(Quinolone)계 항생제: 병용 주의 (금속 이온 킬레이션으로 항생제 흡수 방해, 최소 2시간 이상 간격 복용)'
-    );
-  }
-  // 제산제, 칼슘/철분제제
-  if (/제산제|위산중화제|칼슘제|철분제제/i.test(fullText)) {
-    if (!result.drugInteractions.some(d => d.includes('제산제'))) {
-      result.drugInteractions.push(
-        '제산제 및 위장약: 제산제 복용 시 위내 pH 상승 및 킬레이트로 흡수율 변동 가능 (1~2시간 간격 권장)'
-      );
-    }
-  }
-  // 항응고제 / 와파린
-  if (/와파린|항응고제|warfarin/i.test(fullText)) {
-    result.drugInteractions.push(
-      '항응고제(와파린 등): 비타민 K 또는 고함량 비타민 E 병용 시 혈액응고 인자 변동 주의'
-    );
-  }
-  // 에스트로겐/경구피임약
-  if (/에스트로겐|경구피임약/i.test(fullText)) {
-    result.drugInteractions.push(
-      '에스트로겐 함유 경구피임약: 복용 여성은 혈전증 유발 위험 증가 주의'
-    );
-  }
-
-  // 일반 주의사항 한 줄
-  if (/고칼슘혈증|신장결석|신부전/i.test(fullText)) {
-    result.generalWarning = '고칼슘혈증 환자, 중증 신부전 환자, 신장결석 환자는 복용 금기';
-  }
-
-  return result;
-}
 
 /**
  * 전문(Full Text)을 들여쓰기 구조화 및 핵심 요약 키워드 형광펜 하이라이트 렌더링 헬퍼
@@ -1624,20 +1543,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   const precautionsList = getOfficialApiPrecautions();
   const precautionsFullText = precautionsList.join('\n');
-  const summarizedPrecautions = summarizePrecautions(precautionsList);
+  const summarizedPrecautions = summarizePrecautions(
+    precautionsList,
+    product.functionalFoodDetail?.labelPrecautionsText
+  );
 
-  // 전문보기 팝업 내 형광펜 하이라이트용 키워드 추출
-  const precautionHighlightKeywords: string[] = [];
-  if (summarizedPrecautions.ageContraindication) {
-    const m = summarizedPrecautions.ageContraindication.match(/만\s*\d+\s*(?:개월|세)\s*(?:미만|이하)/);
-    if (m) precautionHighlightKeywords.push(m[0]);
-  }
-  precautionHighlightKeywords.push('임부', '수유부', '레보도파', 'Levodopa', '테트라사이클린', '제산제', '와파린');
-  if (summarizedPrecautions.generalWarning) {
-    if (summarizedPrecautions.generalWarning.includes('고칼슘혈증')) precautionHighlightKeywords.push('고칼슘혈증');
-    if (summarizedPrecautions.generalWarning.includes('신장결석')) precautionHighlightKeywords.push('신장결석');
-    if (summarizedPrecautions.generalWarning.includes('신부전')) precautionHighlightKeywords.push('신부전');
-  }
+  // 전문보기 팝업 내 형광펜 하이라이트용 키워드 추출 (연령금기 키워드 최우선 포함)
+  const precautionHighlightKeywords = getPrecautionHighlightKeywords(summarizedPrecautions);
+
 
   const indicationHighlightKeywords = [
     '육체피로',

@@ -309,9 +309,11 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       dosageAndAdministrationKorean: '만 19세 이상 및 성인: 1일 1회, 1회 1정을 식후 복용',
       storageMethodKorean: '기밀용기, 실온(1~30℃) 차광보관',
       precautionsSummaryKorean: [
+        '만 12개월 미만의 젖먹이: 복용 금기',
         '레보도파(Levodopa) 복용 환자는 병용 금기 (피리독신이 레보도파의 말초 대사를 촉진함)',
         '플루오로퀴놀론(Fluoroquinolone)계 항생제 병용 시 아연/마그네슘과의 킬레이션(Chelation)으로 흡수 저하가 발생하므로 2~4시간 간격 복용 필수'
       ]
+
     }
   },
   {

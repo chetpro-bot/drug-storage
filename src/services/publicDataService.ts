@@ -64,6 +64,28 @@ export interface PublicDrugMasterItem {
 }
 
 /**
+ * 띄어쓰기 및 특수기호 무시 정규화 헬퍼 (예: '강황이 날 튼튼' -> '강황이날튼튼')
+ */
+export const normalizeDrugSearchText = (str?: string): string => {
+  if (!str) return '';
+  return str.toLowerCase().replace(/[\s\-_·,\.\(\)\[\]\/~!@#$%^&*+=\\:]/g, '');
+};
+
+/**
+ * 띄어쓰기 무시 일치도 평가 (정확일치: 3, 부분일치: 2, 불일치: 0)
+ */
+export const calcDrugMatchScore = (targetText?: string, queryText?: string): number => {
+  if (!targetText || !queryText) return 0;
+  const normTarget = normalizeDrugSearchText(targetText);
+  const normQuery = normalizeDrugSearchText(queryText);
+  if (!normTarget || !normQuery) return 0;
+  if (normTarget === normQuery) return 3;
+  if (normTarget.includes(normQuery)) return 2;
+  if (normQuery.includes(normTarget)) return 1.5;
+  return 0;
+};
+
+/**
  * 약학정보원(KPAIC) 의약품 표준 마스터 데이터베이스
  */
 export const PUBLIC_DRUG_DATABASE: PublicDrugMasterItem[] = [
@@ -1614,6 +1636,7 @@ export async function searchFoodSafetyFunctionalFoods(
 
   // 조회 파라미터 구성 (품목제조번호 / 제품명 / 제조사명)
   const cleanKw = keyword.trim();
+  const normKw = normalizeDrugSearchText(cleanKw);
   const cleanMfg = (manufacturer || '').trim();
   const cleanReport = (reportNo || '').trim().replace(/[^0-9]/g, '');
 
@@ -1625,8 +1648,9 @@ export async function searchFoodSafetyFunctionalFoods(
     if (/^[0-9]{8,}$/.test(cleanKw.replace(/-/g, ''))) {
       paramCandidates.push(`PRDLST_REPORT_NO=${encodeURIComponent(cleanKw.replace(/-/g, ''))}`);
     } else {
-      // 공백 유무 차이로 검색이 안 되는 경우(예: "마이타민 업" vs "마이타민업")를 위해 원본 및 공백제거 키워드 모두 준비
+      // 1순위: 입력 키워드 그대로
       paramCandidates.push(`PRDLST_NM=${encodeURIComponent(cleanKw)}`);
+      // 2순위: 띄어쓰기 제거 키워드 (만약 공백이 포함되어 있었던 경우)
       const noSpaceKw = cleanKw.replace(/\s+/g, '');
       if (noSpaceKw !== cleanKw && noSpaceKw.length >= 2) {
         paramCandidates.push(`PRDLST_NM=${encodeURIComponent(noSpaceKw)}`);
@@ -1661,6 +1685,40 @@ export async function searchFoodSafetyFunctionalFoods(
     }
   }
 
+  // 3차: [핵심 해결책] 사용자가 띄어쓰기 없이 검색(예: "강황이날튼튼")하여 공공 API DB의 띄어쓰기 제품("강황이 날 튼튼")과 LIKE 일치하지 않는 경우
+  // 접두사 토큰(Prefix)으로 공공 API를 조회한 후 클라이언트에서 띄어쓰기 무시 매칭 수행!
+  if (rows.length === 0 && normKw.length >= 2) {
+    const prefixTokens: string[] = [];
+    if (normKw.length >= 4) {
+      prefixTokens.push(normKw.slice(0, 3)); // 예: '강황이'
+    }
+    if (normKw.length >= 3) {
+      prefixTokens.push(normKw.slice(0, 2)); // 예: '강황'
+    }
+    if (cleanMfg) {
+      prefixTokens.push(`MFG:${cleanMfg}`);
+    }
+
+    for (const token of prefixTokens) {
+      const param = token.startsWith('MFG:')
+        ? `BSSH_NM=${encodeURIComponent(token.replace('MFG:', ''))}`
+        : `PRDLST_NM=${encodeURIComponent(token)}`;
+
+      const foundI0030 = await fetchService('I0030', param);
+      if (foundI0030.length > 0) {
+        rows = [...rows, ...foundI0030];
+        usedService = 'I0030';
+      } else {
+        const foundC003 = await fetchService('C003', param);
+        if (foundC003.length > 0) {
+          rows = [...rows, ...foundC003];
+          usedService = 'C003';
+        }
+      }
+      if (rows.length >= 10) break;
+    }
+  }
+
   // 품목제조보고번호 기준 중복 제거
   const uniqueMap = new Map<string, any>();
   for (const r of rows) {
@@ -1672,14 +1730,27 @@ export async function searchFoodSafetyFunctionalFoods(
 
   let dedupedRows = Array.from(uniqueMap.values());
 
-  // 제조사 필터가 함께 입력된 경우 일치하는 제조사를 상단으로 정렬
-  if (cleanMfg) {
-    const normMfg = cleanMfg.replace(/\s+/g, '').toLowerCase();
+  // 4차: 클라이언트 사이드 띄어쓰기·특수문자 무시 정밀 일치도 계산 및 정렬
+  if (normKw) {
     dedupedRows.sort((a, b) => {
-      const aMatch = (a.BSSH_NM || '').replace(/\s+/g, '').toLowerCase().includes(normMfg) ? 0 : 1;
-      const bMatch = (b.BSSH_NM || '').replace(/\s+/g, '').toLowerCase().includes(normMfg) ? 0 : 1;
-      return aMatch - bMatch;
+      const aScore = calcDrugMatchScore(a.PRDLST_NM, cleanKw);
+      const bScore = calcDrugMatchScore(b.PRDLST_NM, cleanKw);
+      if (aScore !== bScore) return bScore - aScore;
+
+      if (cleanMfg) {
+        const mfgNorm = normalizeDrugSearchText(cleanMfg);
+        const aMfg = normalizeDrugSearchText(a.BSSH_NM).includes(mfgNorm) ? 1 : 0;
+        const bMfg = normalizeDrugSearchText(b.BSSH_NM).includes(mfgNorm) ? 1 : 0;
+        if (aMfg !== bMfg) return bMfg - aMfg;
+      }
+      return 0;
     });
+
+    // 만약 접두사(prefix) 토큰으로 많은 항목이 불려왔다면, 띄어쓰기 무시 일치하는 항목을 우선 필터링
+    const matches = dedupedRows.filter((r) => calcDrugMatchScore(r.PRDLST_NM, cleanKw) > 0);
+    if (matches.length > 0) {
+      dedupedRows = matches;
+    }
   }
 
   return dedupedRows.map((row: any) => {
@@ -1752,6 +1823,7 @@ export async function searchFoodSafetyGeneralFoods(
   };
 
   const cleanKw = keyword.trim();
+  const normKw = normalizeDrugSearchText(cleanKw);
   const cleanMfg = (manufacturer || '').trim();
   const cleanReport = (reportNo || '').trim().replace(/[^0-9]/g, '');
 
@@ -1764,6 +1836,10 @@ export async function searchFoodSafetyGeneralFoods(
       paramCandidates.push(`PRDLST_REPORT_NO=${encodeURIComponent(cleanKw.replace(/-/g, ''))}`);
     } else {
       paramCandidates.push(`PRDLST_NM=${encodeURIComponent(cleanKw)}`);
+      const noSpaceKw = cleanKw.replace(/\s+/g, '');
+      if (noSpaceKw !== cleanKw && noSpaceKw.length >= 2) {
+        paramCandidates.push(`PRDLST_NM=${encodeURIComponent(noSpaceKw)}`);
+      }
     }
   }
   if (cleanMfg && !cleanKw) {
@@ -1775,7 +1851,33 @@ export async function searchFoodSafetyGeneralFoods(
     const found = await fetchI1250(param);
     if (found.length > 0) {
       rows = [...rows, ...found];
-      break;
+      if (rows.length >= 15) break;
+    }
+  }
+
+  // 2차: 띄어쓰기 없는 검색어(예: "홍삼순액골드")가 공공 API DB의 띄어쓰기("홍삼 순액 골드")와 미일치 시 prefix 토큰 조회
+  if (rows.length === 0 && normKw.length >= 2) {
+    const prefixTokens: string[] = [];
+    if (normKw.length >= 4) {
+      prefixTokens.push(normKw.slice(0, 3));
+    }
+    if (normKw.length >= 3) {
+      prefixTokens.push(normKw.slice(0, 2));
+    }
+    if (cleanMfg) {
+      prefixTokens.push(`MFG:${cleanMfg}`);
+    }
+
+    for (const token of prefixTokens) {
+      const param = token.startsWith('MFG:')
+        ? `BSSH_NM=${encodeURIComponent(token.replace('MFG:', ''))}`
+        : `PRDLST_NM=${encodeURIComponent(token)}`;
+
+      const found = await fetchI1250(param);
+      if (found.length > 0) {
+        rows = [...rows, ...found];
+      }
+      if (rows.length >= 10) break;
     }
   }
 
@@ -1784,6 +1886,30 @@ export async function searchFoodSafetyGeneralFoods(
     const key = r.PRDLST_REPORT_NO || `${r.PRDLST_NM}_${r.BSSH_NM}`;
     if (!uniqueMap.has(key)) {
       uniqueMap.set(key, r);
+    }
+  }
+
+  let dedupedRows = Array.from(uniqueMap.values());
+
+  // 3차: 클라이언트 사이드 띄어쓰기 무시 일치도 평가 및 정렬
+  if (normKw) {
+    dedupedRows.sort((a, b) => {
+      const aScore = calcDrugMatchScore(a.PRDLST_NM, cleanKw);
+      const bScore = calcDrugMatchScore(b.PRDLST_NM, cleanKw);
+      if (aScore !== bScore) return bScore - aScore;
+
+      if (cleanMfg) {
+        const mfgNorm = normalizeDrugSearchText(cleanMfg);
+        const aMfg = normalizeDrugSearchText(a.BSSH_NM).includes(mfgNorm) ? 1 : 0;
+        const bMfg = normalizeDrugSearchText(b.BSSH_NM).includes(mfgNorm) ? 1 : 0;
+        if (aMfg !== bMfg) return bMfg - aMfg;
+      }
+      return 0;
+    });
+
+    const matches = dedupedRows.filter((r) => calcDrugMatchScore(r.PRDLST_NM, cleanKw) > 0);
+    if (matches.length > 0) {
+      dedupedRows = matches;
     }
   }
 
@@ -2180,25 +2306,33 @@ export async function searchPublicDrugDatabase(
 
   if (!cleanQuery && !cleanMfg && !cleanReg) return [];
 
-  // 로컬 마스터 DB 검색 헬퍼
+  // 로컬 마스터 DB 검색 헬퍼 (띄어쓰기 무시 일치 검색)
   const searchLocalDb = (filterClass?: ProductClassification) => {
-    const qLower = (cleanQuery || cleanMfg || cleanReg).toLowerCase();
+    const qNorm = normalizeDrugSearchText(cleanQuery || cleanMfg || cleanReg);
+    if (!qNorm) return [];
+
     return PUBLIC_DRUG_DATABASE.filter(item => {
       if (filterClass && item.classification !== filterClass) return false;
-      const cleanName = item.productName.replace(/\s+/g, '').toLowerCase();
-      const mfg = item.manufacturer.replace(/\s+/g, '').toLowerCase();
-      const cleanKeywords = item.searchKeywords?.map(k => k.replace(/\s+/g, '').toLowerCase()) || [];
+      const cleanName = normalizeDrugSearchText(item.productName);
+      const mfg = normalizeDrugSearchText(item.manufacturer);
+      const cleanKeywords = item.searchKeywords?.map(k => normalizeDrugSearchText(k)) || [];
       return (
-        cleanName.includes(qLower) ||
-        qLower.includes(cleanName) ||
-        mfg.includes(qLower) ||
-        cleanKeywords.some(k => k.includes(qLower) || qLower.includes(k)) ||
-        item.regulatoryCode.includes(qLower)
+        cleanName.includes(qNorm) ||
+        qNorm.includes(cleanName) ||
+        mfg.includes(qNorm) ||
+        cleanKeywords.some(k => k.includes(qNorm) || qNorm.includes(k)) ||
+        item.regulatoryCode.includes(cleanQuery || cleanReg)
       );
-    }).map(item => ({
-      ...item,
-      apiSourceBadge: item.classification === 'OTC_DRUG' ? '약학정보원(KPAIC) 표준 DB' : '내장 건기식 마스터 DB'
-    }));
+    })
+      .sort((a, b) => {
+        const aScore = calcDrugMatchScore(a.productName, keyword);
+        const bScore = calcDrugMatchScore(b.productName, keyword);
+        return bScore - aScore;
+      })
+      .map(item => ({
+        ...item,
+        apiSourceBadge: item.classification === 'OTC_DRUG' ? '약학정보원(KPAIC) 표준 DB' : '내장 건기식 마스터 DB'
+      }));
   };
 
   // --- CASE 1: 건강기능식품 (HEALTH_FUNCTIONAL_FOOD) 선택 시 ---
@@ -2206,7 +2340,7 @@ export async function searchPublicDrugDatabase(
     // 1순위: 식품안전나라 I0030 (및 C003 폴백) 실시간 조회
     const hffResults = await searchFoodSafetyFunctionalFoods(keyword, cleanMfg, cleanReg);
     const localHff = searchLocalDb('HEALTH_FUNCTIONAL_FOOD');
-    const combinedHff = [...hffResults, ...localHff.filter(l => !hffResults.some(r => r.productName === l.productName))];
+    const combinedHff = [...hffResults, ...localHff.filter(l => !hffResults.some(r => normalizeDrugSearchText(r.productName) === normalizeDrugSearchText(l.productName)))];
     if (combinedHff.length > 0) {
       return combinedHff;
     }
@@ -2232,51 +2366,120 @@ export async function searchPublicDrugDatabase(
   }
 
   // --- CASE 3: 일반의약품 (OTC_DRUG) 선택 시 ---
-  // 1순위: 공공데이터포털 식약처 의약품 제품 허가정보 실시간 검색
+  // 1순위: 공공데이터포털 식약처 의약품 제품 허가정보 실시간 검색 (띄어쓰기 무시 및 토큰 다중 질의)
   try {
-    const queryParam = cleanReg
-      ? `item_seq=${encodeURIComponent(cleanReg)}`
-      : cleanQuery
-      ? `item_name=${encodeURIComponent(keyword.trim())}`
-      : `entp_name=${encodeURIComponent(cleanMfg)}`;
-
-    const url = `${MFDS_INQ_URL}?serviceKey=${encodeURIComponent(DATA_GO_KR_API_KEY)}&${queryParam}&type=json&pageNo=1&numOfRows=30`;
-    const res = await fetch(url);
-    if (res.ok) {
-      const data = await res.json();
-      const items = data?.body?.items;
-      if (Array.isArray(items) && items.length > 0) {
-        return items.map((mfdsItem: any) => {
-          const mfgName = (mfdsItem.ENTP_NAME || '').replace(/^\(주\)/, '').trim();
-          const cleanProdName = mfdsItem.ITEM_NAME || '';
-          const ingrListText = (mfdsItem.ITEM_INGR_NAME || '').split('/').join('\n');
-
-          return {
-            id: `mfds_${mfdsItem.ITEM_SEQ}`,
-            productName: cleanProdName,
-            manufacturer: mfgName || '제약사',
-            classification: 'OTC_DRUG' as ProductClassification,
-            dosageForm: inferDosageForm(mfdsItem.CHART, cleanProdName),
-            packagingUnit: '규격 포장 단위 (상세 확인)',
-            dailyServings: 1,
-            amountPerServing: 1,
-            servingUnitKorean: '정',
-            regulatoryCode: mfdsItem.ITEM_SEQ,
-            rawIngredientsText: ingrListText,
-            dosageInstruction: '용법용량 첨부문서 참조 (상세 연동 시 자동 세팅)',
-            indicationsSummary: [mfdsItem.PRDUCT_TYPE || '일반의약품 효능·효과'],
-            searchKeywords: [cleanProdName, mfgName],
-            sourceOrigin: '공공데이터포털 식약처 의약품 API',
-            apiSourceBadge: '식약처 의약품 허가정보'
-          };
-        });
+    const fetchMfds = async (qParam: string): Promise<any[]> => {
+      try {
+        const url = `${MFDS_INQ_URL}?serviceKey=${encodeURIComponent(DATA_GO_KR_API_KEY)}&${qParam}&type=json&pageNo=1&numOfRows=30`;
+        const res = await fetch(url);
+        if (!res.ok) return [];
+        const data = await res.json();
+        const items = data?.body?.items;
+        return Array.isArray(items) ? items : [];
+      } catch (e) {
+        return [];
       }
+    };
+
+    let mfdsItems: any[] = [];
+
+    if (cleanReg) {
+      mfdsItems = await fetchMfds(`item_seq=${encodeURIComponent(cleanReg)}`);
+    } else {
+      const cleanKw = keyword.trim();
+      const normKw = normalizeDrugSearchText(cleanKw);
+      const queryCandidates: string[] = [];
+
+      // 1순위: 입력 키워드 그대로
+      queryCandidates.push(`item_name=${encodeURIComponent(cleanKw)}`);
+
+      // 2순위: 공백 제거 키워드
+      const noSpace = cleanKw.replace(/\s+/g, '');
+      if (noSpace !== cleanKw && noSpace.length >= 2) {
+        queryCandidates.push(`item_name=${encodeURIComponent(noSpace)}`);
+      }
+
+      // 3순위: 띄어쓰기 없는 단어가 공공 API 띄어쓰기 제품과 불일치할 때를 위한 prefix 토큰 질의
+      if (normKw.length >= 4) {
+        queryCandidates.push(`item_name=${encodeURIComponent(normKw.slice(0, 3))}`);
+      } else if (normKw.length >= 2) {
+        queryCandidates.push(`item_name=${encodeURIComponent(normKw.slice(0, 2))}`);
+      }
+
+      if (cleanMfg) {
+        queryCandidates.push(`entp_name=${encodeURIComponent(cleanMfg)}`);
+      }
+
+      for (const qp of queryCandidates) {
+        const found = await fetchMfds(qp);
+        if (found.length > 0) {
+          mfdsItems = [...mfdsItems, ...found];
+          if (mfdsItems.length >= 15) break;
+        }
+      }
+    }
+
+    if (mfdsItems.length > 0) {
+      // 품목기준코드 기준 중복 제거
+      const uniqueMfds = new Map<string, any>();
+      for (const it of mfdsItems) {
+        if (it.ITEM_SEQ && !uniqueMfds.has(it.ITEM_SEQ)) {
+          uniqueMfds.set(it.ITEM_SEQ, it);
+        }
+      }
+
+      let parsedItems = Array.from(uniqueMfds.values()).map((mfdsItem: any) => {
+        const mfgName = (mfdsItem.ENTP_NAME || '').replace(/^\(주\)/, '').trim();
+        const cleanProdName = mfdsItem.ITEM_NAME || '';
+        const ingrListText = (mfdsItem.ITEM_INGR_NAME || '').split('/').join('\n');
+
+        return {
+          id: `mfds_${mfdsItem.ITEM_SEQ}`,
+          productName: cleanProdName,
+          manufacturer: mfgName || '제약사',
+          classification: 'OTC_DRUG' as ProductClassification,
+          dosageForm: inferDosageForm(mfdsItem.CHART, cleanProdName),
+          packagingUnit: '규격 포장 단위 (상세 확인)',
+          dailyServings: 1,
+          amountPerServing: 1,
+          servingUnitKorean: '정',
+          regulatoryCode: mfdsItem.ITEM_SEQ,
+          rawIngredientsText: ingrListText,
+          dosageInstruction: '용법용량 첨부문서 참조 (상세 연동 시 자동 세팅)',
+          indicationsSummary: [mfdsItem.PRDUCT_TYPE || '일반의약품 효능·효과'],
+          searchKeywords: [cleanProdName, mfgName],
+          sourceOrigin: '공공데이터포털 식약처 의약품 API' as PublicDataSourceOrigin,
+          apiSourceBadge: '식약처 의약품 허가정보'
+        };
+      });
+
+      // 클라이언트 사이드 띄어쓰기 무시 일치도 정렬
+      const cleanKw = keyword.trim();
+      parsedItems.sort((a, b) => {
+        const aScore = calcDrugMatchScore(a.productName, cleanKw);
+        const bScore = calcDrugMatchScore(b.productName, cleanKw);
+        if (aScore !== bScore) return bScore - aScore;
+
+        if (cleanMfg) {
+          const mfgNorm = normalizeDrugSearchText(cleanMfg);
+          const aMfg = normalizeDrugSearchText(a.manufacturer).includes(mfgNorm) ? 1 : 0;
+          const bMfg = normalizeDrugSearchText(b.manufacturer).includes(mfgNorm) ? 1 : 0;
+          if (aMfg !== bMfg) return bMfg - aMfg;
+        }
+        return 0;
+      });
+
+      const matched = parsedItems.filter((it) => calcDrugMatchScore(it.productName, cleanKw) > 0);
+      if (matched.length > 0) {
+        return matched;
+      }
+      return parsedItems;
     }
   } catch (apiErr) {
     console.warn('식약처 실시간 API 통신 오류, 내장 DB로 폴백합니다:', apiErr);
   }
 
-  // 2순위: 로컬 의약품 마스터 DB 확인
+  // 2순위: 로컬 의약품 마스터 DB 확인 (띄어쓰기 무시)
   const localOtc = searchLocalDb('OTC_DRUG');
   if (localOtc.length > 0) {
     return localOtc;

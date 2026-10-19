@@ -101,9 +101,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   }, [allActiveTags, products]);
 
   const filteredTags = useMemo(() => {
-    const q = tagSearchQuery.trim().toLowerCase();
-    if (!q) return allActiveTags;
-    return allActiveTags.filter((t) => t.toLowerCase().includes(q));
+    const qNorm = tagSearchQuery.trim().toLowerCase().replace(/\s+/g, '');
+    if (!qNorm) return allActiveTags;
+    return allActiveTags.filter((t) => t.toLowerCase().replace(/\s+/g, '').includes(qNorm));
   }, [allActiveTags, tagSearchQuery]);
 
   const handleAddNewTag = (e?: React.FormEvent) => {
@@ -235,12 +235,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     );
   };
 
-  // 검색어 정제 헬퍼 (괄호 규격 등 제거)
+  // 검색어 정제 헬퍼 (괄호 규격 및 불필요한 단위 접미사 제거)
   const cleanSearchKeyword = (rawName: string): string => {
     return rawName
       .replace(/\([^)]*\)/g, '')
       .replace(/\[[^\]]*\]/g, '')
       .replace(/\{[^}]*\}/g, '')
+      .replace(/\s*\d+\s*(정|캡슐|포|ml|mg|g|병|상자|box|vial)\b.*$/i, '')
       .replace(/\s+/g, ' ')
       .trim();
   };

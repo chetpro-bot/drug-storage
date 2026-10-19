@@ -1768,7 +1768,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             )}
           </div>
 
-          {/* SECTION 2: 성분 / 함량 (약효분류 | 성분 함량 | 원료 형태 | 상한섭취량 4열 정렬) */}
+          {/* SECTION 2: 성분 / 함량 (약효분류 | 성분 함량 | 상한섭취량 3열 정렬) */}
           <div className="space-y-2">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2">
@@ -1864,12 +1864,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         <th className="px-3 sm:px-4 py-2 text-center border-r border-slate-200">
                           성분 함량
                         </th>
-                        {isSeparatedFormat && (
-                          <th className="w-[240px] sm:w-[260px] px-3 py-2 text-center border-r border-slate-200">
-                            원료 형태
-                          </th>
-                        )}
-                        <th className={`${isSeparatedFormat ? 'w-[160px] sm:w-[175px]' : 'w-[170px] sm:w-[210px]'} px-2.5 py-2 text-center`}>
+                        <th className="w-[160px] sm:w-[185px] px-2.5 py-2 text-center">
                           {ulViewMode === 'CHILD' ? (
                             <span className="text-amber-700">상한섭취량 (소아)</span>
                           ) : (
@@ -1963,39 +1958,22 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
                               {/* 의약품 및 건강기능식품: 실제 영문성분명 + 함량 및 별도 분리된 원료형태 열 */}
                               {isSeparatedFormat ? (
-                                <>
-                                  {/* 2열: 성분 함량 (실제 영문 성분명 + 함량) */}
-                                  <td className="px-4 py-2.5 border-r border-slate-200 align-middle">
-                                    <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                                      <span className="font-semibold text-slate-900 tracking-tight">
-                                        {item.info.englishName || item.ing.englishInn}
-                                      </span>
-                                      <span className="font-bold text-slate-900 tracking-tight">
-                                        {item.ing.rawAmount.toLocaleString()}{item.ing.unit === 'ug' ? 'µg' : item.ing.unit}
-                                      </span>
-                                      {item.info.convertedText && (
-                                        <span className="font-medium text-emerald-600 text-[11px]">
-                                          ({item.info.convertedText})
-                                        </span>
-                                      )}
-                                    </div>
-                                  </td>
-
-                                  {/* 3열: 원료 형태 (분리 열) */}
-                                  <td className="px-3 py-2.5 border-r border-slate-200 align-middle">
-                                    <span className="text-xs text-slate-800 font-medium leading-snug">
-                                      {(() => {
-                                        const raw =
-                                          item.ing.chemicalFormName && item.ing.chemicalFormName !== '-'
-                                            ? item.ing.chemicalFormName
-                                            : item.info.chemicalFormFeature?.displayText && item.info.chemicalFormFeature.displayText !== '-'
-                                            ? item.info.chemicalFormFeature.displayText
-                                            : '-';
-                                        return cleanChemicalFormName(raw, item.info.categoryTag, item.info.englishName);
-                                      })()}
+                                /* 2열: 성분 함량 (실제 영문 성분명 + 함량 및 API 고시 환산 정보) */
+                                <td className="px-4 py-2.5 border-r border-slate-200 align-middle">
+                                  <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
+                                    <span className="font-semibold text-slate-900 tracking-tight">
+                                      {item.info.englishName || item.ing.englishInn}
                                     </span>
-                                  </td>
-                                </>
+                                    <span className="font-bold text-slate-900 tracking-tight">
+                                      {item.ing.rawAmount.toLocaleString()}{item.ing.unit === 'ug' ? 'µg' : item.ing.unit}
+                                    </span>
+                                    {item.info.convertedText && (
+                                      <span className="font-medium text-emerald-600 text-[11px]">
+                                        ({item.info.convertedText})
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
                               ) : (
                                 /* 일반식품(기타가공품 등): 기존 표시 설정 유지 */
                                 <td className="px-4 py-2.5 border-r border-slate-200 align-middle">
@@ -2077,7 +2055,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                             </td>
                           )}
 
-                          {/* 3열(의약품은 4열): 상한섭취량 (소아/성인 모드 대응, 동일 약효분류 및 상한섭취량일 경우 셀 병합) */}
+                          {/* 3열: 상한섭취량 (소아/성인 모드 대응, 동일 약효분류 및 상한섭취량일 경우 셀 병합) */}
                           {isFirstOfUl && (
                             <td
                               rowSpan={ulRowSpan}

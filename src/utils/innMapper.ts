@@ -70,6 +70,7 @@ export interface InnMappingMeta {
 const LEARNED_DICT_STORAGE_KEY = 'pharmassist_learned_inn_dict_v1';
 
 export function getLearnedDict(): Record<string, InnMappingMeta> {
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return {};
   try {
     const saved = localStorage.getItem(LEARNED_DICT_STORAGE_KEY);
     if (saved) return JSON.parse(saved);
@@ -1420,15 +1421,30 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
     // 영문 표준 간결 형식 성분표 규격 생성
     const formattedSpecification = formatKpaicSpecification(item);
 
-    // 1. 원소 환산량 괄호 추출 (예: "(아연(으)로서 15mg)", "(비타민D로서 1,000IU)", "(셀레늄으로서 22μg)")
+    // 1. 원소 환산량 괄호 추출 (API 고시 정보 파싱, 예: "(티아민염산염(비타민 B1)으로서 72.3 mg)", "(아연(으)로서 15mg)", "(비타민D로서 1,000IU)")
     let elementalAmount: number | undefined = undefined;
-    const elementalMatch = item.match(/\([^)]*?로서\s*([0-9\.,]+)\s*(mg|ug|㎍|μg|µg|IU|g|밀리그램|마이크로그램|아이\.유)?\)/i);
+    let elementalLabel: string | undefined = undefined;
+    let elementalUnit: string | undefined = undefined;
+
+    const elementalMatch = item.match(
+      /\(\s*(.*?)(?:(?:\(으\)|으)?로서)\s*([0-9\.,]+)\s*(밀리그램|마이크로그램|아이\.유|mg|ug|㎍|μg|µg|iu|g)?\s*\)\s*$/i
+    );
     if (elementalMatch) {
-      elementalAmount = parseFloat(elementalMatch[1].replace(/,/g, ''));
+      elementalLabel = elementalMatch[1]
+        .replace(/\(비타민\s*[A-Za-z0-9]+\)/gi, '')
+        .replace(/(?:\(으\)|으로서|로서|으)$/, '')
+        .trim();
+      elementalAmount = parseFloat(elementalMatch[2].replace(/,/g, ''));
+      const rawUnit = (elementalMatch[3] || 'mg').trim();
+      if (/ug|㎍|μg|µg|마이크로그램/i.test(rawUnit)) elementalUnit = 'ug';
+      else if (/iu|아이\.유/i.test(rawUnit)) elementalUnit = 'IU';
+      else if (/mg|밀리그램/i.test(rawUnit)) elementalUnit = 'mg';
+      else if (/g|그램/i.test(rawUnit)) elementalUnit = 'g';
+      else elementalUnit = 'mg';
     }
 
     // 괄호 환산량 부분 제외한 본문
-    const cleanItem = item.replace(/\([^\)]*로서[^\)]*\)/gi, '').trim();
+    const cleanItem = item.replace(/\(\s*.*?(?:(?:\(으\)|으)?로서).*?\)\s*$/i, '').trim();
 
     // 2. 수치 및 단위 추출 (예: "100mg", "0.5mg", "46.29mg")
     const match = cleanItem.match(regex);
@@ -1557,7 +1573,8 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
         ? (meta.chemicalFormName && meta.chemicalFormName !== matchedKey ? meta.chemicalFormName : `유기염 (${nameRaw})`)
         : meta.chemicalFormName;
 
-      const finalElemental = elementalAmount ?? (meta.elementalRatio ? +(amount * meta.elementalRatio).toFixed(2) : undefined);
+      // 약전 화학식이나 사전 비율로 임의 계산하지 않고 오직 API에서 파싱된 환산량만 사용
+      const finalElemental = elementalAmount;
       const resolvedCategory =
         learnedDict[matchedKey]?.functionalCategory ||
         (meta.functionalCategory && meta.functionalCategory !== '기타' ? meta.functionalCategory : undefined) ||
@@ -1577,6 +1594,8 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
         rawAmount: amount || 10,
         unit: (unit || meta.defaultUnit) as 'mg' | 'ug' | 'IU' | 'g',
         elementalAmount: finalElemental,
+        elementalUnit,
+        elementalLabel,
         // 주요(Main Active) 기준: 첫 번째 처방 주성분이거나, 단위가 mg일 때 투입량이 30mg 이상인 고함량 성분
         isMainActive: index === 0 || (unit === 'mg' && amount >= 30),
         standardKey: meta.standardKey,
@@ -1607,6 +1626,8 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
         rawAmount: amount || 10,
         unit,
         elementalAmount,
+        elementalUnit,
+        elementalLabel,
         isMainActive: index === 0 || (unit === 'mg' && amount >= 30),
         clinicalSummary: `• ${nameRaw} 활성 성분 영양 및 생리 활성 지원`,
         noteKorean: undefined,
@@ -1986,9 +2007,10 @@ export function resolveIngredientDisplayInfo(
   }
 
   // 4. 실제 성분량(원소량 / 활성 유효성분량) 환산 계산
+  // ※ 약전 화학식이나 사전 환산율(elementalRatio)로 임의 계산하지 않고 오직 API에서 명시된 정보만 사용
   let convertedAmount: number | undefined = undefined;
-  let convertedUnit: string = meta?.elementalUnit || ing.unit;
-  let convertedLabel: string | undefined = meta?.elementalTargetLabel;
+  let convertedUnit: string = ing.elementalUnit || meta?.elementalUnit || ing.unit;
+  let convertedLabel: string | undefined = ing.elementalLabel || meta?.elementalTargetLabel;
 
   // 올대원맥스정 90mg Riboflavin 보정 시에는 환산량 없음
   const isPureRiboflavin90 =
@@ -1998,15 +2020,9 @@ export function resolveIngredientDisplayInfo(
     if (
       ing.elementalAmount !== undefined &&
       ing.elementalAmount > 0 &&
-      ing.elementalAmount !== ing.rawAmount
+      (ing.elementalAmount !== ing.rawAmount || (ing.elementalUnit && ing.elementalUnit !== ing.unit))
     ) {
       convertedAmount = ing.elementalAmount;
-    } else if (meta?.elementalRatio && ing.rawAmount > 0) {
-      // 단위가 이미 환산 단위와 동일한 특수 케이스(예: 콜레칼시페롤이 이미 IU 단위로 입력된 경우)는 중복 곱셈 방지
-      const skipConversion = meta.elementalUnit === 'IU' && ing.unit === 'IU';
-      if (!skipConversion) {
-        convertedAmount = +(ing.rawAmount * meta.elementalRatio).toFixed(2);
-      }
     }
   }
 
@@ -2027,16 +2043,18 @@ export function resolveIngredientDisplayInfo(
     else if (categoryTag === '비타민C') convertedLabel = '아스코르브산';
   }
 
-  // '~으로서', '~로서' 접미사 제거하여 (리보플라빈 28.65mg) 형태로 깔끔하게 표기
+  // '~으로서', '~로서' 접미사 제거하여 (리보플라빈 28.7mg) 형태로 깔끔하게 표기
   const cleanConvertedLabel = convertedLabel
     ? convertedLabel.replace(/(으로서|로서)$/, '').trim()
     : undefined;
 
+  const displayConvertedUnit = convertedUnit === 'ug' ? 'µg' : convertedUnit;
+
   const convertedText =
     convertedAmount !== undefined
       ? cleanConvertedLabel
-        ? `${cleanConvertedLabel} ${convertedAmount.toLocaleString()}${convertedUnit}`
-        : `${convertedAmount.toLocaleString()}${convertedUnit}`
+        ? `${cleanConvertedLabel} ${convertedAmount.toLocaleString()}${displayConvertedUnit}`
+        : `${convertedAmount.toLocaleString()}${displayConvertedUnit}`
       : null;
 
   // 5. 2025 한국인 영양소 섭취기준(KDRIs) 성인 상한섭취량(UL) 매칭

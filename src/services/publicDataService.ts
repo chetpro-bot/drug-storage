@@ -1245,15 +1245,24 @@ function formatMaterialNameToRawIngredients(materialName?: string, mainIngrEng?:
     let unit = fields['단위'] || '';
     if (unit === '밀리그램') unit = 'mg';
     else if (unit === '마이크로그램') unit = 'ug';
+    else if (unit === '아이.유') unit = 'IU';
+
+    const info = fields['성분정보'] || '';
+    let cleanInfo = info
+      .replace(/밀리그램/g, 'mg')
+      .replace(/마이크로그램/g, 'ug')
+      .replace(/아이\.유/g, 'IU')
+      .trim();
 
     if (ingrName) {
-      if (amount) {
-        lines.push(`${ingrName} ${amount}${unit}`);
-      } else {
-        lines.push(ingrName);
+      let line = amount ? `${ingrName} ${amount}${unit}` : ingrName;
+      if (cleanInfo) {
+        line += ` (${cleanInfo})`;
       }
+      lines.push(line);
     }
   }
+
 
   return lines.join('\n');
 }

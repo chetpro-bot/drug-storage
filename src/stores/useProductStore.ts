@@ -553,31 +553,36 @@ function migrateAndEnsureKpic(products: ProductItem[]): ProductItem[] {
 
     // 7. 사용상의 주의사항 요약: 연령금기 항목 최우선 맨 처음 배치 보장
     if (prod.classification === 'OTC_DRUG' && prod.otcDetail?.precautionsSummaryKorean) {
-      const precs = prod.otcDetail.precautionsSummaryKorean;
+      let currentOtc = prod.otcDetail;
+      if (prod.productName.includes('비맥스제트') && currentOtc.itemSeq === '202300072') {
+        hasChanges = true;
+        currentOtc = {
+          ...currentOtc,
+          itemSeq: '202300436',
+          kpaicCode: '202300436-00'
+        };
+      }
+
+      const precs = currentOtc.precautionsSummaryKorean;
       // 요약형 리스트(길이 1~4줄)인 경우 연령금기를 맨 처음에 배치
       if (precs.length > 0 && precs.length <= 4 && !precs[0].includes('■ 1.') && !precs[0].includes('다음과 같은 사람은')) {
-        if (prod.productName.includes('비맥스') && !precs.some((p) => p.includes('12개월'))) {
+        const ageFound =
+          extractAgeContraindication(precs) ||
+          (prod.productName.includes('비맥스') ? '만 12개월 미만의 젖먹이: 복용 금기' : undefined);
+        if (ageFound && !precs[0].includes(ageFound.split(':')[0])) {
           hasChanges = true;
-          prod = {
-            ...prod,
-            otcDetail: {
-              ...prod.otcDetail,
-              precautionsSummaryKorean: ['만 12개월 미만의 젖먹이: 복용 금기', ...precs]
-            }
+          currentOtc = {
+            ...currentOtc,
+            precautionsSummaryKorean: [ageFound, ...precs.filter((p) => !p.includes(ageFound.split(':')[0]))]
           };
-        } else {
-          const ageFound = extractAgeContraindication(precs);
-          if (ageFound && !precs[0].includes('금기') && !precs[0].includes(ageFound.split(':')[0])) {
-            hasChanges = true;
-            prod = {
-              ...prod,
-              otcDetail: {
-                ...prod.otcDetail,
-                precautionsSummaryKorean: [ageFound, ...precs.filter((p) => !p.includes(ageFound.split(':')[0]))]
-              }
-            };
-          }
         }
+      }
+
+      if (currentOtc !== prod.otcDetail) {
+        prod = {
+          ...prod,
+          otcDetail: currentOtc
+        };
       }
     }
 

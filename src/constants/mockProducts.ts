@@ -295,10 +295,10 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       }
     ],
     otcDetail: {
-      itemSeq: '202300072',
+      itemSeq: '202300436',
       permitDate: '2023-01-20',
       atcCode: 'A11BA',
-      kpaicCode: '202300072-00',
+      kpaicCode: '202300436-00',
       indicationsKorean: [
         '육체피로 · 체력 저하 시 비타민 B1, B2, B6, C, D 보급 (임신·수유기, 발육기, 노년기)',
         '신경통 · 근육통 · 관절통(요통, 어깨결림) 및 눈의 피로 · 각기 증상 완화',

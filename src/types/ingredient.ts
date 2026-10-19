@@ -125,6 +125,8 @@ export interface ProductIngredientEntry {
   rawAmount: number;                    // 투입/표기 원료량
   unit: 'mg' | 'ug' | 'IU' | 'CFU' | 'g';
   elementalAmount?: number;             // 순수 원소 또는 환산 유효량 (예: 마그네슘 원소량)
+  elementalUnit?: string;               // 원소/유효성분 환산 단위 (예: 'IU', 'mg', 'ug')
+  elementalLabel?: string;              // 환산 성분 라벨 (예: '티아민염산염', '아스코르브산')
   isMainActive: boolean;                // 주요 유효성분 여부
   standardKey?: NutrientStandardKey;    // KDRIs 영양소 매핑
   clinicalSummary: string;              // 핵심 특징 및 작용 원리 요약 (명사형 개조식 1~2줄)

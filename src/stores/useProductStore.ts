@@ -389,6 +389,98 @@ function migrateAndEnsureKpic(products: ProductItem[]): ProductItem[] {
       }
     }
 
+    // 6-2. '마그랑비피돌샷액' 피돌산마그네슘 성분 규격 및 원소량(300mg) 자동 보정
+    if (prod.productName.includes('마그랑비피돌샷')) {
+      const hasPidolate = prod.ingredients.some(i =>
+        /pidolate|피돌산/i.test(i.englishInn || '') ||
+        /pidolate|피돌산/i.test(i.koreanName || '') ||
+        /pidolate|피돌산/i.test(i.formattedSpecification || '')
+      );
+      const hasGenericMg3462 = prod.ingredients.some(i =>
+        (i.englishInn === 'Magnesium' || i.englishInn === '마그네슘') && i.rawAmount === 3462.5
+      );
+
+      if (!hasPidolate || hasGenericMg3462) {
+        hasChanges = true;
+        const exactMagrangIngredients: ProductIngredientEntry[] = [
+          {
+            ingredientId: 'ing_magrang_mg_pidol',
+            englishInn: 'Magnesium Pidolate',
+            koreanName: '피돌산마그네슘',
+            functionalCategory: '마그네슘(Mg)',
+            chemicalFormName: '유기염 (피돌산마그네슘)',
+            rawAmount: 3462.5,
+            unit: 'mg',
+            elementalAmount: 300,
+            standardKey: 'MAGNESIUM',
+            isMainActive: true,
+            formattedSpecification: 'Magnesium Pidolate 3462.5mg (Magnesium 300mg)',
+            clinicalSummary: '• 흡수율과 세포막 투과율이 탁월한 유기염 피돌산(Pidolic acid) 결합 마그네슘 (마그네슘으로서 300mg)\n• 신경 안정 및 근육 피로 완화'
+          },
+          {
+            ingredientId: 'ing_magrang_b2',
+            englishInn: "Riboflavin 5'-phosphate sodium",
+            koreanName: '리보플라빈포스페이트나트륨',
+            functionalCategory: '비타민B2',
+            chemicalFormName: '활성 조효소형(FMN) 인산나트륨염 (비타민 B2)',
+            rawAmount: 7.63,
+            unit: 'mg',
+            elementalAmount: 6,
+            standardKey: 'VITAMIN_B2',
+            isMainActive: false,
+            formattedSpecification: "Riboflavin 5'-phosphate sodium 7.63mg (Riboflavin 6mg)",
+            clinicalSummary: '• 용해도 우수한 활성형 B2, 점막 세포 재생 및 에너지 대사'
+          },
+          {
+            ingredientId: 'ing_magrang_b6',
+            englishInn: 'Pyridoxine hydrochloride',
+            koreanName: '피리독신염산염',
+            functionalCategory: '비타민B6',
+            chemicalFormName: '염산염 (수용성 비타민 B6)',
+            rawAmount: 75,
+            unit: 'mg',
+            elementalAmount: 61.7,
+            standardKey: 'VITAMIN_B6',
+            isMainActive: true,
+            formattedSpecification: 'Pyridoxine hydrochloride 75mg',
+            clinicalSummary: '• 아미노산 대사 및 신경전달물질(GABA, Serotonin) 합성 보조'
+          },
+          {
+            ingredientId: 'ing_magrang_b3',
+            englishInn: 'Nicotinamide',
+            koreanName: '니코틴산아미드',
+            functionalCategory: '비타민B3',
+            chemicalFormName: '아미드형 (비타민 B3)',
+            rawAmount: 20,
+            unit: 'mg',
+            standardKey: 'VITAMIN_B3',
+            isMainActive: false,
+            formattedSpecification: 'Nicotinamide 20mg',
+            clinicalSummary: '• 안면 홍조(Flushing) 위험 없는 아미드 형태, 산화환원 반응 NAD 조효소 합성\n• 2025 KDRIs 성인 상한섭취량(UL): 850mg NE/일 (니코틴산아미드 기준)'
+          },
+          {
+            ingredientId: 'ing_magrang_taurine',
+            englishInn: 'Taurine',
+            koreanName: '타우린',
+            functionalCategory: '비필수 아미노산',
+            chemicalFormName: '함황 아미노설폰산 (타우린)',
+            rawAmount: 100,
+            unit: 'mg',
+            isMainActive: true,
+            formattedSpecification: 'Taurine 100mg',
+            clinicalSummary: '• 담즙산 결합 및 삼투압 조절, 심근 수축력 및 근육 피로 완화'
+          }
+        ];
+        const updated = {
+          ...prod,
+          ingredients: exactMagrangIngredients,
+          updatedAt: new Date().toISOString()
+        };
+        saveProductToFirestore(updated).catch(() => {});
+        return updated;
+      }
+    }
+
     // 7. 일반 식품/음료류에서 유입된 영양정보 비성분(나트륨, 탄수화물, 당류, 지방, 단백질, 칼로리 등) 자동 정돈
     const hasFoodGarbage = prod.ingredients.some(i =>
       /(?:나트륨|탄수화물|당류|지방|트랜스지방|포화지방|콜레스테롤|단백질|열량|칼로리|kcal|내용량|총내용량|정제수)/i.test(

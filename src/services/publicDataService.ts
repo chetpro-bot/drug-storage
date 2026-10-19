@@ -1903,6 +1903,9 @@ function resolveKpaicEnglishIngredientName(korName: string, mainIngrEng?: string
     '시트르산마그네슘': 'Magnesium Citrate',
     '구연산마그네슘수화물': 'Magnesium Citrate Hydrate',
     '구연산마그네슘': 'Magnesium Citrate',
+    '피돌산마그네슘수화물': 'Magnesium Pidolate',
+    '피돌산마그네슘': 'Magnesium Pidolate',
+    '피돌산 마그네슘': 'Magnesium Pidolate',
     '초산디알파토코페롤': 'D-Alpha-Tocopherol Acetate',
     'L-시스테인': 'L-Cysteine',
     '유비데카레논': 'Ubidecarenone',
@@ -1918,6 +1921,11 @@ function resolveKpaicEnglishIngredientName(korName: string, mainIngrEng?: string
   // 식약처 MAIN_INGR_ENG 목록과 한글 성분명의 화학적 염/형태 스마트 교차 매칭
   if (mainIngrEng) {
     const candidates = mainIngrEng.split('/').map(s => s.trim()).filter(Boolean);
+    // 피돌산 마그네슘 (Magnesium Pidolate)
+    if (cleanKor.includes('피돌산') && cleanKor.includes('마그네슘')) {
+      const match = candidates.find(c => /magnesium/i.test(c) && /pidolate/i.test(c));
+      if (match) return match;
+    }
     // 시트르산/구연산 마그네슘 (Magnesium Citrate Hydrate / Magnesium Citrate)
     if ((cleanKor.includes('시트르산') || cleanKor.includes('구연산')) && cleanKor.includes('마그네슘')) {
       const match = candidates.find(c => /magnesium/i.test(c) && /citrate/i.test(c));

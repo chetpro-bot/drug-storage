@@ -352,6 +352,26 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     elementalTargetLabel: '마그네슘으로서',
     clinicalSummary: '• 흡수율과 생체이용률이 우수한 유기산염(구연산) 마그네슘'
   },
+  '피돌산마그네슘': {
+    englishInn: 'Magnesium Pidolate',
+    functionalCategory: '마그네슘(Mg)',
+    chemicalFormName: '유기염 (피돌산마그네슘)',
+    defaultUnit: 'mg',
+    standardKey: 'MAGNESIUM',
+    elementalRatio: 0.0866,
+    elementalTargetLabel: '마그네슘으로서',
+    clinicalSummary: '• 흡수율과 세포막 투과율이 탁월한 유기염 피돌산(Pidolic acid) 결합 마그네슘, 신경 안정 및 근육 피로 완화'
+  },
+  '피돌산 마그네슘': {
+    englishInn: 'Magnesium Pidolate',
+    functionalCategory: '마그네슘(Mg)',
+    chemicalFormName: '유기염 (피돌산마그네슘)',
+    defaultUnit: 'mg',
+    standardKey: 'MAGNESIUM',
+    elementalRatio: 0.0866,
+    elementalTargetLabel: '마그네슘으로서',
+    clinicalSummary: '• 흡수율과 세포막 투과율이 탁월한 유기염 피돌산(Pidolic acid) 결합 마그네슘, 신경 안정 및 근육 피로 완화'
+  },
   '탄산칼슘': {
     englishInn: 'Calcium carbonate',
     functionalCategory: '칼슘(Ca)',
@@ -1624,6 +1644,10 @@ const KOR_TO_ENG_DISPLAY_MAP: Record<string, string> = {
   '시트르산마그네슘': 'Magnesium Citrate',
   '구연산마그네슘수화물': 'Magnesium Citrate Hydrate',
   '구연산마그네슘': 'Magnesium Citrate',
+  '피돌산마그네슘': 'Magnesium Pidolate',
+  '피돌산 마그네슘': 'Magnesium Pidolate',
+  'Magnesium Pidolate': 'Magnesium Pidolate',
+  'Magnesium pidolate': 'Magnesium Pidolate',
   '초산디알파토코페롤': 'D-Alpha-Tocopherol Acetate',
   'Magnesium Citrate Hydrate': 'Magnesium Citrate Hydrate',
   'Magnesium citrate hydrate': 'Magnesium Citrate Hydrate',
@@ -1701,6 +1725,7 @@ const ENG_ALIAS_TO_DICT_KEY: Record<string, string> = {
   magnesiumglycerophosphate: '글리세로인산마그네슘',
   magnesiumcitratehydrate: '시트르산마그네슘수화물',
   magnesiumcitrate: '시트르산마그네슘',
+  magnesiumpidolate: '피돌산마그네슘',
   dalphatocopherolacetate: '초산디알파토코페롤',
   'd-alpha-tocopherolacetate': '초산디알파토코페롤',
   calciumcarbonate: '탄산칼슘',

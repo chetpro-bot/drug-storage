@@ -164,3 +164,57 @@ export function resolveFunctionalClaimsWithNutrients(
 
   return result;
 }
+
+/**
+ * 건강기능식품 섭취 시 주의사항(IFTKN_ATNT_MATR_CN) 중복 문구 정제 및 서식 정리
+ * - C003 API 등에서 영양소별 법정 주의사항이 구분자 없이 합쳐져
+ *   "(1) 이상사례 발생 시 섭취를 중단하고 전문가와 상담할 것" 등의 동일 문구가 여러 번 반복되는 문제를 제거
+ */
+export function deduplicatePrecautionsText(rawText?: string): string {
+  if (!rawText || !rawText.trim()) return '등록된 주의사항 정보가 없습니다.';
+
+  // 문장 끝 뒤에 새 번호나 기호가 바로 붙어있는 경우 줄바꿈 삽입
+  const preprocessed = rawText
+    .replace(/(?<=[.!?])\s*(?=\([0-9가-힣a-zA-Z]\)|[①-⑳⑴-⒇]|[0-9]{1,2}[\.\)])/g, '\n')
+    .replace(/(?<=[가-힣a-zA-Z0-9])\s*(?=\([0-9가-힣a-zA-Z]\)|[①-⑳⑴-⒇])/g, '\n');
+
+  const lines = preprocessed
+    .split(/\r?\n+/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  if (lines.length === 0) return '등록된 주의사항 정보가 없습니다.';
+
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const line of lines) {
+    // [비타민 B1] 또는 【주의사항】 등의 대괄호/제목 항목은 직전문장과 완전 동일하지 않은 한 유지
+    if (/^[\[【<].+[\]】>]/.test(line)) {
+      if (result.length > 0 && result[result.length - 1] === line) {
+        continue;
+      }
+      result.push(line);
+      continue;
+    }
+
+    // 앞쪽 인덱스 기호((1), 1., ①, (가), -, · 등) 제거하여 본문 내용 추출
+    const core = line
+      .replace(/^([①-⑳⑴-⒇]|\(?[0-9]{1,2}[\)\.]|\([가-힣a-zA-Z0-9]\)|[·\-•])\s*/, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    // 이미 등장한 핵심 주의 문구이면 중복 제거
+    if (core && seen.has(core)) {
+      continue;
+    }
+
+    if (core) {
+      seen.add(core);
+    }
+    result.push(line);
+  }
+
+  return result.join('\n\n');
+}
+

@@ -20,7 +20,10 @@ import {
   summarizePrecautions,
   getPrecautionHighlightKeywords
 } from '../utils/precautionsHelper';
-import { resolveFunctionalClaimsWithNutrients } from '../utils/functionalClaimsHelper';
+import {
+  resolveFunctionalClaimsWithNutrients,
+  deduplicatePrecautionsText
+} from '../utils/functionalClaimsHelper';
 
 import {
   X,
@@ -2296,11 +2299,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </div>
               <div className="bg-rose-50/30 border border-rose-200/70 rounded-xl p-4">
                 <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap font-sans font-medium">
-                  {product.functionalFoodDetail?.safetyPrecautionsText ||
-                    (product.functionalFoodDetail?.safetyPrecautionsKorean &&
-                      product.functionalFoodDetail.safetyPrecautionsKorean.join('\n')) ||
-                    precautionsFullText ||
-                    '등록된 주의사항 정보가 없습니다.'}
+                  {deduplicatePrecautionsText(
+                    product.functionalFoodDetail?.safetyPrecautionsText ||
+                      (product.functionalFoodDetail?.safetyPrecautionsKorean &&
+                        product.functionalFoodDetail.safetyPrecautionsKorean.join('\n')) ||
+                      precautionsFullText
+                  )}
                 </p>
               </div>
             </div>

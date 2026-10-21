@@ -1,6 +1,7 @@
 import { ProductClassification, DosageForm } from '../types/classification';
 import { ProductIngredientEntry } from '../types/ingredient';
 import { parseRawIngredientString, INN_DICTIONARY } from '../utils/innMapper';
+import { deduplicatePrecautionsText } from '../utils/functionalClaimsHelper';
 
 export type PublicDataSourceOrigin =
   | '약학정보원(KPAIC) DB'
@@ -1813,7 +1814,8 @@ export async function searchFoodSafetyFunctionalFoods(
     );
     const dosageForm = inferDosageForm(row.DISPOS || '', prodName, row.PRDT_SHAP_CD_NM || '');
     const claims = parseFunctionalClaims(row.PRIMARY_FNCLTY);
-    const precautions = parsePrecautionsText(row.IFTKN_ATNT_MATR_CN);
+    const dedupedPrecautions = deduplicatePrecautionsText(row.IFTKN_ATNT_MATR_CN);
+    const precautions = parsePrecautionsText(dedupedPrecautions);
     const { rawIngredientsText, parsedIngredients } = parseFunctionalFoodRecordToIngredients(row, dailyServings);
 
     const packagingUnit = row.PRDT_SHAP_CD_NM
@@ -1838,7 +1840,7 @@ export async function searchFoodSafetyFunctionalFoods(
       sourceOrigin: '식품안전나라 건기식 API (C003)' as PublicDataSourceOrigin,
       apiSourceBadge: '식품안전나라 C003 (건기식)',
       precautionsSummary: precautions,
-      safetyPrecautionsText: (row.IFTKN_ATNT_MATR_CN || '').trim(),
+      safetyPrecautionsText: dedupedPrecautions,
       standardSpecificationText: row.STDR_STND || '',
       rawMaterialsText: row.RAWMTRL_NM || '',
       appearanceKorean: (row.DISPOS || '').trim(),

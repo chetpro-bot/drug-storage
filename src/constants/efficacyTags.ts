@@ -58,6 +58,33 @@ export function cleanProductTags(tags: string[]): string[] {
 }
 
 /**
+ * 연령 및 성별 관련 태그 판별 함수
+ */
+export function isDemographicTag(tag: string): boolean {
+  if (!tag) return false;
+  return /어린이|유아|소아|영유아|키즈|베이비|청소년|성장|수험생|성인|노인|실버|시니어|남성|여성|임산부|임신|수유부|수유기|갱년기/i.test(
+    tag.trim()
+  );
+}
+
+/**
+ * 제품 태그 정렬 함수:
+ * 1. 연령이나 성별에 관한 태그를 가나다순으로 우선 배치
+ * 2. 그 외 일반 태그를 가나다순으로 배치
+ */
+export function sortProductTags(tags: string[]): string[] {
+  return [...tags].sort((a, b) => {
+    const aIsDemo = isDemographicTag(a);
+    const bIsDemo = isDemographicTag(b);
+
+    if (aIsDemo && !bIsDemo) return -1;
+    if (!aIsDemo && bIsDemo) return 1;
+
+    return a.localeCompare(b, 'ko');
+  });
+}
+
+/**
  * 제품에 부여된 태그 문자열(product.tags)과 표준 효능 태그 간 동의어 매핑
  * (성분 전체를 무분별하게 매칭하지 않고, 약사가 설정한 product.tags만을 기준으로 정확하게 매칭)
  */

@@ -7,7 +7,8 @@ import {
   STANDARD_EFFICACY_TAGS, 
   doesProductMatchEfficacyTag,
   cleanProductTags,
-  isSentenceOrAutoTag
+  isSentenceOrAutoTag,
+  sortProductTags
 } from '../constants/efficacyTags';
 import { resolveKpicCategory, saveLearnedIngredientMapping } from '../utils/innMapper';
 import { extractAgeContraindication } from '../utils/precautionsHelper';
@@ -1009,7 +1010,7 @@ export const useProductStore = create<ProductState>((set, get) => {
         });
       });
 
-      return Array.from(tagSet);
+      return sortProductTags(Array.from(tagSet));
     },
 
     addCustomTag: (tag: string) => {

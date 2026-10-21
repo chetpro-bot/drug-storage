@@ -921,14 +921,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     return () => clearTimeout(timer);
   }, [pharmacistNotes, product?.id]);
 
-  const handleInsertTemplate = (prefix: string) => {
-    const nextVal = pharmacistNotes.trim()
-      ? `${pharmacistNotes.trim()}\n${prefix} `
-      : `${prefix} `;
-    setPharmacistNotes(nextVal);
-    handleSaveMemo(nextVal);
-  };
-
   // 상한섭취량 표시 기준 (성인 UL vs 소아 UL)
   const [ulViewMode, setUlViewMode] = useState<'ADULT' | 'CHILD'>('ADULT');
   // 상한섭취량 기준표 모달 팝업 상태
@@ -1748,7 +1740,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="bg-white text-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl lg:max-w-6xl xl:max-w-7xl max-h-[90vh] flex flex-col border border-slate-200 overflow-hidden"
+        className="bg-white text-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl lg:max-w-5xl xl:max-w-6xl max-h-[90vh] flex flex-col border border-slate-200 overflow-hidden"
       >
         {/* 1. 상단 모달 헤더 (제품명 + 닫기 버튼) */}
         <div className="px-6 py-4 border-b border-slate-200/90 flex items-center justify-between shrink-0 bg-[#f8fafc]">
@@ -1783,11 +1775,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           </button>
         </div>
 
-        {/* 2. 모달 본문 (스크롤 영역) - 좌측 70% 제품 정보, 우측 30% 약사 상담 메모장 */}
+        {/* 2. 모달 본문 (스크롤 영역) - 좌측 제품 정보, 우측 약사 상담 메모장 */}
         <div className="p-4 sm:p-6 overflow-y-auto flex-1 bg-slate-50/40">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-6 items-start">
-            {/* 좌측 약 70%: 제품 정보 섹션 (기존 모든 내용) */}
-            <div className="lg:col-span-8 xl:col-span-8 space-y-6 min-w-0 bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-2xs">
+            {/* 좌측: 제품 정보 섹션 */}
+            <div className="lg:col-span-7 xl:col-span-7 space-y-6 min-w-0 bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-2xs">
           {/* 상단 액션 알약 버튼 & 제약회사 · 분류 · 가격 · 약 위치 요약 */}
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div className="space-y-3 flex-1 min-w-[240px]">
@@ -2836,21 +2828,18 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           )}
             </div>
 
-            {/* 우측 약 30%: 약사 상담 노하우 & 복약지도 메모장 (Sticky) */}
-            <div className="lg:col-span-4 xl:col-span-4 lg:sticky lg:top-0 space-y-3">
+            {/* 우측 약사 상담 메모장 (Sticky) */}
+            <div className="lg:col-span-5 xl:col-span-5 lg:sticky lg:top-0 space-y-3">
               <div className="bg-white rounded-2xl border border-amber-200/90 shadow-2xs p-4 sm:p-5 flex flex-col">
                 {/* 메모장 헤더 */}
                 <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-100">
                   <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 shadow-2xs">
-                      <StickyNote className="w-4 h-4" />
+                    <div className="w-6 h-6 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                      <StickyNote className="w-3.5 h-3.5" />
                     </div>
-                    <div>
-                      <h3 className="text-xs font-extrabold text-slate-800 tracking-tight flex items-center gap-1.5">
-                        <span>약사 상담 메모</span>
-                      </h3>
-                      <p className="text-[10px] text-slate-400 font-medium">복약지도 노하우 & 상담 팁</p>
-                    </div>
+                    <h3 className="text-xs font-extrabold text-slate-800 tracking-tight">
+                      약사 상담 메모
+                    </h3>
                   </div>
 
                   {/* 자동 저장 상태 표시 및 수동 저장 버튼 */}
@@ -2881,56 +2870,19 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </div>
                 </div>
 
-                {/* 빠른 템플릿 버튼들 */}
-                <div className="pt-2.5 pb-1">
-                  <div className="text-[10px] font-bold text-slate-400 mb-1.5 flex items-center justify-between">
-                    <span>빠른 템플릿</span>
-                    <span className="text-[9px] text-amber-600 font-normal">클릭 시 서식 삽입</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={() => handleInsertTemplate('• 복약지도 팁:')}
-                      className="text-[10px] font-bold text-amber-800 bg-amber-50 hover:bg-amber-100/80 border border-amber-200/80 px-2 py-0.5 rounded cursor-pointer transition-colors"
-                    >
-                      + 복약지도 팁
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleInsertTemplate('• 추천 환자군:')}
-                      className="text-[10px] font-bold text-sky-800 bg-sky-50 hover:bg-sky-100/80 border border-sky-200/80 px-2 py-0.5 rounded cursor-pointer transition-colors"
-                    >
-                      + 추천 환자군
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleInsertTemplate('• 병용 추천:')}
-                      className="text-[10px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200/80 px-2 py-0.5 rounded cursor-pointer transition-colors"
-                    >
-                      + 병용 추천
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleInsertTemplate('• 주의 사항:')}
-                      className="text-[10px] font-bold text-rose-800 bg-rose-50 hover:bg-rose-100/80 border border-rose-200/80 px-2 py-0.5 rounded cursor-pointer transition-colors"
-                    >
-                      + 주의 사항
-                    </button>
-                  </div>
-                </div>
-
                 {/* 메모장 텍스트에어리어 */}
-                <div className="pt-1.5 flex-1 flex flex-col">
+                <div className="pt-3 flex-1 flex flex-col">
                   <textarea
                     value={pharmacistNotes}
                     onChange={(e) => setPharmacistNotes(e.target.value)}
-                    placeholder="💡 이 제품에 대한 약사님만의 노하우를 자유롭게 기록해 보세요.&#10;&#10;작성하신 내용은 실시간으로 자동 저장되며, 언제든 수정하실 수 있습니다.&#10;&#10;예시:&#10;• 식후 30분 즉시 복용 권장 (위장장애 예방)&#10;• 마그네슘 부족 환자 상담 시 1순위 추천&#10;• 칼슘제 복용 환자는 2시간 간격 복용 지도"
-                    className="w-full flex-1 min-h-[380px] lg:min-h-[480px] xl:min-h-[540px] p-3.5 text-xs sm:text-[13px] text-slate-800 bg-[#fffdf7] border border-amber-200/70 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400 resize-none font-sans leading-relaxed placeholder:text-slate-400 placeholder:text-xs shadow-inner"
+                    placeholder="메모를 입력하세요..."
+                    className="w-full flex-1 min-h-[420px] lg:min-h-[520px] xl:min-h-[580px] p-3.5 text-xs sm:text-[13px] text-slate-800 bg-[#fffdf7] border border-amber-200/70 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:border-amber-400 resize-none font-sans leading-relaxed placeholder:text-slate-400 shadow-inner"
                   />
-                  <div className="pt-2 flex items-center justify-between text-[10px] text-slate-400 font-medium">
-                    <span>{pharmacistNotes.length}자 작성됨</span>
-                    <span>수정 시 0.6초 후 자동 저장</span>
-                  </div>
+                  {pharmacistNotes.length > 0 && (
+                    <div className="pt-1.5 flex justify-end text-[10px] text-slate-400 font-medium">
+                      <span>{pharmacistNotes.length}자</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

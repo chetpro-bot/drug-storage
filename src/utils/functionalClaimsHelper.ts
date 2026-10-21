@@ -23,11 +23,11 @@ export const KNOWN_NUTRIENT_NAMES: string[] = [
   '프로바이오틱스', '유산균', '프락토올리고당', '신바이오틱스',
   'EPA 및 DHA', 'EPA/DHA', '오메가3', '오메가-3', 'EPA 및 DHA 함유 유지',
   '루테인', '지아잔틴', '루테인지아잔틴', '루테인·지아잔틴',
-  '밀크씨슬', '실리마린', '홍삼', '인삼', '테아닌', 'L-테아닌',
+  '밀크씨슬', '실리마린', '밀크씨슬추출물', '밀크씨슬 추출물', '홍삼', '인삼', '테아닌', 'L-테아닌',
   '코엔자임Q10', '코엔자임 Q10', '코큐텐',
-  '쏘팔메토', '옥타코사놀', '가르시니아', '글루코사민', 'MSM', '엠에스엠',
+  '쏘팔메토', '쏘팔메토열매추출물', '쏘팔메토 열매 추출물', '옥타코사놀', '가르시니아', '글루코사민', 'MSM', '엠에스엠',
   '콜라겐', '히알루론산', '스피루리나', '클로렐라',
-  '포스파티딜세린', '은행잎추출물', '빌베리추출물', '녹차추출물', '바나바잎추출물'
+  '포스파티딜세린', '은행잎추출물', '빌베리추출물', '녹차추출물', '바나바잎추출물', '홍경천추출물', '프로폴리스추출물'
 ];
 
 export function normalizeNutrientName(name: string): string {
@@ -62,11 +62,17 @@ export function isNutrientHeader(line: string): string | null {
   const tokens = clean.split(/[\s,·\.\/\+및]+/).map((t) => t.trim()).filter(Boolean);
   if (tokens.length === 0) return null;
 
-  const allTokensNutrient = tokens.every((tok) =>
-    KNOWN_NUTRIENT_NAMES.some(
-      (kn) => kn.replace(/\s+/g, '').toLowerCase() === tok.replace(/\s+/g, '').toLowerCase()
-    )
-  );
+  const allTokensNutrient = tokens.every((tok) => {
+    const stripped = tok
+      .replace(/(?:추출물분말|추출분말|추출물|농축액|분말|혼합제제|오일|유지)$/, '')
+      .replace(/\s+/g, '')
+      .toLowerCase();
+    const cleanTok = tok.replace(/\s+/g, '').toLowerCase();
+    return KNOWN_NUTRIENT_NAMES.some((kn) => {
+      const cleanKn = kn.replace(/\s+/g, '').toLowerCase();
+      return cleanKn === cleanTok || (stripped && cleanKn === stripped);
+    });
+  });
 
   if (allTokensNutrient && clean.length <= 30) {
     return tokens.map(normalizeNutrientName).join(' · ');

@@ -1492,12 +1492,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       }
     };
 
-    // 엠드림 등 한글표시사항 영양정보 표가 있는 수입 건기식 성분/함량 자동 보정 및 1일 4정 복용량 동기화
-    if (
-      product.productName.includes('엠드림') ||
-      (product.functionalFoodDetail?.koreanLabelText && product.functionalFoodDetail.koreanLabelText.includes('기능성분 또는 지표성분'))
-    ) {
-      const fallbackMdreamLabel = `영양정보 : 1일 섭취량 4 정당(5,248mg)당 총60회분량
+    // 엠드림, 가네-드림 등 한글표시사항 영양정보/기능성분 표가 있는 수입 건기식 성분/함량 자동 보정 및 1일 복용량/기능성 동기화
+    const fallbackMdreamLabel = `영양정보 : 1일 섭취량 4 정당(5,248mg)당 총60회분량
 기능성분 또는 지표성분
 칼슘 300mg 43%
 마그네슘 300mg 95%
@@ -1510,44 +1506,90 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 망간 2mg 67%
 비타민K 100ug 143%`;
 
-      const labelText =
-        product.functionalFoodDetail?.koreanLabelText ||
-        (product as any).koreanLabelText ||
-        (product.productName.includes('엠드림') ? fallbackMdreamLabel : '');
+    const labelText =
+      product.functionalFoodDetail?.koreanLabelText ||
+      (product as any).koreanLabelText ||
+      pureApiText ||
+      (product.productName.includes('엠드림') ? fallbackMdreamLabel : '');
 
+    const hasNutritionOrSpec =
+      Boolean(labelText) &&
+      (labelText.includes('기능성분 또는 지표성분') ||
+        labelText.includes('지표성분') ||
+        labelText.includes('영양정보') ||
+        product.productName.includes('엠드림') ||
+        product.productName.includes('가네'));
+
+    if (hasNutritionOrSpec && labelText) {
       const rawMtrl =
         product.functionalFoodDetail?.rawMaterialsText ||
         product.functionalFoodDetail?.subIngredientsText ||
         (product as any).rawMaterialsText ||
-        '해조칼슘, 산화마그네슘, 글루콘산아연, 글루콘산구리, 요오드화칼륨, 비타민D3혼합제제, 아셀렌산나트륨, 염화크롬, 황산망간, 비타민K1혼합제제';
+        (product.productName.includes('엠드림')
+          ? '해조칼슘, 산화마그네슘, 글루콘산아연, 글루콘산구리, 요오드화칼륨, 비타민D3혼합제제, 아셀렌산나트륨, 염화크롬, 황산망간, 비타민K1혼합제제'
+          : '');
 
       const parsedNutrition = parseImportedNutritionFacts(labelText, rawMtrl);
       const isMdream = product.productName.includes('엠드림');
-      const targetDailyTotal = isMdream || labelText.includes('1일 섭취량 4 정') ? 4 : undefined;
+      const isGaneDream = product.productName.includes('가네');
+      const targetDailyTotal = isMdream || labelText.includes('1일 섭취량 4 정') ? 4 : (isGaneDream || labelText.includes('1일 1회, 1회 1') ? 1 : undefined);
+
+      const parsedLabel = parseImportedKoreanLabel(labelText);
+      const extractedClaims =
+        parsedLabel.indicationsSummary.length > 0 &&
+        !parsedLabel.indicationsSummary[0].includes('공식 인정 기능성')
+          ? parsedLabel.indicationsSummary
+          : [];
+
+      // parsedNutrition에 있는 핵심 지표성분(실리마린, 셀레늄 등)이 현재 product.ingredients에 반영되지 않았거나 수치가 다른 경우
+      const isMissingNutritionFacts =
+        parsedNutrition.length > 0 &&
+        parsedNutrition.some((pn) => {
+          const matched = product.ingredients.find(
+            (pi) =>
+              pi.englishInn.toLowerCase() === pn.englishInn.toLowerCase() ||
+              pi.koreanName === pn.koreanName
+          );
+          return !matched || matched.rawAmount !== pn.rawAmount;
+        });
+
+      const currentClaims = product.functionalFoodDetail?.functionalClaimsKorean || [];
+      const isMissingClaims =
+        extractedClaims.length > 0 &&
+        (currentClaims.length === 0 ||
+          currentClaims[0].includes('공식 인정 기능성') ||
+          currentClaims.join(';') !== extractedClaims.join(';'));
 
       const needsFix =
         parsedNutrition.length > 0 &&
-        (product.ingredients.length < parsedNutrition.length ||
+        (isMissingNutritionFacts ||
+          product.ingredients.length < parsedNutrition.length ||
           product.ingredients.some((ing) => ing.rawAmount === 0 || ing.rawAmount === 10) ||
           (targetDailyTotal && product.dailyServings * product.amountPerServing !== targetDailyTotal) ||
-          product.ingredientBasis !== 'PER_DAILY');
+          product.ingredientBasis !== 'PER_DAILY' ||
+          isMissingClaims);
 
       if (needsFix) {
         updateProduct(product.id, {
-          ingredients: parsedNutrition,
-          dailyServings: targetDailyTotal === 4 ? 2 : (product.dailyServings || 1),
-          amountPerServing: targetDailyTotal === 4 ? 2 : (product.amountPerServing || 1),
-          servingUnitKorean: product.servingUnitKorean || '정',
+          ingredients: parsedNutrition.length > 0 ? parsedNutrition : product.ingredients,
+          dailyServings: targetDailyTotal === 4 ? 2 : (targetDailyTotal === 1 ? 1 : (product.dailyServings || 1)),
+          amountPerServing: targetDailyTotal === 4 ? 2 : (targetDailyTotal === 1 ? 1 : (product.amountPerServing || 1)),
+          servingUnitKorean: product.servingUnitKorean || (isMdream ? '정' : '캡슐'),
           ingredientBasis: 'PER_DAILY',
-          packagingUnit: isMdream ? '240정 (60일분)' : (product.packagingUnit || '240정 (60일분)'),
-          functionalFoodDetail: product.functionalFoodDetail
-            ? {
-                ...product.functionalFoodDetail,
-                suggestedUseKorean: isMdream
-                  ? '1일 2회, 1회 2정(총 4정)을 물과 함께 섭취하십시오.'
-                  : product.functionalFoodDetail.suggestedUseKorean
-              }
-            : undefined
+          packagingUnit: isMdream ? '240정 (60일분)' : (product.packagingUnit || '60캡슐 (2개월분)'),
+          functionalFoodDetail: {
+            ...product.functionalFoodDetail,
+            reportNo: product.functionalFoodDetail?.reportNo || '',
+            safetyPrecautionsKorean: product.functionalFoodDetail?.safetyPrecautionsKorean || [],
+            koreanLabelText: labelText,
+            rawMaterialsText: rawMtrl || product.functionalFoodDetail?.rawMaterialsText || '',
+            functionalClaimsKorean: extractedClaims.length > 0
+              ? extractedClaims
+              : (product.functionalFoodDetail?.functionalClaimsKorean || []),
+            suggestedUseKorean: isMdream
+              ? '1일 2회, 1회 2정(총 4정)을 물과 함께 섭취하십시오.'
+              : (parsedLabel.dosageInstruction || product.functionalFoodDetail?.suggestedUseKorean || '')
+          }
         });
       }
     }
@@ -2659,16 +2701,15 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-4">
                 {(() => {
                   let rawClaims = product.functionalFoodDetail?.functionalClaimsKorean || [];
-                  if (rawClaims.length === 0 || (rawClaims.length === 1 && rawClaims[0].includes('공식 인정 기능성'))) {
-                    const labelText =
-                      (product as any).koreanLabelText ||
-                      product.functionalFoodDetail?.koreanLabelText ||
-                      '';
-                    if (labelText) {
-                      const parsed = parseImportedKoreanLabel(labelText);
-                      if (parsed.indicationsSummary.length > 0 && !parsed.indicationsSummary[0].includes('공식 인정 기능성')) {
-                        rawClaims = parsed.indicationsSummary;
-                      }
+                  const labelText =
+                    (product as any).koreanLabelText ||
+                    product.functionalFoodDetail?.koreanLabelText ||
+                    pureApiText ||
+                    '';
+                  if (labelText) {
+                    const parsed = parseImportedKoreanLabel(labelText);
+                    if (parsed.indicationsSummary.length > 0 && !parsed.indicationsSummary[0].includes('공식 인정 기능성')) {
+                      rawClaims = parsed.indicationsSummary;
                     }
                   }
 

@@ -2323,14 +2323,84 @@ export function parseImportedNutritionFacts(
       functionalCategory: '몰리브덴',
       saltSearchKeys: ['몰리브덴산나트륨', '몰리브덴'],
       defaultUnit: 'ug'
+    },
+    {
+      matchKeys: ['실리마린', '밀크씨슬', '밀크씨슬추출물', '실리마린(밀크씨슬)', '밀크씨슬(실리마린)'],
+      koreanName: '실리마린',
+      englishInn: 'Silymarin',
+      functionalCategory: '간 건강',
+      saltSearchKeys: ['밀크씨슬추출물분말', '밀크씨슬추출물', '밀크씨슬', '실리마린', '카르두스마리아누스추출물', '카르두스마리아누스'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['루테인', '마리골드꽃추출물', '루테인지아잔틴', '지아잔틴'],
+      koreanName: '루테인',
+      englishInn: 'Lutein',
+      functionalCategory: '눈 건강',
+      saltSearchKeys: ['마리골드꽃추출물', '루테인'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['epa와 dha의 합', 'epa및 dha의 합', 'epa 및 dha의 합', 'epa와 dha', 'epa및 dha', 'epa 및 dha', '오메가3', 'epa', 'dha'],
+      koreanName: 'EPA 및 DHA의 합',
+      englishInn: 'EPA/DHA (Omega-3)',
+      functionalCategory: '혈행 개선',
+      saltSearchKeys: ['정제어유', '어유', '오메가3'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['코엔자임q10', '코엔자임 q10', '코큐텐', '유비데카레논'],
+      koreanName: '코엔자임Q10',
+      englishInn: 'Coenzyme Q10',
+      functionalCategory: '항산화',
+      saltSearchKeys: ['코엔자임q10', '코엔자임 q10'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['진세노사이드', '진세노사이드의 합', '홍삼'],
+      koreanName: '진세노사이드',
+      englishInn: 'Ginsenoside',
+      functionalCategory: '면역력 증진',
+      saltSearchKeys: ['홍삼농축액', '홍삼추출물', '홍삼'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['l-테아닌', 'l테아닌', '테아닌'],
+      koreanName: 'L-테아닌',
+      englishInn: 'L-Theanine',
+      functionalCategory: '긴장 완화',
+      saltSearchKeys: ['l-테아닌', '테아닌'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['로르산', '쏘팔메토열매추출물', '쏘팔메토'],
+      koreanName: '로르산',
+      englishInn: 'Lauric Acid (Saw Palmetto)',
+      functionalCategory: '전립선 건강',
+      saltSearchKeys: ['쏘팔메토열매추출물', '쏘팔메토'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['옥타코사놀', '옥타코사놀의 합'],
+      koreanName: '옥타코사놀',
+      englishInn: 'Octacosanol',
+      functionalCategory: '지구력 증진',
+      saltSearchKeys: ['옥타코사놀'],
+      defaultUnit: 'mg'
     }
   ];
 
   const results: ProductIngredientEntry[] = [];
   const lines = targetText.split(/\r?\n+/).map((l) => l.trim()).filter(Boolean);
   const seenNutrients = new Set<string>();
+  let inFunctionalSpecSection = false;
 
   for (const line of lines) {
+    if (/기능성분\s*또는\s*지표성분|지표성분/i.test(line)) {
+      inFunctionalSpecSection = true;
+      continue;
+    }
+
     const match = line.match(
       /^\s*([가-힣A-Za-z0-9\s·\/\-]+?)\s*[:：]?\s*([0-9]+(?:\.[0-9]+)?)\s*(mg|ug|µg|mcg|g|iu|kcal|억\s*cfu)(?:\s*\(([0-9,]+)\s*(?:iu|IU)\))?(?:\s*([0-9]+)\s*%)?/i
     );
@@ -2345,8 +2415,21 @@ export function parseImportedNutritionFacts(
       meta.matchKeys.some((k) => rowName.toLowerCase().replace(/\s+/g, '') === k.toLowerCase().replace(/\s+/g, ''))
     );
 
-    if (!matchedMeta || seenNutrients.has(matchedMeta.koreanName)) continue;
-    seenNutrients.add(matchedMeta.koreanName);
+    const effectiveMeta =
+      matchedMeta ||
+      (inFunctionalSpecSection
+        ? {
+            matchKeys: [rowName],
+            koreanName: rowName,
+            englishInn: rowName,
+            functionalCategory: '기타 기능성',
+            saltSearchKeys: [rowName],
+            defaultUnit: match[3].toLowerCase().includes('ug') || match[3].toLowerCase().includes('µg') || match[3].toLowerCase().includes('mcg') ? 'ug' : 'mg'
+          }
+        : null);
+
+    if (!effectiveMeta || seenNutrients.has(effectiveMeta.koreanName)) continue;
+    seenNutrients.add(effectiveMeta.koreanName);
 
     const amount = parseFloat(match[2]);
     const rawUnitStr = match[3].toLowerCase();
@@ -2355,7 +2438,7 @@ export function parseImportedNutritionFacts(
         ? 'ug'
         : rawUnitStr.includes('iu')
         ? 'IU'
-        : matchedMeta.defaultUnit;
+        : effectiveMeta.defaultUnit;
 
     const iuMatch = match[4];
     let infoText = `${amount}${unit === 'ug' ? 'μg' : unit}`;
@@ -2364,10 +2447,10 @@ export function parseImportedNutritionFacts(
     }
 
     // 원재료명 텍스트에서 실제 사용된 염(Salt) 또는 원료형태 검색
-    let chemicalForm = matchedMeta.koreanName;
+    let chemicalForm = effectiveMeta.koreanName;
     if (rawMaterialsText) {
       const parts = rawMaterialsText.split(/[,，\+]+/).map((p) => p.trim());
-      for (const saltKey of matchedMeta.saltSearchKeys) {
+      for (const saltKey of effectiveMeta.saltSearchKeys) {
         const found = parts.find((p) => p.includes(saltKey));
         if (found) {
           chemicalForm = found;
@@ -2377,18 +2460,18 @@ export function parseImportedNutritionFacts(
     }
 
     results.push({
-      ingredientId: `ing_imported_${matchedMeta.englishInn.toLowerCase()}_${Date.now()}_${results.length}`,
-      englishInn: matchedMeta.englishInn,
-      koreanName: matchedMeta.koreanName,
-      functionalCategory: matchedMeta.functionalCategory,
+      ingredientId: `ing_imported_${effectiveMeta.englishInn.toLowerCase().replace(/[^a-z0-9]/g, '_')}_${Date.now()}_${results.length}`,
+      englishInn: effectiveMeta.englishInn,
+      koreanName: effectiveMeta.koreanName,
+      functionalCategory: effectiveMeta.functionalCategory,
       chemicalFormName: chemicalForm,
       rawAmount: amount,
       unit: unit as 'mg' | 'ug' | 'IU' | 'CFU' | 'g',
       elementalAmount: amount,
       elementalUnit: unit,
       ingredientInfoText: infoText,
-      formattedSpecification: `${matchedMeta.koreanName} ${infoText}${match[5] ? ` (${match[5]}%)` : ''}`,
-      clinicalSummary: `• ${matchedMeta.koreanName} 기능성 영양성분`,
+      formattedSpecification: `${effectiveMeta.koreanName} ${infoText}${match[5] ? ` (${match[5]}%)` : ''}`,
+      clinicalSummary: `• ${effectiveMeta.koreanName} 기능성 영양성분`,
       isMainActive: true
     });
   }

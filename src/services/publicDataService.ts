@@ -2397,6 +2397,241 @@ export function parseImportedNutritionFacts(
 }
 
 /**
+ * 수입식품 한글표시사항(KORLABEL) 전문 텍스트 구조화 서식 편집기
+ * - 원문의 모든 단어/성분/수치/문장을 100% 보존하면서
+ * - 국내 건기식 API 전문과 동일한 규격(■ 항목명 및 문단 분리)으로 가독성을 높입니다.
+ */
+export function formatImportedLabelText(rawText?: string): string {
+  if (!rawText) return '';
+  const trimmed = rawText.trim();
+  if (!trimmed) return '';
+
+  // 이미 구조화된 경우(예: 국내 건기식/I1250 등의 ■ 서식) 그대로 반환
+  if (trimmed.startsWith('■ 품목제조보고번호') || trimmed.startsWith('■ 제품명')) {
+    return trimmed;
+  }
+
+  const rawLines = trimmed
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0 && l !== '건강기능식품 도안');
+
+  const basicMap = new Map<string, string>();
+  const rawMaterials: string[] = [];
+  const dosageInfo: string[] = [];
+  const precautions: string[] = [];
+  const storageInfo: string[] = [];
+  const functionInfo: string[] = [];
+  const nutritionInfo: string[] = [];
+  const otherInfo: string[] = [];
+
+  let currentSection:
+    | 'BASIC'
+    | 'RAW_MATERIALS'
+    | 'DOSAGE'
+    | 'PRECAUTIONS'
+    | 'STORAGE'
+    | 'FUNCTION'
+    | 'NUTRITION'
+    | 'OTHER' = 'BASIC';
+
+  for (let i = 0; i < rawLines.length; i++) {
+    const line = rawLines[i];
+
+    // 1. 주요 블록 전환 감지
+    if (/^(?:원료명|원재료명|원료명\s*및\s*함량|원재료명\s*및\s*함량)\s*[:：]/i.test(line)) {
+      currentSection = 'RAW_MATERIALS';
+      const val = line.replace(/^(?:원료명|원재료명|원료명\s*및\s*함량|원재료명\s*및\s*함량)\s*[:：]\s*/i, '');
+      if (val) rawMaterials.push(val);
+      continue;
+    }
+    if (/^(?:권장섭취량|섭취량|섭취방법|섭취량\s*및\s*섭취방법|권장섭취량\s*및\s*섭취방법)\s*[:：]/i.test(line)) {
+      currentSection = 'DOSAGE';
+      const val = line.replace(/^(?:권장섭취량|섭취량|섭취방법|섭취량\s*및\s*섭취방법|권장섭취량\s*및\s*섭취방법)\s*[:：]\s*/i, '');
+      if (val) dosageInfo.push(val);
+      continue;
+    }
+    if (/^(?:섭취\s*시\s*주의사항|섭취시\s*주의사항|주의사항)\s*[:：]/i.test(line)) {
+      currentSection = 'PRECAUTIONS';
+      const val = line.replace(/^(?:섭취\s*시\s*주의사항|섭취시\s*주의사항|주의사항)\s*[:：]\s*/i, '');
+      if (val) precautions.push(val);
+      continue;
+    }
+    if (/^보관방법\s*[:：]/i.test(line)) {
+      currentSection = 'STORAGE';
+      const val = line.replace(/^보관방법\s*[:：]\s*/i, '');
+      if (val) storageInfo.push(val);
+      continue;
+    }
+    if (/^(?:기능정보|기능성\s*정보|주된\s*기능성)\s*[:：]/i.test(line)) {
+      currentSection = 'FUNCTION';
+      const val = line.replace(/^(?:기능정보|기능성\s*정보|주된\s*기능성)\s*[:：]\s*/i, '');
+      if (val) functionInfo.push(val);
+      continue;
+    }
+    if (/^(?:영양정보|영양·기능정보|영양성분|영양\s*성분)\s*[:：]/i.test(line)) {
+      currentSection = 'NUTRITION';
+      const val = line.replace(/^(?:영양정보|영양·기능정보|영양성분|영양\s*성분)\s*[:：]\s*/i, '');
+      if (val) nutritionInfo.push(val);
+      continue;
+    }
+
+    // 2. 단독 속성 감지
+    if (/^제품명\s*[:：]/i.test(line)) {
+      basicMap.set('제품명', line.replace(/^제품명\s*[:：]\s*/i, ''));
+      continue;
+    }
+    if (/^(?:수입원|수입업소|수입판매원)\s*[:：]/i.test(line)) {
+      basicMap.set('수입원', line.replace(/^(?:수입원|수입업소|수입판매원)\s*[:：]\s*/i, ''));
+      continue;
+    }
+    if (/^(?:제조사|제조원|제조업소|해외제조원)\s*[:：]/i.test(line)) {
+      basicMap.set('제조사', line.replace(/^(?:제조사|제조원|제조업소|해외제조원)\s*[:：]\s*/i, ''));
+      continue;
+    }
+    if (/^원산지\s*[:：]/i.test(line)) {
+      basicMap.set('원산지', line.replace(/^원산지\s*[:：]\s*/i, ''));
+      continue;
+    }
+    if (/^내용량\s*[:：]/i.test(line)) {
+      basicMap.set('내용량', line.replace(/^내용량\s*[:：]\s*/i, ''));
+      continue;
+    }
+    if (/^(?:소비기한|유통기한)\s*[:：]/i.test(line)) {
+      basicMap.set('소비기한', line.replace(/^(?:소비기한|유통기한)\s*[:：]\s*/i, '').replace(/\s+/g, ' '));
+      continue;
+    }
+    if (/^포장재질\s*[:：]/i.test(line)) {
+      basicMap.set('포장재질', line.replace(/^포장재질\s*[:：]\s*/i, ''));
+      continue;
+    }
+    if (/^소비자상담실\s*[:：]/i.test(line)) {
+      basicMap.set('소비자상담실', line.replace(/^소비자상담실\s*[:：]\s*/i, ''));
+      continue;
+    }
+    if (/^반품\s*및\s*교환처\s*[:：]/i.test(line)) {
+      basicMap.set('반품및교환처', line.replace(/^반품\s*및\s*교환처\s*[:：]\s*/i, ''));
+      continue;
+    }
+
+    // 3. 섹션 내용 수집
+    if (currentSection === 'RAW_MATERIALS') {
+      if (/^캡슐기제\s*[:：]/i.test(line)) {
+        rawMaterials.push(`\n[캡슐기제]\n${line.replace(/^캡슐기제\s*[:：]\s*/i, '')}`);
+      } else {
+        rawMaterials.push(line);
+      }
+    } else if (currentSection === 'DOSAGE') {
+      dosageInfo.push(line);
+    } else if (currentSection === 'PRECAUTIONS') {
+      if (
+        precautions.length > 0 &&
+        /^[가-힣a-zA-Z]/.test(line) &&
+        !line.includes(':') &&
+        (line.endsWith('하십시오') || line.endsWith('바랍니다') || line.endsWith('것') || line.startsWith('장애가'))
+      ) {
+        const last = precautions[precautions.length - 1];
+        if (!last.endsWith('.') && !last.endsWith('것') && !last.endsWith('십시오') && !last.endsWith('시오')) {
+          precautions[precautions.length - 1] = `${last} ${line}`;
+          continue;
+        }
+      }
+      precautions.push(line);
+    } else if (currentSection === 'STORAGE') {
+      storageInfo.push(line);
+    } else if (currentSection === 'FUNCTION') {
+      functionInfo.push(line);
+    } else if (currentSection === 'NUTRITION') {
+      nutritionInfo.push(line);
+    } else {
+      if (line.startsWith('(') && basicMap.has('제품명')) {
+        basicMap.set('제품명', `${basicMap.get('제품명')} ${line}`);
+      } else if (
+        line.includes('경남') ||
+        line.includes('서울') ||
+        line.includes('경기') ||
+        line.includes('번길') ||
+        line.includes('로 ')
+      ) {
+        if (basicMap.has('수입원')) {
+          basicMap.set('수입원', `${basicMap.get('수입원')} (${line})`);
+        } else {
+          otherInfo.push(line);
+        }
+      } else if (!line.includes('건강기능식품')) {
+        otherInfo.push(line);
+      }
+    }
+  }
+
+  // 섹션 조립
+  const sections: string[] = [];
+
+  // 1. 기본 정보 블록
+  const basicLines: string[] = [];
+  if (basicMap.has('제품명')) basicLines.push(`■ 제품명: ${basicMap.get('제품명')}`);
+  if (basicMap.has('수입원')) basicLines.push(`■ 수입원: ${basicMap.get('수입원')}`);
+  if (basicMap.has('제조사')) {
+    const origin = basicMap.get('원산지');
+    const mfg = basicMap.get('제조사');
+    basicLines.push(`■ 제조사: ${mfg}${origin ? ` (원산지: ${origin})` : ''}`);
+  } else if (basicMap.has('원산지')) {
+    basicLines.push(`■ 원산지: ${basicMap.get('원산지')}`);
+  }
+  if (basicMap.has('내용량')) basicLines.push(`■ 내용량: ${basicMap.get('내용량')}`);
+  if (basicMap.has('소비기한')) basicLines.push(`■ 소비기한: ${basicMap.get('소비기한')}`);
+  if (basicMap.has('포장재질')) basicLines.push(`■ 포장재질: ${basicMap.get('포장재질')}`);
+  if (basicLines.length > 0) sections.push(basicLines.join('\n'));
+
+  // 2. 원료명 및 함량 블록
+  if (rawMaterials.length > 0) {
+    const text = rawMaterials
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .replace(/\s*,\s*/g, ', ')
+      .replace(/\s*\[캡슐기제\]\s*/g, '\n[캡슐기제] ');
+    sections.push(`■ 원재료명 및 함량:\n${text.trim()}`);
+  }
+
+  // 3. 섭취량 및 섭취방법 블록
+  if (dosageInfo.length > 0) {
+    sections.push(`■ 섭취량 및 섭취방법:\n${dosageInfo.join('\n')}`);
+  }
+
+  // 4. 섭취 시 주의사항 블록
+  if (precautions.length > 0) {
+    const formattedPrecautions = precautions
+      .map((p) => (p.startsWith('•') || p.startsWith('-') || p.startsWith('※') ? p : `• ${p}`))
+      .join('\n');
+    sections.push(`■ 섭취 시 주의사항:\n${formattedPrecautions}`);
+  }
+
+  // 5. 기능정보 블록
+  if (functionInfo.length > 0) {
+    sections.push(`■ 기능정보:\n${functionInfo.join('\n')}`);
+  }
+
+  // 6. 영양정보 블록
+  if (nutritionInfo.length > 0) {
+    sections.push(`■ 영양정보:\n${nutritionInfo.join('\n')}`);
+  }
+
+  // 7. 보관방법 및 기타 안내 블록
+  const footerLines: string[] = [];
+  if (storageInfo.length > 0) footerLines.push(`■ 보관방법: ${storageInfo.join(' ')}`);
+  if (basicMap.has('소비자상담실')) footerLines.push(`■ 소비자상담실: ${basicMap.get('소비자상담실')}`);
+  if (basicMap.has('반품및교환처')) footerLines.push(`■ 반품 및 교환처: ${basicMap.get('반품및교환처')}`);
+  if (otherInfo.length > 0) {
+    footerLines.push(...otherInfo.map((o) => (o.startsWith('■') || o.startsWith('•') ? o : `■ ${o}`)));
+  }
+  if (footerLines.length > 0) {
+    sections.push(footerLines.join('\n'));
+  }
+
+  return sections.join('\n\n');
+}
+
+/**
  * 수입식품 한글표시사항(KORLABEL) 전문 텍스트 파서
  */
 export function parseImportedKoreanLabel(korlabel?: string): {

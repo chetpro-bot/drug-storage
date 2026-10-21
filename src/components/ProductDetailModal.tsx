@@ -9,7 +9,8 @@ import {
   fetchFoodSafetyC003RawByReportNo,
   fetchFoodSafetyI1250RawByReportNo,
   parseImportedKoreanLabel,
-  parseImportedNutritionFacts
+  parseImportedNutritionFacts,
+  formatImportedLabelText
 } from '../services/publicDataService';
 import { AttachedDocumentsModal } from './AttachedDocumentsModal';
 import {
@@ -1889,6 +1890,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       '';
 
     let fullText = (pureApiText || '').trim() || koreanLabel.trim();
+    if (fullText) {
+      return formatImportedLabelText(fullText);
+    }
+
     if (!fullText) {
       if (product.classification === 'GENERAL_FOOD') {
         const sections: string[] = [];

@@ -59,8 +59,7 @@ import {
   ExternalLink,
   StickyNote,
   Check,
-  Save,
-  ChevronDown
+  Save
 } from 'lucide-react';
 
 interface ProductDetailModalProps {
@@ -872,8 +871,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [isPrecautionsFullModalOpen, setIsPrecautionsFullModalOpen] = useState(false);
   // 식약처 순수 API 원본 전문 (인위적 가공 배제)
   const [pureApiText, setPureApiText] = useState<string | null>(null);
-  // 한글표시사항 전문 보기 펼침 상태
-  const [isKoreanLabelOpen, setIsKoreanLabelOpen] = useState(false);
+  // API 전문 보기 팝업 모달 상태
+  const [isApiFullModalOpen, setIsApiFullModalOpen] = useState(false);
   // 주의사항 전문보기 탭 (실물 라벨 vs 식약처 API)
   const [precautionsModalTab, setPrecautionsModalTab] = useState<'LABEL' | 'API'>('LABEL');
   // 제품 뒷면 사진 OCR 업로드 상태
@@ -1196,12 +1195,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   useEffect(() => {
     if (!isOpen || !product) {
       setPureApiText(null);
-      setIsKoreanLabelOpen(false);
+      setIsApiFullModalOpen(false);
       return;
     }
 
     setPureApiText(product.functionalFoodDetail?.koreanLabelText || (product as any).koreanLabelText || null);
-    setIsKoreanLabelOpen(false);
+    setIsApiFullModalOpen(false);
     let isMounted = true;
 
     const checkAndFetchFullText = async () => {
@@ -1765,6 +1764,55 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   // 제품 대표 썸네일 (뒷면 사진은 제외)
   const thumbnail = getProductThumbnail(product);
+
+  // 수입식품, 국내 건기식, 기타가공품용 순수 API 원문 텍스트
+  const apiFullText = (() => {
+    if (product.classification === 'OTC_DRUG') return '';
+    const koreanLabel =
+      product.functionalFoodDetail?.koreanLabelText ||
+      (product as any).koreanLabelText ||
+      '';
+    const rawMtrl =
+      product.functionalFoodDetail?.rawMaterialsText ||
+      product.functionalFoodDetail?.subIngredientsText ||
+      '';
+    const stdrStnd = product.functionalFoodDetail?.standardSpecificationKorean || '';
+    const precautions =
+      product.functionalFoodDetail?.safetyPrecautionsText ||
+      product.functionalFoodDetail?.safetyPrecautionsKorean?.join('\n') ||
+      '';
+
+    let fullText = (pureApiText || '').trim() || koreanLabel.trim();
+    if (!fullText) {
+      if (product.classification === 'GENERAL_FOOD') {
+        const sections: string[] = [];
+        if (regulatoryCode) sections.push(`■ 품목제조보고번호: ${regulatoryCode}`);
+        sections.push(`■ 제품명: ${product.productName}`);
+        if (product.manufacturer) sections.push(`■ 제조업소: ${product.manufacturer}`);
+        if (product.packagingUnit) sections.push(`■ 식품유형/소비기한: ${product.packagingUnit}`);
+        if (product.functionalFoodDetail?.appearanceKorean) {
+          sections.push(`■ 성상: ${product.functionalFoodDetail.appearanceKorean}`);
+        }
+        if (product.functionalFoodDetail?.suggestedUseKorean) {
+          sections.push(`■ 섭취방법: ${product.functionalFoodDetail.suggestedUseKorean}`);
+        }
+        fullText = sections.join('\n');
+      } else {
+        const sections: string[] = [];
+        if (regulatoryCode) sections.push(`■ 품목제조보고번호: ${regulatoryCode}`);
+        sections.push(`■ 제품명: ${product.productName}`);
+        if (product.manufacturer) sections.push(`■ 제조업소: ${product.manufacturer}`);
+        if (product.functionalFoodDetail?.appearanceKorean) {
+          sections.push(`■ 성상: ${product.functionalFoodDetail.appearanceKorean}`);
+        }
+        if (rawMtrl) sections.push(`\n■ 원재료명:\n${rawMtrl}`);
+        if (stdrStnd) sections.push(`\n■ 기준 및 규격:\n${stdrStnd}`);
+        if (precautions) sections.push(`\n■ 섭취 시 주의사항:\n${precautions}`);
+        fullText = sections.join('\n');
+      }
+    }
+    return fullText.trim();
+  })();
 
   return (
     <div
@@ -2804,78 +2852,21 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </div>
           )}
 
-              {/* 한글표시사항 전문 보기 버튼 (수입식품, 국내 건기식, 기타식품 전용 - 왼쪽 제일 하단 배치) */}
-              {product.classification !== 'OTC_DRUG' && (() => {
-                const koreanLabel =
-                  product.functionalFoodDetail?.koreanLabelText ||
-                  (product as any).koreanLabelText ||
-                  '';
-                const rawMtrl =
-                  product.functionalFoodDetail?.rawMaterialsText ||
-                  product.functionalFoodDetail?.subIngredientsText ||
-                  '';
-                const stdrStnd = product.functionalFoodDetail?.standardSpecificationKorean || '';
-                const precautions =
-                  product.functionalFoodDetail?.safetyPrecautionsText ||
-                  product.functionalFoodDetail?.safetyPrecautionsKorean?.join('\n') ||
-                  '';
-
-                let fullText = (pureApiText || '').trim() || koreanLabel.trim();
-                if (!fullText) {
-                  if (product.classification === 'GENERAL_FOOD') {
-                    const sections: string[] = [];
-                    if (regulatoryCode) sections.push(`■ 품목제조보고번호: ${regulatoryCode}`);
-                    sections.push(`■ 제품명: ${product.productName}`);
-                    if (product.manufacturer) sections.push(`■ 제조업소: ${product.manufacturer}`);
-                    if (product.packagingUnit) sections.push(`■ 식품유형/소비기한: ${product.packagingUnit}`);
-                    if (product.functionalFoodDetail?.appearanceKorean) {
-                      sections.push(`■ 성상: ${product.functionalFoodDetail.appearanceKorean}`);
-                    }
-                    if (product.functionalFoodDetail?.suggestedUseKorean) {
-                      sections.push(`■ 섭취방법: ${product.functionalFoodDetail.suggestedUseKorean}`);
-                    }
-                    fullText = sections.join('\n');
-                  } else {
-                    // 국내 건기식 순수 API 원본 필드 나열 (인위적 가공 배제)
-                    const sections: string[] = [];
-                    if (regulatoryCode) sections.push(`■ 품목제조보고번호: ${regulatoryCode}`);
-                    sections.push(`■ 제품명: ${product.productName}`);
-                    if (product.manufacturer) sections.push(`■ 제조업소: ${product.manufacturer}`);
-                    if (product.functionalFoodDetail?.appearanceKorean) {
-                      sections.push(`■ 성상: ${product.functionalFoodDetail.appearanceKorean}`);
-                    }
-                    if (rawMtrl) sections.push(`\n■ 원재료명:\n${rawMtrl}`);
-                    if (stdrStnd) sections.push(`\n■ 기준 및 규격:\n${stdrStnd}`);
-                    if (precautions) sections.push(`\n■ 섭취 시 주의사항:\n${precautions}`);
-                    fullText = sections.join('\n');
-                  }
-                }
-
-                if (!fullText) return null;
-
-                return (
-                  <div className="pt-3 border-t border-slate-100">
-                    <button
-                      type="button"
-                      onClick={() => setIsKoreanLabelOpen(!isKoreanLabelOpen)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-sky-700 bg-white hover:bg-sky-50 border border-slate-200 hover:border-sky-300 transition-colors shadow-2xs cursor-pointer w-fit"
-                    >
-                      <FileText className="w-3.5 h-3.5 text-sky-600" />
-                      <span>한글표시사항 전문 보기</span>
-                      <ChevronDown
-                        className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
-                          isKoreanLabelOpen ? 'rotate-180' : ''
-                        }`}
-                      />
-                    </button>
-                    {isKoreanLabelOpen && (
-                      <div className="mt-2 text-[11px] text-slate-700 whitespace-pre-wrap leading-relaxed max-h-80 overflow-y-auto bg-[#f8fafc] p-3.5 rounded-xl border border-slate-200 font-mono shadow-2xs">
-                        {fullText}
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
+              {/* API 전문 보기 버튼 (수입식품, 국내 건기식, 기타식품 전용 - 왼쪽 제일 하단 배치) */}
+              {product.classification !== 'OTC_DRUG' && Boolean(apiFullText) && (
+                <div className="pt-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsApiFullModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-sky-700 bg-white hover:bg-sky-50 border border-slate-200 hover:border-sky-300 transition-colors shadow-2xs cursor-pointer w-fit"
+                    title="새 창으로 API 전문 보기"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-sky-600" />
+                    <span>API 전문 보기</span>
+                    <ExternalLink className="w-3 h-3 text-slate-400" />
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* 우측 약사 상담 메모장 (Sticky) */}
@@ -2938,6 +2929,74 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </div>
           </div>
         </div>
+
+        {/* API 전문보기 팝업 모달 (새 창 팝업) */}
+        {isApiFullModalOpen && Boolean(apiFullText) && (
+          <div
+            onClick={() => setIsApiFullModalOpen(false)}
+            className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col border border-slate-200 overflow-hidden"
+            >
+              <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="text-sm font-extrabold text-slate-900 truncate">
+                      API 전문 보기
+                    </h4>
+                    <p className="text-[11px] text-slate-500 truncate">
+                      {product.productName} {regulatoryCode ? `(${regulatoryCode})` : ''}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsApiFullModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-white hover:bg-slate-200 flex items-center justify-center text-slate-500 border border-slate-200 transition-colors cursor-pointer shrink-0"
+                  title="닫기 (ESC)"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* 전문 본문 (스크롤) */}
+              <div className="p-5 overflow-y-auto max-h-[68vh] bg-[#f8fafc] text-xs sm:text-[13px] text-slate-800 whitespace-pre-wrap leading-relaxed font-mono select-text border-b border-slate-200">
+                {apiFullText}
+              </div>
+
+              {/* 하단 바 (복사 및 닫기 버튼) */}
+              <div className="px-5 py-3 bg-white flex items-center justify-between gap-2 shrink-0">
+                <span className="text-[11px] text-slate-400">
+                  {apiFullText.length}자 제공됨
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(apiFullText);
+                      alert('API 전문 내용이 클립보드에 복사되었습니다.');
+                    }}
+                    className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-sky-700 bg-slate-100 hover:bg-sky-50 border border-slate-200 transition-colors cursor-pointer"
+                  >
+                    내용 복사
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsApiFullModalOpen(false)}
+                    className="px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-slate-800 hover:bg-slate-900 transition-colors cursor-pointer"
+                  >
+                    닫기
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* 효능·효과 식약처 전문보기 모달 팝업 */}
         {isIndicationsFullModalOpen && (

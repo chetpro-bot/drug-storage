@@ -7,7 +7,8 @@ import {
   searchPublicDrugDatabase, 
   convertMasterItemToFetchResult, 
   PublicDataFetchResult, 
-  PublicDrugMasterItem 
+  PublicDrugMasterItem,
+  SearchTargetSource 
 } from '../services/publicDataService';
 import { 
   recognizeUniversalDocument,
@@ -100,6 +101,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
   const [indicationsText, setIndicationsText] = useState('');
   const [precautionsText, setPrecautionsText] = useState('');
   const [ingredientBasis, setIngredientBasis] = useState<'PER_UNIT' | 'PER_DAILY'>('PER_UNIT');
+  const [activeSearchSource, setActiveSearchSource] = useState<SearchTargetSource>('AUTO');
 
   // 검수 중인 성분 테이블 목록
   const [verifiedIngredients, setVerifiedIngredients] = useState<ProductIngredientEntry[]>([]);
@@ -602,14 +604,19 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
 
   if (!isOpen) return null;
 
-  // 약학정보원/식약처/식품안전나라 통합 검색 실행 (실시간 다중 결과 검색 지원)
-  const handleFetchPublicData = async () => {
+  // 약학정보원/식약처/식품안전나라/수입식품 통합 검색 실행 (실시간 다중 결과 검색 및 분류별 연쇄 검색 지원)
+  const handleFetchPublicData = async (forcedSource?: SearchTargetSource) => {
     const query = productName.trim() || manufacturer.trim() || regulatoryCode.trim();
     if (!query) {
       alert(
-        '조회할 제품명, 제조사명 또는 품목보고번호를 입력해주세요.\n• 일반의약품: "임팩타민", "비맥스", "베아제"\n• 건강기능식품: "락토핏", "마이타민", "밀크씨슬", "센트룸", "루테인"\n• 일반식품/기타가공품: "아르기닌", "카무트", "글루타치온"'
+        '조회할 제품명, 제조사명 또는 품목보고번호를 입력해주세요.\n• 일반의약품: "임팩타민", "비맥스", "베아제"\n• 국내 건기식: "락토핏", "마이타민", "엠-드림", "셀티아이"\n• 수입 건기식/식품: "지-드림", "솔가", "나우푸드"\n• 일반식품: "아르기닌", "카무트", "글루타치온"'
       );
       return;
+    }
+
+    const currentSource = forcedSource || activeSearchSource;
+    if (forcedSource) {
+      setActiveSearchSource(forcedSource);
     }
 
     setIsLoadingPublicData(true);
@@ -618,14 +625,16 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
       const results = await searchPublicDrugDatabase(productName.trim() || query, {
         classification,
         manufacturer: manufacturer.trim(),
-        regulatoryCode: regulatoryCode.trim()
+        regulatoryCode: regulatoryCode.trim(),
+        targetSource: currentSource
       });
 
       if (results.length === 0) {
         setSearchErrorMsg(
-          `"${query}"에 해당하는 공공데이터(식약처 의약품 / 식품안전나라 I0030·C003·I1250) 등록 제품을 찾을 수 없습니다. 제품명 띄어쓰기를 줄이거나 핵심 단어로 다시 검색해보세요.`
+          `"${query}"에 해당하는 공공데이터 등록 제품을 찾을 수 없습니다. 아래 다른 공공데이터 분류 버튼을 눌러 다시 조회해보세요.`
         );
-        setShowSearchResults(false);
+        setSearchResults([]);
+        setShowSearchResults(true);
       } else {
         setSearchResults(results);
         setShowSearchResults(true);
@@ -1028,17 +1037,26 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                   분류 체계
                 </label>
                 <select
-                  value={classification}
+                  value={activeSearchSource === 'IMPORTED_FOOD' ? 'IMPORTED_FOOD' : classification}
                   onChange={(e) => {
-                    const val = e.target.value as ProductClassification;
-                    setClassification(val);
-                    setIngredientBasis(val === 'HEALTH_FUNCTIONAL_FOOD' ? 'PER_DAILY' : 'PER_UNIT');
+                    const val = e.target.value;
+                    if (val === 'IMPORTED_FOOD') {
+                      setClassification('HEALTH_FUNCTIONAL_FOOD');
+                      setActiveSearchSource('IMPORTED_FOOD');
+                      setIngredientBasis('PER_DAILY');
+                    } else {
+                      const pClass = val as ProductClassification;
+                      setClassification(pClass);
+                      setActiveSearchSource('AUTO');
+                      setIngredientBasis(pClass === 'HEALTH_FUNCTIONAL_FOOD' ? 'PER_DAILY' : 'PER_UNIT');
+                    }
                   }}
                   className="w-full p-2 bg-white border border-slate-300 rounded-lg font-semibold text-xs"
                 >
-                  <option value="OTC_DRUG">일반의약품</option>
-                  <option value="HEALTH_FUNCTIONAL_FOOD">건강기능식품</option>
-                  <option value="GENERAL_FOOD">기타가공품/식품</option>
+                  <option value="OTC_DRUG">일반의약품 (식약처)</option>
+                  <option value="HEALTH_FUNCTIONAL_FOOD">건강기능식품 (국내)</option>
+                  <option value="IMPORTED_FOOD">수입 건기식/식품 (식약처)</option>
+                  <option value="GENERAL_FOOD">기타가공품/일반식품</option>
                 </select>
               </div>
 
@@ -1064,7 +1082,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
               <div className="col-span-2">
                 <button
                   type="button"
-                  onClick={handleFetchPublicData}
+                  onClick={() => handleFetchPublicData()}
                   disabled={isLoadingPublicData}
                   className={`w-full flex items-center justify-center gap-1.5 py-2 px-3 text-white rounded-lg font-bold shadow-xs transition-all active:scale-[0.99] text-xs cursor-pointer h-[38px] ${
                     classification === 'HEALTH_FUNCTIONAL_FOOD'
@@ -1114,10 +1132,10 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
               </div>
             )}
 
-            {/* 공공API 검색 결과 다중 후보 선택 리스트 */}
+            {/* 공공API 검색 결과 다중 후보 선택 리스트 및 분류별 연쇄 검색 패널 */}
             {showSearchResults && (
               <div className="p-4 bg-sky-50/80 border-2 border-sky-300 rounded-xl space-y-3 animate-in fade-in">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-2">
                     <Search className="w-4 h-4 text-sky-700" />
                     <span className="font-bold text-xs text-sky-950">
@@ -1127,88 +1145,219 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowSearchResults(false)}
-                    className="text-xs text-slate-400 hover:text-slate-600 p-1"
+                    className="text-xs text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
                   >
                     <X className="w-4 h-4" />
                   </button>
                 </div>
 
-                <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                  {searchResults.map((item) => {
-                    const isDup = !!findDuplicateProduct(item.productName, item.regulatoryCode);
-                    const classLabel =
-                      item.classification === 'OTC_DRUG'
+                {/* 분류별 빠른 재조회/필터링 탭 바 */}
+                <div className="flex items-center gap-1.5 flex-wrap pt-1 pb-0.5 border-b border-sky-200">
+                  <span className="text-[11px] font-bold text-sky-900 mr-1">분류별 직접 검색:</span>
+                  <button
+                    type="button"
+                    disabled={isLoadingPublicData}
+                    onClick={() => handleFetchPublicData('ALL')}
+                    className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all border cursor-pointer ${
+                      activeSearchSource === 'ALL'
+                        ? 'bg-sky-700 text-white border-sky-800 shadow-xs'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    🌐 4대 공공데이터 전체
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isLoadingPublicData}
+                    onClick={() => handleFetchPublicData('OTC_DRUG')}
+                    className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all border cursor-pointer ${
+                      activeSearchSource === 'OTC_DRUG'
+                        ? 'bg-blue-700 text-white border-blue-800 shadow-xs'
+                        : 'bg-white text-blue-700 border-blue-300 hover:bg-blue-50'
+                    }`}
+                  >
+                    💊 일반의약품
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isLoadingPublicData}
+                    onClick={() => handleFetchPublicData('DOMESTIC_HFF')}
+                    className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all border cursor-pointer ${
+                      activeSearchSource === 'DOMESTIC_HFF'
+                        ? 'bg-emerald-700 text-white border-emerald-800 shadow-xs'
+                        : 'bg-white text-emerald-700 border-emerald-300 hover:bg-emerald-50'
+                    }`}
+                  >
+                    🌿 국내 건기식
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isLoadingPublicData}
+                    onClick={() => handleFetchPublicData('IMPORTED_FOOD')}
+                    className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all border cursor-pointer ${
+                      activeSearchSource === 'IMPORTED_FOOD'
+                        ? 'bg-purple-700 text-white border-purple-800 shadow-xs'
+                        : 'bg-white text-purple-700 border-purple-300 hover:bg-purple-50'
+                    }`}
+                  >
+                    ✈️ 수입 건기식/식품
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isLoadingPublicData}
+                    onClick={() => handleFetchPublicData('GENERAL_FOOD')}
+                    className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all border cursor-pointer ${
+                      activeSearchSource === 'GENERAL_FOOD'
+                        ? 'bg-slate-700 text-white border-slate-800 shadow-xs'
+                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    🍞 일반식품
+                  </button>
+                </div>
+
+                {/* 검색 결과 리스트 */}
+                {searchResults.length > 0 ? (
+                  <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                    {searchResults.map((item) => {
+                      const isDup = !!findDuplicateProduct(item.productName, item.regulatoryCode);
+                      const isImported =
+                        item.id.startsWith('imported_') ||
+                        item.sourceOrigin === '공공데이터포털 수입식품 한글표시사항 API';
+
+                      const classLabel = isImported
+                        ? item.classification === 'HEALTH_FUNCTIONAL_FOOD'
+                          ? '수입 건강기능식품'
+                          : `수입식품(${item.foodTypeCategory || '가공식품'})`
+                        : item.classification === 'OTC_DRUG'
                         ? '일반의약품'
                         : item.classification === 'HEALTH_FUNCTIONAL_FOOD'
                         ? '건강기능식품'
                         : `일반식품(${item.foodTypeCategory || '기타가공품'})`;
-                    const classBadgeColor =
-                      item.classification === 'OTC_DRUG'
+
+                      const classBadgeColor = isImported
+                        ? 'bg-purple-100 text-purple-800 border-purple-200'
+                        : item.classification === 'OTC_DRUG'
                         ? 'bg-blue-100 text-blue-800 border-blue-200'
                         : item.classification === 'HEALTH_FUNCTIONAL_FOOD'
                         ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
                         : 'bg-slate-200 text-slate-800 border-slate-300';
 
-                    return (
-                      <div
-                        key={item.id}
-                        onClick={() => handleSelectDrugMaster(item)}
-                        className={`p-3 rounded-lg border transition-all flex items-center justify-between gap-3 cursor-pointer ${
-                          isDup
-                            ? 'bg-rose-50/70 border-rose-200 hover:border-rose-400'
-                            : 'bg-white border-slate-200 hover:border-sky-500 hover:shadow-xs'
-                        }`}
-                      >
-                        <div className="space-y-1 min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${classBadgeColor}`}>
-                              {classLabel}
-                            </span>
-                            {item.apiSourceBadge && (
-                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                {item.apiSourceBadge}
+                      return (
+                        <div
+                          key={item.id}
+                          onClick={() => handleSelectDrugMaster(item)}
+                          className={`p-3 rounded-lg border transition-all flex items-center justify-between gap-3 cursor-pointer ${
+                            isDup
+                              ? 'bg-rose-50/70 border-rose-200 hover:border-rose-400'
+                              : 'bg-white border-slate-200 hover:border-sky-500 hover:shadow-xs'
+                          }`}
+                        >
+                          <div className="space-y-1 min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${classBadgeColor}`}>
+                                {classLabel}
+                              </span>
+                              {item.apiSourceBadge && (
+                                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${
+                                  isImported
+                                    ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                    : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                }`}>
+                                  {item.apiSourceBadge}
+                                </span>
+                              )}
+                              <span className="font-bold text-xs text-slate-900">{item.productName}</span>
+                              <span className="text-[11px] font-medium text-sky-800 bg-sky-100 px-1.5 py-0.2 rounded">
+                                {item.manufacturer}
+                              </span>
+                              <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-mono">
+                                {item.classification === 'OTC_DRUG' ? '품목기준코드' : '허가/보고번호'}: {item.regulatoryCode}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-600 truncate">
+                              {item.packagingUnit} • {item.dosageInstruction}
+                            </p>
+                            {(item.indivRawMaterialText || item.rawIngredientsText) && (
+                              <p className="text-[10px] text-slate-500 truncate font-mono bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
+                                주원료/성분: {(item.indivRawMaterialText || item.rawIngredientsText).replace(/\n/g, ', ')}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            {isDup ? (
+                              <span className="px-2 py-1 rounded bg-rose-100 text-rose-700 text-[11px] font-bold flex items-center gap-1 border border-rose-200">
+                                <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                                <span>이미 등록됨</span>
+                              </span>
+                            ) : (
+                              <span className="px-2 py-1 rounded bg-emerald-100 text-emerald-800 text-[11px] font-bold flex items-center gap-1 border border-emerald-200">
+                                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>신규 등록 가능</span>
                               </span>
                             )}
-                            <span className="font-bold text-xs text-slate-900">{item.productName}</span>
-                            <span className="text-[11px] font-medium text-sky-800 bg-sky-100 px-1.5 py-0.2 rounded">
-                              {item.manufacturer}
-                            </span>
-                            <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded font-mono">
-                              {item.classification === 'OTC_DRUG' ? '품목기준코드' : '품목제조번호'}: {item.regulatoryCode}
-                            </span>
+                            <button
+                              type="button"
+                              className="px-2.5 py-1 text-xs font-bold rounded-md bg-sky-600 text-white hover:bg-sky-700 cursor-pointer"
+                            >
+                              선택
+                            </button>
                           </div>
-                          <p className="text-[11px] text-slate-600 truncate">
-                            {item.packagingUnit} • {item.dosageInstruction}
-                          </p>
-                          {(item.indivRawMaterialText || item.rawIngredientsText) && (
-                            <p className="text-[10px] text-slate-500 truncate font-mono bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
-                              주원료: {(item.indivRawMaterialText || item.rawIngredientsText).replace(/\n/g, ', ')}
-                            </p>
-                          )}
                         </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="p-4 bg-white rounded-lg border border-slate-200 text-center space-y-2">
+                    <p className="text-xs text-slate-600">
+                      현재 선택된 분류에서 일치하는 제품을 찾지 못했습니다.
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      위의 분류 탭(수입제품, 건기식, 일반식품, 일반의약품 등)을 클릭하여 다른 공공데이터베이스에서 계속 검색해보세요.
+                    </p>
+                  </div>
+                )}
 
-                        <div className="flex items-center gap-2 shrink-0">
-                          {isDup ? (
-                            <span className="px-2 py-1 rounded bg-rose-100 text-rose-700 text-[11px] font-bold flex items-center gap-1 border border-rose-200">
-                              <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
-                              <span>이미 등록됨</span>
-                            </span>
-                          ) : (
-                            <span className="px-2 py-1 rounded bg-emerald-100 text-emerald-800 text-[11px] font-bold flex items-center gap-1 border border-emerald-200">
-                              <Check className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>신규 등록 가능</span>
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            className="px-2.5 py-1 text-xs font-bold rounded-md bg-sky-600 text-white hover:bg-sky-700"
-                          >
-                            선택
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
+                {/* 하단 다른 분류 추가 탐색 안내 바 */}
+                <div className="p-2.5 bg-white/90 border border-sky-200 rounded-lg text-xs flex items-center justify-between gap-2 flex-wrap">
+                  <span className="text-slate-600 font-medium">
+                    💡 찾는 제품이 아니거나 다른 분류의 제품인가요?
+                  </span>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      disabled={isLoadingPublicData}
+                      onClick={() => handleFetchPublicData('OTC_DRUG')}
+                      className="px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 font-bold hover:bg-blue-100 text-[11px] cursor-pointer"
+                    >
+                      💊 일반의약품에서 찾기
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isLoadingPublicData}
+                      onClick={() => handleFetchPublicData('DOMESTIC_HFF')}
+                      className="px-2 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold hover:bg-emerald-100 text-[11px] cursor-pointer"
+                    >
+                      🌿 국내 건기식에서 찾기
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isLoadingPublicData}
+                      onClick={() => handleFetchPublicData('IMPORTED_FOOD')}
+                      className="px-2 py-0.5 rounded bg-purple-50 border border-purple-200 text-purple-700 font-bold hover:bg-purple-100 text-[11px] cursor-pointer"
+                    >
+                      ✈️ 수입 건기식/식품에서 찾기
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isLoadingPublicData}
+                      onClick={() => handleFetchPublicData('GENERAL_FOOD')}
+                      className="px-2 py-0.5 rounded bg-slate-100 border border-slate-300 text-slate-700 font-bold hover:bg-slate-200 text-[11px] cursor-pointer"
+                    >
+                      🍞 일반식품에서 찾기
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

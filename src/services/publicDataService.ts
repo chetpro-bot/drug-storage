@@ -2175,9 +2175,47 @@ export function parseImportedKoreanLabel(korlabel?: string): {
   };
 }
 
+const PHONETIC_LETTER_MAP: Record<string, string> = {
+  '에이': 'A', '비': 'B', '씨': 'C', '디': 'D', '이': 'E', '에프': 'F',
+  '지': 'G', '에이치': 'H', '아이': 'I', '제이': 'J', '케이': 'K', '엘': 'L',
+  '엠': 'M', '엔': 'N', '오': 'O', '피': 'P', '큐': 'Q', '알': 'R',
+  '에스': 'S', '티': 'T', '유': 'U', '브이': 'V', '엑스': 'X', '와이': 'Y', '제트': 'Z'
+};
+
+const PHONETIC_WORD_MAP: Record<string, string> = {
+  '드림': 'DREAM',
+  '키즈': 'KIDS',
+  '골드': 'GOLD',
+  '플러스': 'PLUS',
+  '맥스': 'MAX',
+  '리퀴드': 'LIQUID',
+  '포르테': 'FORTE',
+  '액티브': 'ACTIVE'
+};
+
+export function generateEnglishPhoneticVariants(cleanKw: string): string[] {
+  const variants = new Set<string>();
+  const text = cleanKw.replace(/[\s\-_]/g, '');
+
+  for (const [kor, eng] of Object.entries(PHONETIC_LETTER_MAP)) {
+    if (text.startsWith(kor)) {
+      const rest = text.slice(kor.length);
+      const restEng = PHONETIC_WORD_MAP[rest] || rest;
+      variants.add(`${eng}-${restEng}`);
+      variants.add(`${eng} ${restEng}`);
+      variants.add(`${eng}${restEng}`);
+      variants.add(`${eng}-${rest}`);
+      variants.add(`${eng} ${rest}`);
+      variants.add(`${eng}${rest}`);
+    }
+  }
+
+  return Array.from(variants);
+}
+
 /**
  * 식품의약품안전처 수입식품 제품별 한글표시사항 API 실시간 조회
- * (G-DREAM, 솔가, 나우푸드, 세노비스, 쏜리서치 등 해외 직수입 영양제/건기식/식품 지원)
+ * (G-DREAM, S-DREAM, 솔가, 나우푸드, 세노비스, 쏜리서치 등 해외 직수입 건기식 및 일반가공식품 지원)
  */
 export async function searchFoodSafetyImportedFoods(
   keyword: string,
@@ -2208,6 +2246,7 @@ export async function searchFoodSafetyImportedFoods(
 
   let rows: any[] = [];
   const variants = generateSearchNameVariants(cleanKw);
+  const phonetics = generateEnglishPhoneticVariants(cleanKw);
 
   // 1차: 한글 제품명 변형 검색 (예: '지-드림', '지드림', '솔가')
   for (const v of variants) {
@@ -2218,7 +2257,16 @@ export async function searchFoodSafetyImportedFoods(
     if (rows.length >= 50) break;
   }
 
-  // 2차: 영문 제품명 검색 (만약 한글 검색 결과가 적고 영문 문자가 포함되어 있거나 0건인 경우)
+  // 2차: 영문 발음 변형 검색 (예: '에스드림' -> 'prductNm=S-DREAM', '엠드림' -> 'prductNm=M-DREAM')
+  for (const ph of phonetics) {
+    const foundPh = await fetchItems(`prductNm=${encodeURIComponent(ph)}`);
+    if (foundPh.length > 0) {
+      rows = [...rows, ...foundPh];
+    }
+    if (rows.length >= 50) break;
+  }
+
+  // 3차: 영문 제품명 직접 검색 (영문 문자가 포함되어 있거나 아직 결과가 부족한 경우)
   if (rows.length < 5 && /[a-zA-Z]/.test(cleanKw)) {
     const foundEng = await fetchItems(`prductNm=${encodeURIComponent(cleanKw)}`);
     if (foundEng.length > 0) {
@@ -2226,7 +2274,18 @@ export async function searchFoodSafetyImportedFoods(
     }
   }
 
-  // 3차: 수입업체명 또는 해외제조사명 검색
+  // 4차: 한글표시사항(korlabel) 전문 검색 (예: '대두발효추출엑기스(S-Dream)' 라벨 본문 매칭)
+  if (rows.length === 0) {
+    for (const term of [cleanKw, ...phonetics]) {
+      const foundLabel = await fetchItems(`korlabel=${encodeURIComponent(term)}`);
+      if (foundLabel.length > 0) {
+        rows = [...rows, ...foundLabel];
+        break;
+      }
+    }
+  }
+
+  // 5차: 수입업체명 또는 해외제조사명 검색
   if (rows.length === 0 && cleanMfg) {
     const foundMfg = await fetchItems(`bsnOfcName=${encodeURIComponent(cleanMfg)}`);
     if (foundMfg.length > 0) {
@@ -2247,11 +2306,19 @@ export async function searchFoodSafetyImportedFoods(
 
   // 정밀 일치도 정렬
   if (cleanKw) {
+    const calcScore = (r: any) => {
+      const kor = r.PRDUCT_KOREAN_NM || '';
+      const eng = r.PRDUCT_NM || '';
+      let best = Math.max(calcDrugMatchScore(kor, cleanKw), calcDrugMatchScore(eng, cleanKw));
+      for (const ph of phonetics) {
+        best = Math.max(best, calcDrugMatchScore(eng, ph), calcDrugMatchScore(kor, ph));
+      }
+      return best;
+    };
+
     deduped.sort((a, b) => {
-      const aName = a.PRDUCT_KOREAN_NM || a.PRDUCT_NM || '';
-      const bName = b.PRDUCT_KOREAN_NM || b.PRDUCT_NM || '';
-      const aScore = Math.max(calcDrugMatchScore(aName, cleanKw), calcDrugMatchScore(a.PRDUCT_NM, cleanKw));
-      const bScore = Math.max(calcDrugMatchScore(bName, cleanKw), calcDrugMatchScore(b.PRDUCT_NM, cleanKw));
+      const aScore = calcScore(a);
+      const bScore = calcScore(b);
       if (aScore !== bScore) return bScore - aScore;
 
       // 수입업체/제조사 일치도 보정
@@ -2264,10 +2331,7 @@ export async function searchFoodSafetyImportedFoods(
       return 0;
     });
 
-    const matched = deduped.filter((r) => {
-      const name = r.PRDUCT_KOREAN_NM || r.PRDUCT_NM || '';
-      return calcDrugMatchScore(name, cleanKw) > 0 || (r.PRDUCT_NM && calcDrugMatchScore(r.PRDUCT_NM, cleanKw) > 0);
-    });
+    const matched = deduped.filter((r) => calcScore(r) > 0);
     if (matched.length > 0) {
       deduped = matched;
     }
@@ -2276,7 +2340,10 @@ export async function searchFoodSafetyImportedFoods(
   return deduped.map((row: any) => {
     const korName = (row.PRDUCT_KOREAN_NM || '').trim();
     const engName = (row.PRDUCT_NM || '').trim();
-    const prodName = korName || engName;
+    let prodName = korName || engName;
+    if (korName && engName && !korName.toLowerCase().includes(engName.toLowerCase())) {
+      prodName = `${korName} (${engName})`;
+    }
     const distributorName = (row.BSN_OFC_NAME || '').trim();
     const mfgName = (row.OVSMNFST_NM || '').trim();
     const country = (row.MNF_NTNCD_NM || row.XPORT_NTNCD_NM || '해외').trim();
@@ -2311,7 +2378,7 @@ export async function searchFoodSafetyImportedFoods(
       rawIngredientsText: rawIngr || rawLabel.slice(0, 300),
       dosageInstruction: labelParsed.dosageInstruction,
       indicationsSummary: labelParsed.indicationsSummary,
-      searchKeywords: [prodName, engName, distributorName, mfgName, country].filter(Boolean),
+      searchKeywords: [prodName, korName, engName, distributorName, mfgName, country].filter(Boolean),
       sourceOrigin: '공공데이터포털 수입식품 한글표시사항 API' as PublicDataSourceOrigin,
       apiSourceBadge: badgeLabel,
       precautionsSummary: labelParsed.safetyPrecautionsText ? [labelParsed.safetyPrecautionsText] : ['수입식품 섭취 주의사항 참조'],

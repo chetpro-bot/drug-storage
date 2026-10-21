@@ -2172,7 +2172,7 @@ export function parseImportedKoreanLabel(korlabel?: string): {
 
   // 7. 기능정보
   let indicationsSummary: string[] = [];
-  const claimMatch = korlabel.match(/기능정보\s*[:：]\s*([\s\S]*?)(?:영양정보|기능성분|건강기능식품이력추적|$)/i);
+  const claimMatch = korlabel.match(/(?:기능\s*정보|기능성\s*정보|영양\s*·?\s*기능\s*정보|주된\s*기능성|기능성)\s*[:：]?\s*([\s\S]*?)(?:영양\s*(?:성분|정보)|기능\s*성분|건강기능식품이력추적|이력추적|보관방법|보관상\s*주의사항|원산지|제조사|$)/i);
   if (claimMatch) {
     indicationsSummary = claimMatch[1]
       .split('\n')

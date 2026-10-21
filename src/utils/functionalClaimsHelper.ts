@@ -57,11 +57,11 @@ export function resolveFunctionalClaimsWithNutrients(
       continue;
     }
 
-    // B. '[영양소] 기능성 내용' 형태인 경우
-    const inlineHeader = text.match(/^\s*\[([^\]]+)\]\s*([\s\S]+)$/);
+    // B. '[영양소] 기능성 내용' 또는 '영양소: 기능성 내용' 형태인 경우
+    const inlineHeader = text.match(/^\s*(?:\[([^\]]+)\]|([가-힣A-Za-z0-9\s·]+)[:：])\s*([\s\S]+)$/);
     if (inlineHeader) {
-      const nut = inlineHeader[1].replace(/제품$/, '').trim();
-      const desc = inlineHeader[2]
+      const nut = (inlineHeader[1] || inlineHeader[2] || '').replace(/제품$/, '').trim();
+      const desc = inlineHeader[3]
         .replace(/^[①-⑩\(\)0-9\.\s]+/, '')
         .replace(/[①-⑩]/g, ', ')
         .trim();

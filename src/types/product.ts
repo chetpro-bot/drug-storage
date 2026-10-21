@@ -29,6 +29,7 @@ export interface FunctionalFoodRegulatoryDetail {
   rawMaterialsText?: string;            // 원재료명 전문 (식품안전나라 C003 RAWMTRL_NM)
   appearanceKorean?: string;            // 성상 (식품안전나라 C003 DISPOS)
   safetyPrecautionsText?: string;       // 섭취 시 주의사항 전문 (식품안전나라 C003 IFTKN_ATNT_MATR_CN)
+  koreanLabelText?: string;             // 수입식품 한글표시사항 원문 전문 (KORLABEL)
 }
 
 export interface AttachedDocument {

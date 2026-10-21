@@ -44,8 +44,13 @@ import {
   Upload,
   Loader2,
   Sparkles,
-  Package,
   Baby,
+  Activity,
+  Shield,
+  Heart,
+  Eye,
+  Leaf,
+  CheckCircle2,
   ExternalLink
 } from 'lucide-react';
 
@@ -925,54 +930,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     }
   };
 
-  // 식품안전나라 부원료(기타원료 목록) 조회 로딩 상태
-  const [isFetchingSubIngredients, setIsFetchingSubIngredients] = useState(false);
 
-  // 식품안전나라 C003 원재료명 및 성상 정보 불러오기 핸들러
-  const handleFetchSubIngredients = async () => {
-    if (!product || isFetchingSubIngredients) return;
-    setIsFetchingSubIngredients(true);
-    try {
-      const found = await searchPublicDrugDatabase(product.productName, {
-        classification: 'HEALTH_FUNCTIONAL_FOOD',
-        regulatoryCode: product.functionalFoodDetail?.reportNo
-      });
-      if (found.length > 0) {
-        const converted = await convertMasterItemToFetchResult(found[0]);
-        await updateProduct(product.id, {
-          functionalFoodDetail: {
-            ...(product.functionalFoodDetail || {
-              reportNo: converted.regulatoryCode || '',
-              functionalClaimsKorean: converted.indicationsSummary || [],
-              suggestedUseKorean: converted.dosageInstruction || '',
-              safetyPrecautionsKorean: converted.precautionsSummary || []
-            }),
-            appearanceKorean:
-              converted.appearanceKorean ||
-              product.functionalFoodDetail?.appearanceKorean,
-            rawMaterialsText:
-              converted.rawMaterialsText ||
-              converted.indivRawMaterialText ||
-              product.functionalFoodDetail?.rawMaterialsText,
-            safetyPrecautionsText:
-              converted.safetyPrecautionsText ||
-              product.functionalFoodDetail?.safetyPrecautionsText,
-            standardSpecificationKorean:
-              converted.standardSpecificationText ||
-              product.functionalFoodDetail?.standardSpecificationKorean,
-            subIngredientsText:
-              converted.rawMaterialsText ||
-              converted.etcRawMaterialText ||
-              product.functionalFoodDetail?.subIngredientsText
-          }
-        });
-      }
-    } catch (e) {
-      console.warn('C003 원재료명 조회 실패:', e);
-    } finally {
-      setIsFetchingSubIngredients(false);
-    }
-  };
 
   // 건기식 표준 주의사항 템플릿
   const STANDARD_HFF_PRECAUTIONS_TEMPLATE = `1. 이상사례 발생 시 섭취를 중단하고 전문가와 상담하십시오.
@@ -1261,6 +1219,18 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           if (isMounted) setIsFetchingFullApiText(false);
         }
       } else if (product.classification === 'HEALTH_FUNCTIONAL_FOOD') {
+        const isImported =
+          product.id.startsWith('imported_') ||
+          Boolean(product.functionalFoodDetail?.koreanLabelText) ||
+          (product.functionalFoodDetail?.reportNo && product.functionalFoodDetail.reportNo.startsWith('수입_')) ||
+          product.manufacturer.includes('수입') ||
+          product.manufacturer.includes('캐나다') ||
+          product.manufacturer.includes('미국') ||
+          product.manufacturer.includes('일본');
+
+        // 해외 수입 건기식/식품은 C003 국내 조회를 수행하지 않음
+        if (isImported) return;
+
         const currentPrecautions = product.functionalFoodDetail?.safetyPrecautionsKorean || [];
         const isPlaceholderPrecautions =
           currentPrecautions.length === 0 ||
@@ -1280,10 +1250,16 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         try {
           const found = await searchPublicDrugDatabase(product.productName, {
             classification: 'HEALTH_FUNCTIONAL_FOOD',
-            regulatoryCode: product.functionalFoodDetail?.reportNo
+            regulatoryCode: product.functionalFoodDetail?.reportNo,
+            targetSource: 'DOMESTIC_HFF'
           });
-          if (isMounted && found.length > 0) {
-            const converted = await convertMasterItemToFetchResult(found[0]);
+          const normProdName = product.productName.toLowerCase().replace(/[\s\-_]/g, '');
+          const matchedItem = found.find(it => {
+            const normFound = it.productName.toLowerCase().replace(/[\s\-_]/g, '');
+            return normFound === normProdName || normFound.includes(normProdName);
+          });
+          if (isMounted && matchedItem) {
+            const converted = await convertMasterItemToFetchResult(matchedItem);
             await updateProduct(product.id, {
               functionalFoodDetail: {
                 ...product.functionalFoodDetail,
@@ -1673,7 +1649,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </h2>
             {regulatoryCode && (
               <span className="text-[11px] font-mono text-slate-500 bg-white px-2.5 py-0.5 rounded-md border border-slate-200 shrink-0">
-                {product.classification === 'OTC_DRUG' ? '품목코드' : '품목제조번호'}: {regulatoryCode}
+                {product.classification === 'OTC_DRUG'
+                  ? '품목코드'
+                  : regulatoryCode.startsWith('수입_') || regulatoryCode.length === 7 || product.manufacturer?.includes('수입')
+                  ? '수입/이력추적번호'
+                  : '품목제조번호'}: {regulatoryCode}
               </span>
             )}
             {isFetchingFullApiText && (
@@ -1790,17 +1770,22 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             )}
           </div>
 
-          {/* 건기식 전용 SECTION 1: 성상 (C003 DISPOS) */}
-          {product.classification === 'HEALTH_FUNCTIONAL_FOOD' && (
-            <div className="space-y-1.5">
-              <h3 className="text-xs font-extrabold text-slate-500">성상</h3>
-              <div className="bg-[#f8fafc] border border-slate-200/80 rounded-xl px-4 py-3">
-                <p className="text-sm font-semibold text-slate-800 leading-relaxed font-sans">
-                  {product.functionalFoodDetail?.appearanceKorean || '성상 정보 없음'}
-                </p>
+          {/* 건기식 전용 SECTION 1: 성상 (C003 DISPOS) - 정보가 있을 때만 노출 */}
+          {product.classification === 'HEALTH_FUNCTIONAL_FOOD' &&
+            Boolean(
+              product.functionalFoodDetail?.appearanceKorean &&
+              product.functionalFoodDetail.appearanceKorean.trim() !== '' &&
+              product.functionalFoodDetail.appearanceKorean !== '성상 정보 없음'
+            ) && (
+              <div className="space-y-1.5">
+                <h3 className="text-xs font-extrabold text-slate-500">성상</h3>
+                <div className="bg-[#f8fafc] border border-slate-200/80 rounded-xl px-4 py-3">
+                  <p className="text-sm font-semibold text-slate-800 leading-relaxed font-sans">
+                    {product.functionalFoodDetail?.appearanceKorean}
+                  </p>
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* SECTION: 복용법 / 복용 방법 (직접 수정 및 줄바꿈 지원) */}
           <div className="space-y-1.5">
@@ -2370,68 +2355,63 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           })()}
         </div>
 
-            {/* 식품안전나라 기준 및 규격(STDR_STND) 원문이 있을 경우 토글 제공 */}
-            {product.functionalFoodDetail?.standardSpecificationKorean && (
-              <details className="bg-[#f8fafc] border border-slate-200 rounded-xl px-3.5 py-2.5 mt-2">
-                <summary className="cursor-pointer text-xs font-bold text-slate-700 hover:text-sky-600 flex items-center gap-1.5 select-none">
-                  <FileText className="w-3.5 h-3.5 text-sky-600" />
-                  <span>식약처 기준 및 규격 (표시량 원문) 펼쳐보기</span>
-                </summary>
-                <pre className="mt-2 text-[11px] text-slate-700 whitespace-pre-wrap font-mono leading-relaxed max-h-48 overflow-y-auto bg-white p-3 rounded-lg border border-slate-200">
-                  {product.functionalFoodDetail.standardSpecificationKorean}
-                </pre>
-              </details>
-            )}
+            {/* 한글표시사항 전문 보기 (수입식품 KORLABEL 또는 국내 건기식 규격/원재료 공식 고시문) */}
+            {(() => {
+              const koreanLabel =
+                product.functionalFoodDetail?.koreanLabelText ||
+                (product as any).koreanLabelText ||
+                '';
+              const rawMtrl =
+                product.functionalFoodDetail?.rawMaterialsText ||
+                product.functionalFoodDetail?.subIngredientsText ||
+                '';
+              const stdrStnd = product.functionalFoodDetail?.standardSpecificationKorean || '';
+              const precautions =
+                product.functionalFoodDetail?.safetyPrecautionsText ||
+                product.functionalFoodDetail?.safetyPrecautionsKorean?.join('\n') ||
+                '';
+              const suggested = product.functionalFoodDetail?.suggestedUseKorean || '';
 
-            {/* 식품안전나라 원재료명 (C003 RAWMTRL_NM) 원문 토글 (기존 부원료 대체) */}
-            {product.functionalFoodDetail?.rawMaterialsText ? (
-              <details className="bg-[#f8fafc] border border-slate-200 rounded-xl px-3.5 py-2.5 mt-2">
-                <summary className="cursor-pointer text-xs font-bold text-slate-700 hover:text-sky-600 flex items-center justify-between select-none">
-                  <div className="flex items-center gap-1.5">
-                    <Package className="w-3.5 h-3.5 text-sky-600" />
-                    <span>식약처 신고 원재료명 펼쳐보기</span>
+              let fullText = koreanLabel.trim();
+              if (!fullText) {
+                // 국내 건기식의 경우 정돈된 한글표시사항 형식으로 표시
+                const sections: string[] = [];
+                sections.push(`[제품명] ${product.productName}`);
+                if (product.manufacturer) sections.push(`[제조사/업소명] ${product.manufacturer}`);
+                if (regulatoryCode) sections.push(`[품목제조보고번호] ${regulatoryCode}`);
+                if (product.packagingUnit) sections.push(`[내용량/포장단위] ${product.packagingUnit}`);
+                if (rawMtrl) sections.push(`[원재료명 및 함량]\n${rawMtrl}`);
+                if (stdrStnd) sections.push(`[기준 및 규격 / 영양성분]\n${stdrStnd}`);
+                if (suggested) sections.push(`[섭취량 및 섭취방법]\n${suggested}`);
+                if (precautions) sections.push(`[섭취 시 주의사항]\n${precautions}`);
+                fullText = sections.join('\n\n');
+              }
+
+              if (!fullText) return null;
+
+              return (
+                <details className="bg-[#f8fafc] border border-slate-200 rounded-xl px-3.5 py-2.5 mt-2 group">
+                  <summary className="cursor-pointer text-xs font-bold text-slate-700 hover:text-sky-600 flex items-center justify-between select-none">
+                    <div className="flex items-center gap-1.5">
+                      <FileText className="w-3.5 h-3.5 text-sky-600" />
+                      <span>한글표시사항 전문 보기</span>
+                    </div>
+                    <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                      {koreanLabel ? '식약처 수입식품 라벨' : '식약처 고시 규격'}
+                    </span>
+                  </summary>
+                  <div className="mt-2 text-[11px] text-slate-700 whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto bg-white p-3.5 rounded-lg border border-slate-200 font-sans">
+                    {fullText}
                   </div>
-                  <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
-                    C003 공공데이터
-                  </span>
-                </summary>
-                <div className="mt-2 text-[11px] text-slate-700 whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto bg-white p-3 rounded-lg border border-slate-200 font-sans">
-                  {product.functionalFoodDetail.rawMaterialsText}
-                </div>
-              </details>
-            ) : product.classification === 'HEALTH_FUNCTIONAL_FOOD' ? (
-              <div className="mt-2">
-                <button
-                  type="button"
-                  disabled={isFetchingSubIngredients}
-                  onClick={handleFetchSubIngredients}
-                  className="w-full flex items-center justify-center gap-1.5 py-2 px-3 border border-dashed border-slate-300 rounded-xl text-xs font-medium text-slate-600 hover:text-sky-600 hover:border-sky-300 hover:bg-sky-50/50 transition-colors cursor-pointer"
-                >
-                  {isFetchingSubIngredients ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-600" />
-                      <span>식약처 원재료명 정보 조회 중...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Package className="w-3.5 h-3.5 text-slate-400" />
-                      <span>식약처 신고 원재료명 정보 불러오기</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            ) : null}
+                </details>
+              );
+            })()}
           </div>
 
-          {/* 건기식 전용 SECTION 4: 기능성 (주된 기능성 - PRIMARY_FNCLTY) */}
+          {/* 건기식 전용 SECTION 4: 기능성 */}
           {product.classification === 'HEALTH_FUNCTIONAL_FOOD' && (
             <div className="space-y-1.5">
-              <div className="flex items-center gap-2">
-                <h3 className="text-xs font-extrabold text-slate-500">기능성</h3>
-                <span className="text-[10px] font-bold text-sky-700 bg-sky-50 border border-sky-200 px-1.5 py-0.2 rounded">
-                  주된 기능성
-                </span>
-              </div>
+              <h3 className="text-xs font-extrabold text-slate-500">기능성</h3>
               <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-4">
                 {(() => {
                   const rawClaims = product.functionalFoodDetail?.functionalClaimsKorean || [];
@@ -2439,19 +2419,75 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   if (resolvedList.length === 0) {
                     return <p className="text-xs text-slate-400">등록된 기능성 정보가 없습니다.</p>;
                   }
+
+                  const getNutrientIcon = (nutrient: string) => {
+                    const n = nutrient.toLowerCase();
+                    if (n.includes('프로바이오틱스') || n.includes('유산균')) {
+                      return <Activity className="w-3.5 h-3.5 text-emerald-600 shrink-0" />;
+                    }
+                    if (n.includes('비타민')) {
+                      return <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />;
+                    }
+                    if (
+                      n.includes('칼슘') ||
+                      n.includes('마그네슘') ||
+                      n.includes('아연') ||
+                      n.includes('철') ||
+                      n.includes('셀레늄') ||
+                      n.includes('미네랄')
+                    ) {
+                      return <Shield className="w-3.5 h-3.5 text-sky-600 shrink-0" />;
+                    }
+                    if (n.includes('오메가') || n.includes('혈행') || n.includes('epa')) {
+                      return <Heart className="w-3.5 h-3.5 text-rose-500 shrink-0" />;
+                    }
+                    if (n.includes('루테인') || n.includes('눈') || n.includes('지아잔틴')) {
+                      return <Eye className="w-3.5 h-3.5 text-amber-600 shrink-0" />;
+                    }
+                    if (n.includes('밀크씨슬') || n.includes('간') || n.includes('실리마린')) {
+                      return <Leaf className="w-3.5 h-3.5 text-emerald-600 shrink-0" />;
+                    }
+                    return <CheckCircle2 className="w-3.5 h-3.5 text-sky-600 shrink-0" />;
+                  };
+
+                  const splitDescriptionPoints = (desc: string): string[] => {
+                    if (!desc) return [];
+                    return desc
+                      .split(/(?:[•·\n\r]+|[①-⑩]+|(?<=[가-힣\)])\s*[\.·]\s*(?=[가-힣①-⑩]))/g)
+                      .map((s) => s.replace(/^[0-9\.\-\s]+/, '').trim())
+                      .filter((s) => s.length > 0 && !/^\s*[\-·•]\s*$/.test(s));
+                  };
+
+                  // 영양소별 그룹화
+                  const groupsMap = new Map<string, string[]>();
+                  resolvedList.forEach((item) => {
+                    const existing = groupsMap.get(item.nutrient) || [];
+                    const points = splitDescriptionPoints(item.description);
+                    points.forEach((p) => {
+                      if (!existing.includes(p)) existing.push(p);
+                    });
+                    groupsMap.set(item.nutrient, existing);
+                  });
+
                   return (
-                    <ul className="space-y-2">
-                      {resolvedList.map((item, idx) => (
-                        <li key={idx} className="flex items-start gap-2 text-xs leading-relaxed">
-                          <span className="font-extrabold text-sky-700 bg-sky-100/80 border border-sky-200 px-2 py-0.5 rounded text-[11px] shrink-0">
-                            {item.nutrient}
-                          </span>
-                          <span className="font-medium text-slate-800 pt-0.5">
-                            {item.description}
-                          </span>
-                        </li>
+                    <div className="space-y-3.5">
+                      {Array.from(groupsMap.entries()).map(([nutrient, points], gIdx) => (
+                        <div key={gIdx} className="space-y-1">
+                          <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
+                            {getNutrientIcon(nutrient)}
+                            <span>{nutrient}</span>
+                          </div>
+                          <ul className="pl-3.5 space-y-0.5">
+                            {points.map((pt, pIdx) => (
+                              <li key={pIdx} className="text-xs text-slate-700 flex items-start gap-1.5 leading-relaxed">
+                                <span className="text-slate-400 font-bold shrink-0 select-none">-</span>
+                                <span>{pt}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
                       ))}
-                    </ul>
+                    </div>
                   );
                 })()}
               </div>

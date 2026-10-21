@@ -39,6 +39,7 @@ export interface PublicDataFetchResult {
   foodTypeCategory?: string; // 품목유형 (PRDLST_CDNM / PRDLST_DCNM)
   shelfLifeText?: string; // 소비기한 (POG_DAYCNT)
   storageMethod?: string; // 보관방법 (STORAGE_METHOD)
+  koreanLabelText?: string; // 수입식품 한글표시사항 원문 전문 (KORLABEL)
 }
 
 export interface PublicDrugMasterItem {
@@ -68,6 +69,7 @@ export interface PublicDrugMasterItem {
   appearanceKorean?: string;
   foodTypeCategory?: string;
   shelfLifeText?: string;
+  koreanLabelText?: string;
   parsedIngredientsCache?: ProductIngredientEntry[];
 }
 
@@ -2141,16 +2143,19 @@ export function parseImportedKoreanLabel(korlabel?: string): {
 
   // 6. 섭취시 주의사항
   let safetyPrecautionsText = '';
-  const precMatch = korlabel.match(/섭취\s*시\s*주의사항\s*[:：]\s*([\s\S]*?)(?:보관방법|원산지|제조사|수입원|소비기한|유통기한|$)/i);
+  const precMatch = korlabel.match(/섭취\s*시\s*주의사항\s*[:：]\s*([\s\S]*?)(?:보관방법|원산지|제조사|수입원|소비기한|유통기한|포장재질|$)/i);
   if (precMatch) {
     safetyPrecautionsText = precMatch[1].trim();
   }
 
   // 7. 기능정보
   let indicationsSummary: string[] = [];
-  const claimMatch = korlabel.match(/기능정보\s*[:：]\s*([\s\S]*?)(?:영양정보|기능성분|$)/i);
+  const claimMatch = korlabel.match(/기능정보\s*[:：]\s*([\s\S]*?)(?:영양정보|기능성분|건강기능식품이력추적|$)/i);
   if (claimMatch) {
-    indicationsSummary = claimMatch[1].split(/[•·\n]/).map(s => s.trim()).filter(Boolean);
+    indicationsSummary = claimMatch[1]
+      .split('\n')
+      .map(s => s.trim())
+      .filter(Boolean);
   }
   if (indicationsSummary.length === 0) {
     indicationsSummary = ['수입 건강기능식품 공식 인정 기능성'];
@@ -2356,7 +2361,40 @@ export async function searchFoodSafetyImportedFoods(
     const labelParsed = parseImportedKoreanLabel(rawLabel);
 
     const rawIngr = (row.IRDNT_NM || labelParsed.subIngredientsText || '').trim();
-    const parsedIngredients = rawIngr ? parseRawIngredientString(rawIngr) : [];
+
+    // 1. 프로바이오틱스 및 지표성분 스마트 추출
+    const isProbiotic = (row.ITM_NM || '').includes('프로바이오틱스') || rawLabel.includes('프로바이오틱스');
+    let parsedIngredients: ProductIngredientEntry[] = [];
+
+    if (isProbiotic) {
+      const cfuMatch =
+        rawLabel.match(/(?:프로바이오틱스\s*수|균수|CFU)[^0-9]*([0-9]+(?:\.[0-9]+)?)\s*([억만천]*\s*CFU)/i) ||
+        labelParsed.standardSpecificationText.match(/([0-9]+(?:\.[0-9]+)?)\s*([억만천]*\s*CFU)/i);
+
+      const cfuCount = cfuMatch ? parseFloat(cfuMatch[1]) : 100;
+      const cfuUnitStr = cfuMatch ? cfuMatch[2].trim() : '억 CFU';
+      const cfuText = `${cfuCount}${cfuUnitStr}`;
+
+      parsedIngredients.push({
+        ingredientId: `ing_imported_probiotics_${Date.now()}`,
+        englishInn: 'Probiotics',
+        koreanName: '프로바이오틱스',
+        functionalCategory: '기타',
+        chemicalFormName: '프로바이오틱스 복합 균주',
+        rawAmount: cfuCount,
+        unit: 'CFU',
+        ingredientInfoText: cfuText,
+        elementalUnit: cfuUnitStr,
+        isMainActive: true,
+        clinicalSummary: '• 유산균 증식 및 유해균 억제, 배변활동 원활, 장건강 도움',
+        formattedSpecification: `프로바이오틱스 ${cfuText}`
+      });
+    } else {
+      const standardParsed = rawIngr ? parseRawIngredientString(rawIngr) : [];
+      // 함량 정보가 없는 부형제는 별도 분리하여 임의 10mg 버그 방지
+      const quantified = standardParsed.filter(ing => ing.rawAmount > 0);
+      parsedIngredients = quantified.length > 0 ? quantified : standardParsed;
+    }
 
     const reportNoStr =
       labelParsed.regulatoryCode ||
@@ -2387,6 +2425,7 @@ export async function searchFoodSafetyImportedFoods(
       rawMaterialsText: rawIngr,
       foodTypeCategory: isHealthFood ? '수입 건강기능식품' : (row.ITM_NM || '수입 가공식품'),
       shelfLifeText: row.EXPIRDE_DTM || row.EXPIRDE_END_DTM || '',
+      koreanLabelText: rawLabel,
       parsedIngredientsCache: parsedIngredients
     };
   });
@@ -2915,27 +2954,33 @@ export async function searchPublicDrugDatabase(
 
   // CASE 1: 건강기능식품 (HEALTH_FUNCTIONAL_FOOD) 선택 시
   if (targetClass === 'HEALTH_FUNCTIONAL_FOOD') {
-    // 1순위: 국내 건강기능식품 (식품안전나라 I0030/C003)
-    const hffResults = await searchFoodSafetyFunctionalFoods(keyword, cleanMfg, cleanReg);
+    // 국내 건기식(C003)과 수입 건기식/식품을 동시 병렬 조회하여 가장 정확한 제품 우선 정렬 (예: '지-드림' 검색 시 정확한 수입 건기식 최우선 노출)
+    const [hffResults, importedResults] = await Promise.all([
+      searchFoodSafetyFunctionalFoods(keyword, cleanMfg, cleanReg),
+      searchFoodSafetyImportedFoods(keyword, cleanMfg, cleanReg)
+    ]);
     const localHff = searchLocalDb('HEALTH_FUNCTIONAL_FOOD');
-    const combinedHff = [...hffResults, ...localHff.filter(l => !hffResults.some(r => normalizeDrugSearchText(r.productName) === normalizeDrugSearchText(l.productName)))];
-    if (combinedHff.length > 0) {
-      return combinedHff;
+    const combined = [
+      ...hffResults,
+      ...importedResults,
+      ...localHff.filter(l => !hffResults.some(r => normalizeDrugSearchText(r.productName) === normalizeDrugSearchText(l.productName)))
+    ];
+    if (combined.length > 0) {
+      combined.sort((a, b) => {
+        const aScore = calcDrugMatchScore(a.productName, keyword);
+        const bScore = calcDrugMatchScore(b.productName, keyword);
+        return bScore - aScore;
+      });
+      return combined;
     }
 
-    // 2순위 스마트 보조: 해외 수입 건강기능식품/식품 한글표시사항 실시간 조회 (지-드림, 솔가 등)
-    const importedFallback = await searchFoodSafetyImportedFoods(keyword, cleanMfg, cleanReg);
-    if (importedFallback.length > 0) {
-      return importedFallback;
-    }
-
-    // 3순위 스마트 보조: 국내 일반식품(I1250) 조회
+    // 2순위 스마트 보조: 국내 일반식품(I1250) 조회
     const generalFoodFallback = await searchFoodSafetyGeneralFoods(keyword, cleanMfg, cleanReg);
     if (generalFoodFallback.length > 0) {
       return generalFoodFallback;
     }
 
-    // 4순위 스마트 보조: 일반의약품 확인
+    // 3순위 스마트 보조: 일반의약품 확인
     const otcFallback = await fetchOtcMfds();
     if (otcFallback.length > 0) {
       return otcFallback;
@@ -2946,16 +2991,19 @@ export async function searchPublicDrugDatabase(
 
   // CASE 2: 기타가공품 / 일반식품 (GENERAL_FOOD) 선택 시
   if (targetClass === 'GENERAL_FOOD') {
-    // 1순위: 국내 일반식품(I1250) 실시간 조회
-    const genResults = await searchFoodSafetyGeneralFoods(keyword, cleanMfg, cleanReg);
-    if (genResults.length > 0) {
-      return genResults;
-    }
-
-    // 2순위 스마트 보조: 해외 수입식품/건기식 한글표시사항 실시간 조회
-    const importedFallback = await searchFoodSafetyImportedFoods(keyword, cleanMfg, cleanReg);
-    if (importedFallback.length > 0) {
-      return importedFallback;
+    // 국내 일반식품(I1250)과 수입 가공식품 병렬 조회
+    const [genResults, importedFallback] = await Promise.all([
+      searchFoodSafetyGeneralFoods(keyword, cleanMfg, cleanReg),
+      searchFoodSafetyImportedFoods(keyword, cleanMfg, cleanReg)
+    ]);
+    const combinedGen = [...genResults, ...importedFallback];
+    if (combinedGen.length > 0) {
+      combinedGen.sort((a, b) => {
+        const aScore = calcDrugMatchScore(a.productName, keyword);
+        const bScore = calcDrugMatchScore(b.productName, keyword);
+        return bScore - aScore;
+      });
+      return combinedGen;
     }
 
     // 3순위 스마트 보조: 국내 건강기능식품 확인
@@ -3033,7 +3081,8 @@ export async function convertMasterItemToFetchResult(item: PublicDrugMasterItem)
       rawMaterialsText: item.rawMaterialsText,
       appearanceKorean: item.appearanceKorean,
       foodTypeCategory: item.foodTypeCategory,
-      shelfLifeText: item.shelfLifeText
+      shelfLifeText: item.shelfLifeText,
+      koreanLabelText: item.koreanLabelText
     };
   }
 

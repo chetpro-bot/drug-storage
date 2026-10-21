@@ -874,7 +874,10 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                     productToEdit.functionalFoodDetail?.appearanceKorean,
                   safetyPrecautionsText:
                     publicDataFetched?.safetyPrecautionsText ||
-                    productToEdit.functionalFoodDetail?.safetyPrecautionsText
+                    productToEdit.functionalFoodDetail?.safetyPrecautionsText,
+                  koreanLabelText:
+                    publicDataFetched?.koreanLabelText ||
+                    productToEdit.functionalFoodDetail?.koreanLabelText
                 }
               })
         };
@@ -926,7 +929,8 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                 subIngredientsText: publicDataFetched?.etcRawMaterialText,
                 rawMaterialsText: publicDataFetched?.rawMaterialsText || publicDataFetched?.indivRawMaterialText,
                 appearanceKorean: publicDataFetched?.appearanceKorean,
-                safetyPrecautionsText: publicDataFetched?.safetyPrecautionsText
+                safetyPrecautionsText: publicDataFetched?.safetyPrecautionsText,
+                koreanLabelText: publicDataFetched?.koreanLabelText
               }
             })
       };

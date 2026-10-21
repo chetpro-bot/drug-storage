@@ -59,7 +59,8 @@ import {
   ExternalLink,
   StickyNote,
   Check,
-  Save
+  Save,
+  Highlighter
 } from 'lucide-react';
 
 interface ProductDetailModalProps {
@@ -873,6 +874,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [pureApiText, setPureApiText] = useState<string | null>(null);
   // API 전문 보기 팝업 모달 상태
   const [isApiFullModalOpen, setIsApiFullModalOpen] = useState(false);
+  // 형광펜 선택 상태 (마우스 드래그)
+  const [highlightSelection, setHighlightSelection] = useState<{
+    text: string;
+    position: { top: number; left: number };
+  } | null>(null);
   // 주의사항 전문보기 탭 (실물 라벨 vs 식약처 API)
   const [precautionsModalTab, setPrecautionsModalTab] = useState<'LABEL' | 'API'>('LABEL');
   // 제품 뒷면 사진 OCR 업로드 상태
@@ -932,6 +938,106 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   // 복용 방법(용법) 직접 수정 모드 및 입력값 상태 (줄바꿈 지원)
   const [isEditingDosage, setIsEditingDosage] = useState(false);
   const [editDosageValue, setEditDosageValue] = useState('');
+
+  // API 전문보기 모달 텍스트 마우스 드래그 선택 감지
+  const handleMouseUpInApiModal = () => {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed) {
+      setHighlightSelection(null);
+      return;
+    }
+    const text = selection.toString().trim();
+    if (text.length >= 2) {
+      try {
+        const range = selection.getRangeAt(0);
+        const rect = range.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) {
+          setHighlightSelection({
+            text,
+            position: {
+              top: rect.top - 40,
+              left: rect.left + rect.width / 2
+            }
+          });
+          return;
+        }
+      } catch (err) {
+        // ignore selection error
+      }
+    }
+    setHighlightSelection(null);
+  };
+
+  // 형광펜 추가 및 영구 저장
+  const handleAddApiHighlight = async (textToAdd: string) => {
+    if (!product || !textToAdd) return;
+    const current = product.apiHighlights || [];
+    if (!current.includes(textToAdd)) {
+      const next = [...current, textToAdd];
+      await updateProduct(product.id, { apiHighlights: next });
+    }
+    setHighlightSelection(null);
+    window.getSelection()?.removeAllRanges();
+  };
+
+  // 특정 형광펜 삭제
+  const handleRemoveApiHighlight = async (textToRemove: string) => {
+    if (!product || !textToRemove) return;
+    const current = product.apiHighlights || [];
+    const next = current.filter((t) => t !== textToRemove);
+    await updateProduct(product.id, { apiHighlights: next });
+  };
+
+  // 형광펜 전체 삭제
+  const handleClearAllApiHighlights = async () => {
+    if (!product) return;
+    if (window.confirm('칠해둔 형광펜을 모두 지우시겠습니까?')) {
+      await updateProduct(product.id, { apiHighlights: [] });
+    }
+  };
+
+  // 사용자 지정 형광펜 렌더링 헬퍼
+  const renderApiTextWithCustomHighlights = (
+    text: string,
+    highlights: string[]
+  ) => {
+    if (!text) return null;
+    if (!highlights || highlights.length === 0) return text;
+
+    const valid = Array.from(
+      new Set(highlights.map((h) => h.trim()).filter((h) => h.length >= 2))
+    );
+    if (valid.length === 0) return text;
+    valid.sort((a, b) => b.length - a.length);
+
+    const regex = new RegExp(
+      `(${valid.map((k) => k.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|')})`,
+      'gi'
+    );
+    const parts = text.split(regex);
+
+    return parts.map((part, idx) => {
+      const isHit = valid.some((k) => k.toLowerCase() === part.toLowerCase());
+      if (isHit) {
+        return (
+          <mark
+            key={idx}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (window.confirm(`'${part}' 형광펜을 지우시겠습니까?`)) {
+                handleRemoveApiHighlight(part);
+              }
+            }}
+            className="bg-amber-200/95 text-amber-950 font-bold px-1 py-0.5 rounded shadow-2xs cursor-pointer hover:bg-amber-300 transition-colors"
+            title="클릭 시 형광펜 삭제"
+          >
+            {part}
+          </mark>
+        );
+      }
+      return part;
+    });
+  };
 
   // 복용 방법 직접 수정 시작
   const handleStartEditDosage = () => {
@@ -2933,12 +3039,15 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         {/* API 전문보기 팝업 모달 (새 창 팝업) */}
         {isApiFullModalOpen && Boolean(apiFullText) && (
           <div
-            onClick={() => setIsApiFullModalOpen(false)}
+            onClick={() => {
+              setIsApiFullModalOpen(false);
+              setHighlightSelection(null);
+            }}
             className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col border border-slate-200 overflow-hidden"
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col border border-slate-200 overflow-hidden relative"
             >
               <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0">
                 <div className="flex items-center gap-2 min-w-0">
@@ -2946,8 +3055,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     <FileText className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <h4 className="text-sm font-extrabold text-slate-900 truncate">
-                      API 전문 보기
+                    <h4 className="text-sm font-extrabold text-slate-900 truncate flex items-center gap-2">
+                      <span>API 전문 보기</span>
+                      <span className="text-[10px] font-normal text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                        <Highlighter className="w-3 h-3 text-amber-500" />
+                        <span>텍스트 드래그 시 형광펜</span>
+                      </span>
                     </h4>
                     <p className="text-[11px] text-slate-500 truncate">
                       {product.productName} {regulatoryCode ? `(${regulatoryCode})` : ''}
@@ -2956,7 +3069,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setIsApiFullModalOpen(false)}
+                  onClick={() => {
+                    setIsApiFullModalOpen(false);
+                    setHighlightSelection(null);
+                  }}
                   className="w-8 h-8 rounded-full bg-white hover:bg-slate-200 flex items-center justify-center text-slate-500 border border-slate-200 transition-colors cursor-pointer shrink-0"
                   title="닫기 (ESC)"
                 >
@@ -2965,29 +3081,67 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </div>
 
               {/* 전문 본문 (스크롤) */}
-              <div className="p-5 overflow-y-auto max-h-[68vh] bg-[#f8fafc] text-xs sm:text-[13px] text-slate-800 whitespace-pre-wrap leading-relaxed font-mono select-text border-b border-slate-200">
-                {apiFullText}
+              <div
+                onMouseUp={handleMouseUpInApiModal}
+                className="p-5 overflow-y-auto max-h-[68vh] bg-[#f8fafc] text-xs sm:text-[13px] text-slate-800 whitespace-pre-wrap leading-relaxed font-mono select-text border-b border-slate-200 relative"
+              >
+                {renderApiTextWithCustomHighlights(apiFullText, product.apiHighlights || [])}
               </div>
 
-              {/* 하단 바 (복사 및 닫기 버튼) */}
+              {/* 드래그 선택 시 뜨는 형광펜 칠하기 툴팁 */}
+              {highlightSelection && (
+                <div
+                  style={{
+                    position: 'fixed',
+                    top: `${Math.max(12, highlightSelection.position.top)}px`,
+                    left: `${highlightSelection.position.left}px`,
+                    transform: 'translateX(-50%)',
+                    zIndex: 100
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleAddApiHighlight(highlightSelection.text);
+                  }}
+                  className="bg-slate-900 text-white rounded-full px-3 py-1.5 text-xs font-bold shadow-2xl flex items-center gap-1.5 cursor-pointer hover:bg-amber-600 transition-all scale-105 border border-slate-700 animate-in fade-in"
+                  title="선택한 텍스트에 형광펜 칠하기"
+                >
+                  <Highlighter className="w-3.5 h-3.5 text-amber-300" />
+                  <span>형광펜 칠하기</span>
+                </div>
+              )}
+
+              {/* 하단 바 (형광펜 정보 및 닫기 버튼) */}
               <div className="px-5 py-3 bg-white flex items-center justify-between gap-2 shrink-0">
-                <span className="text-[11px] text-slate-400">
-                  {apiFullText.length}자 제공됨
-                </span>
+                <div className="flex items-center gap-2.5">
+                  <span className="text-[11px] text-slate-400">
+                    {apiFullText.length}자 제공됨
+                  </span>
+                  {(product.apiHighlights || []).length > 0 && (
+                    <span className="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <Highlighter className="w-3 h-3 text-amber-600" />
+                      <span>형광펜 {(product.apiHighlights || []).length}개</span>
+                    </span>
+                  )}
+                </div>
+
                 <div className="flex items-center gap-2">
+                  {(product.apiHighlights || []).length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleClearAllApiHighlights}
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors cursor-pointer"
+                      title="칠해진 모든 형광펜을 삭제합니다"
+                    >
+                      형광펜 전체 지우기
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
-                      navigator.clipboard.writeText(apiFullText);
-                      alert('API 전문 내용이 클립보드에 복사되었습니다.');
+                      setIsApiFullModalOpen(false);
+                      setHighlightSelection(null);
                     }}
-                    className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-sky-700 bg-slate-100 hover:bg-sky-50 border border-slate-200 transition-colors cursor-pointer"
-                  >
-                    내용 복사
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsApiFullModalOpen(false)}
                     className="px-4 py-1.5 rounded-lg text-xs font-bold text-white bg-slate-800 hover:bg-slate-900 transition-colors cursor-pointer"
                   >
                     닫기

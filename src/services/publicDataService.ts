@@ -79,6 +79,46 @@ export const normalizeDrugSearchText = (str?: string): string => {
 };
 
 /**
+ * 제품 검색 시 하이픈/공백 등의 입력 차이로 인한 공공 API 누락을 방지하기 위한 검색어 변형 후보 생성
+ * 예:
+ * - '엠드림' -> ['엠드림', '엠-드림', '엠 드림', '엠드-림', '엠드 림']
+ * - '엠-드림' -> ['엠-드림', '엠드림', '엠 드림']
+ * - '엠-드림 리퀴드' -> ['엠-드림 리퀴드', '엠드림리퀴드', '엠 드림 리퀴드', '엠드림 리퀴드', ...]
+ */
+export function generateSearchNameVariants(rawKeyword: string): string[] {
+  const clean = rawKeyword.trim();
+  if (!clean) return [];
+  const variants = new Set<string>();
+
+  // 1. 원본
+  variants.add(clean);
+
+  // 2. 특수문자/하이픈/공백 제거 버전
+  const noSymbol = clean.replace(/[\s\-_·,\.\(\)\[\]\/~!@#$%^&*+=\\:]/g, '');
+  if (noSymbol) variants.add(noSymbol);
+
+  // 3. 하이픈/공백 상호 치환
+  if (clean.includes('-')) {
+    variants.add(clean.replace(/-/g, ' '));
+    variants.add(clean.replace(/-/g, ''));
+  }
+  if (clean.includes(' ')) {
+    variants.add(clean.replace(/\s+/g, '-'));
+    variants.add(clean.replace(/\s+/g, ''));
+  }
+
+  // 4. 하이픈/공백이 없는 단어(2~5글자)인 경우, 하이픈 및 공백 삽입 변형 생성 (예: '엠드림' -> '엠-드림')
+  if (noSymbol.length >= 2 && noSymbol.length <= 5) {
+    for (let i = 1; i < noSymbol.length; i++) {
+      variants.add(`${noSymbol.slice(0, i)}-${noSymbol.slice(i)}`);
+      variants.add(`${noSymbol.slice(0, i)} ${noSymbol.slice(i)}`);
+    }
+  }
+
+  return Array.from(variants);
+}
+
+/**
  * 띄어쓰기 무시 일치도 평가 (정확일치: 3, 부분일치: 2, 불일치: 0)
  */
 export const calcDrugMatchScore = (targetText?: string, queryText?: string): number => {
@@ -1693,7 +1733,7 @@ export async function searchFoodSafetyFunctionalFoods(
 ): Promise<PublicDrugMasterItem[]> {
   const fetchC003 = async (paramSegment: string): Promise<any[]> => {
     try {
-      const url = `${FOOD_SAFETY_BASE_URL}/${FOOD_SAFETY_API_KEY}/C003/json/1/30/${paramSegment}`;
+      const url = `${FOOD_SAFETY_BASE_URL}/${FOOD_SAFETY_API_KEY}/C003/json/1/100/${paramSegment}`;
       const res = await fetch(url);
       if (!res.ok) return [];
       const data = await res.json();
@@ -1719,12 +1759,10 @@ export async function searchFoodSafetyFunctionalFoods(
     if (/^[0-9]{8,}$/.test(cleanKw.replace(/-/g, ''))) {
       paramCandidates.push(`PRDLST_REPORT_NO=${encodeURIComponent(cleanKw.replace(/-/g, ''))}`);
     } else {
-      // 1순위: 입력 키워드 그대로
-      paramCandidates.push(`PRDLST_NM=${encodeURIComponent(cleanKw)}`);
-      // 2순위: 띄어쓰기 제거 키워드 (만약 공백이 포함되어 있었던 경우)
-      const noSpaceKw = cleanKw.replace(/\s+/g, '');
-      if (noSpaceKw !== cleanKw && noSpaceKw.length >= 2) {
-        paramCandidates.push(`PRDLST_NM=${encodeURIComponent(noSpaceKw)}`);
+      // 1순위: 입력 키워드 및 하이픈/공백 변형(예: '엠드림' -> '엠-드림', '엠드림', '엠 드림') 후보 전체 조회
+      const kwVariants = generateSearchNameVariants(cleanKw);
+      for (const variant of kwVariants) {
+        paramCandidates.push(`PRDLST_NM=${encodeURIComponent(variant)}`);
       }
     }
   }
@@ -1740,7 +1778,7 @@ export async function searchFoodSafetyFunctionalFoods(
     if (found.length > 0) {
       rows = [...rows, ...found];
     }
-    if (rows.length >= 15) break;
+    if (rows.length >= 50) break;
   }
 
   // 2차: [핵심 해결책] 사용자가 띄어쓰기 없이 검색(예: "강황이날튼튼")하여 공공 API DB의 띄어쓰기 제품("강황이 날 튼튼")과 LIKE 일치하지 않는 경우
@@ -1766,7 +1804,7 @@ export async function searchFoodSafetyFunctionalFoods(
       if (foundC003.length > 0) {
         rows = [...rows, ...foundC003];
       }
-      if (rows.length >= 10) break;
+      if (rows.length >= 30) break;
     }
   }
 
@@ -1864,7 +1902,7 @@ export async function searchFoodSafetyGeneralFoods(
 ): Promise<PublicDrugMasterItem[]> {
   const fetchI1250 = async (paramSegment: string): Promise<any[]> => {
     try {
-      const url = `${FOOD_SAFETY_BASE_URL}/${FOOD_SAFETY_API_KEY}/I1250/json/1/30/${paramSegment}`;
+      const url = `${FOOD_SAFETY_BASE_URL}/${FOOD_SAFETY_API_KEY}/I1250/json/1/100/${paramSegment}`;
       const res = await fetch(url);
       if (!res.ok) return [];
       const data = await res.json();
@@ -1889,10 +1927,9 @@ export async function searchFoodSafetyGeneralFoods(
     if (/^[0-9]{8,}$/.test(cleanKw.replace(/-/g, ''))) {
       paramCandidates.push(`PRDLST_REPORT_NO=${encodeURIComponent(cleanKw.replace(/-/g, ''))}`);
     } else {
-      paramCandidates.push(`PRDLST_NM=${encodeURIComponent(cleanKw)}`);
-      const noSpaceKw = cleanKw.replace(/\s+/g, '');
-      if (noSpaceKw !== cleanKw && noSpaceKw.length >= 2) {
-        paramCandidates.push(`PRDLST_NM=${encodeURIComponent(noSpaceKw)}`);
+      const variants = generateSearchNameVariants(cleanKw);
+      for (const v of variants) {
+        paramCandidates.push(`PRDLST_NM=${encodeURIComponent(v)}`);
       }
     }
   }
@@ -1905,7 +1942,7 @@ export async function searchFoodSafetyGeneralFoods(
     const found = await fetchI1250(param);
     if (found.length > 0) {
       rows = [...rows, ...found];
-      if (rows.length >= 15) break;
+      if (rows.length >= 50) break;
     }
   }
 
@@ -1931,7 +1968,7 @@ export async function searchFoodSafetyGeneralFoods(
       if (found.length > 0) {
         rows = [...rows, ...found];
       }
-      if (rows.length >= 10) break;
+      if (rows.length >= 30) break;
     }
   }
 
@@ -2454,7 +2491,7 @@ export async function searchPublicDrugDatabase(
   try {
     const fetchMfds = async (qParam: string): Promise<any[]> => {
       try {
-        const url = `${MFDS_INQ_URL}?serviceKey=${encodeURIComponent(DATA_GO_KR_API_KEY)}&${qParam}&type=json&pageNo=1&numOfRows=30`;
+        const url = `${MFDS_INQ_URL}?serviceKey=${encodeURIComponent(DATA_GO_KR_API_KEY)}&${qParam}&type=json&pageNo=1&numOfRows=100`;
         const res = await fetch(url);
         if (!res.ok) return [];
         const data = await res.json();
@@ -2474,16 +2511,13 @@ export async function searchPublicDrugDatabase(
       const normKw = normalizeDrugSearchText(cleanKw);
       const queryCandidates: string[] = [];
 
-      // 1순위: 입력 키워드 그대로
-      queryCandidates.push(`item_name=${encodeURIComponent(cleanKw)}`);
-
-      // 2순위: 공백 제거 키워드
-      const noSpace = cleanKw.replace(/\s+/g, '');
-      if (noSpace !== cleanKw && noSpace.length >= 2) {
-        queryCandidates.push(`item_name=${encodeURIComponent(noSpace)}`);
+      // 1순위: 입력 키워드 및 하이픈/공백 변형(예: '비맥스' -> '비-맥스' 등)
+      const variants = generateSearchNameVariants(cleanKw);
+      for (const v of variants) {
+        queryCandidates.push(`item_name=${encodeURIComponent(v)}`);
       }
 
-      // 3순위: 띄어쓰기 없는 단어가 공공 API 띄어쓰기 제품과 불일치할 때를 위한 prefix 토큰 질의
+      // 2순위: 띄어쓰기 없는 단어가 공공 API 띄어쓰기 제품과 불일치할 때를 위한 prefix 토큰 질의
       if (normKw.length >= 4) {
         queryCandidates.push(`item_name=${encodeURIComponent(normKw.slice(0, 3))}`);
       } else if (normKw.length >= 2) {
@@ -2498,7 +2532,7 @@ export async function searchPublicDrugDatabase(
         const found = await fetchMfds(qp);
         if (found.length > 0) {
           mfdsItems = [...mfdsItems, ...found];
-          if (mfdsItems.length >= 15) break;
+          if (mfdsItems.length >= 50) break;
         }
       }
     }

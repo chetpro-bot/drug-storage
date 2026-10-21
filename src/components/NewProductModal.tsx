@@ -117,10 +117,10 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
   const [ocrRawText, setOcrRawText] = useState('');
   const [showRawTextEditor, setShowRawTextEditor] = useState(false);
 
-  // 이름 정규화 (공백, 제형 접미사 제거)
+  // 이름 정규화 (공백, 하이픈, 특수기호, 제형 접미사 제거)
   const normalizeNameForDup = (str: string) => {
     return str
-      .replace(/\s+/g, '')
+      .replace(/[\s\-_·,\.\(\)\[\]\/~!@#$%^&*+=\\:]/g, '')
       .replace(/정$|연질캡슐$|경질캡슐$|캡슐$|액$|산$/, '')
       .toLowerCase();
   };
@@ -140,25 +140,25 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
       // 수정 모드일 때 자기 자신은 중복 대상에서 제외
       if (productToEdit && p.id === productToEdit.id) return false;
 
-      // 1. 규격 허가코드 / 품목기준코드 일치 (가장 엄격)
-      if (trimmedCode) {
-        const pCode = p.otcDetail?.itemSeq || p.functionalFoodDetail?.reportNo;
-        if (pCode && pCode.trim() === trimmedCode) return true;
-      }
-      // 2. 완벽한 제품명 일치
-      if (p.productName.trim().toLowerCase() === trimmedName.toLowerCase()) return true;
+      const pCode = (p.otcDetail?.itemSeq || p.functionalFoodDetail?.reportNo || '').trim();
 
-      // 3. 정규화 이름 일치 (예: '임팩타민시그' vs '임팩타민시그니처' 등)
-      if (normTarget.length >= 3) {
+      // 1. 둘 다 공식 허가/신고 번호(품목기준코드 또는 품목제조보고번호)가 존재하는 경우:
+      // -> 코드가 같으면 동일 제품(중복), 코드가 다르면 식약처에서 별도 인허가받은 서로 다른 제품이므로 절대 중복이 아님!
+      if (trimmedCode && pCode) {
+        return trimmedCode === pCode;
+      }
+
+      // 2. 완벽한 제품명 일치
+      if (trimmedName && p.productName.trim().toLowerCase() === trimmedName.toLowerCase()) return true;
+
+      // 3. 정규화 이름 일치 (공백, 하이픈, 제형 접미사 제거 후 완전 일치)
+      // 주의: includes(부분포함)는 '엠-드림 리퀴드' vs '엠-드림 리퀴드 키즈', '아로나민골드' vs '아로나민골드 프리미엄' 등
+      // 라인업 파생 제품을 오인 차단하므로 사용하지 않고 완전 일치(===)만 비교합니다.
+      if (normTarget && normTarget.length >= 2) {
         const normP = normalizeNameForDup(p.productName);
         if (normP === normTarget) return true;
-        // 4글자 이상일 때 한쪽이 다른 쪽을 포함하는 경우
-        if (normTarget.length >= 4 && normP.length >= 4) {
-          if (normP.includes(normTarget) || normTarget.includes(normP)) {
-            return true;
-          }
-        }
       }
+
       return false;
     });
   };

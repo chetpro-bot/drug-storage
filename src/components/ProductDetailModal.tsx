@@ -4,6 +4,7 @@ import { ProductIngredientEntry } from '../types/ingredient';
 import { useProductStore } from '../stores/useProductStore';
 import {
   fetchMfdsDrugDetail,
+  fetchMfdsDrugRawByItemSeq,
   searchPublicDrugDatabase,
   convertMasterItemToFetchResult,
   fetchFoodSafetyC003RawByReportNo,
@@ -897,6 +898,18 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   // 약사 상담 노하우 및 복약지도 메모장 상태
   const [pharmacistNotes, setPharmacistNotes] = useState(product?.pharmacistNotes || '');
   const [memoSaveStatus, setMemoSaveStatus] = useState<'IDLE' | 'SAVING' | 'SAVED'>('IDLE');
+  const [kpicCodeMap, setKpicCodeMap] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    fetch('/kpic_code_map.json')
+      .then((r) => (r.ok ? r.json() : {}))
+      .then((data) => {
+        if (data && typeof data === 'object') {
+          setKpicCodeMap(data as Record<string, string>);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     setPharmacistNotes(product?.pharmacistNotes || '');
@@ -1494,8 +1507,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           currentIndications.length === 0 ||
           (currentIndications.length === 1 && currentIndications[0].length < 45);
 
-        if (!isPlaceholderPrecautions && !isShortIndications) return;
-
         setIsFetchingFullApiText(true);
         try {
           let itemSeq = product.otcDetail?.itemSeq || '';
@@ -1510,40 +1521,52 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           }
 
           if (itemSeq) {
-            const detail = await fetchMfdsDrugDetail(itemSeq);
-            if (isMounted && detail) {
-              const newIndications =
-                detail.indicationsSummary.length > 0 &&
-                !detail.indicationsSummary[0].includes('첨부문서 참조')
-                  ? detail.indicationsSummary
-                  : currentIndications;
-              const newPrecautions =
-                detail.precautionsSummary.length > 0 &&
-                !detail.precautionsSummary[0].includes('첨부문서 참조')
-                  ? detail.precautionsSummary
-                  : currentPrecautions;
+            // 1. 가공하지 않은 식약처 API(getDrugPrdtPrmsnDtlInq08) 원본 전문 조회
+            const rawMfds = await fetchMfdsDrugRawByItemSeq(itemSeq);
+            if (isMounted && rawMfds) {
+              const rawLines = Object.entries(rawMfds).map(
+                ([key, val]) => `[${key}]\n${val === null || val === undefined ? '' : String(val)}`
+              );
+              setPureApiText(rawLines.join('\n\n'));
+            }
 
-              if (
-                newPrecautions !== currentPrecautions ||
-                newIndications !== currentIndications
-              ) {
-                await updateProduct(product.id, {
-                  otcDetail: {
-                    ...product.otcDetail,
-                    itemSeq,
-                    permitDate: product.otcDetail?.permitDate || new Date().toISOString().slice(0, 10),
-                    indicationsKorean: newIndications,
-                    dosageAndAdministrationKorean:
-                      detail.dosageInstruction && !detail.dosageInstruction.includes('첨부문서 참조')
-                        ? detail.dosageInstruction
-                        : product.otcDetail?.dosageAndAdministrationKorean || '',
-                    storageMethodKorean:
-                      detail.storageMethod ||
-                      product.otcDetail?.storageMethodKorean ||
-                      '기밀용기, 실온(1~30℃)보관',
-                    precautionsSummaryKorean: newPrecautions
-                  }
-                });
+            // 2. 요약본이 비어있는 경우에만 상세 정보 자동 보완
+            if (isPlaceholderPrecautions || isShortIndications) {
+              const detail = await fetchMfdsDrugDetail(itemSeq);
+              if (isMounted && detail) {
+                const newIndications =
+                  detail.indicationsSummary.length > 0 &&
+                  !detail.indicationsSummary[0].includes('첨부문서 참조')
+                    ? detail.indicationsSummary
+                    : currentIndications;
+                const newPrecautions =
+                  detail.precautionsSummary.length > 0 &&
+                  !detail.precautionsSummary[0].includes('첨부문서 참조')
+                    ? detail.precautionsSummary
+                    : currentPrecautions;
+
+                if (
+                  newPrecautions !== currentPrecautions ||
+                  newIndications !== currentIndications
+                ) {
+                  await updateProduct(product.id, {
+                    otcDetail: {
+                      ...product.otcDetail,
+                      itemSeq,
+                      permitDate: product.otcDetail?.permitDate || new Date().toISOString().slice(0, 10),
+                      indicationsKorean: newIndications,
+                      dosageAndAdministrationKorean:
+                        detail.dosageInstruction && !detail.dosageInstruction.includes('첨부문서 참조')
+                          ? detail.dosageInstruction
+                          : product.otcDetail?.dosageAndAdministrationKorean || '',
+                      storageMethodKorean:
+                        detail.storageMethod ||
+                        product.otcDetail?.storageMethodKorean ||
+                        '기밀용기, 실온(1~30℃)보관',
+                      precautionsSummaryKorean: newPrecautions
+                    }
+                  });
+                }
               }
             }
           }
@@ -2130,9 +2153,29 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   // 제품 대표 썸네일 (뒷면 사진은 제외)
   const thumbnail = getProductThumbnail(product);
 
-  // 수입식품, 국내 건기식, 기타가공품용 순수 API 원문 텍스트
+  // 약학정보원(KPIC) 해당 제품 페이지 URL (고유 drug_code가 있으면 상세페이지 직행, 없으면 제품명 검색 결과 페이지)
+  const resolvedKpaicCode =
+    product.otcDetail?.kpaicCode ||
+    (regulatoryCode ? kpicCodeMap[regulatoryCode] : '') ||
+    '';
+  const cleanSearchName = product.productName
+    .replace(/\([^)]*\)/g, '')
+    .replace(/\d+(?:mg|정|캡슐|포|개월).*$/i, '')
+    .trim() || product.productName.trim();
+  const kpicDrugPageUrl = resolvedKpaicCode
+    ? `https://www.health.kr/drug/${encodeURIComponent(resolvedKpaicCode)}`
+    : `https://www.health.kr/searchResult?search_word=${encodeURIComponent(cleanSearchName)}&search_flag=all`;
+
+  // 일반의약품, 수입식품, 국내 건기식, 기타가공품용 순수 API 원문 텍스트
   const apiFullText = (() => {
-    if (product.classification === 'OTC_DRUG') return '';
+    if (product.classification === 'OTC_DRUG') {
+      if (pureApiText && pureApiText.trim()) {
+        return pureApiText.trim();
+      }
+      return isFetchingFullApiText
+        ? '식약처 공공데이터포털(DrugPrdtPrmsnInfoService08) 원본 API 데이터를 불러오는 중입니다...'
+        : '식약처 API 원본 데이터를 불러올 수 없습니다.';
+    }
     const koreanLabel =
       product.functionalFoodDetail?.koreanLabelText ||
       (product as any).koreanLabelText ||
@@ -3256,6 +3299,33 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
             {/* 우측 약사 상담 메모장 (Sticky) */}
             <div className="lg:col-span-5 xl:col-span-5 lg:sticky lg:top-0 space-y-3">
+              {/* 일반의약품 전용: 우측 상단 [API 전문 보기] 및 [약학정보원 페이지] 버튼 */}
+              {product.classification === 'OTC_DRUG' && (
+                <div className="flex items-center gap-2 pt-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setIsApiFullModalOpen(true)}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-sky-700 bg-white hover:bg-sky-50 border border-slate-200 hover:border-sky-300 transition-colors shadow-2xs cursor-pointer"
+                    title="가공하지 않은 식약처 API 원문 보기"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-sky-600" />
+                    <span>API 전문 보기</span>
+                    <ExternalLink className="w-3 h-3 text-slate-400" />
+                  </button>
+
+                  <a
+                    href={kpicDrugPageUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50/70 hover:bg-emerald-100/80 border border-emerald-200 hover:border-emerald-300 transition-colors shadow-2xs cursor-pointer"
+                    title="새 창에서 약학정보원(KPIC) 해당 제품 상세 페이지 열기"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>약학정보원 페이지</span>
+                  </a>
+                </div>
+              )}
+
               <div className="bg-white rounded-2xl border border-amber-200/90 shadow-2xs p-4 sm:p-5 flex flex-col">
                 {/* 메모장 헤더 */}
                 <div className="flex items-center justify-between gap-2 pb-3 border-b border-slate-100">

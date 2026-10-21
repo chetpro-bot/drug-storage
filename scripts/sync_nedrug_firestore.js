@@ -121,14 +121,50 @@ async function fetchNedrugRows(itemSeq) {
   return rows.length > 0 ? rows : null;
 }
 
+async function fetchKpicDrugCode(productName, itemSeq) {
+  const cleanName = String(productName || '')
+    .replace(/\([^)]*\)/g, '')
+    .replace(/\d+(?:mg|정|캡슐|포|개월).*$/i, '')
+    .trim();
+  const prefix4 = cleanName.length >= 4 ? cleanName.slice(0, 4) : '';
+  const candidates = [...new Set([productName, cleanName, prefix4].filter(Boolean))];
+  for (const q of candidates) {
+    try {
+      const url = `https://www.health.kr/api/searchDrug?drugName=${encodeURIComponent(q)}&total=1&page=1&limit=20`;
+      const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+      if (!res.ok) continue;
+      const data = await res.json();
+      const items = Array.isArray(data?.items) ? data.items : [];
+      if (items.length === 0) continue;
+      const exactBySeq = itemSeq ? items.find(it => String(it.kfda_code || '').trim() === String(itemSeq).trim()) : null;
+      if (exactBySeq && exactBySeq.drug_code) return String(exactBySeq.drug_code).trim();
+      const exactByName = items.find(it => String(it.drug_name || '').trim() === cleanName);
+      if (exactByName && exactByName.drug_code) return String(exactByName.drug_code).trim();
+      if (items[0]?.drug_code) return String(items[0].drug_code).trim();
+    } catch {
+      // ignore
+    }
+  }
+  return null;
+}
+
 async function main() {
   const cachePath = path.join(rootDir, 'public', 'nedrug_cache.json');
+  const kpicMapPath = path.join(rootDir, 'public', 'kpic_code_map.json');
   let staticCache = {};
+  let kpicCodeMap = {};
   if (fs.existsSync(cachePath)) {
     try {
       staticCache = JSON.parse(fs.readFileSync(cachePath, 'utf-8'));
     } catch {
       staticCache = {};
+    }
+  }
+  if (fs.existsSync(kpicMapPath)) {
+    try {
+      kpicCodeMap = JSON.parse(fs.readFileSync(kpicMapPath, 'utf-8'));
+    } catch {
+      kpicCodeMap = {};
     }
   }
 
@@ -182,15 +218,32 @@ async function main() {
               return ing;
             });
 
-            if (updatedCount > 0) {
+            // 약학정보원(KPIC) 상세 페이지용 drug_code (kpaicCode) 매핑
+            let kpaicCode = product.otcDetail?.kpaicCode || kpicCodeMap[itemSeq] || null;
+            if (!kpaicCode) {
+              kpaicCode = await fetchKpicDrugCode(product.productName, itemSeq);
+              if (kpaicCode) {
+                kpicCodeMap[itemSeq] = kpaicCode;
+              }
+            } else {
+              kpicCodeMap[itemSeq] = kpaicCode;
+            }
+
+            const needsKpaicUpdate = Boolean(kpaicCode && product.otcDetail?.kpaicCode !== kpaicCode);
+
+            if (updatedCount > 0 || needsKpaicUpdate) {
               await setDoc(doc(db, 'products', product.id), {
                 ...product,
                 ingredients: newIngredients,
+                otcDetail: {
+                  ...product.otcDetail,
+                  ...(kpaicCode ? { kpaicCode } : {}),
+                },
                 updatedAt: new Date().toISOString(),
               }, { merge: true });
-              console.log(`✅ Firestore 성분정보(ingrInfo) 원문 반영 완료: [${itemSeq}] ${product.productName} (${updatedCount}개 성분)`);
+              console.log(`✅ Firestore 업데이트 완료: [${itemSeq}] ${product.productName} (성분 ${updatedCount}개, KPIC: ${kpaicCode || '-'})`);
             } else {
-              console.log(`✔ 이미 최신 상태: [${itemSeq}] ${product.productName}`);
+              console.log(`✔ 이미 최신 상태: [${itemSeq}] ${product.productName} (KPIC: ${kpaicCode || '-'})`);
             }
           }
         }
@@ -215,7 +268,8 @@ async function main() {
   }
 
   fs.writeFileSync(cachePath, JSON.stringify(staticCache, null, 2) + '\n', 'utf-8');
-  console.log(`🎉 public/nedrug_cache.json 저장 완료 (${Object.keys(staticCache).length}개 품목)`);
+  fs.writeFileSync(kpicMapPath, JSON.stringify(kpicCodeMap, null, 2) + '\n', 'utf-8');
+  console.log(`🎉 public/nedrug_cache.json (${Object.keys(staticCache).length}개) 및 public/kpic_code_map.json (${Object.keys(kpicCodeMap).length}개) 저장 완료`);
   process.exit(0);
 }
 

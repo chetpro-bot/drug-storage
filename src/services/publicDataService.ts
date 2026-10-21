@@ -1747,6 +1747,25 @@ export function parseFunctionalFoodRecordToIngredients(
 }
 
 /**
+ * 품목기준코드(itemSeq)로 식약처 의약품 제품허가 상세정보(getDrugPrdtPrmsnDtlInq08) 원본 데이터를 가공 없이 그대로 조회
+ */
+export async function fetchMfdsDrugRawByItemSeq(itemSeq: string): Promise<Record<string, any> | null> {
+  const cleanSeq = (itemSeq || '').trim();
+  if (!cleanSeq) return null;
+  try {
+    const url = `${MFDS_DTL_URL}?serviceKey=${encodeURIComponent(DATA_GO_KR_API_KEY)}&item_seq=${encodeURIComponent(cleanSeq)}&type=json`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const item = data?.body?.items?.[0];
+    return item || null;
+  } catch (e) {
+    console.warn('식약처 의약품 원본 데이터 단건 조회 실패:', e);
+    return null;
+  }
+}
+
+/**
  * 품목제조보고번호로 식품안전나라 C003 원본 행 데이터 단건 직접 조회 (인위적 가공 없는 순수 API 원문)
  */
 export async function fetchFoodSafetyC003RawByReportNo(reportNo: string): Promise<any | null> {

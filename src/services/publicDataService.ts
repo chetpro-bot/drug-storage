@@ -2097,6 +2097,284 @@ export async function searchFoodSafetyGeneralFoods(
 }
 
 /**
+ * 수입식품 한글표시사항(KORLABEL) 영양정보 / 기능성분 또는 지표성분 표 텍스트 파서
+ */
+export function parseImportedNutritionFacts(
+  korlabel?: string,
+  rawMaterialsText?: string
+): ProductIngredientEntry[] {
+  if (!korlabel) return [];
+
+  const blockMatch = korlabel.match(
+    /(?:기능성분\s*또는\s*지표성분|영양정보)[\s\S]*?(?:건강기능식품이력추적|이력추적|보관방법|소비기한|유통기한|포장재질|$)/i
+  );
+  const targetText = blockMatch ? blockMatch[0] : korlabel;
+
+  const nutrientsMeta: {
+    matchKeys: string[];
+    koreanName: string;
+    englishInn: string;
+    functionalCategory: string;
+    saltSearchKeys: string[];
+    defaultUnit: string;
+  }[] = [
+    {
+      matchKeys: ['칼슘'],
+      koreanName: '칼슘',
+      englishInn: 'Calcium',
+      functionalCategory: '칼슘',
+      saltSearchKeys: ['해조칼슘', '탄산칼슘', '구연산칼슘', '젖산칼슘', '인산칼슘', '칼슘'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['마그네슘'],
+      koreanName: '마그네슘',
+      englishInn: 'Magnesium',
+      functionalCategory: '마그네슘',
+      saltSearchKeys: ['산화마그네슘', '구연산마그네슘', '글루콘산마그네슘', '젖산마그네슘', '마그네슘'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['아연'],
+      koreanName: '아연',
+      englishInn: 'Zinc',
+      functionalCategory: '아연',
+      saltSearchKeys: ['글루콘산아연', '산화아연', '황산아연', '아연'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['구리'],
+      koreanName: '구리',
+      englishInn: 'Copper',
+      functionalCategory: '구리',
+      saltSearchKeys: ['글루콘산구리', '황산구리', '구리'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['요오드', '아이오딘'],
+      koreanName: '요오드',
+      englishInn: 'Iodine',
+      functionalCategory: '요오드',
+      saltSearchKeys: ['요오드화칼륨', '아이오딘화칼륨', '요오드', '아이오딘'],
+      defaultUnit: 'ug'
+    },
+    {
+      matchKeys: ['비타민D', '비타민 D', '비타민D3', '비타민 D3'],
+      koreanName: '비타민 D3',
+      englishInn: 'Cholecalciferol',
+      functionalCategory: '비타민D',
+      saltSearchKeys: ['비타민D3혼합제제', '비타민D3', '비타민D', '콜레칼시페롤'],
+      defaultUnit: 'ug'
+    },
+    {
+      matchKeys: ['셀레늄', '셀렌'],
+      koreanName: '셀레늄',
+      englishInn: 'Selenium',
+      functionalCategory: '셀레늄',
+      saltSearchKeys: ['아셀렌산나트륨', '셀레늄', '셀렌'],
+      defaultUnit: 'ug'
+    },
+    {
+      matchKeys: ['크롬'],
+      koreanName: '크롬',
+      englishInn: 'Chromium',
+      functionalCategory: '크롬',
+      saltSearchKeys: ['염화크롬', '크롬'],
+      defaultUnit: 'ug'
+    },
+    {
+      matchKeys: ['망간'],
+      koreanName: '망간',
+      englishInn: 'Manganese',
+      functionalCategory: '망간',
+      saltSearchKeys: ['황산망간', '글루콘산망간', '망간'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['비타민K', '비타민 K', '비타민K1', '비타민 K1', '비타민K2', '비타민 K2'],
+      koreanName: '비타민 K1',
+      englishInn: 'Phytomenadione',
+      functionalCategory: '비타민K',
+      saltSearchKeys: ['비타민K1혼합제제', '비타민K1', '비타민K', '피토나디온', '메나퀴논'],
+      defaultUnit: 'ug'
+    },
+    {
+      matchKeys: ['비타민A', '비타민 A'],
+      koreanName: '비타민 A',
+      englishInn: 'Retinol',
+      functionalCategory: '비타민A',
+      saltSearchKeys: ['비타민A혼합제제', '레티놀', '베타카로틴'],
+      defaultUnit: 'ug'
+    },
+    {
+      matchKeys: ['비타민B1', '비타민 B1', '티아민'],
+      koreanName: '비타민 B1',
+      englishInn: 'Thiamine',
+      functionalCategory: '비타민B1',
+      saltSearchKeys: ['티아민염산염', '티아민질산염', '비타민B1'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['비타민B2', '비타민 B2', '리보플라빈'],
+      koreanName: '비타민 B2',
+      englishInn: 'Riboflavin',
+      functionalCategory: '비타민B2',
+      saltSearchKeys: ['리보플라빈', '비타민B2'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['비타민B6', '비타민 B6', '피리독신'],
+      koreanName: '비타민 B6',
+      englishInn: 'Pyridoxine',
+      functionalCategory: '비타민B6',
+      saltSearchKeys: ['피리독신염산염', '비타민B6'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['비타민B12', '비타민 B12', '코발라민'],
+      koreanName: '비타민 B12',
+      englishInn: 'Cyanocobalamin',
+      functionalCategory: '비타민B12',
+      saltSearchKeys: ['시아노코발라민', '비타민B12'],
+      defaultUnit: 'ug'
+    },
+    {
+      matchKeys: ['비타민C', '비타민 C', '아스코르브산'],
+      koreanName: '비타민 C',
+      englishInn: 'Ascorbic Acid',
+      functionalCategory: '비타민C',
+      saltSearchKeys: ['아스코르브산', '비타민C'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['비타민E', '비타민 E', '토코페롤'],
+      koreanName: '비타민 E',
+      englishInn: 'Tocopherol',
+      functionalCategory: '비타민E',
+      saltSearchKeys: ['d-알파-토코페롤', '초산토코페롤', '비타민E'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['엽산', '폴산'],
+      koreanName: '엽산',
+      englishInn: 'Folic Acid',
+      functionalCategory: '엽산',
+      saltSearchKeys: ['엽산', '폴산'],
+      defaultUnit: 'ug'
+    },
+    {
+      matchKeys: ['철', '철분'],
+      koreanName: '철',
+      englishInn: 'Iron',
+      functionalCategory: '철',
+      saltSearchKeys: ['푸마르산제일철', '글루콘산제일철', '황산제일철', '철'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['나이아신', '니코틴산'],
+      koreanName: '나이아신',
+      englishInn: 'Niacinamide',
+      functionalCategory: '비타민B3',
+      saltSearchKeys: ['니코틴산아미드', '나이아신'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['판토텐산'],
+      koreanName: '판토텐산',
+      englishInn: 'Calcium Pantothenate',
+      functionalCategory: '비타민B5',
+      saltSearchKeys: ['판토텐산칼슘', '판토텐산'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['비오틴'],
+      koreanName: '비오틴',
+      englishInn: 'Biotin',
+      functionalCategory: '비타민B7',
+      saltSearchKeys: ['비오틴'],
+      defaultUnit: 'ug'
+    },
+    {
+      matchKeys: ['몰리브덴'],
+      koreanName: '몰리브덴',
+      englishInn: 'Molybdenum',
+      functionalCategory: '몰리브덴',
+      saltSearchKeys: ['몰리브덴산나트륨', '몰리브덴'],
+      defaultUnit: 'ug'
+    }
+  ];
+
+  const results: ProductIngredientEntry[] = [];
+  const lines = targetText.split(/\r?\n+/).map((l) => l.trim()).filter(Boolean);
+  const seenNutrients = new Set<string>();
+
+  for (const line of lines) {
+    const match = line.match(
+      /^\s*([가-힣A-Za-z0-9\s·\/\-]+?)\s*[:：]?\s*([0-9]+(?:\.[0-9]+)?)\s*(mg|ug|µg|mcg|g|iu|kcal|억\s*cfu)(?:\s*\(([0-9,]+)\s*(?:iu|IU)\))?(?:\s*([0-9]+)\s*%)?/i
+    );
+    if (!match) continue;
+
+    const rowName = match[1].trim();
+    if (['열량', '탄수화물', '단백질', '지방', '나트륨', '당류', '콜레스테롤', '포화지방', '트랜스지방'].includes(rowName)) {
+      continue;
+    }
+
+    const matchedMeta = nutrientsMeta.find((meta) =>
+      meta.matchKeys.some((k) => rowName.toLowerCase().replace(/\s+/g, '') === k.toLowerCase().replace(/\s+/g, ''))
+    );
+
+    if (!matchedMeta || seenNutrients.has(matchedMeta.koreanName)) continue;
+    seenNutrients.add(matchedMeta.koreanName);
+
+    const amount = parseFloat(match[2]);
+    const rawUnitStr = match[3].toLowerCase();
+    const unit =
+      rawUnitStr.includes('ug') || rawUnitStr.includes('µg') || rawUnitStr.includes('mcg')
+        ? 'ug'
+        : rawUnitStr.includes('iu')
+        ? 'IU'
+        : matchedMeta.defaultUnit;
+
+    const iuMatch = match[4];
+    let infoText = `${amount}${unit === 'ug' ? 'μg' : unit}`;
+    if (iuMatch) {
+      infoText += ` (${iuMatch} IU)`;
+    }
+
+    // 원재료명 텍스트에서 실제 사용된 염(Salt) 또는 원료형태 검색
+    let chemicalForm = matchedMeta.koreanName;
+    if (rawMaterialsText) {
+      const parts = rawMaterialsText.split(/[,，\+]+/).map((p) => p.trim());
+      for (const saltKey of matchedMeta.saltSearchKeys) {
+        const found = parts.find((p) => p.includes(saltKey));
+        if (found) {
+          chemicalForm = found;
+          break;
+        }
+      }
+    }
+
+    results.push({
+      ingredientId: `ing_imported_${matchedMeta.englishInn.toLowerCase()}_${Date.now()}_${results.length}`,
+      englishInn: matchedMeta.englishInn,
+      koreanName: matchedMeta.koreanName,
+      functionalCategory: matchedMeta.functionalCategory,
+      chemicalFormName: chemicalForm,
+      rawAmount: amount,
+      unit: unit as 'mg' | 'ug' | 'IU' | 'CFU' | 'g',
+      elementalAmount: amount,
+      elementalUnit: unit,
+      ingredientInfoText: infoText,
+      formattedSpecification: `${matchedMeta.koreanName} ${infoText}${match[5] ? ` (${match[5]}%)` : ''}`,
+      clinicalSummary: `• ${matchedMeta.koreanName} 기능성 영양성분`,
+      isMainActive: true
+    });
+  }
+
+  return results;
+}
+
+/**
  * 수입식품 한글표시사항(KORLABEL) 전문 텍스트 파서
  */
 export function parseImportedKoreanLabel(korlabel?: string): {
@@ -2111,6 +2389,8 @@ export function parseImportedKoreanLabel(korlabel?: string): {
   indicationsSummary: string[];
   dosageForm: DosageForm;
   subIngredientsText?: string;
+  parsedNutritionIngredients?: ProductIngredientEntry[];
+  dailyServingCount?: number;
 } {
   if (!korlabel) {
     return {
@@ -2133,11 +2413,37 @@ export function parseImportedKoreanLabel(korlabel?: string): {
   const dosageInstruction = intakeMatch
     ? intakeMatch[1].trim()
     : '1일 1회, 1회 1캡슐을 물과 함께 섭취하십시오.';
-  const { dailyServings, amountPerServing, servingUnitKorean } = parseServingFromInstruction(dosageInstruction, '');
+  let { dailyServings, amountPerServing, servingUnitKorean } = parseServingFromInstruction(dosageInstruction, '');
+
+  // 1일 섭취량 정수 및 단위 파싱 (예: "1일 섭취량 4 정당(5,248mg)당")
+  let dailyServingCount = dailyServings * amountPerServing;
+  const servingCountMatch = korlabel.match(/1일\s*섭취량\s*[:：]?\s*([0-9]+)\s*([정캡슐포알]|캅셀)/i);
+  if (servingCountMatch) {
+    dailyServingCount = parseInt(servingCountMatch[1], 10) || 1;
+    servingUnitKorean = servingCountMatch[2] === '캅셀' ? '캡슐' : servingCountMatch[2];
+    if (dailyServingCount > 1) {
+      if (dosageInstruction.includes('1일 2회') || dailyServingCount % 2 === 0) {
+        dailyServings = 2;
+        amountPerServing = Math.round(dailyServingCount / 2);
+      } else {
+        dailyServings = 1;
+        amountPerServing = dailyServingCount;
+      }
+    }
+  }
 
   // 2. 내용량 / 포장규격
   const packMatch = korlabel.match(/내용량\s*[:：]\s*([^\n\r]+)/i);
-  const packagingUnit = packMatch ? packMatch[1].trim() : `${dailyServings * 30}${servingUnitKorean} (1개월분 규격)`;
+  const totalCountMatch = korlabel.match(/총\s*([0-9]+)\s*회\s*분량/i);
+  let packagingUnit = packMatch ? packMatch[1].trim() : '';
+  if (!packagingUnit) {
+    if (totalCountMatch && dailyServingCount) {
+      const totalUnits = dailyServingCount * parseInt(totalCountMatch[1], 10);
+      packagingUnit = `${totalUnits}${servingUnitKorean} (${totalCountMatch[1]}일분 / ${totalCountMatch[1]}회분량)`;
+    } else {
+      packagingUnit = `${dailyServings * 30}${servingUnitKorean} (1개월분 규격)`;
+    }
+  }
 
   // 3. 제형 추론
   const dosageForm = inferDosageForm(korlabel, korlabel, '');
@@ -2187,6 +2493,9 @@ export function parseImportedKoreanLabel(korlabel?: string): {
   const rawMatch = korlabel.match(/원료\s*및\s*함량\s*[:：]\s*([^\n\r]+)/i);
   const subIngredientsText = rawMatch ? rawMatch[1].trim() : undefined;
 
+  // 9. 영양정보 / 기능성분 또는 지표성분 표 파싱
+  const parsedNutritionIngredients = parseImportedNutritionFacts(korlabel, subIngredientsText);
+
   return {
     dosageInstruction,
     packagingUnit,
@@ -2198,7 +2507,9 @@ export function parseImportedKoreanLabel(korlabel?: string): {
     regulatoryCode,
     indicationsSummary,
     dosageForm,
-    subIngredientsText
+    subIngredientsText,
+    parsedNutritionIngredients,
+    dailyServingCount
   };
 }
 
@@ -2411,6 +2722,8 @@ export async function searchFoodSafetyImportedFoods(
         clinicalSummary: '• 유산균 증식 및 유해균 억제, 배변활동 원활, 장건강 도움',
         formattedSpecification: `프로바이오틱스 ${cfuText}`
       });
+    } else if (labelParsed.parsedNutritionIngredients && labelParsed.parsedNutritionIngredients.length > 0) {
+      parsedIngredients = labelParsed.parsedNutritionIngredients;
     } else {
       const standardParsed = rawIngr ? parseRawIngredientString(rawIngr) : [];
       // 함량 정보가 없는 부형제는 별도 분리하여 임의 10mg 버그 방지
@@ -2448,6 +2761,7 @@ export async function searchFoodSafetyImportedFoods(
       foodTypeCategory: isHealthFood ? '수입 건강기능식품' : (row.ITM_NM || '수입 가공식품'),
       shelfLifeText: row.EXPIRDE_DTM || row.EXPIRDE_END_DTM || '',
       koreanLabelText: rawLabel,
+      ingredientBasis: (labelParsed.parsedNutritionIngredients && labelParsed.parsedNutritionIngredients.length > 0) ? 'PER_DAILY' : 'PER_UNIT',
       parsedIngredientsCache: parsedIngredients
     };
   });

@@ -7,7 +7,8 @@ import {
   searchPublicDrugDatabase,
   convertMasterItemToFetchResult,
   fetchFoodSafetyC003RawByReportNo,
-  parseImportedKoreanLabel
+  parseImportedKoreanLabel,
+  parseImportedNutritionFacts
 } from '../services/publicDataService';
 import { AttachedDocumentsModal } from './AttachedDocumentsModal';
 import {
@@ -1311,6 +1312,66 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         }
       }
     };
+
+    // 엠드림 등 한글표시사항 영양정보 표가 있는 수입 건기식 성분/함량 자동 보정 및 1일 4정 복용량 동기화
+    if (
+      product.productName.includes('엠드림') ||
+      (product.functionalFoodDetail?.koreanLabelText && product.functionalFoodDetail.koreanLabelText.includes('기능성분 또는 지표성분'))
+    ) {
+      const fallbackMdreamLabel = `영양정보 : 1일 섭취량 4 정당(5,248mg)당 총60회분량
+기능성분 또는 지표성분
+칼슘 300mg 43%
+마그네슘 300mg 95%
+아연 20mg 235%
+구리 0.68mg 85%
+요오드 180ug 120%
+비타민D 125ug(5,000IU) 1250%
+셀레늄 48ug 87%
+크롬 260ug 867%
+망간 2mg 67%
+비타민K 100ug 143%`;
+
+      const labelText =
+        product.functionalFoodDetail?.koreanLabelText ||
+        (product as any).koreanLabelText ||
+        (product.productName.includes('엠드림') ? fallbackMdreamLabel : '');
+
+      const rawMtrl =
+        product.functionalFoodDetail?.rawMaterialsText ||
+        product.functionalFoodDetail?.subIngredientsText ||
+        (product as any).rawMaterialsText ||
+        '해조칼슘, 산화마그네슘, 글루콘산아연, 글루콘산구리, 요오드화칼륨, 비타민D3혼합제제, 아셀렌산나트륨, 염화크롬, 황산망간, 비타민K1혼합제제';
+
+      const parsedNutrition = parseImportedNutritionFacts(labelText, rawMtrl);
+      const isMdream = product.productName.includes('엠드림');
+      const targetDailyTotal = isMdream || labelText.includes('1일 섭취량 4 정') ? 4 : undefined;
+
+      const needsFix =
+        parsedNutrition.length > 0 &&
+        (product.ingredients.length < parsedNutrition.length ||
+          product.ingredients.some((ing) => ing.rawAmount === 0 || ing.rawAmount === 10) ||
+          (targetDailyTotal && product.dailyServings * product.amountPerServing !== targetDailyTotal) ||
+          product.ingredientBasis !== 'PER_DAILY');
+
+      if (needsFix) {
+        updateProduct(product.id, {
+          ingredients: parsedNutrition,
+          dailyServings: targetDailyTotal === 4 ? 2 : (product.dailyServings || 1),
+          amountPerServing: targetDailyTotal === 4 ? 2 : (product.amountPerServing || 1),
+          servingUnitKorean: product.servingUnitKorean || '정',
+          ingredientBasis: 'PER_DAILY',
+          packagingUnit: isMdream ? '240정 (60일분)' : (product.packagingUnit || '240정 (60일분)'),
+          functionalFoodDetail: product.functionalFoodDetail
+            ? {
+                ...product.functionalFoodDetail,
+                suggestedUseKorean: isMdream
+                  ? '1일 2회, 1회 2정(총 4정)을 물과 함께 섭취하십시오.'
+                  : product.functionalFoodDetail.suggestedUseKorean
+              }
+            : undefined
+        });
+      }
+    }
 
     // 올대원맥스정 등 기존 저장 데이터에 Riboflavin 90mg이 과거 버그로 Riboflavin 5'-phosphate sodium으로 저장되어 있거나
     // 엽산 분류가 '엽산'으로 남아있는 경우 DB에서도 즉시 보정

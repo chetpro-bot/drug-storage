@@ -690,11 +690,191 @@ function migrateAndEnsureKpic(products: ProductItem[]): ProductItem[] {
       }
     }
 
-    if (hasChanges) {
+    // 엠드림 수입 건기식 성분 10종(칼슘 300mg, 마그네슘 300mg 등) 및 1일 4정 자동 동기화
+    if (prod.productName.includes('엠드림')) {
+      const isMissingAmounts =
+        prod.ingredients.length < 10 ||
+        prod.ingredients.some((ing) => ing.rawAmount === 0 || ing.rawAmount === 10) ||
+        prod.dailyServings * prod.amountPerServing !== 4 ||
+        prod.ingredientBasis !== 'PER_DAILY';
 
+      if (isMissingAmounts) {
+        hasChanges = true;
+        const mdreamNutrients: ProductIngredientEntry[] = [
+          {
+            ingredientId: 'ing_mdream_calcium',
+            englishInn: 'Calcium',
+            koreanName: '칼슘',
+            functionalCategory: '칼슘',
+            chemicalFormName: '해조칼슘',
+            rawAmount: 300,
+            unit: 'mg',
+            elementalAmount: 300,
+            elementalUnit: 'mg',
+            ingredientInfoText: '300mg',
+            formattedSpecification: '칼슘 300mg (43%)',
+            clinicalSummary: '• 뼈와 치아 형성 및 신경과 근육 기능 유지',
+            isMainActive: true
+          },
+          {
+            ingredientId: 'ing_mdream_magnesium',
+            englishInn: 'Magnesium',
+            koreanName: '마그네슘',
+            functionalCategory: '마그네슘',
+            chemicalFormName: '산화마그네슘',
+            rawAmount: 300,
+            unit: 'mg',
+            elementalAmount: 300,
+            elementalUnit: 'mg',
+            ingredientInfoText: '300mg',
+            formattedSpecification: '마그네슘 300mg (95%)',
+            clinicalSummary: '• 에너지 이용 및 신경과 근육 기능 유지',
+            isMainActive: true
+          },
+          {
+            ingredientId: 'ing_mdream_zinc',
+            englishInn: 'Zinc',
+            koreanName: '아연',
+            functionalCategory: '아연',
+            chemicalFormName: '글루콘산아연',
+            rawAmount: 20,
+            unit: 'mg',
+            elementalAmount: 20,
+            elementalUnit: 'mg',
+            ingredientInfoText: '20mg',
+            formattedSpecification: '아연 20mg (235%)',
+            clinicalSummary: '• 정상적인 면역기능 및 정상적인 세포분열',
+            isMainActive: true
+          },
+          {
+            ingredientId: 'ing_mdream_copper',
+            englishInn: 'Copper',
+            koreanName: '구리',
+            functionalCategory: '구리',
+            chemicalFormName: '글루콘산구리',
+            rawAmount: 0.68,
+            unit: 'mg',
+            elementalAmount: 0.68,
+            elementalUnit: 'mg',
+            ingredientInfoText: '0.68mg',
+            formattedSpecification: '구리 0.68mg (85%)',
+            clinicalSummary: '• 철의 운반과 이용에 필요',
+            isMainActive: true
+          },
+          {
+            ingredientId: 'ing_mdream_iodine',
+            englishInn: 'Iodine',
+            koreanName: '요오드',
+            functionalCategory: '요오드',
+            chemicalFormName: '요오드화칼륨',
+            rawAmount: 180,
+            unit: 'ug',
+            elementalAmount: 180,
+            elementalUnit: 'ug',
+            ingredientInfoText: '180μg',
+            formattedSpecification: '요오드 180ug (120%)',
+            clinicalSummary: '• 갑상선 호르몬의 합성 및 신경발달',
+            isMainActive: true
+          },
+          {
+            ingredientId: 'ing_mdream_vitd',
+            englishInn: 'Cholecalciferol',
+            koreanName: '비타민 D3',
+            functionalCategory: '비타민D',
+            chemicalFormName: '비타민D3혼합제제',
+            rawAmount: 125,
+            unit: 'ug',
+            elementalAmount: 125,
+            elementalUnit: 'ug',
+            ingredientInfoText: '125μg (5,000 IU)',
+            formattedSpecification: '비타민D 125ug(5,000IU) (1250%)',
+            clinicalSummary: '• 칼슘과 인이 흡수되고 이용되는데 필요',
+            isMainActive: true
+          },
+          {
+            ingredientId: 'ing_mdream_selenium',
+            englishInn: 'Selenium',
+            koreanName: '셀레늄',
+            functionalCategory: '셀레늄',
+            chemicalFormName: '아셀렌산나트륨',
+            rawAmount: 48,
+            unit: 'ug',
+            elementalAmount: 48,
+            elementalUnit: 'ug',
+            ingredientInfoText: '48μg',
+            formattedSpecification: '셀레늄 48ug (87%)',
+            clinicalSummary: '• 유해산소로부터 세포를 보호하는데 필요',
+            isMainActive: true
+          },
+          {
+            ingredientId: 'ing_mdream_chromium',
+            englishInn: 'Chromium',
+            koreanName: '크롬',
+            functionalCategory: '크롬',
+            chemicalFormName: '염화크롬',
+            rawAmount: 260,
+            unit: 'ug',
+            elementalAmount: 260,
+            elementalUnit: 'ug',
+            ingredientInfoText: '260μg',
+            formattedSpecification: '크롬 260ug (867%)',
+            clinicalSummary: '• 체내 탄수화물, 지방, 단백질 대사에 관여',
+            isMainActive: true
+          },
+          {
+            ingredientId: 'ing_mdream_manganese',
+            englishInn: 'Manganese',
+            koreanName: '망간',
+            functionalCategory: '망간',
+            chemicalFormName: '황산망간',
+            rawAmount: 2,
+            unit: 'mg',
+            elementalAmount: 2,
+            elementalUnit: 'mg',
+            ingredientInfoText: '2mg',
+            formattedSpecification: '망간 2mg (67%)',
+            clinicalSummary: '• 뼈 형성에 필요 및 에너지 이용',
+            isMainActive: true
+          },
+          {
+            ingredientId: 'ing_mdream_vitk',
+            englishInn: 'Phytomenadione',
+            koreanName: '비타민 K1',
+            functionalCategory: '비타민K',
+            chemicalFormName: '비타민K1혼합제제',
+            rawAmount: 100,
+            unit: 'ug',
+            elementalAmount: 100,
+            elementalUnit: 'ug',
+            ingredientInfoText: '100μg',
+            formattedSpecification: '비타민K 100ug (143%)',
+            clinicalSummary: '• 정상적인 혈액응고 및 뼈의 구성에 필요',
+            isMainActive: true
+          }
+        ];
+
+        prod = {
+          ...prod,
+          ingredients: mdreamNutrients,
+          dailyServings: 2,
+          amountPerServing: 2,
+          servingUnitKorean: '정',
+          ingredientBasis: 'PER_DAILY',
+          packagingUnit: '240정 (60일분)',
+          functionalFoodDetail: prod.functionalFoodDetail
+            ? {
+                ...prod.functionalFoodDetail,
+                suggestedUseKorean: '1일 2회, 1회 2정(총 4정)을 물과 함께 섭취하십시오.'
+              }
+            : undefined
+        };
+      }
+    }
+
+    if (hasChanges) {
       const updated = {
         ...prod,
-        ingredients: updatedIngredients,
+        ingredients: prod.ingredients.length >= 10 && prod.productName.includes('엠드림') ? prod.ingredients : updatedIngredients,
         updatedAt: new Date().toISOString()
       };
       saveProductToFirestore(updated).catch(() => {});

@@ -2118,16 +2118,17 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                               <span className="w-1.5 h-1.5 rounded-full bg-sky-500 inline-block"></span>
                                               <span>함유 균주 ({probioticStrains.length}종)</span>
                                             </div>
-                                            <div className="flex flex-wrap gap-1.5">
+                                            <ul className="space-y-1 pl-0.5">
                                               {probioticStrains.map((strain, sIdx) => (
-                                                <span
+                                                <li
                                                   key={sIdx}
-                                                  className="inline-flex items-center text-[10.5px] font-medium bg-slate-50 hover:bg-sky-50 text-slate-700 border border-slate-200/90 px-2 py-0.5 rounded-md transition-colors font-sans"
+                                                  className="flex items-center gap-1.5 text-xs text-slate-700 font-medium leading-tight"
                                                 >
-                                                  {strain}
-                                                </span>
+                                                  <span className="w-1 h-1 rounded-full bg-slate-400 shrink-0" />
+                                                  <span className="font-sans tracking-tight">{strain}</span>
+                                                </li>
                                               ))}
-                                            </div>
+                                            </ul>
                                           </div>
                                         )}
                                       </div>
@@ -2251,16 +2252,17 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                             <span className="w-1.5 h-1.5 rounded-full bg-sky-500 inline-block"></span>
                                             <span>함유 균주 ({probioticStrains.length}종)</span>
                                           </div>
-                                          <div className="flex flex-wrap gap-1.5">
+                                          <ul className="space-y-1 pl-0.5">
                                             {probioticStrains.map((strain, sIdx) => (
-                                              <span
+                                              <li
                                                 key={sIdx}
-                                                className="inline-flex items-center text-[10.5px] font-medium bg-slate-50 hover:bg-sky-50 text-slate-700 border border-slate-200/90 px-2 py-0.5 rounded-md transition-colors font-sans"
+                                                className="flex items-center gap-1.5 text-xs text-slate-700 font-medium leading-tight"
                                               >
-                                                {strain}
-                                              </span>
+                                                <span className="w-1 h-1 rounded-full bg-slate-400 shrink-0" />
+                                                <span className="font-sans tracking-tight">{strain}</span>
+                                              </li>
                                             ))}
-                                          </div>
+                                          </ul>
                                         </div>
                                       )}
                                     </div>

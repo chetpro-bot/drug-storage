@@ -24,6 +24,12 @@ import {
   resolveFunctionalClaimsWithNutrients,
   deduplicatePrecautionsText
 } from '../utils/functionalClaimsHelper';
+import {
+  isProbioticIngredient,
+  extractProbioticCount,
+  extractProbioticStrains,
+  scaleProbioticCount
+} from '../utils/probioticsHelper';
 
 import {
   X,
@@ -2047,19 +2053,86 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                               {isSeparatedFormat ? (
                                 /* 2열: 성분 함량 (실제 영문 성분명 + 함량 및 API 고시 환산 정보) */
                                 <td className="px-4 py-2.5 border-r border-slate-200 align-middle">
-                                  <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                                    <span className="font-semibold text-slate-900 tracking-tight">
-                                      {item.info.englishName || item.ing.englishInn}
-                                    </span>
-                                    <span className="font-bold text-slate-900 tracking-tight">
-                                      {item.ing.rawAmount.toLocaleString()}{item.ing.unit === 'ug' ? 'µg' : item.ing.unit}
-                                    </span>
-                                    {item.info.convertedText && (
-                                      <span className="font-medium text-emerald-600 text-[11px]">
-                                        ({item.info.convertedText})
-                                      </span>
-                                    )}
-                                  </div>
+                                  {(() => {
+                                    const isProbiotic = isProbioticIngredient(
+                                      item.ing.englishInn,
+                                      item.info.categoryTag,
+                                      item.ing.functionalCategory,
+                                      item.ing.unit
+                                    );
+
+                                    const specText =
+                                      product.functionalFoodDetail?.standardSpecificationKorean ||
+                                      (product as any).standardSpecificationText ||
+                                      '';
+                                    const rawMtrlText =
+                                      product.functionalFoodDetail?.rawMaterialsText ||
+                                      (product as any).rawMaterialsText ||
+                                      product.functionalFoodDetail?.subIngredientsText ||
+                                      '';
+
+                                    const probioticCountFromSpec = isProbiotic ? extractProbioticCount(specText) : null;
+                                    const probioticStrains = isProbiotic ? extractProbioticStrains(rawMtrlText) : [];
+
+                                    let baseCountText =
+                                      probioticCountFromSpec ||
+                                      item.ing.formattedSpecification?.match(/([0-9,]+(?:\.[0-9]+)?\s*억\s*CFU)/i)?.[1] ||
+                                      item.ing.noteKorean?.match(/([0-9,]+(?:\.[0-9]+)?\s*억\s*CFU)/i)?.[1] ||
+                                      item.ing.ingredientInfoText?.match(/([0-9,]+(?:\.[0-9]+)?\s*억\s*CFU)/i)?.[1];
+
+                                    if (!baseCountText && isProbiotic) {
+                                      if (item.ing.rawAmount >= 100000000) {
+                                        baseCountText = `${(item.ing.rawAmount / 100000000).toLocaleString()}억 CFU`;
+                                      } else if (item.ing.rawAmount >= 10 && item.ing.rawAmount <= 1000) {
+                                        baseCountText = `${item.ing.rawAmount}억 CFU`;
+                                      } else if (item.ing.unit === 'CFU') {
+                                        baseCountText = `${item.ing.rawAmount.toLocaleString()} CFU`;
+                                      }
+                                    }
+
+                                    const probioticCountDisplay = baseCountText
+                                      ? scaleProbioticCount(baseCountText, doseFactor)
+                                      : null;
+
+                                    return (
+                                      <div className="space-y-1.5">
+                                        <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
+                                          <span className="font-semibold text-slate-900 tracking-tight">
+                                            {item.info.englishName || item.ing.englishInn}
+                                          </span>
+                                          <span className="font-bold text-slate-900 tracking-tight">
+                                            {isProbiotic && probioticCountDisplay
+                                              ? probioticCountDisplay
+                                              : `${item.ing.rawAmount.toLocaleString()}${item.ing.unit === 'ug' ? 'µg' : item.ing.unit}`}
+                                          </span>
+                                          {item.info.convertedText && !isProbiotic && (
+                                            <span className="font-medium text-emerald-600 text-[11px]">
+                                              ({item.info.convertedText})
+                                            </span>
+                                          )}
+                                        </div>
+
+                                        {isProbiotic && probioticStrains.length > 0 && (
+                                          <div className="mt-2 pt-2 border-t border-slate-100">
+                                            <div className="text-[11px] font-bold text-slate-600 mb-1.5 flex items-center gap-1.5">
+                                              <span className="w-1.5 h-1.5 rounded-full bg-sky-500 inline-block"></span>
+                                              <span>함유 균주 ({probioticStrains.length}종)</span>
+                                            </div>
+                                            <div className="flex flex-wrap gap-1.5">
+                                              {probioticStrains.map((strain, sIdx) => (
+                                                <span
+                                                  key={sIdx}
+                                                  className="inline-flex items-center text-[10.5px] font-medium bg-slate-50 hover:bg-sky-50 text-slate-700 border border-slate-200/90 px-2 py-0.5 rounded-md transition-colors font-sans"
+                                                >
+                                                  {strain}
+                                                </span>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
                                 </td>
                               ) : (
                                 /* 일반식품(기타가공품 등): 기존 표시 설정 유지 */
@@ -2116,6 +2189,79 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                         <span className="font-normal text-slate-600 text-[11px] tracking-tight">
                                           ({saltsText})
                                         </span>
+                                      )}
+                                    </div>
+                                  );
+                                }
+
+                                const isProbiotic = isProbioticIngredient(
+                                  item.ing.englishInn,
+                                  item.info.categoryTag,
+                                  item.ing.functionalCategory,
+                                  item.ing.unit
+                                );
+
+                                if (isProbiotic) {
+                                  const specText =
+                                    product.functionalFoodDetail?.standardSpecificationKorean ||
+                                    (product as any).standardSpecificationText ||
+                                    '';
+                                  const rawMtrlText =
+                                    product.functionalFoodDetail?.rawMaterialsText ||
+                                    (product as any).rawMaterialsText ||
+                                    product.functionalFoodDetail?.subIngredientsText ||
+                                    '';
+
+                                  const probioticCountFromSpec = extractProbioticCount(specText);
+                                  const probioticStrains = extractProbioticStrains(rawMtrlText);
+
+                                  let baseCountText =
+                                    probioticCountFromSpec ||
+                                    item.ing.formattedSpecification?.match(/([0-9,]+(?:\.[0-9]+)?\s*억\s*CFU)/i)?.[1] ||
+                                    item.ing.noteKorean?.match(/([0-9,]+(?:\.[0-9]+)?\s*억\s*CFU)/i)?.[1] ||
+                                    item.ing.ingredientInfoText?.match(/([0-9,]+(?:\.[0-9]+)?\s*억\s*CFU)/i)?.[1];
+
+                                  if (!baseCountText) {
+                                    if (item.ing.rawAmount >= 100000000) {
+                                      baseCountText = `${(item.ing.rawAmount / 100000000).toLocaleString()}억 CFU`;
+                                    } else if (item.ing.rawAmount >= 10 && item.ing.rawAmount <= 1000) {
+                                      baseCountText = `${item.ing.rawAmount}억 CFU`;
+                                    } else if (item.ing.unit === 'CFU') {
+                                      baseCountText = `${item.ing.rawAmount.toLocaleString()} CFU`;
+                                    }
+                                  }
+
+                                  const probioticCountDisplay = baseCountText
+                                    ? scaleProbioticCount(baseCountText, doseFactor)
+                                    : null;
+
+                                  return (
+                                    <div className="space-y-1.5">
+                                      <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
+                                        <span className="font-semibold text-slate-900 tracking-tight">
+                                          {item.info.englishName || item.ing.englishInn}
+                                        </span>
+                                        <span className="font-bold text-slate-900 tracking-tight">
+                                          {probioticCountDisplay || `${item.ing.rawAmount.toLocaleString()}${displayUnit}`}
+                                        </span>
+                                      </div>
+                                      {probioticStrains.length > 0 && (
+                                        <div className="mt-2 pt-2 border-t border-slate-100">
+                                          <div className="text-[11px] font-bold text-slate-600 mb-1.5 flex items-center gap-1.5">
+                                            <span className="w-1.5 h-1.5 rounded-full bg-sky-500 inline-block"></span>
+                                            <span>함유 균주 ({probioticStrains.length}종)</span>
+                                          </div>
+                                          <div className="flex flex-wrap gap-1.5">
+                                            {probioticStrains.map((strain, sIdx) => (
+                                              <span
+                                                key={sIdx}
+                                                className="inline-flex items-center text-[10.5px] font-medium bg-slate-50 hover:bg-sky-50 text-slate-700 border border-slate-200/90 px-2 py-0.5 rounded-md transition-colors font-sans"
+                                              >
+                                                {strain}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        </div>
                                       )}
                                     </div>
                                   );

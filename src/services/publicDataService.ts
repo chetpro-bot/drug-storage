@@ -1454,7 +1454,7 @@ export function parseFunctionalFoodRecordToIngredients(
   interface SpecExtracted {
     specName: string;
     amount: number;
-    unit: 'mg' | 'ug' | 'IU' | 'g';
+    unit: 'mg' | 'ug' | 'IU' | 'g' | 'CFU';
     displayUnitNote?: string;
     isPerSingleUnit?: boolean;
   }
@@ -1500,7 +1500,7 @@ export function parseFunctionalFoodRecordToIngredients(
     if (isNaN(rawVal) || rawVal <= 0) continue;
 
     const rawUnitStr = (pyosiMatch[2] || unitFromLeft || 'mg').trim();
-    let normUnit: 'mg' | 'ug' | 'IU' | 'g' = 'mg';
+    let normUnit: 'mg' | 'ug' | 'IU' | 'g' | 'CFU' = 'mg';
     let finalAmount = rawVal;
     let displayUnitNote: string | undefined = undefined;
 
@@ -1508,7 +1508,7 @@ export function parseFunctionalFoodRecordToIngredients(
       // 프로바이오틱스 CFU 처리 (예: 10,000,000,000 CFU -> 100억 CFU)
       const eokVal = rawVal >= 100000000 ? Math.round(rawVal / 100000000) : rawVal;
       finalAmount = eokVal;
-      normUnit = 'mg';
+      normUnit = 'CFU';
       displayUnitNote = `${eokVal.toLocaleString()}억 CFU`;
     } else if (/^(ug|㎍|μg|µg)$/i.test(rawUnitStr)) {
       normUnit = 'ug';
@@ -1598,7 +1598,7 @@ export function parseFunctionalFoodRecordToIngredients(
     ) {
       formattedLines.push(`${targetName} ${targetAmount}${spec.unit} (${spec.specName}으로서 ${targetAmount}${spec.unit})`);
     } else if (spec.displayUnitNote) {
-      formattedLines.push(`${spec.specName} ${targetAmount}${spec.unit}`);
+      formattedLines.push(`${spec.specName} ${spec.displayUnitNote}`);
     } else {
       formattedLines.push(`${targetName} ${targetAmount}${spec.unit}`);
     }

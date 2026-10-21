@@ -1580,12 +1580,15 @@ export function formatKpaicSpecification(rawItem: string): string {
     str = str.replace(/\([^()]*?(?:로서|[0-9\.,]+\s*(?:mg|ug|㎍|μg|µg|iu|g|밀리그램))[^()]*?\)/gi, '').trim();
   }
 
-  // 4. 본문에서 함량 분리 (예: "51.15mg", "10mg", "3mg")
-  const amountMatch = str.match(/([0-9\.,]+)\s*(mg|ug|㎍|μg|µg|IU|g|밀리그램|마이크로그램|아이\.유)?$/i);
+  // 4. 본문에서 함량 분리 (예: "51.15mg", "10mg", "3mg", "100억 CFU")
+  const amountMatch = str.match(/([0-9\.,]+)\s*(억\s*CFU|CFU|억|mg|ug|㎍|μg|µg|IU|g|밀리그램|마이크로그램|아이\.유)?$/i);
   let mainAmount = '';
   if (amountMatch) {
     let u = amountMatch[2] || 'mg';
-    if (u === '㎍' || u === 'μg' || u === 'µg' || u === '마이크로그램') u = 'ug';
+    if (/억\s*CFU/i.test(u)) u = '억 CFU';
+    else if (/CFU/i.test(u)) u = 'CFU';
+    else if (/억/i.test(u)) u = '억 CFU';
+    else if (u === '㎍' || u === 'μg' || u === 'µg' || u === '마이크로그램') u = 'ug';
     else if (u === '밀리그램') u = 'mg';
     else if (u === '아이.유') u = 'IU';
     mainAmount = `${amountMatch[1]}${u}`;
@@ -1670,8 +1673,8 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
   const rawItems = splitItemsSafely(rawText);
 
   // 성분명 및 수치/단위 추출 정규식 (앞단 ^ 앵커로 0.1% 같은 소수점 원료명이 중간부터 잘리는 버그 방지)
-  // 예: "벤포티아민 (Benfotiamine) 100mg", "벤포티아민 100mg", "산화아연(KP) 30mg", "셀레늄가루 0.1% 29.5mg"
-  const regex = /^([가-힣A-Za-z0-9γ\s\(\)·\-\'\_\%\/\.]+?)\s*[:：]?\s*([0-9\.,]+)\s*(mg|ug|㎍|μg|µg|IU|g|밀리그램|마이크로그램|아이\.유)?$/i;
+  // 예: "벤포티아민 (Benfotiamine) 100mg", "벤포티아민 100mg", "산화아연(KP) 30mg", "프로바이오틱스 100억 CFU"
+  const regex = /^([가-힣A-Za-z0-9γ\s\(\)·\-\'\_\%\/\.]+?)\s*[:：]?\s*([0-9\.,]+)\s*(억\s*CFU|CFU|억|mg|ug|㎍|μg|µg|IU|g|밀리그램|마이크로그램|아이\.유)?$/i;
 
   rawItems.forEach((item, index) => {
     // 주의사항, 경고문, 보관방법, 당알코올 설사 안내 등 비성분 문장 유입 원천 배제
@@ -1740,13 +1743,22 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
     const match = cleanItem.match(regex);
     let nameRaw = cleanItem;
     let amount = 0;
-    let unit: 'mg' | 'ug' | 'IU' | 'g' = 'mg';
+    let unit: 'mg' | 'ug' | 'IU' | 'g' | 'CFU' = 'mg';
 
     if (match) {
       nameRaw = match[1].replace(/\(KP\)|\(별규\)|\(USP\)|\(EP\)|\(KHP\)/gi, '').trim();
       amount = parseFloat(match[2].replace(/,/g, '')) || 0;
       const matchedUnit = (match[3] || 'mg').toLowerCase();
-      if (matchedUnit === 'ug' || matchedUnit === '㎍' || matchedUnit === 'μg' || matchedUnit === 'µg' || matchedUnit === '마이크로그램') {
+      if (/cfu|억/i.test(matchedUnit)) {
+        unit = 'CFU';
+        if (/억/.test(matchedUnit) || /억/.test(cleanItem)) {
+          ingredientInfoText = `${amount}억 CFU`;
+          elementalUnit = '억 CFU';
+        } else {
+          ingredientInfoText = `${amount} CFU`;
+          elementalUnit = 'CFU';
+        }
+      } else if (matchedUnit === 'ug' || matchedUnit === '㎍' || matchedUnit === 'μg' || matchedUnit === 'µg' || matchedUnit === '마이크로그램') {
         unit = 'ug';
       } else if (matchedUnit === 'iu' || matchedUnit === '아이.유') {
         unit = 'IU';

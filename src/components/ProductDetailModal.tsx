@@ -1040,6 +1040,178 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     });
   };
 
+  // API 전문 내 영양정보 블록을 구조화된 표 데이터로 파싱
+  const parseNutritionTableFromSection = (sectionText: string) => {
+    const lines = sectionText.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    let servingInfo = '';
+    let footerNote = '';
+    const rows: {
+      type: 'ROW' | 'SECTION_HEADER';
+      title?: string;
+      name?: string;
+      amount?: string;
+      percent?: string;
+    }[] = [];
+
+    for (const line of lines) {
+      if (line.startsWith('1일 섭취량') && (line.includes('분량') || line.includes('당'))) {
+        if (!line.includes('함량') && !line.includes('%')) {
+          servingInfo = line;
+          continue;
+        }
+      }
+      if (line.includes('1일 섭취량당') && line.includes('함량')) {
+        continue;
+      }
+      if (/^%?\s*영양성분\s*기준치/i.test(line)) {
+        footerNote = line;
+        continue;
+      }
+      if (/기능성분\s*또는\s*지표성분|지표성분/i.test(line)) {
+        rows.push({ type: 'SECTION_HEADER', title: '기능성분 또는 지표성분' });
+        continue;
+      }
+
+      const m = line.match(
+        /^\s*([가-힣A-Za-z0-9\s·\/\-]+?)\s*[:：]?\s*([0-9]+(?:\.[0-9]+)?)\s*(mg|ug|µg|mcg|g|iu|kcal|억\s*cfu)(?:\s*\(([0-9,]+)\s*(?:iu|IU)\))?(?:\s*([0-9]+)\s*%)?/i
+      );
+      if (m) {
+        const name = m[1].trim();
+        let amountStr = `${m[2]} ${m[3]}`;
+        if (m[4]) amountStr += ` (${m[4]} IU)`;
+        const percentStr = m[5] !== undefined ? `${m[5]}%` : '-';
+        rows.push({
+          type: 'ROW',
+          name,
+          amount: amountStr,
+          percent: percentStr
+        });
+      } else {
+        if (line.startsWith('*') || line.startsWith('※') || line.includes('기준치') || line.includes('비율')) {
+          footerNote = footerNote ? `${footerNote}\n${line}` : line;
+        }
+      }
+    }
+
+    return { servingInfo, footerNote, rows };
+  };
+
+  // API 전문 보기 모달 본문 렌더러 (영양정보를 고가독성 표로 스마트 전환 렌더링)
+  const renderApiModalContent = (fullText: string, highlights: string[]) => {
+    if (!fullText) return null;
+
+    // '■ 영양정보:' 블록이 포함되어 있는지 확인
+    const nutritionHeaderIndex = fullText.indexOf('■ 영양정보:');
+    if (nutritionHeaderIndex === -1) {
+      return (
+        <div className="whitespace-pre-wrap">
+          {renderApiTextWithCustomHighlights(fullText, highlights)}
+        </div>
+      );
+    }
+
+    // 영양정보 이전 텍스트와 영양정보 이후(다음 ■ 섹션 시작) 텍스트를 분리
+    const beforeNutrition = fullText.slice(0, nutritionHeaderIndex).trim();
+    const afterHeader = fullText.slice(nutritionHeaderIndex + '■ 영양정보:'.length);
+
+    // 다음 ■ 섹션 찾기
+    const nextSectionMatch = afterHeader.search(/\n\s*■\s+/);
+    let nutritionContent = '';
+    let afterNutrition = '';
+
+    if (nextSectionMatch !== -1) {
+      nutritionContent = afterHeader.slice(0, nextSectionMatch).trim();
+      afterNutrition = afterHeader.slice(nextSectionMatch).trim();
+    } else {
+      nutritionContent = afterHeader.trim();
+    }
+
+    const { servingInfo, footerNote, rows } = parseNutritionTableFromSection(nutritionContent);
+
+    return (
+      <div className="space-y-4 font-sans">
+        {beforeNutrition && (
+          <div className="whitespace-pre-wrap leading-relaxed font-mono">
+            {renderApiTextWithCustomHighlights(beforeNutrition, highlights)}
+          </div>
+        )}
+
+        {/* 영양정보 깔끔한 표 영역 */}
+        <div className="border border-slate-300 rounded-xl overflow-hidden bg-white shadow-xs">
+          <div className="px-4 py-2.5 bg-slate-100 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+            <span className="font-extrabold text-slate-900 text-xs sm:text-[13px] flex items-center gap-1.5">
+              ■ 영양정보
+            </span>
+            {servingInfo && (
+              <span className="text-[11px] font-semibold text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200 shadow-2xs">
+                {renderApiTextWithCustomHighlights(servingInfo, highlights)}
+              </span>
+            )}
+          </div>
+
+          {rows.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+                    <th className="px-4 py-2">영양성분명</th>
+                    <th className="px-4 py-2 text-right">1일 섭취량당 함량</th>
+                    <th className="px-4 py-2 text-right">% 영양성분기준치</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-mono">
+                  {rows.map((row, rIdx) => {
+                    if (row.type === 'SECTION_HEADER') {
+                      return (
+                        <tr key={rIdx} className="bg-sky-50/70 border-y border-sky-200 font-bold text-sky-900 font-sans">
+                          <td colSpan={3} className="px-4 py-1.5 text-xs">
+                            <span className="flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                              {row.title}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    }
+                    return (
+                      <tr key={rIdx} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="px-4 py-2 font-medium text-slate-800 font-sans">
+                          {renderApiTextWithCustomHighlights(row.name || '', highlights)}
+                        </td>
+                        <td className="px-4 py-2 text-right font-bold text-slate-900">
+                          {renderApiTextWithCustomHighlights(row.amount || '', highlights)}
+                        </td>
+                        <td className="px-4 py-2 text-right text-slate-600 font-medium">
+                          {renderApiTextWithCustomHighlights(row.percent || '-', highlights)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="p-4 whitespace-pre-wrap font-mono">
+              {renderApiTextWithCustomHighlights(nutritionContent, highlights)}
+            </div>
+          )}
+
+          {footerNote && (
+            <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500 leading-normal font-sans">
+              {renderApiTextWithCustomHighlights(footerNote, highlights)}
+            </div>
+          )}
+        </div>
+
+        {afterNutrition && (
+          <div className="whitespace-pre-wrap leading-relaxed font-mono">
+            {renderApiTextWithCustomHighlights(afterNutrition, highlights)}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // 복용 방법 직접 수정 시작
   const handleStartEditDosage = () => {
     setEditDosageValue(dosageMethodText);
@@ -1541,6 +1713,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           ? parsedLabel.indicationsSummary
           : [];
 
+      const rawPrecautions = parsedLabel.safetyPrecautionsText || '';
+      const extractedPrecautions = rawPrecautions
+        ? rawPrecautions.split(/\r?\n+/).map((s) => s.trim()).filter(Boolean)
+        : [];
+
       // parsedNutrition에 있는 핵심 지표성분(실리마린, 셀레늄 등)이 현재 product.ingredients에 반영되지 않았거나 수치가 다른 경우
       const isMissingNutritionFacts =
         parsedNutrition.length > 0 &&
@@ -1560,6 +1737,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           currentClaims[0].includes('공식 인정 기능성') ||
           currentClaims.join(';') !== extractedClaims.join(';'));
 
+      const currentPrecautions = product.functionalFoodDetail?.safetyPrecautionsKorean || [];
+      const isMissingPrecautions =
+        extractedPrecautions.length > 0 &&
+        (currentPrecautions.length === 0 ||
+          currentPrecautions[0].includes('주의사항 참조') ||
+          currentPrecautions.join(';') !== extractedPrecautions.join(';'));
+
       const needsFix =
         parsedNutrition.length > 0 &&
         (isMissingNutritionFacts ||
@@ -1567,7 +1751,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           product.ingredients.some((ing) => ing.rawAmount === 0 || ing.rawAmount === 10) ||
           (targetDailyTotal && product.dailyServings * product.amountPerServing !== targetDailyTotal) ||
           product.ingredientBasis !== 'PER_DAILY' ||
-          isMissingClaims);
+          isMissingClaims ||
+          isMissingPrecautions);
 
       if (needsFix) {
         updateProduct(product.id, {
@@ -1576,11 +1761,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           amountPerServing: targetDailyTotal === 4 ? 2 : (targetDailyTotal === 1 ? 1 : (product.amountPerServing || 1)),
           servingUnitKorean: product.servingUnitKorean || (isMdream ? '정' : '캡슐'),
           ingredientBasis: 'PER_DAILY',
-          packagingUnit: isMdream ? '240정 (60일분)' : (product.packagingUnit || '60캡슐 (2개월분)'),
+          packagingUnit: isMdream ? '240정 (60일분)' : (product.packagingUnit || (parsedLabel.packagingUnit || '60캡슐 (2개월분)')),
           functionalFoodDetail: {
             ...product.functionalFoodDetail,
             reportNo: product.functionalFoodDetail?.reportNo || '',
-            safetyPrecautionsKorean: product.functionalFoodDetail?.safetyPrecautionsKorean || [],
+            safetyPrecautionsText: rawPrecautions || product.functionalFoodDetail?.safetyPrecautionsText || '',
+            safetyPrecautionsKorean: extractedPrecautions.length > 0
+              ? extractedPrecautions
+              : (product.functionalFoodDetail?.safetyPrecautionsKorean || []),
             koreanLabelText: labelText,
             rawMaterialsText: rawMtrl || product.functionalFoodDetail?.rawMaterialsText || '',
             functionalClaimsKorean: extractedClaims.length > 0
@@ -2266,6 +2454,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
             <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
               {(() => {
+                const isImportedProduct =
+                  product.id.startsWith('imported_') ||
+                  Boolean((product as any).sourceOrigin?.includes('수입')) ||
+                  Boolean(product.functionalFoodDetail?.koreanLabelText) ||
+                  Boolean((product as any).koreanLabelText) ||
+                  Boolean(pureApiText?.includes('■ 수입원'));
+
                 const isSeparatedFormat =
                   product.classification === 'OTC_DRUG' || product.classification === 'HEALTH_FUNCTIONAL_FOOD';
 
@@ -2426,9 +2621,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                           <span className="font-bold text-slate-900 tracking-tight">
                                             {isProbiotic && probioticCountDisplay
                                               ? probioticCountDisplay
-                                              : `${item.ing.rawAmount.toLocaleString()}${item.ing.unit === 'ug' ? 'µg' : item.ing.unit}`}
+                                              : (isImportedProduct && item.ing.ingredientInfoText
+                                                  ? item.ing.ingredientInfoText
+                                                  : `${item.ing.rawAmount.toLocaleString()}${item.ing.unit === 'ug' ? 'µg' : item.ing.unit}`)}
                                           </span>
-                                          {item.info.convertedText && !isProbiotic && (
+                                          {item.info.convertedText && !isProbiotic && !isImportedProduct && (
                                             <span className="font-medium text-emerald-600 text-[11px]">
                                               ({item.info.convertedText})
                                             </span>
@@ -2622,7 +2819,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                     <span className="font-bold text-slate-900 tracking-tight">
                                       {item.ing.rawAmount.toLocaleString()}{displayUnit}
                                     </span>
-                                    {item.info.convertedText && (
+                                    {item.info.convertedText && !isImportedProduct && (
                                       <span className="font-medium text-emerald-600 text-[11px]">
                                         ({item.info.convertedText})
                                       </span>
@@ -3129,9 +3326,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               {/* 전문 본문 (스크롤) */}
               <div
                 onMouseUp={handleMouseUpInApiModal}
-                className="p-5 overflow-y-auto max-h-[68vh] bg-[#f8fafc] text-xs sm:text-[13px] text-slate-800 whitespace-pre-wrap leading-relaxed font-mono select-text border-b border-slate-200 relative"
+                className="p-5 overflow-y-auto max-h-[68vh] bg-[#f8fafc] text-xs sm:text-[13px] text-slate-800 leading-relaxed font-mono select-text border-b border-slate-200 relative"
               >
-                {renderApiTextWithCustomHighlights(apiFullText, product.apiHighlights || [])}
+                {renderApiModalContent(apiFullText, product.apiHighlights || [])}
               </div>
 
               {/* 드래그 선택 시 뜨는 형광펜 칠하기 툴팁 */}

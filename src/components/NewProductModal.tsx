@@ -1007,7 +1007,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                       ? '예: 대웅제약, 종근당, GC녹십자'
                       : '예: 콜마비앤에이치, 서흥, 알피바이오'
                   }
-                  className="w-full p-2 bg-white border border-slate-300 rounded-lg font-medium text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                  className="w-full p-2 bg-white border border-slate-300 rounded-lg font-medium text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none text-center"
                 />
               </div>
 
@@ -1032,7 +1032,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                       ? '예: 락토핏, 마이타민업, 밀크씨슬, 루테인'
                       : '예: 아르기닌, 카무트, 글루타치온'
                   }
-                  className="w-full p-2 bg-white border border-slate-300 rounded-lg font-medium text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                  className="w-full p-2 bg-white border border-slate-300 rounded-lg font-medium text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none text-center"
                 />
               </div>
 
@@ -1055,12 +1055,12 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                       setIngredientBasis(pClass === 'HEALTH_FUNCTIONAL_FOOD' ? 'PER_DAILY' : 'PER_UNIT');
                     }
                   }}
-                  className="w-full p-2 bg-white border border-slate-300 rounded-lg font-semibold text-xs"
+                  className="w-full p-2 bg-white border border-slate-300 rounded-lg font-semibold text-xs text-center text-slate-800"
                 >
-                  <option value="OTC_DRUG">일반의약품 (식약처)</option>
-                  <option value="HEALTH_FUNCTIONAL_FOOD">건강기능식품 (국내)</option>
-                  <option value="IMPORTED_FOOD">수입 건기식/식품 (식약처)</option>
-                  <option value="GENERAL_FOOD">기타가공품/일반식품</option>
+                  <option value="OTC_DRUG">일반의약품</option>
+                  <option value="HEALTH_FUNCTIONAL_FOOD">국내 건강기능식품</option>
+                  <option value="IMPORTED_FOOD">수입 건기식/식품</option>
+                  <option value="GENERAL_FOOD">일반식품</option>
                 </select>
               </div>
 
@@ -1079,7 +1079,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                     }
                   }}
                   placeholder={classification === 'OTC_DRUG' ? '예: 202300072' : '예: 20190004553197'}
-                  className="w-full p-2 bg-white border border-slate-300 rounded-lg font-mono text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none"
+                  className="w-full p-2 bg-white border border-slate-300 rounded-lg font-mono text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none text-center"
                 />
               </div>
 

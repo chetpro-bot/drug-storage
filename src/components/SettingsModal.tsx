@@ -27,7 +27,7 @@ import * as XLSX from 'xlsx';
 import { useProductStore } from '../stores/useProductStore';
 import { ProductItem } from '../types/product';
 import { ProductClassification, DosageForm } from '../types/classification';
-import { STANDARD_EFFICACY_TAGS, cleanProductTags } from '../constants/efficacyTags';
+import { cleanProductTags } from '../constants/efficacyTags';
 import {
   searchPublicDrugDatabase,
   convertMasterItemToFetchResult,
@@ -973,7 +973,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
                   {filteredTags.map((tag) => {
                     const count = tagProductCounts[tag] || 0;
-                    const isStandard = STANDARD_EFFICACY_TAGS.includes(tag);
                     const isRenaming = editingTag?.oldName === tag;
 
                     return (
@@ -1016,15 +1015,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             <div className="flex items-center gap-1.5 min-w-0">
                               <span className="text-xs font-bold text-slate-800 truncate">
                                 {tag}
-                              </span>
-                              <span
-                                className={`text-[9px] px-1.5 py-0.2 rounded font-medium ${
-                                  isStandard
-                                    ? 'bg-slate-100 text-slate-500'
-                                    : 'bg-indigo-50 text-indigo-700 border border-indigo-200'
-                                }`}
-                              >
-                                {isStandard ? '표준' : '사용자'}
                               </span>
                               <span
                                 className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full font-bold ${

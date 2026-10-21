@@ -2122,10 +2122,20 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                               {probioticStrains.map((strain, sIdx) => (
                                                 <li
                                                   key={sIdx}
-                                                  className="flex items-center gap-1.5 text-xs text-slate-700 font-medium leading-tight"
+                                                  className="flex items-center gap-1.5 text-xs text-slate-700 font-medium leading-tight flex-wrap"
                                                 >
                                                   <span className="w-1 h-1 rounded-full bg-slate-400 shrink-0" />
-                                                  <span className="font-sans tracking-tight">{strain}</span>
+                                                  <span className="font-sans tracking-tight">{strain.name}</span>
+                                                  {strain.isStandard && (
+                                                    <span className="text-[10px] font-semibold text-sky-700 bg-sky-50 border border-sky-200/80 px-1.5 py-0.2 rounded leading-none shrink-0">
+                                                      고시형
+                                                    </span>
+                                                  )}
+                                                  {strain.regulatoryType === '개별인정형' && (
+                                                    <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded leading-none shrink-0">
+                                                      개별인정형
+                                                    </span>
+                                                  )}
                                                 </li>
                                               ))}
                                             </ul>
@@ -2256,10 +2266,20 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                             {probioticStrains.map((strain, sIdx) => (
                                               <li
                                                 key={sIdx}
-                                                className="flex items-center gap-1.5 text-xs text-slate-700 font-medium leading-tight"
+                                                className="flex items-center gap-1.5 text-xs text-slate-700 font-medium leading-tight flex-wrap"
                                               >
                                                 <span className="w-1 h-1 rounded-full bg-slate-400 shrink-0" />
-                                                <span className="font-sans tracking-tight">{strain}</span>
+                                                <span className="font-sans tracking-tight">{strain.name}</span>
+                                                {strain.isStandard && (
+                                                  <span className="text-[10px] font-semibold text-sky-700 bg-sky-50 border border-sky-200/80 px-1.5 py-0.2 rounded leading-none shrink-0">
+                                                    고시형
+                                                  </span>
+                                                )}
+                                                {strain.regulatoryType === '개별인정형' && (
+                                                  <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded leading-none shrink-0">
+                                                    개별인정형
+                                                  </span>
+                                                )}
                                               </li>
                                             ))}
                                           </ul>

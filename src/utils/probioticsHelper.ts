@@ -10,11 +10,38 @@ export const PROBIOTIC_GENERA_REGEX =
   /^(?:Lactobacillus|Bifidobacterium|Lacticaseibacillus|Lactiplantibacillus|Limosilactobacillus|Ligilactobacillus|Latilactobacillus|Streptococcus|Enterococcus|Lactococcus|Bacillus|Clostridium|락토바실러스|비피도박테리움|락티카제이바실러스|락티플란티바실러스|리모시락토바실러스|리지락토바실러스|스트렙토코커스|엔테로코커스|락토코커스|바실러스|클로스트리디움|낙산균|포자균|효모균|사균체)/i;
 
 /**
- * C003 원재료명(RAWMTRL_NM)에서 프로바이오틱스 균주(Strains) 목록 추출
- * - 부형제, 캡슐기제(히드록시프로필메틸셀룰로오스, 정제수, 자일리톨, 이눌린 등) 및 비생균 성분 제외
- * - '(고시형)', '(개별인정형)' 등 법정 접미사 정제
+ * 식약처 건강기능식품 공전 고시형 19종 프로바이오틱스 균종 학명/한국어명 목록
  */
-export function extractProbioticStrains(rawMtrlText?: string): string[] {
+export const KFDA_STANDARD_SPECIES = [
+  'acidophilus', 'casei', 'paracasei', 'rhamnosus', 'reuteri',
+  'plantarum', 'fermentum', 'gasseri', 'helveticus', 'salivarius',
+  'bulgaricus', 'delbrueckii', 'bifidum', 'breve', 'longum',
+  'animalis', 'lactis', 'thermophilus', 'faecium', 'faecalis',
+  '아시도필루스', '카제이', '파라카제이', '람노서스', '루테리',
+  '플란타룸', '퍼멘텀', '가세리', '헬베티쿠스', '살리바리우스',
+  '불가리쿠스', '델브루키', '비피덤', '브레브', '롱검', '애니멀리스', '락티스', '써모필러스', '페슘', '페칼리스'
+];
+
+export interface ProbioticStrainInfo {
+  name: string;
+  isStandard: boolean; // 식약처 공전 고시형 여부
+  regulatoryType?: '고시형' | '개별인정형';
+}
+
+/**
+ * 균주명이 식약처 공전 고시형 19종에 해당하는지 판별
+ */
+export function isKfdaStandardSpecies(strainName: string): boolean {
+  const lower = strainName.toLowerCase();
+  return KFDA_STANDARD_SPECIES.some((spec) => lower.includes(spec));
+}
+
+/**
+ * C003 원재료명(RAWMTRL_NM)에서 프로바이오틱스 균주(Strains) 목록 및 고시형 여부 추출
+ * - 부형제, 캡슐기제(히드록시프로필메틸셀룰로오스, 정제수, 자일리톨, 이눌린 등) 및 비생균 성분 제외
+ * - 고시형 / 개별인정형 법정 분류 플래그 판별
+ */
+export function extractProbioticStrains(rawMtrlText?: string): ProbioticStrainInfo[] {
   if (!rawMtrlText || !rawMtrlText.trim()) return [];
 
   const items = rawMtrlText
@@ -22,10 +49,13 @@ export function extractProbioticStrains(rawMtrlText?: string): string[] {
     .map((s) => s.trim())
     .filter(Boolean);
 
-  const strains: string[] = [];
+  const strains: ProbioticStrainInfo[] = [];
   const seen = new Set<string>();
 
   for (const item of items) {
+    const isExplicitStandard = /고시형/.test(item);
+    const isExplicitIndividual = /개별인정/.test(item);
+
     // 괄호 법정 수식어 제거: (고시형), (개별인정형), (기능성원료...)
     const cleaned = item
       .replace(/\((?:고시형|개별인정형|기능성원료[^)]*|제[0-9\-]+호)\)/gi, '')
@@ -38,7 +68,12 @@ export function extractProbioticStrains(rawMtrlText?: string): string[] {
     if (PROBIOTIC_GENERA_REGEX.test(cleaned) || /유산균|비피더스|생균/i.test(cleaned)) {
       if (!seen.has(cleaned.toLowerCase())) {
         seen.add(cleaned.toLowerCase());
-        strains.push(cleaned);
+        const isStandard = isExplicitStandard || (!isExplicitIndividual && isKfdaStandardSpecies(cleaned));
+        strains.push({
+          name: cleaned,
+          isStandard,
+          regulatoryType: isStandard ? '고시형' : (isExplicitIndividual ? '개별인정형' : undefined)
+        });
       }
     }
   }

@@ -1317,7 +1317,32 @@ function parseServingFromInstruction(instruction: string, fallbackShape: string 
 /**
  * 식품안전나라 기능성 문구(PRIMARY_FNCLTY)를 누락 없이 정제
  */
-function parseFunctionalClaims(rawFnclty?: string): string[] {
+export const KFDA_CLAIM_RULES: { match: RegExp; nutrient: string }[] = [
+  { match: /유산균\s*증식|유해균\s*억제|배변활동\s*원활|장\s*건강/i, nutrient: '프로바이오틱스' },
+  { match: /탄수화물과\s*에너지\s*대사/i, nutrient: '비타민 B1' },
+  { match: /단백질\s*(?:및\s*아미노산)?\s*이용|호모시스테인/i, nutrient: '비타민 B6' },
+  { match: /정상적인\s*면역기능|세포분열/i, nutrient: '아연' },
+  { match: /지방[,\s]*탄수화물[,\s]*단백질\s*대사/i, nutrient: '판토텐산' },
+  { match: /체내\s*에너지\s*생성/i, nutrient: '비타민 B2' },
+  { match: /유해산소로부터\s*세포/i, nutrient: '셀레늄 / 항산화' },
+  { match: /칼슘과\s*인이\s*흡수|골다공증|뼈의\s*형성과\s*유지/i, nutrient: '비타민 D' },
+  { match: /뼈와\s*치아\s*형성|신경과\s*근육/i, nutrient: '칼슘 / 마그네슘' },
+  { match: /세포와\s*혈액생성|태아\s*신경관/i, nutrient: '엽산' },
+  { match: /정상적인\s*엽산\s*대사/i, nutrient: '비타민 B12' },
+  { match: /어두운\s*곳에서\s*시각|상피세포/i, nutrient: '비타민 A' },
+  { match: /정상적인\s*혈액응고|뼈의\s*구성/i, nutrient: '비타민 K' },
+  { match: /산소운반|혈액생성/i, nutrient: '철' },
+  { match: /간\s*건강/i, nutrient: '밀크씨슬' },
+  { match: /황반색소/i, nutrient: '루테인·지아잔틴' },
+  { match: /중성지질\s*개선|혈행\s*개선|건조한\s*눈/i, nutrient: 'EPA 및 DHA(오메가3)' },
+  { match: /면역력\s*증진|피로개선|혈소판\s*응집/i, nutrient: '홍삼' },
+  { match: /긴장완화/i, nutrient: 'L-테아닌' }
+];
+
+/**
+ * 식품안전나라 기능성 문구(PRIMARY_FNCLTY)에서 영양소별 기능성을 매핑하여 누락 없이 정제
+ */
+export function parseFunctionalClaims(rawFnclty?: string): string[] {
   if (!rawFnclty) return [];
   const cleaned = rawFnclty
     .replace(/\(국문\)/g, '')
@@ -1330,21 +1355,51 @@ function parseFunctionalClaims(rawFnclty?: string): string[] {
     .filter(Boolean);
 
   const claims: string[] = [];
+  const assignedNutrients = new Set<string>();
+
   for (const line of lines) {
-    // [아연] ①정상적인 면역기능에 필요②정상적인 세포분열에 필요
+    // 1. 이미 [영양소]가 시작하는 경우 (예: [비타민 B1])
+    if (line.startsWith('[')) {
+      claims.push(line);
+      const m = line.match(/^\[([^\]]+)\]/);
+      if (m) assignedNutrients.add(m[1].trim());
+      continue;
+    }
+
+    // 2. 뒤에 (영양소)가 붙어있는 경우 (예: '정상적인 면역기능에 필요 (아연)')
+    const parenMatch = line.match(/^(.*?)\s*\((비타민[A-Za-z0-9\s]+|아연|엽산|철|칼슘|마그네슘|셀레늄|판토텐산|비오틴|나이아신)\)\s*$/);
+    if (parenMatch) {
+      const nut = parenMatch[2].trim();
+      assignedNutrients.add(nut);
+      claims.push(`[${nut}] ${parenMatch[1].replace(/^[①-⑩\(\)0-9\.\s]+/, '').trim()}`);
+      continue;
+    }
+
     const subParts = line
       .split(/[①②③④⑤⑥⑦⑧⑨⑩]|(?:\([0-9]+\))/)
       .map(s => s.trim())
       .filter(s => s.length > 1);
 
-    if (subParts.length > 1 && line.startsWith('[')) {
-      const prefix = subParts[0]; // e.g., "[아연]"
-      const rest = subParts.slice(1).join(', ');
-      claims.push(`${prefix} ${rest}`);
-    } else if (subParts.length > 0 && !line.startsWith('[')) {
-      claims.push(...subParts);
-    } else {
-      claims.push(line);
+    const partsToProcess = subParts.length > 0 ? subParts : [line];
+    for (const part of partsToProcess) {
+      const cleanDesc = part.replace(/^[①-⑩\(\)0-9\.\s]+/, '').replace(/[①-⑩]/g, ', ').trim();
+      if (!cleanDesc) continue;
+
+      let nutrient = '';
+      if (/체내\s*에너지\s*생성/i.test(cleanDesc)) {
+        if (!assignedNutrients.has('비타민 B2')) nutrient = '비타민 B2';
+        else nutrient = '나이아신';
+      } else {
+        const found = KFDA_CLAIM_RULES.find(r => r.match.test(cleanDesc));
+        if (found) nutrient = found.nutrient;
+      }
+
+      if (nutrient) {
+        assignedNutrients.add(nutrient);
+        claims.push(`[${nutrient}] ${cleanDesc}`);
+      } else {
+        claims.push(cleanDesc);
+      }
     }
   }
 

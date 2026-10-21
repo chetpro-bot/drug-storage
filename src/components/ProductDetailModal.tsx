@@ -20,6 +20,7 @@ import {
   summarizePrecautions,
   getPrecautionHighlightKeywords
 } from '../utils/precautionsHelper';
+import { resolveFunctionalClaimsWithNutrients } from '../utils/functionalClaimsHelper';
 
 import {
   X,
@@ -2261,14 +2262,27 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </span>
               </div>
               <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-4">
-                {product.functionalFoodDetail?.functionalClaimsKorean &&
-                product.functionalFoodDetail.functionalClaimsKorean.length > 0 ? (
-                  <div className="text-xs text-slate-800 leading-relaxed font-medium whitespace-pre-wrap font-sans">
-                    {product.functionalFoodDetail.functionalClaimsKorean.join('\n')}
-                  </div>
-                ) : (
-                  <p className="text-xs text-slate-400">등록된 기능성 정보가 없습니다.</p>
-                )}
+                {(() => {
+                  const rawClaims = product.functionalFoodDetail?.functionalClaimsKorean || [];
+                  const resolvedList = resolveFunctionalClaimsWithNutrients(rawClaims, product.ingredients);
+                  if (resolvedList.length === 0) {
+                    return <p className="text-xs text-slate-400">등록된 기능성 정보가 없습니다.</p>;
+                  }
+                  return (
+                    <ul className="space-y-2">
+                      {resolvedList.map((item, idx) => (
+                        <li key={idx} className="flex items-start gap-2 text-xs leading-relaxed">
+                          <span className="font-extrabold text-sky-700 bg-sky-100/80 border border-sky-200 px-2 py-0.5 rounded text-[11px] shrink-0">
+                            {item.nutrient}
+                          </span>
+                          <span className="font-medium text-slate-800 pt-0.5">
+                            {item.description}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  );
+                })()}
               </div>
             </div>
           )}

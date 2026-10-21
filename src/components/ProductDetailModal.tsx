@@ -2491,79 +2491,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             );
           })()}
         </div>
-
-            {/* 한글표시사항 전문 보기 (수입식품 KORLABEL 또는 국내 건기식 규격/원재료 공식 고시문) */}
-            {(() => {
-              const koreanLabel =
-                product.functionalFoodDetail?.koreanLabelText ||
-                (product as any).koreanLabelText ||
-                '';
-              const rawMtrl =
-                product.functionalFoodDetail?.rawMaterialsText ||
-                product.functionalFoodDetail?.subIngredientsText ||
-                '';
-              const stdrStnd = product.functionalFoodDetail?.standardSpecificationKorean || '';
-              const precautions =
-                product.functionalFoodDetail?.safetyPrecautionsText ||
-                product.functionalFoodDetail?.safetyPrecautionsKorean?.join('\n') ||
-                '';
-
-              let fullText = (pureApiText || '').trim() || koreanLabel.trim();
-              if (!fullText) {
-                if (product.classification === 'GENERAL_FOOD') {
-                  const sections: string[] = [];
-                  if (regulatoryCode) sections.push(`■ 품목제조보고번호: ${regulatoryCode}`);
-                  sections.push(`■ 제품명: ${product.productName}`);
-                  if (product.manufacturer) sections.push(`■ 제조업소: ${product.manufacturer}`);
-                  if (product.packagingUnit) sections.push(`■ 식품유형/소비기한: ${product.packagingUnit}`);
-                  if (product.functionalFoodDetail?.appearanceKorean) {
-                    sections.push(`■ 성상: ${product.functionalFoodDetail.appearanceKorean}`);
-                  }
-                  if (product.functionalFoodDetail?.suggestedUseKorean) {
-                    sections.push(`■ 섭취방법: ${product.functionalFoodDetail.suggestedUseKorean}`);
-                  }
-                  fullText = sections.join('\n');
-                } else {
-                  // pureApiText 로딩 전 / 오프라인 fallback: 순수 API 원본 필드만 가공 없이 나열
-                  const sections: string[] = [];
-                  if (regulatoryCode) sections.push(`■ 품목제조보고번호: ${regulatoryCode}`);
-                  sections.push(`■ 제품명: ${product.productName}`);
-                  if (product.manufacturer) sections.push(`■ 제조업소: ${product.manufacturer}`);
-                  if (product.functionalFoodDetail?.appearanceKorean) {
-                    sections.push(`■ 성상: ${product.functionalFoodDetail.appearanceKorean}`);
-                  }
-                  if (rawMtrl) sections.push(`\n■ 원재료명:\n${rawMtrl}`);
-                  if (stdrStnd) sections.push(`\n■ 기준 및 규격:\n${stdrStnd}`);
-                  if (precautions) sections.push(`\n■ 섭취 시 주의사항:\n${precautions}`);
-                  fullText = sections.join('\n');
-                }
-              }
-
-              if (!fullText) return null;
-
-              return (
-                <div className="mt-3">
-                  <button
-                    type="button"
-                    onClick={() => setIsKoreanLabelOpen(!isKoreanLabelOpen)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-sky-700 bg-white hover:bg-sky-50 border border-slate-200 hover:border-sky-300 transition-colors shadow-2xs cursor-pointer w-fit"
-                  >
-                    <FileText className="w-3.5 h-3.5 text-sky-600" />
-                    <span>한글표시사항 전문 보기</span>
-                    <ChevronDown
-                      className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
-                        isKoreanLabelOpen ? 'rotate-180' : ''
-                      }`}
-                    />
-                  </button>
-                  {isKoreanLabelOpen && (
-                    <div className="mt-2 text-[11px] text-slate-700 whitespace-pre-wrap leading-relaxed max-h-80 overflow-y-auto bg-[#f8fafc] p-3.5 rounded-xl border border-slate-200 font-mono shadow-2xs">
-                      {fullText}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
           </div>
 
           {/* 건기식 전용 SECTION 4: 기능성 */}
@@ -2876,6 +2803,79 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </div>
             </div>
           )}
+
+              {/* 한글표시사항 전문 보기 버튼 (수입식품, 국내 건기식, 기타식품 전용 - 왼쪽 제일 하단 배치) */}
+              {product.classification !== 'OTC_DRUG' && (() => {
+                const koreanLabel =
+                  product.functionalFoodDetail?.koreanLabelText ||
+                  (product as any).koreanLabelText ||
+                  '';
+                const rawMtrl =
+                  product.functionalFoodDetail?.rawMaterialsText ||
+                  product.functionalFoodDetail?.subIngredientsText ||
+                  '';
+                const stdrStnd = product.functionalFoodDetail?.standardSpecificationKorean || '';
+                const precautions =
+                  product.functionalFoodDetail?.safetyPrecautionsText ||
+                  product.functionalFoodDetail?.safetyPrecautionsKorean?.join('\n') ||
+                  '';
+
+                let fullText = (pureApiText || '').trim() || koreanLabel.trim();
+                if (!fullText) {
+                  if (product.classification === 'GENERAL_FOOD') {
+                    const sections: string[] = [];
+                    if (regulatoryCode) sections.push(`■ 품목제조보고번호: ${regulatoryCode}`);
+                    sections.push(`■ 제품명: ${product.productName}`);
+                    if (product.manufacturer) sections.push(`■ 제조업소: ${product.manufacturer}`);
+                    if (product.packagingUnit) sections.push(`■ 식품유형/소비기한: ${product.packagingUnit}`);
+                    if (product.functionalFoodDetail?.appearanceKorean) {
+                      sections.push(`■ 성상: ${product.functionalFoodDetail.appearanceKorean}`);
+                    }
+                    if (product.functionalFoodDetail?.suggestedUseKorean) {
+                      sections.push(`■ 섭취방법: ${product.functionalFoodDetail.suggestedUseKorean}`);
+                    }
+                    fullText = sections.join('\n');
+                  } else {
+                    // 국내 건기식 순수 API 원본 필드 나열 (인위적 가공 배제)
+                    const sections: string[] = [];
+                    if (regulatoryCode) sections.push(`■ 품목제조보고번호: ${regulatoryCode}`);
+                    sections.push(`■ 제품명: ${product.productName}`);
+                    if (product.manufacturer) sections.push(`■ 제조업소: ${product.manufacturer}`);
+                    if (product.functionalFoodDetail?.appearanceKorean) {
+                      sections.push(`■ 성상: ${product.functionalFoodDetail.appearanceKorean}`);
+                    }
+                    if (rawMtrl) sections.push(`\n■ 원재료명:\n${rawMtrl}`);
+                    if (stdrStnd) sections.push(`\n■ 기준 및 규격:\n${stdrStnd}`);
+                    if (precautions) sections.push(`\n■ 섭취 시 주의사항:\n${precautions}`);
+                    fullText = sections.join('\n');
+                  }
+                }
+
+                if (!fullText) return null;
+
+                return (
+                  <div className="pt-3 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setIsKoreanLabelOpen(!isKoreanLabelOpen)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-sky-700 bg-white hover:bg-sky-50 border border-slate-200 hover:border-sky-300 transition-colors shadow-2xs cursor-pointer w-fit"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-sky-600" />
+                      <span>한글표시사항 전문 보기</span>
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+                          isKoreanLabelOpen ? 'rotate-180' : ''
+                        }`}
+                      />
+                    </button>
+                    {isKoreanLabelOpen && (
+                      <div className="mt-2 text-[11px] text-slate-700 whitespace-pre-wrap leading-relaxed max-h-80 overflow-y-auto bg-[#f8fafc] p-3.5 rounded-xl border border-slate-200 font-mono shadow-2xs">
+                        {fullText}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* 우측 약사 상담 메모장 (Sticky) */}

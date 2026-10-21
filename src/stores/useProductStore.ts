@@ -10,7 +10,7 @@ import {
   isSentenceOrAutoTag,
   sortProductTags
 } from '../constants/efficacyTags';
-import { resolveKpicCategory, saveLearnedIngredientMapping } from '../utils/innMapper';
+import { resolveKpicCategory, saveLearnedIngredientMapping, inferDrugIngredientConversion } from '../utils/innMapper';
 import { extractAgeContraindication } from '../utils/precautionsHelper';
 import { normalizeCategory } from '../utils/categoryColors';
 import { 
@@ -292,6 +292,98 @@ function migrateAndEnsureKpic(products: ProductItem[]): ProductItem[] {
               elementalLabel: expected.label,
               elementalUnit: expected.elUnit || (expected.elemental ? expected.unit : undefined)
             };
+          }
+        }
+      }
+    }
+
+    // 5-2. 아로나민씨플러스정(품목코드: 200400325) 식약처 공식 허가 13종 배합 성분 및 환산성분량 동기화
+    if (prod.productName.includes('아로나민씨플러스')) {
+      const ARONAMIN_CPLUS_OFFICIAL: Record<
+        string,
+        { raw: number; unit: 'mg' | 'ug' | 'IU'; elemental?: number; label?: string; elUnit?: string; info?: string }
+      > = {
+        'fursultiamine hydrochloride': { raw: 27.285, unit: 'mg', elemental: 25, label: '푸르설티아민', info: '푸르설티아민 25mg' },
+        '푸르설티아민염산염': { raw: 27.285, unit: 'mg', elemental: 25, label: '푸르설티아민', info: '푸르설티아민 25mg' },
+        'cyanocobalamin 1000x powder': { raw: 6.0, unit: 'mg', elemental: 6, label: '시아노코발라민', elUnit: 'ug', info: '시아노코발라민 6µg' },
+        '시아노코발라민1000배산': { raw: 6.0, unit: 'mg', elemental: 6, label: '시아노코발라민', elUnit: 'ug', info: '시아노코발라민 6µg' },
+        'ascorbic acid granules 97%': { raw: 618.56, unit: 'mg', elemental: 600, label: '아스코르브산', info: '아스코르브산 600mg' },
+        '아스코르브산 과립97%': { raw: 618.56, unit: 'mg', elemental: 600, label: '아스코르브산', info: '아스코르브산 600mg' },
+        '아스코르브산과립97%': { raw: 618.56, unit: 'mg', elemental: 600, label: '아스코르브산', info: '아스코르브산 600mg' },
+        'tocopherol acetate powder 50%': { raw: 40.0, unit: 'mg', elemental: 20, label: '비타민E', elUnit: 'IU', info: '비타민E 20IU' },
+        '토코페롤아세테이트 2배산': { raw: 40.0, unit: 'mg', elemental: 20, label: '비타민E', elUnit: 'IU', info: '비타민E 20IU' },
+        '토코페롤아세테이트2배산': { raw: 40.0, unit: 'mg', elemental: 20, label: '비타민E', elUnit: 'IU', info: '비타민E 20IU' },
+        'ferrous fumarate': { raw: 13.5, unit: 'mg', elemental: 4.4, label: '철', info: '철 4.4mg' },
+        '푸마르산철': { raw: 13.5, unit: 'mg', elemental: 4.4, label: '철', info: '철 4.4mg' },
+        'zinc oxide': { raw: 9.33, unit: 'mg', elemental: 7.5, label: '아연', info: '아연 7.5mg' },
+        '산화아연': { raw: 9.33, unit: 'mg', elemental: 7.5, label: '아연', info: '아연 7.5mg' },
+        'selenium in dried yeast': { raw: 46.3, unit: 'mg', elemental: 25, label: '셀레늄', elUnit: 'ug', info: '셀레늄 25µg' },
+        '셀레늄함유건조효모': { raw: 46.3, unit: 'mg', elemental: 25, label: '셀레늄', elUnit: 'ug', info: '셀레늄 25µg' }
+      };
+
+      for (let i = 0; i < updatedIngredients.length; i++) {
+        const ing = updatedIngredients[i];
+        const matchKey = Object.keys(ARONAMIN_CPLUS_OFFICIAL).find(
+          k =>
+            (ing.koreanName && ing.koreanName.toLowerCase().replace(/\s+/g, '').includes(k.replace(/\s+/g, ''))) ||
+            (ing.englishInn && ing.englishInn.toLowerCase().replace(/[\s\-\']/g, '').includes(k.replace(/[\s\-\']/g, '')))
+        );
+        if (matchKey) {
+          const expected = ARONAMIN_CPLUS_OFFICIAL[matchKey];
+          if (
+            ing.elementalAmount !== expected.elemental ||
+            ing.elementalLabel !== expected.label ||
+            ing.ingredientInfoText !== expected.info
+          ) {
+            hasChanges = true;
+            updatedIngredients[i] = {
+              ...ing,
+              elementalAmount: expected.elemental,
+              elementalLabel: expected.label,
+              elementalUnit: expected.elUnit || (expected.elemental ? expected.unit : undefined),
+              ingredientInfoText: expected.info
+            };
+          }
+        }
+      }
+    }
+
+    // 5-3. 국내 일반의약품(OTC_DRUG) 성분 중 환산량이 누락된 성분 자동 보강 (수입제품 제외)
+    const isImported =
+      prod.id.startsWith('imported_') ||
+      Boolean((prod as any).sourceOrigin?.includes('수입')) ||
+      Boolean(prod.functionalFoodDetail?.koreanLabelText) ||
+      Boolean((prod as any).koreanLabelText);
+
+    if (prod.classification === 'OTC_DRUG' && !isImported) {
+      for (let i = 0; i < updatedIngredients.length; i++) {
+        const ing = updatedIngredients[i];
+        if (ing.elementalAmount === undefined && !ing.ingredientInfoText) {
+          const inferred =
+            inferDrugIngredientConversion(ing.koreanName || '', ing.rawAmount, ing.unit) ||
+            inferDrugIngredientConversion(ing.englishInn || '', ing.rawAmount, ing.unit);
+          if (inferred) {
+            const m = inferred.match(/^(?:(.*?)(?:\(으\)|으)?로서\s*|(.*?)\s+)?([0-9\.,]+)\s*([a-zA-Z가-힣㎍μµ\.]+)?$/);
+            if (m) {
+              let label = (m[1] || m[2] || '').replace(/(?:\(으\)|으로서|로서|으)$/, '').trim();
+              const num = parseFloat((m[3] || '').replace(/,/g, ''));
+              let u = (m[4] || 'mg').trim();
+              if (/ug|㎍|μg|µg|마이크로그램/i.test(u)) u = 'ug';
+              else if (/iu|아이\.유/i.test(u)) u = 'IU';
+              else if (/mg|밀리그램/i.test(u)) u = 'mg';
+              else if (/g|그램/i.test(u)) u = 'g';
+
+              const dispUnit = u === 'ug' ? 'µg' : u;
+              const dispNum = (u === 'IU' && num >= 1000) ? num.toLocaleString('en-US') : num.toString();
+              hasChanges = true;
+              updatedIngredients[i] = {
+                ...ing,
+                elementalAmount: num,
+                elementalLabel: label,
+                elementalUnit: u,
+                ingredientInfoText: label ? `${label} ${dispNum}${dispUnit}` : `${dispNum}${dispUnit}`
+              };
+            }
           }
         }
       }

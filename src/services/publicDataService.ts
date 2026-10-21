@@ -1,6 +1,6 @@
 import { ProductClassification, DosageForm } from '../types/classification';
 import { ProductIngredientEntry } from '../types/ingredient';
-import { parseRawIngredientString, INN_DICTIONARY } from '../utils/innMapper';
+import { parseRawIngredientString, INN_DICTIONARY, inferDrugIngredientConversion } from '../utils/innMapper';
 import { deduplicatePrecautionsText } from '../utils/functionalClaimsHelper';
 
 export type PublicDataSourceOrigin =
@@ -873,22 +873,28 @@ D-비오틴 0.05mg
     dailyServings: 2,
     amountPerServing: 1,
     servingUnitKorean: '정',
-    regulatoryCode: '200401824',
-    rawIngredientsText: `푸르설티아민 25mg
-리보플라빈 6mg
-피리독신염산염 25mg
-시아노코발라민 6ug
-니코틴산아미드 25mg
-판토텐산칼슘 10mg
-비오틴 0.05mg
-폴산 0.1mg
-아스코르브산 600mg
-토코페롤아세테이트2배산 20mg (비타민E로서 10IU)
-셀레늄함유건조효모 46.3mg (셀레늄으로서 25ug)
-산화아연 18.7mg (아연으로서 15mg)`,
-    dosageInstruction: '만 12세 이상 및 성인: 1일 2회, 1회 1~2정 복용',
-    indicationsSummary: ['항산화 비타민C 1,200mg 보급, 기미·주근깨 완화, 피로회복'],
-    searchKeywords: ['아로나민', '아로나민씨플러스', '씨플러스', '일동', '일동제약']
+    regulatoryCode: '200400325',
+    rawIngredientsText: `푸르설티아민염산염 27.285mg (푸르설티아민으로서 25mg)
+리보플라빈부티레이트 5mg
+니코틴산아미드 50mg
+판토텐산칼슘 20mg
+피리독신염산염 5mg
+시아노코발라민1000배산 6.0mg (시아노코발라민으로서 6ug)
+아스코르브산 과립97% 618.56mg (아스코르브산으로서 600mg)
+토코페롤아세테이트 2배산 40.0mg (비타민E로서 20IU)
+폴산 0.25mg
+비오틴 22.5ug
+푸마르산철 13.5mg (철으로서 4.4mg)
+산화아연 9.33mg (아연으로서 7.5mg)
+셀레늄함유건조효모 46.3mg (셀레늄으로서 25ug)`,
+    dosageInstruction: '만 12세 이상 어린이 및 성인 : 1회 2정을 1일 1회 복용 또는 1회 1정씩 1일 2회 복용',
+    indicationsSummary: [
+      '육체피로, 임신·수유기, 병중·병후의 체력저하시 비타민 B1, B2, B6, C, E의 보급',
+      '햇빛·피부병에 의한 색소침착(기미, 주근깨)의 완화, 잇몸출혈·비출혈(코피) 예방',
+      '신경통, 근육통, 관절통(요통, 어깨결림 등), 구각염, 구순염, 구내염, 설염, 습진, 피부염 증상 완화',
+      '아연 및 철 결핍 예방 및 보급'
+    ],
+    searchKeywords: ['아로나민', '아로나민씨플러스', '아로나민씨플러스정', '씨플러스', '일동', '일동제약', '200400325']
   },
 
   // --- [제일헬스사이언스 투엑스비 라인업] ---
@@ -1269,8 +1275,15 @@ function inferDosageForm(chartText: string = '', prodName: string = '', shapeCod
 
 /**
  * 식약처 품목 상세 정보(MATERIAL_NAME)를 파싱하여 rawIngredientsText 생성
+ * 국내 일반의약품의 경우, 공공데이터포털 API의 MATERIAL_NAME에서 '성분정보'가 공란으로 제공되더라도
+ * 식약처 의약품 표준 허가 기준에 따른 환산성분량(유효성분량/순성분량)을 자동으로 보강합니다.
+ * (단, 수입제품은 환산성분량 기재가 법적으로 면제되므로 원료량 단독 유지)
  */
-function formatMaterialNameToRawIngredients(materialName?: string, mainIngrEng?: string): string {
+function formatMaterialNameToRawIngredients(
+  materialName?: string,
+  mainIngrEng?: string,
+  isImported: boolean = false
+): string {
   if (!materialName) {
     if (mainIngrEng) {
       return mainIngrEng.split('/').map(s => s.trim()).join('\n');
@@ -1304,6 +1317,14 @@ function formatMaterialNameToRawIngredients(materialName?: string, mainIngrEng?:
       .replace(/아이\.유/g, 'IU')
       .trim();
 
+    // 식약처 공공 API에서 성분정보가 비어있고 국내 의약품인 경우 식약처 공식 허가 기준 환산성분량 자동 복원
+    if (!cleanInfo && !isImported && amount) {
+      const inferred = inferDrugIngredientConversion(ingrName, parseFloat(amount), unit);
+      if (inferred) {
+        cleanInfo = inferred;
+      }
+    }
+
     if (ingrName) {
       let line = amount ? `${ingrName} ${amount}${unit}` : ingrName;
       if (cleanInfo) {
@@ -1312,7 +1333,6 @@ function formatMaterialNameToRawIngredients(materialName?: string, mainIngrEng?:
       lines.push(line);
     }
   }
-
 
   return lines.join('\n');
 }
@@ -3465,37 +3485,170 @@ function formatNedrugIngrInfo(rawInfo?: string | null): string {
   return formatSingleNedrugIngrInfo(rawInfo);
 }
 
+interface NedrugRawRow {
+  ingrName?: string | null;
+  ingrTotqy?: string | null;
+  ingrUnitName?: string | null;
+  ingrStdName?: string | null;
+  ingrInfo?: string | null;
+  totqyCont?: string | null;
+}
+
+const NEDRUG_CACHE_STORAGE_KEY = 'pharmassist_nedrug_rows_cache_v1';
+const nedrugMemoryCache = new Map<string, NedrugRawRow[]>();
+
+function loadCachedNedrugRows(itemSeq: string): NedrugRawRow[] | null {
+  if (nedrugMemoryCache.has(itemSeq)) {
+    return nedrugMemoryCache.get(itemSeq)!;
+  }
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(NEDRUG_CACHE_STORAGE_KEY);
+    if (!raw) return null;
+    const map = JSON.parse(raw) as Record<string, NedrugRawRow[]>;
+    if (Array.isArray(map[itemSeq]) && map[itemSeq].length > 0) {
+      nedrugMemoryCache.set(itemSeq, map[itemSeq]);
+      return map[itemSeq];
+    }
+  } catch {
+    // ignore storage parse error
+  }
+  return null;
+}
+
+function saveCachedNedrugRows(itemSeq: string, rows: NedrugRawRow[]): void {
+  if (!rows || rows.length === 0) return;
+  nedrugMemoryCache.set(itemSeq, rows);
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
+  try {
+    const raw = localStorage.getItem(NEDRUG_CACHE_STORAGE_KEY);
+    const map: Record<string, NedrugRawRow[]> = raw ? JSON.parse(raw) : {};
+    map[itemSeq] = rows;
+    localStorage.setItem(NEDRUG_CACHE_STORAGE_KEY, JSON.stringify(map));
+  } catch {
+    // ignore quota error
+  }
+}
+
+function extractNedrugRowsFromHtml(html: string): NedrugRawRow[] {
+  const matches = [...html.matchAll(/var aasda = (\{.*?\});/g)];
+  const rows: NedrugRawRow[] = [];
+  for (const m of matches) {
+    try {
+      const o = JSON.parse(m[1]);
+      rows.push({
+        ingrName: o.ingrName ?? null,
+        ingrTotqy: o.ingrTotqy ?? null,
+        ingrUnitName: o.ingrUnitName ?? null,
+        ingrStdName: o.ingrStdName ?? null,
+        ingrInfo: o.ingrInfo ?? null,
+        totqyCont: o.totqyCont ?? null
+      });
+    } catch {
+      // skip malformed JSON row
+    }
+  }
+  return rows;
+}
+
 /**
  * 의약품안전나라(nedrug.mfds.go.kr) 품목 상세 페이지 내 원료약품 JSON(var aasda = {...})을 직접 파싱하여
  * 약학정보원(KPIC)과 100% 동일한 성분/함량/환산량 텍스트 생성
+ * - 1순위: 로컬 캐시 (한 번 수집된 품목은 재요청 없이 즉시 반환)
+ * - 2순위: Firebase Cloud Function 서버 프록시 (/api/nedrug-proxy 또는 asia-northeast3 클라우드 함수)
+ * - 3순위: 개발 서버 Vite 프록시 (/api/nedrug)
+ * - 4순위: 백업 CORS 프록시
  */
 export async function fetchNedrugIngredientsText(
   itemSeq: string,
   mainIngrEng?: string
 ): Promise<string | null> {
-  if (!itemSeq) return null;
-  const directUrl = `https://nedrug.mfds.go.kr/pbp/CCBBB01/getItemDetail?itemSeq=${encodeURIComponent(itemSeq)}`;
+  const cleanSeq = (itemSeq || '').trim();
+  if (!cleanSeq) return null;
 
-  const fetchHtml = async (): Promise<string | null> => {
+  const directUrl = `https://nedrug.mfds.go.kr/pbp/CCBBB01/getItemDetailCache?cacheSeq=${encodeURIComponent(cleanSeq)}aupdateTs2025-01-01b`;
+
+  const fetchRows = async (): Promise<NedrugRawRow[] | null> => {
+    // 0. 캐시 확인 (품목당 1회 수집 후 영구 재사용)
+    const cached = loadCachedNedrugRows(cleanSeq);
+    if (cached && cached.length > 0) {
+      return cached;
+    }
+
+    // 0-B. 배포 정적 캐시 (/nedrug_cache.json) 확인
+    if (typeof window !== 'undefined') {
+      try {
+        const staticRes = await fetch('/nedrug_cache.json');
+        if (staticRes.ok) {
+          const staticMap = (await staticRes.json()) as Record<string, NedrugRawRow[]>;
+          for (const [k, v] of Object.entries(staticMap)) {
+            if (Array.isArray(v) && v.length > 0) {
+              nedrugMemoryCache.set(k, v);
+            }
+          }
+          if (Array.isArray(staticMap[cleanSeq]) && staticMap[cleanSeq].length > 0) {
+            return staticMap[cleanSeq];
+          }
+        }
+      } catch {
+        // ignore static cache error
+      }
+    }
+
     // 1. Node.js 환경 (테스트/스크립트 실행 시) 직접 호출
     if (typeof window === 'undefined') {
       const r = await fetch(directUrl);
-      if (r.ok) return await r.text();
+      if (r.ok) {
+        const rows = extractNedrugRowsFromHtml(await r.text());
+        if (rows.length > 0) return rows;
+      }
       return null;
     }
 
-    // 2. 브라우저 환경 1순위: Vite 프록시 (/api/nedrug) 호출
+    // 2. 브라우저 환경 1순위: 로컬 Vite 프록시 (/api/nedrug) 호출 (302 리다이렉트 없는 getItemDetailCache 사용)
     try {
-      const proxyRes = await fetch(`/api/nedrug/pbp/CCBBB01/getItemDetail?itemSeq=${encodeURIComponent(itemSeq)}`);
+      const proxyRes = await fetch(`/api/nedrug/pbp/CCBBB01/getItemDetailCache?cacheSeq=${encodeURIComponent(cleanSeq)}aupdateTs2025-01-01b`);
       if (proxyRes.ok) {
         const txt = await proxyRes.text();
-        if (txt.includes('var aasda =')) return txt;
+        if (txt.includes('var aasda =')) {
+          const rows = extractNedrugRowsFromHtml(txt);
+          if (rows.length > 0) return rows;
+        }
       }
     } catch {
       // ignore and try next fallback
     }
 
-    // 3. 브라우저 환경 2순위 (정적 호스팅 배포 시): 공개 CORS 프록시 우회 호출
+    // 3. 브라우저 환경 2순위: Firebase Cloud Function 서버 프록시 (nedrugItemDetailProxy)
+    const serverProxyUrls = [
+      `/api/nedrug-proxy?itemSeq=${encodeURIComponent(cleanSeq)}`,
+      `https://asia-northeast3-drug-storage-175fe.cloudfunctions.net/nedrugItemDetailProxy?itemSeq=${encodeURIComponent(cleanSeq)}`,
+      `https://us-central1-drug-storage-175fe.cloudfunctions.net/nedrugItemDetailProxy?itemSeq=${encodeURIComponent(cleanSeq)}`
+    ];
+    for (const sUrl of serverProxyUrls) {
+      try {
+        const res = await fetch(sUrl);
+        if (res.ok) {
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const data = await res.json();
+            if (Array.isArray(data?.rows) && data.rows.length > 0) {
+              return data.rows as NedrugRawRow[];
+            }
+          } else {
+            const txt = await res.text();
+            if (txt.includes('var aasda =')) {
+              const rows = extractNedrugRowsFromHtml(txt);
+              if (rows.length > 0) return rows;
+            }
+          }
+        }
+      } catch {
+        // try next server proxy URL
+      }
+    }
+
+    // 4. 브라우저 환경 3순위 (최후 백업): 공개 CORS 프록시 우회 호출
     const corsProxies = [
       `https://corsproxy.io/?${encodeURIComponent(directUrl)}`,
       `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`
@@ -3505,7 +3658,10 @@ export async function fetchNedrugIngredientsText(
         const r = await fetch(pUrl);
         if (r.ok) {
           const txt = await r.text();
-          if (txt.includes('var aasda =')) return txt;
+          if (txt.includes('var aasda =')) {
+            const rows = extractNedrugRowsFromHtml(txt);
+            if (rows.length > 0) return rows;
+          }
         }
       } catch {
         // try next
@@ -3515,36 +3671,31 @@ export async function fetchNedrugIngredientsText(
   };
 
   try {
-    const html = await fetchHtml();
-    if (!html) return null;
+    const rows = await fetchRows();
+    if (!rows || rows.length === 0) return null;
 
-    const matches = [...html.matchAll(/var aasda = (\{.*?\});/g)];
-    if (matches.length === 0) return null;
+    saveCachedNedrugRows(cleanSeq, rows);
 
     const lines: string[] = [];
-    for (const m of matches) {
-      try {
-        const obj = JSON.parse(m[1]);
-        let korName: string = (obj.ingrName || '').trim();
-        if (!korName) continue;
+    for (const obj of rows) {
+      let korName: string = (obj.ingrName || '').trim();
+      if (!korName) continue;
 
-        // 약학정보원 표기 통일 (감마-오리자놀 -> γ-오리자놀, 토코페롤아세테이트 2배산 -> 토코페롤아세테이트2배산)
-        if (korName === '감마-오리자놀') korName = 'γ-오리자놀';
-        else if (korName === '토코페롤아세테이트 2배산') korName = '토코페롤아세테이트2배산';
+      // 약학정보원 표기 통일 (감마-오리자놀 -> γ-오리자놀, 토코페롤아세테이트 2배산 -> 토코페롤아세테이트2배산)
+      if (korName === '감마-오리자놀') korName = 'γ-오리자놀';
+      else if (korName === '토코페롤아세테이트 2배산') korName = '토코페롤아세테이트2배산';
 
-        const engName = resolveKpaicEnglishIngredientName(korName, mainIngrEng);
-        const amount: string = (obj.ingrTotqy || '').trim();
-        const unit: string = normalizeNedrugUnit(obj.ingrUnitName || '밀리그램');
-        const infoFormatted = formatNedrugIngrInfo(obj.ingrInfo);
+      const engName = resolveKpaicEnglishIngredientName(korName, mainIngrEng);
+      const amount: string = (obj.ingrTotqy || '').trim();
+      const unit: string = normalizeNedrugUnit(obj.ingrUnitName || '밀리그램');
+      // 의약품안전나라 원문 ingrInfo를 있는 그대로 정제하여 사용 (임의 생성 없음)
+      const infoFormatted = formatNedrugIngrInfo(obj.ingrInfo);
 
-        const namePart = engName ? `${korName} (${engName})` : korName;
-        const amountPart = amount ? ` ${amount}${unit}` : '';
-        const infoPart = infoFormatted ? ` (${infoFormatted})` : '';
+      const namePart = engName ? `${korName} (${engName})` : korName;
+      const amountPart = amount ? ` ${amount}${unit}` : '';
+      const infoPart = infoFormatted ? ` (${infoFormatted})` : '';
 
-        lines.push(`${namePart}${amountPart}${infoPart}`);
-      } catch {
-        // skip malformed JSON row
-      }
+      lines.push(`${namePart}${amountPart}${infoPart}`);
     }
 
     return lines.length > 0 ? lines.join('\n') : null;
@@ -3594,7 +3745,7 @@ export async function fetchMfdsDrugDetail(itemSeq: string): Promise<{
     // 의약품안전나라(nedrug.mfds.go.kr) 원문 허가증 테이블에서 유효성분 환산량(ingrInfo) 포함 데이터 최우선 수집
     const nedrugIngredientsText = await fetchNedrugIngredientsText(itemSeq, item.MAIN_INGR_ENG);
     const rawIngredientsText =
-      nedrugIngredientsText || formatMaterialNameToRawIngredients(item.MATERIAL_NAME, item.MAIN_INGR_ENG);
+      nedrugIngredientsText || formatMaterialNameToRawIngredients(item.MATERIAL_NAME, item.MAIN_INGR_ENG, false);
 
     return {
       rawIngredientsText,

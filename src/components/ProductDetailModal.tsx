@@ -2528,7 +2528,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                   ingredientInfoText: scaleIngredientInfoText(ing.ingredientInfoText, doseFactor)
                                 };
 
-                          const info = resolveIngredientDisplayInfo(scaledIng, product.productName);
+                          const info = resolveIngredientDisplayInfo(scaledIng, product.productName, isImportedProduct);
 
                           return {
                             ing: scaledIng,

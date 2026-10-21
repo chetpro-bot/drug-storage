@@ -158,6 +158,9 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '염산염 (활성형 비타민 B1)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B1',
+    elementalRatio: 0.91626,
+    elementalTargetLabel: '푸르설티아민으로서',
+    elementalUnit: 'mg',
     clinicalSummary: '• 뇌혈관장벽(BBB) 및 세포막 통과 우수, 활성형 조효소 TPP 전환\n• 신경통, 관절통 증상 완화'
   },
   '티아민질산염': {
@@ -428,6 +431,9 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '유기산 2가 철 (푸마르산철)',
     defaultUnit: 'mg',
     standardKey: 'IRON',
+    elementalRatio: 0.3287,
+    elementalTargetLabel: '철으로서',
+    elementalUnit: 'mg',
     clinicalSummary: '• 헤모글로빈 구성 성분으로 체내 산소 운반 및 혈액 생성'
   },
 
@@ -477,8 +483,11 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     englishInn: 'Selenium in dried yeast',
     functionalCategory: '셀레늄(Se)',
     chemicalFormName: '건조효모 결합형 (셀레늄)',
-    defaultUnit: 'ug',
+    defaultUnit: 'mg',
     standardKey: 'SELENIUM',
+    elementalRatio: 0.53995,
+    elementalTargetLabel: '셀레늄으로서',
+    elementalUnit: 'ug',
     clinicalSummary: '• 글루타티온 과산화효소(GSH-Px) 핵심 조효소, 유해 활성산소 강력 소거'
   },
   '토코페롤아세테이트': {
@@ -542,6 +551,9 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '과립형 비타민 C (L-아스코르브산)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_C',
+    elementalRatio: 0.97,
+    elementalTargetLabel: '아스코르브산으로서',
+    elementalUnit: 'mg',
     clinicalSummary: '• 결합조직 형성과 기능유지에 필요, 철의 흡수 및 항산화 작용'
   },
   '아스코르브산과립97%': {
@@ -550,6 +562,9 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '과립형 비타민 C (L-아스코르브산)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_C',
+    elementalRatio: 0.97,
+    elementalTargetLabel: '아스코르브산으로서',
+    elementalUnit: 'mg',
     clinicalSummary: '• 결합조직 형성과 기능유지에 필요, 철의 흡수 및 항산화 작용'
   },
   'L-시스테인': {
@@ -1467,6 +1482,9 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '1,000배 희석 분말 (비타민 B12)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_B12',
+    elementalRatio: 1.0,
+    elementalTargetLabel: '시아노코발라민으로서',
+    elementalUnit: 'ug',
     clinicalSummary: '• 정상적인 엽산 대사에 필요, 신경 기능 유지'
   },
   '베타카로틴20%과립': {
@@ -1490,6 +1508,9 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     chemicalFormName: '과립형 비타민 C (L-아스코르브산)',
     defaultUnit: 'mg',
     standardKey: 'VITAMIN_C',
+    elementalRatio: 0.97,
+    elementalTargetLabel: '아스코르브산으로서',
+    elementalUnit: 'mg',
     clinicalSummary: '• 결합조직 형성과 기능유지에 필요, 철의 흡수 및 항산화 작용'
   }
 };
@@ -1641,6 +1662,197 @@ export function formatKpaicSpecification(rawItem: string): string {
   // 6. 최종 결합: "Ascorbic Acid Coated 51.15mg (Ascorbic Acid 50mg)"
   const finalSpec = `${mainEngName}${mainAmount ? ' ' + mainAmount : ''}${bracketFormatted}`.trim();
   return finalSpec;
+}
+
+/**
+ * 국내 일반의약품(OTC_DRUG) 성분 중 식약처 공공 API의 '성분정보'가 누락된 경우,
+ * 식약처 의약품 허가 기준에 따른 표준 유효/원소 환산성분량 텍스트 생성
+ * (예: "푸르설티아민염산염" 27.285mg -> "푸르설티아민으로서 25mg", "아스코르브산 과립97%" 618.56mg -> "아스코르브산으로서 600mg")
+ * ※ 수입제품은 환산량 기재 면제 대상이므로 제외
+ */
+export function inferDrugIngredientConversion(
+  ingrName: string,
+  amount: number,
+  _unit?: string
+): string | null {
+  if (!ingrName || !amount || amount <= 0) return null;
+  const cleanName = ingrName.replace(/\s+/g, '').toLowerCase();
+
+  // 1. 푸르설티아민염산염
+  if (cleanName.includes('푸르설티아민염산염') || cleanName.includes('fursultiaminehydrochloride')) {
+    if (Math.abs(amount - 27.285) < 0.1) return '푸르설티아민으로서 25mg';
+    if (Math.abs(amount - 54.57) < 0.2) return '푸르설티아민으로서 50mg';
+    return `푸르설티아민으로서 ${Math.round(amount * 0.9162)}mg`;
+  }
+
+  // 2. 벤포티아민
+  if (cleanName.includes('벤포티아민') || cleanName.includes('benfotiamine')) {
+    if (Math.abs(amount - 100) < 0.1) return '티아민염산염으로서 72.3mg';
+    if (Math.abs(amount - 50) < 0.1) return '티아민염산염으로서 36.15mg';
+    return `티아민염산염으로서 ${parseFloat((amount * 0.723).toFixed(2))}mg`;
+  }
+
+  // 3. 비스벤티아민
+  if (cleanName.includes('비스벤티아민') || cleanName.includes('bisbenthiamine')) {
+    if (Math.abs(amount - 30) < 0.1) return '티아민염산염으로서 26.2mg';
+    return `티아민염산염으로서 ${parseFloat((amount * 0.8733).toFixed(2))}mg`;
+  }
+
+  // 4. 티아민질산염 / 질산티아민
+  if (cleanName.includes('질산티아민') || cleanName.includes('티아민질산염') || cleanName.includes('thiaminemononitrate')) {
+    if (Math.abs(amount - 100) < 0.1) return '티아민염산염으로서 96.3mg';
+    return `티아민염산염으로서 ${parseFloat((amount * 0.963).toFixed(1))}mg`;
+  }
+
+  // 5. 시아노코발라민1000배산 / 0.1% 산
+  if (
+    cleanName.includes('시아노코발라민1000배산') ||
+    cleanName.includes('cyanocobalamin1000x') ||
+    cleanName.includes('cyanocobalamin0.1%') ||
+    cleanName.includes('시아노코발라민0.1%')
+  ) {
+    const ugVal = Math.round(amount * 1 * 10) / 10;
+    return `시아노코발라민으로서 ${ugVal}ug`;
+  }
+
+  // 6. 시아노코발라민100배산
+  if (cleanName.includes('시아노코발라민100배산') || cleanName.includes('cyanocobalamin100x')) {
+    const ugVal = Math.round(amount * 10 * 10) / 10;
+    return `시아노코발라민으로서 ${ugVal}ug`;
+  }
+
+  // 7. 아스코르브산 과립97% / 97% 과립
+  if (
+    cleanName.includes('아스코르브산과립97%') ||
+    cleanName.includes('아스코르브산97%과립') ||
+    cleanName.includes('ascorbicacidgranules97%')
+  ) {
+    if (Math.abs(amount - 618.56) < 0.2) return '아스코르브산으로서 600mg';
+    if (Math.abs(amount - 515.46) < 0.2) return '아스코르브산으로서 500mg';
+    if (Math.abs(amount - 1030.93) < 0.5) return '아스코르브산으로서 1000mg';
+    return `아스코르브산으로서 ${Math.round(amount * 0.97 * 10) / 10}mg`;
+  }
+
+  // 8. 제피아스코르브산
+  if (cleanName.includes('제피아스코르브산') || cleanName.includes('ascorbicacidcoated')) {
+    if (Math.abs(amount - 51.15) < 0.2) return '아스코르브산으로서 50mg';
+    if (Math.abs(amount - 102.3) < 0.3) return '아스코르브산으로서 100mg';
+    return `아스코르브산으로서 ${Math.round(amount * 0.9775)}mg`;
+  }
+
+  // 9. 토코페롤아세테이트 2배산 / 50% 분말
+  if (
+    cleanName.includes('토코페롤아세테이트2배산') ||
+    cleanName.includes('토코페롤아세테이트50%') ||
+    cleanName.includes('tocopherolacetatepowder50%') ||
+    cleanName.includes('tocopherolacetate50%')
+  ) {
+    const iuVal = Math.round(amount * 0.5);
+    return `비타민E로서 ${iuVal}IU`;
+  }
+
+  // 10. 콜레칼시페롤농축분말 / 과립
+  if (
+    cleanName.includes('콜레칼시페롤농축분말') ||
+    cleanName.includes('콜레칼시페롤과립') ||
+    cleanName.includes('cholecalciferolconcentrate')
+  ) {
+    const iuVal = Math.round(amount * 100);
+    return `비타민D로서 ${iuVal.toLocaleString('en-US')}IU`;
+  }
+
+  // 11. 푸마르산철 / 푸마르산제일철
+  if (cleanName.includes('푸마르산철') || cleanName.includes('푸마르산제일철') || cleanName.includes('ferrousfumarate')) {
+    if (Math.abs(amount - 13.5) < 0.2) return '철으로서 4.4mg';
+    if (Math.abs(amount - 90) < 0.5) return '철으로서 29.6mg';
+    return `철으로서 ${parseFloat((amount * 0.3287).toFixed(1))}mg`;
+  }
+
+  // 12. 산화아연
+  if (cleanName.includes('산화아연') || cleanName.includes('zincoxide')) {
+    if (Math.abs(amount - 9.33) < 0.1) return '아연으로서 7.5mg';
+    if (Math.abs(amount - 18.7) < 0.2) return '아연으로서 15mg';
+    if (Math.abs(amount - 30) < 0.2) return '아연으로서 24.1mg';
+    if (Math.abs(amount - 37.4) < 0.2) return '아연으로서 30mg';
+    return `아연으로서 ${parseFloat((amount * 0.8034).toFixed(1))}mg`;
+  }
+
+  // 13. 글루콘산아연
+  if (cleanName.includes('글루콘산아연') || cleanName.includes('zincgluconate')) {
+    if (Math.abs(amount - 70) < 0.2) return '아연으로서 10mg';
+    return `아연으로서 ${parseFloat((amount * 0.1435).toFixed(1))}mg`;
+  }
+
+  // 14. 셀레늄함유건조효모
+  if (cleanName.includes('셀레늄함유건조효모') || cleanName.includes('seleniumindriedyeast')) {
+    if (Math.abs(amount - 46.3) < 0.2) return '셀레늄으로서 25ug';
+    if (Math.abs(amount - 92.6) < 0.3) return '셀레늄으로서 50ug';
+    if (Math.abs(amount - 40.8) < 0.2) return '셀레늄으로서 22ug';
+    if (Math.abs(amount - 37.04) < 0.2) return '셀레늄으로서 20ug';
+    if (Math.abs(amount - 18.52) < 0.2) return '셀레늄으로서 10ug';
+    return `셀레늄으로서 ${parseFloat((amount * 0.53995).toFixed(1))}ug`;
+  }
+
+  // 15. 산화마그네슘
+  if (cleanName.includes('산화마그네슘') || cleanName.includes('magnesiumoxide')) {
+    if (Math.abs(amount - 82.78) < 0.2 || Math.abs(amount - 82.8) < 0.2) return '마그네슘으로서 50mg';
+    if (Math.abs(amount - 100) < 0.2) return '마그네슘으로서 60.3mg';
+    if (Math.abs(amount - 165.8) < 0.3) return '마그네슘으로서 100mg';
+    if (Math.abs(amount - 414.5) < 0.5) return '마그네슘으로서 250mg';
+    return `마그네슘으로서 ${Math.round(amount * 0.603)}mg`;
+  }
+
+  // 16. 무수인산수소칼슘
+  if (cleanName.includes('무수인산수소칼슘') || cleanName.includes('anhydrousdibasiccalciumphosphate')) {
+    if (Math.abs(amount - 421.54) < 0.5 || Math.abs(amount - 421.5) < 0.5) {
+      return '칼슘으로서 124.175mg, 총 인으로서 96mg';
+    }
+    return `칼슘으로서 ${parseFloat((amount * 0.2946).toFixed(1))}mg`;
+  }
+
+  // 17. 탄산칼슘
+  if (cleanName.includes('탄산칼슘') || cleanName.includes('calciumcarbonate')) {
+    if (Math.abs(amount - 100) < 0.2) return '칼슘으로서 40mg';
+    if (Math.abs(amount - 250) < 0.5) return '칼슘으로서 100mg';
+    if (Math.abs(amount - 500) < 0.5) return '칼슘으로서 200mg';
+    if (Math.abs(amount - 1250) < 1) return '칼슘으로서 500mg';
+    return `칼슘으로서 ${Math.round(amount * 0.4004)}mg`;
+  }
+
+  // 18. 판토텐산칼슘
+  if (cleanName.includes('판토텐산칼슘') || cleanName.includes('calciumpantothenate')) {
+    if (Math.abs(amount - 9.813) < 0.1 || Math.abs(amount - 9.81) < 0.1) {
+      return '판토텐산으로서 9mg, 칼슘으로서 0.825mg';
+    }
+  }
+
+  // 19. 베타카로틴20%과립
+  if (cleanName.includes('베타카로틴20%') || cleanName.includes('betacarotene20%')) {
+    return `베타카로틴으로서 ${parseFloat((amount * 0.2).toFixed(1))}mg`;
+  }
+
+  // 20. 크롬함유건조효모
+  if (cleanName.includes('크롬함유건조효모') || cleanName.includes('chromiumindriedyeast')) {
+    if (Math.abs(amount - 20) < 0.2) return '크롬으로서 10ug';
+    return `크롬으로서 ${parseFloat((amount * 0.5).toFixed(1))}ug`;
+  }
+
+  // 21. 글루콘산동
+  if (cleanName.includes('글루콘산동') || cleanName.includes('coppergluconate')) {
+    return `구리로서 ${parseFloat((amount * 0.14).toFixed(2))}mg`;
+  }
+
+  // 22. 황산망간
+  if (cleanName.includes('황산망간') || cleanName.includes('manganesesulfate')) {
+    return `망간으로서 ${parseFloat((amount * 0.364).toFixed(2))}mg`;
+  }
+
+  // 23. 리보플라빈포스페이트나트륨
+  if (cleanName.includes('리보플라빈포스페이트나트륨') || cleanName.includes("riboflavin5'-phosphatesodium")) {
+    return `리보플라빈으로서 ${parseFloat((amount * 0.78).toFixed(2))}mg`;
+  }
+
+  return null;
 }
 
 /**
@@ -1889,8 +2101,37 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
         ? (meta.chemicalFormName && meta.chemicalFormName !== matchedKey ? meta.chemicalFormName : `유기염 (${nameRaw})`)
         : meta.chemicalFormName;
 
-      // 약전 화학식이나 사전 비율로 임의 계산하지 않고 오직 API에서 파싱된 환산량만 사용
-      const finalElemental = elementalAmount;
+      // 공공 API 원문 또는 허가 기준 환산성분량 매핑 (식약처 기준)
+      let finalElemental: number | undefined = elementalAmount;
+      let finalElementalUnit: string | undefined = elementalUnit;
+      let finalElementalLabel: string | undefined = elementalLabel;
+      let finalIngredientInfoText: string | undefined = ingredientInfoText;
+
+      if (finalElemental === undefined && !finalIngredientInfoText) {
+        const inferred =
+          inferDrugIngredientConversion(nameRaw, amount, unit) ||
+          inferDrugIngredientConversion(finalInn, amount, unit);
+        if (inferred) {
+          const m = inferred.match(/^(?:(.*?)(?:\(으\)|으)?로서\s*|(.*?)\s+)?([0-9\.,]+)\s*([a-zA-Z가-힣㎍μµ\.]+)?$/);
+          if (m) {
+            let label = (m[1] || m[2] || '').replace(/(?:\(으\)|으로서|로서|으)$/, '').trim();
+            const num = parseFloat((m[3] || '').replace(/,/g, ''));
+            let u = (m[4] || 'mg').trim();
+            if (/ug|㎍|μg|µg|마이크로그램/i.test(u)) u = 'ug';
+            else if (/iu|아이\.유/i.test(u)) u = 'IU';
+            else if (/mg|밀리그램/i.test(u)) u = 'mg';
+            else if (/g|그램/i.test(u)) u = 'g';
+
+            finalElemental = num;
+            finalElementalLabel = label || meta.elementalTargetLabel;
+            finalElementalUnit = u;
+            const dispUnit = u === 'ug' ? 'µg' : u;
+            const dispNum = (u === 'IU' && num >= 1000) ? num.toLocaleString('en-US') : num.toString();
+            finalIngredientInfoText = label ? `${label} ${dispNum}${dispUnit}` : `${dispNum}${dispUnit}`;
+          }
+        }
+      }
+
       const resolvedCategory =
         learnedDict[matchedKey]?.functionalCategory ||
         (meta.functionalCategory && meta.functionalCategory !== '기타' ? meta.functionalCategory : undefined) ||
@@ -1898,7 +2139,7 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
         '기타';
 
       const finalSpec = isCompoundSalt
-        ? `${finalInn} ${amount}${unit}${elementalAmount ? ` (${meta.standardKey === 'MAGNESIUM' ? 'Magnesium' : 'Elemental'} ${elementalAmount}${unit})` : ''}`
+        ? `${finalInn} ${amount}${unit}${finalElemental ? ` (${meta.standardKey === 'MAGNESIUM' ? 'Magnesium' : 'Elemental'} ${finalElemental}${unit})` : ''}`
         : formattedSpecification;
 
       results.push({
@@ -1910,9 +2151,9 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
         rawAmount: amount,
         unit: (unit || meta.defaultUnit) as 'mg' | 'ug' | 'IU' | 'g',
         elementalAmount: finalElemental,
-        elementalUnit,
-        elementalLabel,
-        ingredientInfoText,
+        elementalUnit: finalElementalUnit,
+        elementalLabel: finalElementalLabel,
+        ingredientInfoText: finalIngredientInfoText,
         // 주요(Main Active) 기준: 첫 번째 처방 주성분이거나, 단위가 mg일 때 투입량이 30mg 이상인 고함량 성분
         isMainActive: index === 0 || (unit === 'mg' && amount >= 30),
         standardKey: meta.standardKey,
@@ -2320,7 +2561,8 @@ export function analyzeChemicalFormFeature(
  */
 export function resolveIngredientDisplayInfo(
   ing: ProductIngredientEntry,
-  productName?: string
+  productName?: string,
+  isImported: boolean = false
 ): ResolvedIngredientDisplayInfo {
   let rawInn = (ing.englishInn || '').trim();
 
@@ -2438,6 +2680,41 @@ export function resolveIngredientDisplayInfo(
       (ing.elementalAmount !== ing.rawAmount || (ing.elementalUnit && ing.elementalUnit !== ing.unit))
     ) {
       convertedAmount = ing.elementalAmount;
+    } else if (!isImported) {
+      // 국내 일반의약품인데 API 원문이나 기존 데이터에서 환산성분량이 누락되었던 경우:
+      // 식약처 공식 허가 기준 환산성분량을 복원하여 유효성분량 표기 (수입제품만 환산량 기재 면제)
+      const inferred =
+        inferDrugIngredientConversion(ing.koreanName || '', ing.rawAmount, ing.unit) ||
+        inferDrugIngredientConversion(englishName || rawInn, ing.rawAmount, ing.unit);
+
+      if (inferred) {
+        const m = inferred.match(/^(?:(.*?)(?:\(으\)|으)?로서\s*|(.*?)\s+)?([0-9\.,]+)\s*([a-zA-Z가-힣㎍μµ\.]+)?$/);
+        if (m) {
+          convertedLabel = (m[1] || m[2] || '').replace(/(?:\(으\)|으로서|로서|으)$/, '').trim();
+          convertedAmount = parseFloat((m[3] || '').replace(/,/g, ''));
+          let u = (m[4] || 'mg').trim();
+          if (/ug|㎍|μg|µg|마이크로그램/i.test(u)) u = 'ug';
+          else if (/iu|아이\.유/i.test(u)) u = 'IU';
+          else if (/mg|밀리그램/i.test(u)) u = 'mg';
+          else if (/g|그램/i.test(u)) u = 'g';
+          convertedUnit = u;
+        }
+      } else if (
+        meta?.elementalRatio &&
+        meta.elementalRatio > 0 &&
+        (meta.elementalRatio !== 1 || (meta.elementalUnit && meta.elementalUnit !== ing.unit))
+      ) {
+        let calc = ing.rawAmount * meta.elementalRatio;
+        if (meta.elementalUnit === 'IU') {
+          convertedAmount = Math.round(calc);
+        } else if (calc >= 10) {
+          convertedAmount = parseFloat(calc.toFixed(1));
+        } else {
+          convertedAmount = parseFloat(calc.toFixed(2));
+        }
+        if (meta.elementalUnit) convertedUnit = meta.elementalUnit;
+        if (meta.elementalTargetLabel) convertedLabel = meta.elementalTargetLabel;
+      }
     }
   }
 
@@ -2451,10 +2728,13 @@ export function resolveIngredientDisplayInfo(
     else if (categoryTag === '크롬' || categoryTag === '크롬(Cr)') convertedLabel = '크롬';
     else if (categoryTag.startsWith('비타민D')) convertedLabel = '비타민D';
     else if (categoryTag === '비타민E') convertedLabel = '비타민E';
-    else if (categoryTag === '비타민B1') convertedLabel = '티아민염산염';
+    else if (categoryTag === '비타민B1') {
+      convertedLabel = /푸르설티아민|fursultiamine/i.test(`${englishName} ${rawInn} ${ing.koreanName || ''}`) ? '푸르설티아민' : '티아민염산염';
+    }
     else if (categoryTag === '비타민B2') convertedLabel = '리보플라빈';
     else if (categoryTag === '비타민B5') convertedLabel = '판토텐산';
     else if (categoryTag === '비타민B6') convertedLabel = '피리독신';
+    else if (categoryTag === '비타민B12') convertedLabel = '시아노코발라민';
     else if (categoryTag === '비타민C') convertedLabel = '아스코르브산';
   }
 
@@ -2526,6 +2806,12 @@ export function resolveIngredientDisplayInfo(
         : ing.ingredientInfoText && ing.ingredientInfoText.trim()
         ? ing.ingredientInfoText.replace(/(으로서|로서)$/, '').trim()
         : null;
+  }
+
+  // 수입제품은 환산량 기재 면제 대상이므로 convertedText 비움
+  if (isImported) {
+    convertedText = null;
+    convertedAmount = undefined;
   }
 
   // 5. 2025 한국인 영양소 섭취기준(KDRIs) 성인 상한섭취량(UL) 매칭

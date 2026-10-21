@@ -834,6 +834,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
           tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
           ingredients: verifiedIngredients,
           attachments: attachedDocuments.length > 0 ? attachedDocuments : productToEdit.attachments,
+          pharmacistNotes: productToEdit.pharmacistNotes,
           ...(classification === 'OTC_DRUG'
             ? {
                 otcDetail: {

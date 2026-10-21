@@ -119,6 +119,7 @@ export interface ProductItem {
   priceRetailKrw?: number;              // 약국 소비자 판매가 (KRW)
   inventoryCount?: number;              // 현재 재고 수량
   tags: string[];                       // 효능 및 검색 태그 (예: ["피로", "간", "신경통", "고함량B군"])
+  pharmacistNotes?: string;             // 약사 상담 노하우 및 복약지도 메모 (언제든 수정 가능한 메모장)
   isActive: boolean;                    // 취급 활성화 여부
   createdAt: string;
   updatedAt: string;

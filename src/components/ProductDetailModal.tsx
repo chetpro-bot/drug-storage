@@ -2392,7 +2392,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               if (!fullText) return null;
 
               return (
-                <details className="bg-[#f8fafc] border border-slate-200 rounded-xl px-3.5 py-2.5 mt-2 group" open>
+                <details className="bg-[#f8fafc] border border-slate-200 rounded-xl px-3.5 py-2.5 mt-2 group">
                   <summary className="cursor-pointer text-xs font-bold text-slate-700 hover:text-sky-600 flex items-center justify-between select-none">
                     <div className="flex items-center gap-1.5">
                       <FileText className="w-3.5 h-3.5 text-sky-600" />

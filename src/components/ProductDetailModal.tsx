@@ -7,6 +7,7 @@ import {
   searchPublicDrugDatabase,
   convertMasterItemToFetchResult,
   fetchFoodSafetyC003RawByReportNo,
+  fetchFoodSafetyI1250RawByReportNo,
   parseImportedKoreanLabel,
   parseImportedNutritionFacts
 } from '../services/publicDataService';
@@ -58,7 +59,8 @@ import {
   ExternalLink,
   StickyNote,
   Check,
-  Save
+  Save,
+  ChevronDown
 } from 'lucide-react';
 
 interface ProductDetailModalProps {
@@ -868,8 +870,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [isFetchingFullApiText, setIsFetchingFullApiText] = useState(false);
   const [isIndicationsFullModalOpen, setIsIndicationsFullModalOpen] = useState(false);
   const [isPrecautionsFullModalOpen, setIsPrecautionsFullModalOpen] = useState(false);
-  // 식약처 C003 순수 API 원본 전문 (인위적 가공 배제)
-  const [pureC003ApiText, setPureC003ApiText] = useState<string | null>(null);
+  // 식약처 순수 API 원본 전문 (인위적 가공 배제)
+  const [pureApiText, setPureApiText] = useState<string | null>(null);
+  // 한글표시사항 전문 보기 펼침 상태
+  const [isKoreanLabelOpen, setIsKoreanLabelOpen] = useState(false);
   // 주의사항 전문보기 탭 (실물 라벨 vs 식약처 API)
   const [precautionsModalTab, setPrecautionsModalTab] = useState<'LABEL' | 'API'>('LABEL');
   // 제품 뒷면 사진 OCR 업로드 상태
@@ -1191,11 +1195,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   // 모달 오픈 시 오픈API에서 전문(Full Text)을 자동으로 가져와 즉시 표시 및 DB 업데이트
   useEffect(() => {
     if (!isOpen || !product) {
-      setPureC003ApiText(null);
+      setPureApiText(null);
+      setIsKoreanLabelOpen(false);
       return;
     }
 
-    setPureC003ApiText(null);
+    setPureApiText(product.functionalFoodDetail?.koreanLabelText || (product as any).koreanLabelText || null);
+    setIsKoreanLabelOpen(false);
     let isMounted = true;
 
     const checkAndFetchFullText = async () => {
@@ -1328,7 +1334,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               '■ 섭취 시 주의사항:',
               rawC003.IFTKN_ATNT_MATR_CN || '정보 없음'
             ].join('\n');
-            setPureC003ApiText(fullApiFormatted);
+            setPureApiText(fullApiFormatted);
 
             await updateProduct(product.id, {
               functionalFoodDetail: {
@@ -1349,6 +1355,33 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           console.warn('건기식 C003 원본 자동 조회 실패:', e);
         } finally {
           if (isMounted) setIsFetchingFullApiText(false);
+        }
+      } else if (product.classification === 'GENERAL_FOOD') {
+        const reportNo = (product.functionalFoodDetail?.reportNo || '').trim().replace(/[^0-9]/g, '');
+        if (reportNo) {
+          setIsFetchingFullApiText(true);
+          try {
+            const rawI1250 = await fetchFoodSafetyI1250RawByReportNo(reportNo);
+            if (rawI1250 && isMounted) {
+              const formattedI1250 = [
+                `■ 품목제조보고번호: ${rawI1250.PRDLST_REPORT_NO || reportNo}`,
+                `■ 제품명: ${rawI1250.PRDLST_NM || product.productName}`,
+                `■ 제조업소: ${rawI1250.BSSH_NM || product.manufacturer}`,
+                `■ 식품유형: ${rawI1250.PRDLST_DCNM || '혼합음료'}`,
+                `■ 성상: ${rawI1250.DISPOS || '정보 없음'}`,
+                `■ 섭취방법: ${rawI1250.USAGE || '정보 없음'}`,
+                `■ 포장재질: ${rawI1250.FRMLC_MTRQLT || '정보 없음'}`,
+                `■ 소비기한: ${rawI1250.POG_DAYCNT || '정보 없음'}`,
+                `■ 보고일자: ${rawI1250.PRMS_DT || '정보 없음'}${rawI1250.LAST_UPDT_DTM ? ` (최종수정: ${rawI1250.LAST_UPDT_DTM})` : ''}`,
+                `■ 생산여부: ${rawI1250.PRODUCTION || '아니오'}`
+              ].join('\n');
+              setPureApiText(formattedI1250);
+            }
+          } catch (e) {
+            console.warn('일반식품 I1250 원본 자동 조회 실패:', e);
+          } finally {
+            if (isMounted) setIsFetchingFullApiText(false);
+          }
         }
       }
     };
@@ -2475,12 +2508,23 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 product.functionalFoodDetail?.safetyPrecautionsKorean?.join('\n') ||
                 '';
 
-              let fullText = koreanLabel.trim();
+              let fullText = (pureApiText || '').trim() || koreanLabel.trim();
               if (!fullText) {
-                if (pureC003ApiText) {
-                  fullText = pureC003ApiText.trim();
+                if (product.classification === 'GENERAL_FOOD') {
+                  const sections: string[] = [];
+                  if (regulatoryCode) sections.push(`■ 품목제조보고번호: ${regulatoryCode}`);
+                  sections.push(`■ 제품명: ${product.productName}`);
+                  if (product.manufacturer) sections.push(`■ 제조업소: ${product.manufacturer}`);
+                  if (product.packagingUnit) sections.push(`■ 식품유형/소비기한: ${product.packagingUnit}`);
+                  if (product.functionalFoodDetail?.appearanceKorean) {
+                    sections.push(`■ 성상: ${product.functionalFoodDetail.appearanceKorean}`);
+                  }
+                  if (product.functionalFoodDetail?.suggestedUseKorean) {
+                    sections.push(`■ 섭취방법: ${product.functionalFoodDetail.suggestedUseKorean}`);
+                  }
+                  fullText = sections.join('\n');
                 } else {
-                  // pureC003ApiText 로딩 전 / 오프라인 fallback: 순수 API 원본 필드만 가공 없이 나열
+                  // pureApiText 로딩 전 / 오프라인 fallback: 순수 API 원본 필드만 가공 없이 나열
                   const sections: string[] = [];
                   if (regulatoryCode) sections.push(`■ 품목제조보고번호: ${regulatoryCode}`);
                   sections.push(`■ 제품명: ${product.productName}`);
@@ -2498,20 +2542,26 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               if (!fullText) return null;
 
               return (
-                <details className="bg-[#f8fafc] border border-slate-200 rounded-xl px-3.5 py-2.5 mt-2 group">
-                  <summary className="cursor-pointer text-xs font-bold text-slate-700 hover:text-sky-600 flex items-center justify-between select-none">
-                    <div className="flex items-center gap-1.5">
-                      <FileText className="w-3.5 h-3.5 text-sky-600" />
-                      <span>한글표시사항 전문 보기</span>
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsKoreanLabelOpen(!isKoreanLabelOpen)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-sky-700 bg-white hover:bg-sky-50 border border-slate-200 hover:border-sky-300 transition-colors shadow-2xs cursor-pointer w-fit"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-sky-600" />
+                    <span>한글표시사항 전문 보기</span>
+                    <ChevronDown
+                      className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
+                        isKoreanLabelOpen ? 'rotate-180' : ''
+                      }`}
+                    />
+                  </button>
+                  {isKoreanLabelOpen && (
+                    <div className="mt-2 text-[11px] text-slate-700 whitespace-pre-wrap leading-relaxed max-h-80 overflow-y-auto bg-[#f8fafc] p-3.5 rounded-xl border border-slate-200 font-mono shadow-2xs">
+                      {fullText}
                     </div>
-                    <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
-                      {koreanLabel ? '식약처 수입식품 라벨 원문' : '식약처 C003 공공데이터 원문'}
-                    </span>
-                  </summary>
-                  <div className="mt-2 text-[11px] text-slate-700 whitespace-pre-wrap leading-relaxed max-h-80 overflow-y-auto bg-white p-3.5 rounded-lg border border-slate-200 font-mono">
-                    {fullText}
-                  </div>
-                </details>
+                  )}
+                </div>
               );
             })()}
           </div>

@@ -1749,6 +1749,28 @@ export async function fetchFoodSafetyC003RawByReportNo(reportNo: string): Promis
 }
 
 /**
+ * 품목제조보고번호로 식품안전나라 I1250(일반가공식품/혼합음료 등) 원본 행 데이터 단건 직접 조회 (인위적 가공 없는 순수 API 원문)
+ */
+export async function fetchFoodSafetyI1250RawByReportNo(reportNo: string): Promise<any | null> {
+  const cleanNo = (reportNo || '').trim().replace(/[^0-9]/g, '');
+  if (!cleanNo) return null;
+  try {
+    const url = `${FOOD_SAFETY_BASE_URL}/${FOOD_SAFETY_API_KEY}/I1250/json/1/1/PRDLST_REPORT_NO=${cleanNo}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const rows = data?.I1250?.row;
+    if (Array.isArray(rows) && rows.length > 0) {
+      return rows[0];
+    }
+    return null;
+  } catch (e) {
+    console.warn('I1250 원본 데이터 단건 조회 실패:', e);
+    return null;
+  }
+}
+
+/**
  * 식품안전나라 건강기능식품 API (C003 전용 조회: 성상, 복용법, 기준규격, 원재료명, 주된기능성, 섭취주의사항)
  */
 export async function searchFoodSafetyFunctionalFoods(

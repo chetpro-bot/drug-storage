@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useProductStore, getDeletedIds } from '../stores/useProductStore';
 import { ProductClassification, DosageForm } from '../types/classification';
 import { ProductItem, AttachedDocument } from '../types/product';
@@ -25,7 +25,7 @@ import {
   parseIngredientInfoString
 } from '../utils/innMapper';
 import { STANDARD_EFFICACY_CATEGORIES } from '../utils/categoryColors';
-import { STANDARD_EFFICACY_TAGS, inferInitialEfficacyTags } from '../constants/efficacyTags';
+import { inferInitialEfficacyTags } from '../constants/efficacyTags';
 import { 
   X, 
   Search, 
@@ -57,8 +57,21 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
   onClose,
   productToEdit
 }) => {
-  const { products, addProduct, updateProduct, deleteProduct, setSelectedProductId } = useProductStore();
+  const {
+    products,
+    addProduct,
+    updateProduct,
+    deleteProduct,
+    setSelectedProductId,
+    getActiveTags,
+    customTags
+  } = useProductStore();
   const isEditMode = !!productToEdit;
+
+  // 제품 태그 관리 설정과 일치하는 활성 태그 목록
+  const availableTags = useMemo(() => {
+    return getActiveTags();
+  }, [getActiveTags, products, customTags]);
 
   // 1단계 입력 상태
   const [productName, setProductName] = useState('');
@@ -1798,26 +1811,26 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                   </span>
                 </div>
 
-                {/* 표준 효능 태그 원클릭 토글 버튼 */}
+                {/* 제품 태그 관리 설정과 일치하는 효능·증상 태그 토글 버튼 */}
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  {STANDARD_EFFICACY_TAGS.map((stdTag) => {
+                  {availableTags.map((tag: string) => {
                     const currentTagList = tags
                       .split(',')
                       .map((t) => t.trim())
                       .filter(Boolean);
-                    const isActive = currentTagList.includes(stdTag);
+                    const isActive = currentTagList.includes(tag);
                     return (
                       <button
-                        key={stdTag}
+                        key={tag}
                         type="button"
-                        onClick={() => handleToggleEfficacyTag(stdTag)}
+                        onClick={() => handleToggleEfficacyTag(tag)}
                         className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all cursor-pointer border ${
                           isActive
                             ? 'bg-sky-600 text-white border-sky-700 shadow-xs'
                             : 'bg-white text-slate-600 border-slate-300 hover:border-sky-400 hover:text-sky-700'
                         }`}
                       >
-                        {isActive ? `✓ ${stdTag}` : `+ ${stdTag}`}
+                        {isActive ? `✓ ${tag}` : `+ ${tag}`}
                       </button>
                     );
                   })}

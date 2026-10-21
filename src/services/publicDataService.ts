@@ -1727,6 +1727,28 @@ export function parseFunctionalFoodRecordToIngredients(
 }
 
 /**
+ * 품목제조보고번호로 식품안전나라 C003 원본 행 데이터 단건 직접 조회 (인위적 가공 없는 순수 API 원문)
+ */
+export async function fetchFoodSafetyC003RawByReportNo(reportNo: string): Promise<any | null> {
+  const cleanNo = (reportNo || '').trim().replace(/[^0-9]/g, '');
+  if (!cleanNo) return null;
+  try {
+    const url = `${FOOD_SAFETY_BASE_URL}/${FOOD_SAFETY_API_KEY}/C003/json/1/1/PRDLST_REPORT_NO=${cleanNo}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const rows = data?.C003?.row;
+    if (Array.isArray(rows) && rows.length > 0) {
+      return rows[0];
+    }
+    return null;
+  } catch (e) {
+    console.warn('C003 원본 데이터 단건 조회 실패:', e);
+    return null;
+  }
+}
+
+/**
  * 식품안전나라 건강기능식품 API (C003 전용 조회: 성상, 복용법, 기준규격, 원재료명, 주된기능성, 섭취주의사항)
  */
 export async function searchFoodSafetyFunctionalFoods(
@@ -1881,7 +1903,7 @@ export async function searchFoodSafetyFunctionalFoods(
       sourceOrigin: '식품안전나라 건기식 API (C003)' as PublicDataSourceOrigin,
       apiSourceBadge: '식품안전나라 C003 (건기식)',
       precautionsSummary: precautions,
-      safetyPrecautionsText: dedupedPrecautions,
+      safetyPrecautionsText: row.IFTKN_ATNT_MATR_CN || '',
       standardSpecificationText: row.STDR_STND || '',
       rawMaterialsText: row.RAWMTRL_NM || '',
       appearanceKorean: (row.DISPOS || '').trim(),

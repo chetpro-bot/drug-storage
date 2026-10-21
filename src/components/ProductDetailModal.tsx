@@ -5,7 +5,8 @@ import { useProductStore } from '../stores/useProductStore';
 import {
   fetchMfdsDrugDetail,
   searchPublicDrugDatabase,
-  convertMasterItemToFetchResult
+  convertMasterItemToFetchResult,
+  fetchFoodSafetyC003RawByReportNo
 } from '../services/publicDataService';
 import { AttachedDocumentsModal } from './AttachedDocumentsModal';
 import {
@@ -861,6 +862,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [isFetchingFullApiText, setIsFetchingFullApiText] = useState(false);
   const [isIndicationsFullModalOpen, setIsIndicationsFullModalOpen] = useState(false);
   const [isPrecautionsFullModalOpen, setIsPrecautionsFullModalOpen] = useState(false);
+  // 식약처 C003 순수 API 원본 전문 (인위적 가공 배제)
+  const [pureC003ApiText, setPureC003ApiText] = useState<string | null>(null);
   // 주의사항 전문보기 탭 (실물 라벨 vs 식약처 API)
   const [precautionsModalTab, setPrecautionsModalTab] = useState<'LABEL' | 'API'>('LABEL');
   // 제품 뒷면 사진 OCR 업로드 상태
@@ -1144,8 +1147,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   // 기존 DB에 저장된 제품의 주의사항이나 의약품 효능·효과가 요약본(placeholder)인 경우,
   // 모달 오픈 시 오픈API에서 전문(Full Text)을 자동으로 가져와 즉시 표시 및 DB 업데이트
   useEffect(() => {
-    if (!isOpen || !product) return;
+    if (!isOpen || !product) {
+      setPureC003ApiText(null);
+      return;
+    }
 
+    setPureC003ApiText(null);
     let isMounted = true;
 
     const checkAndFetchFullText = async () => {
@@ -1231,81 +1238,72 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         // 해외 수입 건기식/식품은 C003 국내 조회를 수행하지 않음
         if (isImported) return;
 
-        const currentPrecautions = product.functionalFoodDetail?.safetyPrecautionsKorean || [];
-        const isPlaceholderPrecautions =
-          currentPrecautions.length === 0 ||
-          (currentPrecautions.length === 1 &&
-            (currentPrecautions[0].includes('특이체질 시 성분 확인') ||
-              currentPrecautions[0].includes('라벨 주의사항 참조')));
-
-        const hasAppearance = Boolean(product.functionalFoodDetail?.appearanceKorean);
-        const hasRawMaterials = Boolean(product.functionalFoodDetail?.rawMaterialsText);
-        const hasStandardSpec = Boolean(product.functionalFoodDetail?.standardSpecificationKorean);
-        const hasSafetyPrecautions = Boolean(product.functionalFoodDetail?.safetyPrecautionsText);
-
-        // 주의사항이 임시문구이거나 성상/원재료/기준규격/주의사항 정보가 누락된 경우 자동 C003 조회
-        if (!isPlaceholderPrecautions && hasAppearance && hasRawMaterials && hasStandardSpec && hasSafetyPrecautions) return;
-
         setIsFetchingFullApiText(true);
         try {
-          const found = await searchPublicDrugDatabase(product.productName, {
-            classification: 'HEALTH_FUNCTIONAL_FOOD',
-            regulatoryCode: product.functionalFoodDetail?.reportNo,
-            targetSource: 'DOMESTIC_HFF'
-          });
-          const normProdName = product.productName.toLowerCase().replace(/[\s\-_]/g, '');
-          const matchedItem = found.find(it => {
-            const normFound = it.productName.toLowerCase().replace(/[\s\-_]/g, '');
-            return normFound === normProdName || normFound.includes(normProdName);
-          });
-          if (isMounted && matchedItem) {
-            const converted = await convertMasterItemToFetchResult(matchedItem);
+          const reportNo = (product.functionalFoodDetail?.reportNo || '').trim().replace(/[^0-9]/g, '');
+          let rawC003 = reportNo ? await fetchFoodSafetyC003RawByReportNo(reportNo) : null;
+          if (!rawC003) {
+            const found = await searchPublicDrugDatabase(product.productName, {
+              classification: 'HEALTH_FUNCTIONAL_FOOD',
+              regulatoryCode: product.functionalFoodDetail?.reportNo,
+              targetSource: 'DOMESTIC_HFF'
+            });
+            const normProdName = product.productName.toLowerCase().replace(/[\s\-_]/g, '');
+            const matchedItem = found.find(it => {
+              const normFound = it.productName.toLowerCase().replace(/[\s\-_]/g, '');
+              return normFound === normProdName || normFound.includes(normProdName);
+            });
+            if (matchedItem) {
+              const converted = await convertMasterItemToFetchResult(matchedItem);
+              if (converted.regulatoryCode) {
+                rawC003 = await fetchFoodSafetyC003RawByReportNo(converted.regulatoryCode);
+              }
+            }
+          }
+
+          if (rawC003 && isMounted) {
+            const fullApiFormatted = [
+              `■ 품목제조보고번호: ${rawC003.PRDLST_REPORT_NO || reportNo}`,
+              `■ 제품명: ${rawC003.PRDLST_NM || product.productName}`,
+              `■ 제조업소: ${rawC003.BSSH_NM || product.manufacturer}`,
+              `■ 제형: ${rawC003.PRDT_SHAP_CD_NM || '기타'}`,
+              `■ 성상: ${rawC003.DISPOS || '정보 없음'}`,
+              `■ 소비기한: ${rawC003.POG_DAYCNT || '정보 없음'}`,
+              '',
+              '■ 원재료명:',
+              rawC003.RAWMTRL_NM || '정보 없음',
+              '',
+              '■ 기준 및 규격:',
+              rawC003.STDR_STND || '정보 없음',
+              '',
+              '■ 주된 기능성:',
+              rawC003.PRIMARY_FNCLTY || '정보 없음',
+              '',
+              '■ 섭취량 및 섭취방법:',
+              rawC003.NTK_MTHD || '정보 없음',
+              '',
+              '■ 섭취 시 주의사항:',
+              rawC003.IFTKN_ATNT_MATR_CN || '정보 없음'
+            ].join('\n');
+            setPureC003ApiText(fullApiFormatted);
+
             await updateProduct(product.id, {
               functionalFoodDetail: {
+                reportNo: rawC003.PRDLST_REPORT_NO || reportNo,
+                functionalClaimsKorean: product.functionalFoodDetail?.functionalClaimsKorean || [],
+                suggestedUseKorean: product.functionalFoodDetail?.suggestedUseKorean || rawC003.NTK_MTHD || '',
+                safetyPrecautionsKorean: product.functionalFoodDetail?.safetyPrecautionsKorean || [],
                 ...product.functionalFoodDetail,
-                reportNo:
-                  converted.regulatoryCode ||
-                  product.functionalFoodDetail?.reportNo ||
-                  '',
-                appearanceKorean:
-                  converted.appearanceKorean ||
-                  product.functionalFoodDetail?.appearanceKorean ||
-                  '',
-                rawMaterialsText:
-                  converted.rawMaterialsText ||
-                  converted.indivRawMaterialText ||
-                  product.functionalFoodDetail?.rawMaterialsText ||
-                  '',
-                safetyPrecautionsText:
-                  converted.safetyPrecautionsText ||
-                  product.functionalFoodDetail?.safetyPrecautionsText ||
-                  '',
-                functionalClaimsKorean:
-                  converted.indicationsSummary && converted.indicationsSummary.length > 0
-                    ? converted.indicationsSummary
-                    : product.functionalFoodDetail?.functionalClaimsKorean || [],
-                suggestedUseKorean:
-                  product.functionalFoodDetail?.suggestedUseKorean ||
-                  converted.dosageInstruction ||
-                  '',
-                safetyPrecautionsKorean:
-                  converted.precautionsSummary &&
-                  converted.precautionsSummary.length > 0 &&
-                  !converted.precautionsSummary[0].includes('라벨 주의사항 참조')
-                    ? converted.precautionsSummary
-                    : currentPrecautions,
-                standardSpecificationKorean:
-                  converted.standardSpecificationText ||
-                  product.functionalFoodDetail?.standardSpecificationKorean,
-                subIngredientsText:
-                  converted.rawMaterialsText ||
-                  converted.etcRawMaterialText ||
-                  product.functionalFoodDetail?.subIngredientsText
+                appearanceKorean: (rawC003.DISPOS || '').trim(),
+                rawMaterialsText: rawC003.RAWMTRL_NM || product.functionalFoodDetail?.rawMaterialsText || '',
+                safetyPrecautionsText: rawC003.IFTKN_ATNT_MATR_CN || product.functionalFoodDetail?.safetyPrecautionsText || '',
+                standardSpecificationKorean: rawC003.STDR_STND || product.functionalFoodDetail?.standardSpecificationKorean || '',
+                subIngredientsText: rawC003.RAWMTRL_NM || product.functionalFoodDetail?.subIngredientsText || ''
               }
             });
           }
         } catch (e) {
-          console.warn('건기식 전문 자동 조회 실패:', e);
+          console.warn('건기식 C003 원본 자동 조회 실패:', e);
         } finally {
           if (isMounted) setIsFetchingFullApiText(false);
         }
@@ -2370,37 +2368,41 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 product.functionalFoodDetail?.safetyPrecautionsText ||
                 product.functionalFoodDetail?.safetyPrecautionsKorean?.join('\n') ||
                 '';
-              const suggested = product.functionalFoodDetail?.suggestedUseKorean || '';
 
               let fullText = koreanLabel.trim();
               if (!fullText) {
-                // 국내 건기식의 경우 정돈된 한글표시사항 형식으로 표시
-                const sections: string[] = [];
-                sections.push(`[제품명] ${product.productName}`);
-                if (product.manufacturer) sections.push(`[제조사/업소명] ${product.manufacturer}`);
-                if (regulatoryCode) sections.push(`[품목제조보고번호] ${regulatoryCode}`);
-                if (product.packagingUnit) sections.push(`[내용량/포장단위] ${product.packagingUnit}`);
-                if (rawMtrl) sections.push(`[원재료명 및 함량]\n${rawMtrl}`);
-                if (stdrStnd) sections.push(`[기준 및 규격 / 영양성분]\n${stdrStnd}`);
-                if (suggested) sections.push(`[섭취량 및 섭취방법]\n${suggested}`);
-                if (precautions) sections.push(`[섭취 시 주의사항]\n${precautions}`);
-                fullText = sections.join('\n\n');
+                if (pureC003ApiText) {
+                  fullText = pureC003ApiText.trim();
+                } else {
+                  // pureC003ApiText 로딩 전 / 오프라인 fallback: 순수 API 원본 필드만 가공 없이 나열
+                  const sections: string[] = [];
+                  if (regulatoryCode) sections.push(`■ 품목제조보고번호: ${regulatoryCode}`);
+                  sections.push(`■ 제품명: ${product.productName}`);
+                  if (product.manufacturer) sections.push(`■ 제조업소: ${product.manufacturer}`);
+                  if (product.functionalFoodDetail?.appearanceKorean) {
+                    sections.push(`■ 성상: ${product.functionalFoodDetail.appearanceKorean}`);
+                  }
+                  if (rawMtrl) sections.push(`\n■ 원재료명:\n${rawMtrl}`);
+                  if (stdrStnd) sections.push(`\n■ 기준 및 규격:\n${stdrStnd}`);
+                  if (precautions) sections.push(`\n■ 섭취 시 주의사항:\n${precautions}`);
+                  fullText = sections.join('\n');
+                }
               }
 
               if (!fullText) return null;
 
               return (
-                <details className="bg-[#f8fafc] border border-slate-200 rounded-xl px-3.5 py-2.5 mt-2 group">
+                <details className="bg-[#f8fafc] border border-slate-200 rounded-xl px-3.5 py-2.5 mt-2 group" open>
                   <summary className="cursor-pointer text-xs font-bold text-slate-700 hover:text-sky-600 flex items-center justify-between select-none">
                     <div className="flex items-center gap-1.5">
                       <FileText className="w-3.5 h-3.5 text-sky-600" />
                       <span>한글표시사항 전문 보기</span>
                     </div>
                     <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
-                      {koreanLabel ? '식약처 수입식품 라벨' : '식약처 고시 규격'}
+                      {koreanLabel ? '식약처 수입식품 라벨 원문' : '식약처 C003 공공데이터 원문'}
                     </span>
                   </summary>
-                  <div className="mt-2 text-[11px] text-slate-700 whitespace-pre-wrap leading-relaxed max-h-60 overflow-y-auto bg-white p-3.5 rounded-lg border border-slate-200 font-sans">
+                  <div className="mt-2 text-[11px] text-slate-700 whitespace-pre-wrap leading-relaxed max-h-80 overflow-y-auto bg-white p-3.5 rounded-lg border border-slate-200 font-mono">
                     {fullText}
                   </div>
                 </details>

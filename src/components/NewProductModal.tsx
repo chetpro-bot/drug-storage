@@ -1151,71 +1151,6 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                   </button>
                 </div>
 
-                {/* 분류별 빠른 재조회/필터링 탭 바 */}
-                <div className="flex items-center gap-1.5 flex-wrap pt-1 pb-0.5 border-b border-sky-200">
-                  <span className="text-[11px] font-bold text-sky-900 mr-1">분류별 직접 검색:</span>
-                  <button
-                    type="button"
-                    disabled={isLoadingPublicData}
-                    onClick={() => handleFetchPublicData('ALL')}
-                    className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all border cursor-pointer ${
-                      activeSearchSource === 'ALL'
-                        ? 'bg-sky-700 text-white border-sky-800 shadow-xs'
-                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
-                    }`}
-                  >
-                    🌐 4대 공공데이터 전체
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isLoadingPublicData}
-                    onClick={() => handleFetchPublicData('OTC_DRUG')}
-                    className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all border cursor-pointer ${
-                      activeSearchSource === 'OTC_DRUG'
-                        ? 'bg-blue-700 text-white border-blue-800 shadow-xs'
-                        : 'bg-white text-blue-700 border-blue-300 hover:bg-blue-50'
-                    }`}
-                  >
-                    💊 일반의약품
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isLoadingPublicData}
-                    onClick={() => handleFetchPublicData('DOMESTIC_HFF')}
-                    className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all border cursor-pointer ${
-                      activeSearchSource === 'DOMESTIC_HFF'
-                        ? 'bg-emerald-700 text-white border-emerald-800 shadow-xs'
-                        : 'bg-white text-emerald-700 border-emerald-300 hover:bg-emerald-50'
-                    }`}
-                  >
-                    🌿 국내 건기식
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isLoadingPublicData}
-                    onClick={() => handleFetchPublicData('IMPORTED_FOOD')}
-                    className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all border cursor-pointer ${
-                      activeSearchSource === 'IMPORTED_FOOD'
-                        ? 'bg-purple-700 text-white border-purple-800 shadow-xs'
-                        : 'bg-white text-purple-700 border-purple-300 hover:bg-purple-50'
-                    }`}
-                  >
-                    ✈️ 수입 건기식/식품
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isLoadingPublicData}
-                    onClick={() => handleFetchPublicData('GENERAL_FOOD')}
-                    className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all border cursor-pointer ${
-                      activeSearchSource === 'GENERAL_FOOD'
-                        ? 'bg-slate-700 text-white border-slate-800 shadow-xs'
-                        : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
-                    }`}
-                  >
-                    🍞 일반식품
-                  </button>
-                </div>
-
                 {/* 검색 결과 리스트 */}
                 {searchResults.length > 0 ? (
                   <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
@@ -1314,7 +1249,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                       현재 선택된 분류에서 일치하는 제품을 찾지 못했습니다.
                     </p>
                     <p className="text-[11px] text-slate-400">
-                      위의 분류 탭(수입제품, 건기식, 일반식품, 일반의약품 등)을 클릭하여 다른 공공데이터베이스에서 계속 검색해보세요.
+                      하단의 분류 버튼(일반의약품, 국내 건기식, 수입제품, 일반식품)을 클릭하여 다른 공공데이터베이스에서 계속 검색해보세요.
                     </p>
                   </div>
                 )}

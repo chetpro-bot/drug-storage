@@ -2506,6 +2506,8 @@ export function formatImportedLabelText(rawText?: string): string {
   const storageInfo: string[] = [];
   const functionInfo: string[] = [];
   const nutritionInfo: string[] = [];
+  const noticeList: string[] = [];
+  const traceList: string[] = [];
   const otherInfo: string[] = [];
 
   let currentSection:
@@ -2518,13 +2520,67 @@ export function formatImportedLabelText(rawText?: string): string {
     | 'NUTRITION'
     | 'OTHER' = 'BASIC';
 
+  // 단독 공통 안내 / 면책 조항 감지 헬퍼
+  const isNoticeLine = (line: string): boolean => {
+    return (
+      line.startsWith('※') ||
+      (line.startsWith('*') && !line.startsWith('*프로바이오틱스')) ||
+      line.includes('소비자분쟁') ||
+      line.includes('소비자 분쟁') ||
+      line.includes('공정거래') ||
+      line.includes('의약품이 아닙니다') ||
+      line.includes('이상사례 신고') ||
+      line.includes('이상사례 발생시') ||
+      line.includes('습기방지제') ||
+      line.includes('방습제')
+    );
+  };
+
+  // 이력추적 관련 라인 감지 헬퍼
+  const isTraceLine = (line: string): boolean => {
+    return (
+      line.includes('이력추적') ||
+      line.includes('tfood.go.kr') ||
+      line.includes('건강기능식품이력추적') ||
+      (line.includes('정보를 확인하실 수 있습니다') && traceList.length > 0)
+    );
+  };
+
+  // 주소 감지 헬퍼 (수입원 등에 통합)
+  const isAddressLine = (line: string): boolean => {
+    return /(?:경상남도|경남|창원시|서울|경기|부산|인천|대구|광주|대전|울산|세종|강원|충북|충남|전북|전남|경북|제주|번길|로\s*[0-9]|길\s*[0-9])/.test(
+      line
+    );
+  };
+
   for (let i = 0; i < rawLines.length; i++) {
     const line = rawLines[i];
 
-    // 1. 주요 블록 전환 감지
-    if (/^(?:원료명|원재료명|원료명\s*및\s*함량|원재료명\s*및\s*함량)\s*[:：]/i.test(line)) {
+    // 1. 전역 공통 안내 / 이력추적 / 주소 감지 (어느 섹션 위치에 있든 정확히 분류)
+    if (isTraceLine(line)) {
+      traceList.push(line);
+      continue;
+    }
+    if (isNoticeLine(line) && !line.includes('질환이 있거나') && !line.includes('알레르기 체질') && !line.includes('어린이가')) {
+      noticeList.push(line);
+      continue;
+    }
+    if (isAddressLine(line) && !line.includes(':')) {
+      if (basicMap.has('수입원')) {
+        const cur = basicMap.get('수입원')!;
+        if (!cur.includes(line)) {
+          basicMap.set('수입원', `${cur} (${line})`);
+        }
+      } else {
+        basicMap.set('수입원_주소', line);
+      }
+      continue;
+    }
+
+    // 2. 주요 블록 전환 감지
+    if (/^(?:원료명|원재료명|원료\s*및\s*함량|원료명\s*및\s*함량|원재료명\s*및\s*함량)\s*[:：]/i.test(line)) {
       currentSection = 'RAW_MATERIALS';
-      const val = line.replace(/^(?:원료명|원재료명|원료명\s*및\s*함량|원재료명\s*및\s*함량)\s*[:：]\s*/i, '');
+      const val = line.replace(/^(?:원료명|원재료명|원료\s*및\s*함량|원료명\s*및\s*함량|원재료명\s*및\s*함량)\s*[:：]\s*/i, '');
       if (val) rawMaterials.push(val);
       continue;
     }
@@ -2559,13 +2615,15 @@ export function formatImportedLabelText(rawText?: string): string {
       continue;
     }
 
-    // 2. 단독 속성 감지
+    // 3. 단독 속성 감지
     if (/^제품명\s*[:：]/i.test(line)) {
       basicMap.set('제품명', line.replace(/^제품명\s*[:：]\s*/i, ''));
       continue;
     }
     if (/^(?:수입원|수입업소|수입판매원)\s*[:：]/i.test(line)) {
-      basicMap.set('수입원', line.replace(/^(?:수입원|수입업소|수입판매원)\s*[:：]\s*/i, ''));
+      const val = line.replace(/^(?:수입원|수입업소|수입판매원)\s*[:：]\s*/i, '');
+      const addr = basicMap.get('수입원_주소');
+      basicMap.set('수입원', addr && !val.includes(addr) ? `${val} (${addr})` : val);
       continue;
     }
     if (/^(?:제조사|제조원|제조업소|해외제조원)\s*[:：]/i.test(line)) {
@@ -2597,7 +2655,14 @@ export function formatImportedLabelText(rawText?: string): string {
       continue;
     }
 
-    // 3. 섹션 내용 수집
+    // 수입원 회사명이 콜론 없이 단독 라인으로 오는 경우 (예: "(주)엔큐엔에이")
+    if (/^\(주\)[가-힣A-Za-z0-9]+/.test(line) || /^[가-힣A-Za-z0-9]+\(주\)/.test(line)) {
+      const addr = basicMap.get('수입원_주소');
+      basicMap.set('수입원', addr && !line.includes(addr) ? `${line} (${addr})` : line);
+      continue;
+    }
+
+    // 4. 섹션 내용 수집
     if (currentSection === 'RAW_MATERIALS') {
       if (/^캡슐기제\s*[:：]/i.test(line)) {
         rawMaterials.push(`\n[캡슐기제]\n${line.replace(/^캡슐기제\s*[:：]\s*/i, '')}`);
@@ -2629,23 +2694,69 @@ export function formatImportedLabelText(rawText?: string): string {
     } else {
       if (line.startsWith('(') && basicMap.has('제품명')) {
         basicMap.set('제품명', `${basicMap.get('제품명')} ${line}`);
-      } else if (
-        line.includes('경남') ||
-        line.includes('서울') ||
-        line.includes('경기') ||
-        line.includes('번길') ||
-        line.includes('로 ')
-      ) {
-        if (basicMap.has('수입원')) {
-          basicMap.set('수입원', `${basicMap.get('수입원')} (${line})`);
-        } else {
-          otherInfo.push(line);
-        }
       } else if (!line.includes('건강기능식품')) {
         otherInfo.push(line);
       }
     }
   }
+
+  // 주소 후속 병합 점검
+  if (basicMap.has('수입원_주소') && basicMap.has('수입원')) {
+    const addr = basicMap.get('수입원_주소')!;
+    const cur = basicMap.get('수입원')!;
+    if (!cur.includes(addr)) {
+      basicMap.set('수입원', `${cur} (${addr})`);
+    }
+  }
+
+  // 인쇄 줄바꿈으로 끊어진 문장 자동 병합 헬퍼
+  const mergeWrappedLines = (lines: string[]): string[] => {
+    const merged: string[] = [];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      if (merged.length > 0) {
+        const prev = merged[merged.length - 1];
+        const isPrevFinished =
+          prev.endsWith('.') ||
+          prev.endsWith('!') ||
+          prev.endsWith('?') ||
+          prev.endsWith('하십시오') ||
+          prev.endsWith('시오') ||
+          prev.endsWith('바랍니다') ||
+          prev.endsWith('것') ||
+          prev.endsWith('함') ||
+          prev.endsWith('음') ||
+          prev.endsWith('있습니다') ||
+          prev.endsWith('합니다') ||
+          prev.endsWith('입니다') ||
+          prev.endsWith('CFU') ||
+          prev.endsWith('kcal');
+
+        const isCurrentStart =
+          line.startsWith('※') ||
+          line.startsWith('*') ||
+          line.startsWith('•') ||
+          line.startsWith('-') ||
+          line.startsWith('■') ||
+          /^[0-9]+[.)]/.test(line) ||
+          line.startsWith('건강기능식품이력추적') ||
+          isAddressLine(line);
+
+        if (!isPrevFinished && !isCurrentStart) {
+          merged[merged.length - 1] = `${prev} ${line}`;
+          continue;
+        }
+      }
+      merged.push(line);
+    }
+    return merged;
+  };
+
+  const cleanStorageLines = mergeWrappedLines(storageInfo);
+  const cleanTraceLines = mergeWrappedLines(traceList);
+  const cleanNoticeLines = mergeWrappedLines(noticeList);
 
   // 섹션 조립
   const sections: string[] = [];
@@ -2699,16 +2810,39 @@ export function formatImportedLabelText(rawText?: string): string {
     sections.push(`■ 영양정보:\n${nutritionInfo.join('\n')}`);
   }
 
-  // 7. 보관방법 및 기타 안내 블록
-  const footerLines: string[] = [];
-  if (storageInfo.length > 0) footerLines.push(`■ 보관방법: ${storageInfo.join(' ')}`);
-  if (basicMap.has('소비자상담실')) footerLines.push(`■ 소비자상담실: ${basicMap.get('소비자상담실')}`);
-  if (basicMap.has('반품및교환처')) footerLines.push(`■ 반품 및 교환처: ${basicMap.get('반품및교환처')}`);
-  if (otherInfo.length > 0) {
-    footerLines.push(...otherInfo.map((o) => (o.startsWith('■') || o.startsWith('•') ? o : `■ ${o}`)));
+  // 7. 보관방법 블록
+  if (cleanStorageLines.length > 0) {
+    const formattedStorage = cleanStorageLines
+      .map((s) => (s.startsWith('•') || s.startsWith('-') ? s : `• ${s}`))
+      .join('\n');
+    sections.push(`■ 보관방법:\n${formattedStorage}`);
   }
-  if (footerLines.length > 0) {
-    sections.push(footerLines.join('\n'));
+
+  // 8. 소비자 안내사항 블록
+  if (cleanNoticeLines.length > 0) {
+    const formattedNotices = cleanNoticeLines
+      .map((n) => (n.startsWith('•') || n.startsWith('-') || n.startsWith('※') || n.startsWith('*') ? n : `※ ${n}`))
+      .join('\n');
+    sections.push(`■ 소비자 안내사항:\n${formattedNotices}`);
+  }
+
+  // 9. 건강기능식품 이력추적관리 블록
+  if (cleanTraceLines.length > 0) {
+    const formattedTrace = cleanTraceLines
+      .map((t) => (t.startsWith('•') || t.startsWith('-') ? t : `• ${t}`))
+      .join('\n');
+    sections.push(`■ 건강기능식품 이력추적관리:\n${formattedTrace}`);
+  }
+
+  // 10. 기타 고객지원 안내 블록
+  const supportLines: string[] = [];
+  if (basicMap.has('소비자상담실')) supportLines.push(`■ 소비자상담실: ${basicMap.get('소비자상담실')}`);
+  if (basicMap.has('반품및교환처')) supportLines.push(`■ 반품 및 교환처: ${basicMap.get('반품및교환처')}`);
+  if (otherInfo.length > 0) {
+    supportLines.push(...otherInfo.map((o) => (o.startsWith('■') || o.startsWith('•') ? o : `■ ${o}`)));
+  }
+  if (supportLines.length > 0) {
+    sections.push(supportLines.join('\n'));
   }
 
   return sections.join('\n\n');

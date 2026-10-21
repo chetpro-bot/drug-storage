@@ -32,7 +32,6 @@ import {
   RefreshCw,
   Camera,
   Upload,
-  CheckCircle2,
   Loader2,
   Sparkles,
   Package,
@@ -919,7 +918,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   // 식품안전나라 부원료(기타원료 목록) 조회 로딩 상태
   const [isFetchingSubIngredients, setIsFetchingSubIngredients] = useState(false);
 
-  // 식품안전나라 신고 부원료(기타원료) 정보 불러오기 핸들러
+  // 식품안전나라 C003 원재료명 및 성상 정보 불러오기 핸들러
   const handleFetchSubIngredients = async () => {
     if (!product || isFetchingSubIngredients) return;
     setIsFetchingSubIngredients(true);
@@ -938,20 +937,28 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               suggestedUseKorean: converted.dosageInstruction || '',
               safetyPrecautionsKorean: converted.precautionsSummary || []
             }),
+            appearanceKorean:
+              converted.appearanceKorean ||
+              product.functionalFoodDetail?.appearanceKorean,
+            rawMaterialsText:
+              converted.rawMaterialsText ||
+              converted.indivRawMaterialText ||
+              product.functionalFoodDetail?.rawMaterialsText,
+            safetyPrecautionsText:
+              converted.safetyPrecautionsText ||
+              product.functionalFoodDetail?.safetyPrecautionsText,
             standardSpecificationKorean:
               converted.standardSpecificationText ||
               product.functionalFoodDetail?.standardSpecificationKorean,
             subIngredientsText:
+              converted.rawMaterialsText ||
               converted.etcRawMaterialText ||
-              product.functionalFoodDetail?.subIngredientsText,
-            rawMaterialsText:
-              converted.indivRawMaterialText ||
-              product.functionalFoodDetail?.rawMaterialsText
+              product.functionalFoodDetail?.subIngredientsText
           }
         });
       }
     } catch (e) {
-      console.warn('부원료 조회 실패:', e);
+      console.warn('C003 원재료명 조회 실패:', e);
     } finally {
       setIsFetchingSubIngredients(false);
     }
@@ -1251,11 +1258,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             (currentPrecautions[0].includes('특이체질 시 성분 확인') ||
               currentPrecautions[0].includes('라벨 주의사항 참조')));
 
-        const hasSubIngredients = Boolean(product.functionalFoodDetail?.subIngredientsText);
+        const hasAppearance = Boolean(product.functionalFoodDetail?.appearanceKorean);
+        const hasRawMaterials = Boolean(product.functionalFoodDetail?.rawMaterialsText);
         const hasStandardSpec = Boolean(product.functionalFoodDetail?.standardSpecificationKorean);
+        const hasSafetyPrecautions = Boolean(product.functionalFoodDetail?.safetyPrecautionsText);
 
-        // 주의사항이 임시문구이거나 기준규격/부원료 정보가 없는 경우 자동 조회
-        if (!isPlaceholderPrecautions && hasSubIngredients && hasStandardSpec) return;
+        // 주의사항이 임시문구이거나 성상/원재료/기준규격/주의사항 정보가 누락된 경우 자동 C003 조회
+        if (!isPlaceholderPrecautions && hasAppearance && hasRawMaterials && hasStandardSpec && hasSafetyPrecautions) return;
 
         setIsFetchingFullApiText(true);
         try {
@@ -1272,13 +1281,26 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   converted.regulatoryCode ||
                   product.functionalFoodDetail?.reportNo ||
                   '',
+                appearanceKorean:
+                  converted.appearanceKorean ||
+                  product.functionalFoodDetail?.appearanceKorean ||
+                  '',
+                rawMaterialsText:
+                  converted.rawMaterialsText ||
+                  converted.indivRawMaterialText ||
+                  product.functionalFoodDetail?.rawMaterialsText ||
+                  '',
+                safetyPrecautionsText:
+                  converted.safetyPrecautionsText ||
+                  product.functionalFoodDetail?.safetyPrecautionsText ||
+                  '',
                 functionalClaimsKorean:
                   converted.indicationsSummary && converted.indicationsSummary.length > 0
                     ? converted.indicationsSummary
                     : product.functionalFoodDetail?.functionalClaimsKorean || [],
                 suggestedUseKorean:
-                  converted.dosageInstruction ||
                   product.functionalFoodDetail?.suggestedUseKorean ||
+                  converted.dosageInstruction ||
                   '',
                 safetyPrecautionsKorean:
                   converted.precautionsSummary &&
@@ -1290,11 +1312,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   converted.standardSpecificationText ||
                   product.functionalFoodDetail?.standardSpecificationKorean,
                 subIngredientsText:
+                  converted.rawMaterialsText ||
                   converted.etcRawMaterialText ||
-                  product.functionalFoodDetail?.subIngredientsText,
-                rawMaterialsText:
-                  converted.indivRawMaterialText ||
-                  product.functionalFoodDetail?.rawMaterialsText
+                  product.functionalFoodDetail?.subIngredientsText
               }
             });
           }
@@ -1760,10 +1780,24 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             )}
           </div>
 
-          {/* SECTION 1: 복용 방법 (직접 수정 및 줄바꿈 지원) */}
+          {/* 건기식 전용 SECTION 1: 성상 (C003 DISPOS) */}
+          {product.classification === 'HEALTH_FUNCTIONAL_FOOD' && (
+            <div className="space-y-1.5">
+              <h3 className="text-xs font-extrabold text-slate-500">성상</h3>
+              <div className="bg-[#f8fafc] border border-slate-200/80 rounded-xl px-4 py-3">
+                <p className="text-sm font-semibold text-slate-800 leading-relaxed font-sans">
+                  {product.functionalFoodDetail?.appearanceKorean || '성상 정보 없음'}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* SECTION: 복용법 / 복용 방법 (직접 수정 및 줄바꿈 지원) */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-extrabold text-slate-500">복용 방법</h3>
+              <h3 className="text-xs font-extrabold text-slate-500">
+                {product.classification === 'HEALTH_FUNCTIONAL_FOOD' ? '복용법' : '복용 방법'}
+              </h3>
               {!isEditingDosage && (
                 <button
                   type="button"
@@ -2177,20 +2211,20 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </details>
             )}
 
-            {/* 식품안전나라 신고 부원료 (기타원료 목록: ETC_RAWMTRL_NM) 원문이 있을 경우 토글 제공 */}
-            {product.functionalFoodDetail?.subIngredientsText ? (
+            {/* 식품안전나라 원재료명 (C003 RAWMTRL_NM) 원문 토글 (기존 부원료 대체) */}
+            {product.functionalFoodDetail?.rawMaterialsText ? (
               <details className="bg-[#f8fafc] border border-slate-200 rounded-xl px-3.5 py-2.5 mt-2">
                 <summary className="cursor-pointer text-xs font-bold text-slate-700 hover:text-sky-600 flex items-center justify-between select-none">
                   <div className="flex items-center gap-1.5">
                     <Package className="w-3.5 h-3.5 text-sky-600" />
-                    <span>식약처 신고 부원료 (기타원료 목록) 펼쳐보기</span>
+                    <span>식약처 신고 원재료명 펼쳐보기</span>
                   </div>
                   <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
-                    공공데이터
+                    C003 공공데이터
                   </span>
                 </summary>
                 <div className="mt-2 text-[11px] text-slate-700 whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto bg-white p-3 rounded-lg border border-slate-200 font-sans">
-                  {product.functionalFoodDetail.subIngredientsText}
+                  {product.functionalFoodDetail.rawMaterialsText}
                 </div>
               </details>
             ) : product.classification === 'HEALTH_FUNCTIONAL_FOOD' ? (
@@ -2204,18 +2238,59 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   {isFetchingSubIngredients ? (
                     <>
                       <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-600" />
-                      <span>식약처 부원료 정보 조회 중...</span>
+                      <span>식약처 원재료명 정보 조회 중...</span>
                     </>
                   ) : (
                     <>
                       <Package className="w-3.5 h-3.5 text-slate-400" />
-                      <span>식약처 신고 부원료 (기타원료) 정보 불러오기</span>
+                      <span>식약처 신고 원재료명 정보 불러오기</span>
                     </>
                   )}
                 </button>
               </div>
             ) : null}
           </div>
+
+          {/* 건기식 전용 SECTION 4: 기능성 (주된 기능성 - PRIMARY_FNCLTY) */}
+          {product.classification === 'HEALTH_FUNCTIONAL_FOOD' && (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-extrabold text-slate-500">기능성</h3>
+                <span className="text-[10px] font-bold text-sky-700 bg-sky-50 border border-sky-200 px-1.5 py-0.2 rounded">
+                  주된 기능성
+                </span>
+              </div>
+              <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-4">
+                {product.functionalFoodDetail?.functionalClaimsKorean &&
+                product.functionalFoodDetail.functionalClaimsKorean.length > 0 ? (
+                  <div className="text-xs text-slate-800 leading-relaxed font-medium whitespace-pre-wrap font-sans">
+                    {product.functionalFoodDetail.functionalClaimsKorean.join('\n')}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400">등록된 기능성 정보가 없습니다.</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* 건기식 전용 SECTION 5: 섭취 시 주의사항 (C003 IFTKN_ATNT_MATR_CN) */}
+          {product.classification === 'HEALTH_FUNCTIONAL_FOOD' && (
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                <h3 className="text-xs font-extrabold text-slate-600">섭취 시 주의사항</h3>
+              </div>
+              <div className="bg-rose-50/30 border border-rose-200/70 rounded-xl p-4">
+                <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap font-sans font-medium">
+                  {product.functionalFoodDetail?.safetyPrecautionsText ||
+                    (product.functionalFoodDetail?.safetyPrecautionsKorean &&
+                      product.functionalFoodDetail.safetyPrecautionsKorean.join('\n')) ||
+                    precautionsFullText ||
+                    '등록된 주의사항 정보가 없습니다.'}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* SECTION 3: 효능·효과 (일반의약품 전용 핵심 요약 + 전문보기 버튼) */}
           {product.classification === 'OTC_DRUG' && otcIndicationsFullText && (
@@ -2254,8 +2329,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </div>
           )}
 
-          {/* SECTION 4: 사용상의 주의사항 (연령금기, 임부/수유부 금기, 약과 병용 금기 성분 요약 + 전문보기 버튼) */}
-          {(precautionsFullText || product.functionalFoodDetail?.labelPrecautionsText) && (
+          {/* SECTION 4: 일반의약품 사용상의 주의사항 (연령금기, 임부/수유부 금기, 약과 병용 금기 성분 요약 + 전문보기 버튼) */}
+          {product.classification === 'OTC_DRUG' && precautionsFullText && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
@@ -2270,38 +2345,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  {product.classification === 'HEALTH_FUNCTIONAL_FOOD' && (
-                    product.functionalFoodDetail?.labelPrecautionsText ? (
-                      <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                        실물 라벨 연동됨
-                      </span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => backPhotoInputRef.current?.click()}
-                        disabled={isUploadingBackPhoto}
-                        className="text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 border border-slate-200 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
-                        title="제품 뒷면 사진을 찍어 올리면 주의사항을 텍스트로 자동 추출합니다"
-                      >
-                        {isUploadingBackPhoto ? (
-                          <>
-                            <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-600" />
-                            <span>인식 중...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Camera className="w-3.5 h-3.5 text-slate-500" />
-                            <span>뒷면 사진 등록</span>
-                          </>
-                        )}
-                      </button>
-                    )
-                  )}
                   <button
                     type="button"
                     onClick={() => {
-                      setPrecautionsModalTab(product.functionalFoodDetail?.labelPrecautionsText ? 'LABEL' : 'API');
+                      setPrecautionsModalTab('API');
                       setIsPrecautionsFullModalOpen(true);
                     }}
                     className="text-xs font-bold text-rose-700 hover:text-rose-800 bg-rose-50 hover:bg-rose-100/80 border border-rose-200 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"

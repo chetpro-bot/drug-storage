@@ -26,7 +26,9 @@ export interface FunctionalFoodRegulatoryDetail {
   standardSpecificationKorean?: string; // 기준 및 규격
   labelPrecautionsText?: string;        // 제품 실물 뒷면 라벨 사진(OCR)에서 추출된 상세 주의사항 전문
   subIngredientsText?: string;          // 기타원료 / 부원료 목록 전문 (식품안전나라 ETC_RAWMTRL_NM)
-  rawMaterialsText?: string;            // 주원료 형태 목록 전문 (식품안전나라 INDIV_RAWMTRL_NM)
+  rawMaterialsText?: string;            // 원재료명 전문 (식품안전나라 C003 RAWMTRL_NM)
+  appearanceKorean?: string;            // 성상 (식품안전나라 C003 DISPOS)
+  safetyPrecautionsText?: string;       // 섭취 시 주의사항 전문 (식품안전나라 C003 IFTKN_ATNT_MATR_CN)
 }
 
 export interface AttachedDocument {

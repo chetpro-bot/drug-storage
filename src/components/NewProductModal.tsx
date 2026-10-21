@@ -844,8 +844,15 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                     publicDataFetched?.etcRawMaterialText ||
                     productToEdit.functionalFoodDetail?.subIngredientsText,
                   rawMaterialsText:
+                    publicDataFetched?.rawMaterialsText ||
                     publicDataFetched?.indivRawMaterialText ||
-                    productToEdit.functionalFoodDetail?.rawMaterialsText
+                    productToEdit.functionalFoodDetail?.rawMaterialsText,
+                  appearanceKorean:
+                    publicDataFetched?.appearanceKorean ||
+                    productToEdit.functionalFoodDetail?.appearanceKorean,
+                  safetyPrecautionsText:
+                    publicDataFetched?.safetyPrecautionsText ||
+                    productToEdit.functionalFoodDetail?.safetyPrecautionsText
                 }
               })
         };
@@ -895,7 +902,9 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                 safetyPrecautionsKorean: parsedPrecautions.length > 0 ? parsedPrecautions : ['특이체질 시 성분 확인'],
                 standardSpecificationKorean: publicDataFetched?.standardSpecificationText,
                 subIngredientsText: publicDataFetched?.etcRawMaterialText,
-                rawMaterialsText: publicDataFetched?.indivRawMaterialText
+                rawMaterialsText: publicDataFetched?.rawMaterialsText || publicDataFetched?.indivRawMaterialText,
+                appearanceKorean: publicDataFetched?.appearanceKorean,
+                safetyPrecautionsText: publicDataFetched?.safetyPrecautionsText
               }
             })
       };

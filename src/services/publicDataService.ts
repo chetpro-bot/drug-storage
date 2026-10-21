@@ -27,10 +27,13 @@ export interface PublicDataFetchResult {
   parsedIngredients: ProductIngredientEntry[];
   sourceOrigin: PublicDataSourceOrigin;
   precautionsSummary?: string[];
+  safetyPrecautionsText?: string; // C003 섭취 시 주의사항 원문 전문 (IFTKN_ATNT_MATR_CN)
   standardSpecificationText?: string; // STDR_STND 기준 및 규격 원문
-  indivRawMaterialText?: string; // I0030 기능성 주원료 (INDIV_RAWMTRL_NM)
-  etcRawMaterialText?: string; // I0030 기타원료/부원료 (ETC_RAWMTRL_NM)
-  capRawMaterialText?: string; // I0030 캡슐기제 (CAP_RAWMTRL_NM)
+  indivRawMaterialText?: string; // 기능성 주원료
+  etcRawMaterialText?: string; // 기타원료/부원료
+  capRawMaterialText?: string; // 캡슐기제
+  rawMaterialsText?: string; // C003 원재료명 전문 (RAWMTRL_NM)
+  appearanceKorean?: string; // C003 성상 (DISPOS)
   foodTypeCategory?: string; // 품목유형 (PRDLST_CDNM / PRDLST_DCNM)
   shelfLifeText?: string; // 소비기한 (POG_DAYCNT)
   storageMethod?: string; // 보관방법 (STORAGE_METHOD)
@@ -54,10 +57,13 @@ export interface PublicDrugMasterItem {
   sourceOrigin?: PublicDataSourceOrigin;
   apiSourceBadge?: string;
   precautionsSummary?: string[];
+  safetyPrecautionsText?: string;
   standardSpecificationText?: string;
   indivRawMaterialText?: string;
   etcRawMaterialText?: string;
   capRawMaterialText?: string;
+  rawMaterialsText?: string;
+  appearanceKorean?: string;
   foodTypeCategory?: string;
   shelfLifeText?: string;
   parsedIngredientsCache?: ProductIngredientEntry[];
@@ -1622,23 +1628,23 @@ export function parseFunctionalFoodRecordToIngredients(
 }
 
 /**
- * 식품안전나라 건강기능식품 API (I0030 우선 조회 + C003 보조 조회)
+ * 식품안전나라 건강기능식품 API (C003 전용 조회: 성상, 복용법, 기준규격, 원재료명, 주된기능성, 섭취주의사항)
  */
 export async function searchFoodSafetyFunctionalFoods(
   keyword: string,
   manufacturer?: string,
   reportNo?: string
 ): Promise<PublicDrugMasterItem[]> {
-  const fetchService = async (serviceId: 'I0030' | 'C003', paramSegment: string): Promise<any[]> => {
+  const fetchC003 = async (paramSegment: string): Promise<any[]> => {
     try {
-      const url = `${FOOD_SAFETY_BASE_URL}/${FOOD_SAFETY_API_KEY}/${serviceId}/json/1/30/${paramSegment}`;
+      const url = `${FOOD_SAFETY_BASE_URL}/${FOOD_SAFETY_API_KEY}/C003/json/1/30/${paramSegment}`;
       const res = await fetch(url);
       if (!res.ok) return [];
       const data = await res.json();
-      const rows = data?.[serviceId]?.row;
+      const rows = data?.C003?.row;
       return Array.isArray(rows) ? rows : [];
     } catch (e) {
-      console.warn(`식품안전나라 ${serviceId} 호출 실패:`, e);
+      console.warn('식품안전나라 C003 호출 실패:', e);
       return [];
     }
   };
@@ -1671,38 +1677,25 @@ export async function searchFoodSafetyFunctionalFoods(
   }
 
   let rows: any[] = [];
-  let usedService: 'I0030' | 'C003' = 'I0030';
 
-  // 1차: I0030 (건강기능식품 품목제조 신고사항 현황 - 주원료/부원료/캡슐기제 분리형)
+  // 1차: C003 (건강기능식품 품목제조신고 원재료 - 전용 조회)
   for (const param of paramCandidates) {
-    const found = await fetchService('I0030', param);
+    const found = await fetchC003(param);
     if (found.length > 0) {
       rows = [...rows, ...found];
     }
     if (rows.length >= 15) break;
   }
 
-  // 2차: 만약 I0030에서 결과가 없으면 C003 (건강기능식품 품목제조신고 원재료) 보조 조회
-  if (rows.length === 0) {
-    usedService = 'C003';
-    for (const param of paramCandidates) {
-      const found = await fetchService('C003', param);
-      if (found.length > 0) {
-        rows = [...rows, ...found];
-      }
-      if (rows.length >= 15) break;
-    }
-  }
-
-  // 3차: [핵심 해결책] 사용자가 띄어쓰기 없이 검색(예: "강황이날튼튼")하여 공공 API DB의 띄어쓰기 제품("강황이 날 튼튼")과 LIKE 일치하지 않는 경우
+  // 2차: [핵심 해결책] 사용자가 띄어쓰기 없이 검색(예: "강황이날튼튼")하여 공공 API DB의 띄어쓰기 제품("강황이 날 튼튼")과 LIKE 일치하지 않는 경우
   // 접두사 토큰(Prefix)으로 공공 API를 조회한 후 클라이언트에서 띄어쓰기 무시 매칭 수행!
   if (rows.length === 0 && normKw.length >= 2) {
     const prefixTokens: string[] = [];
     if (normKw.length >= 4) {
-      prefixTokens.push(normKw.slice(0, 3)); // 예: '강황이'
+      prefixTokens.push(normKw.slice(0, 3));
     }
     if (normKw.length >= 3) {
-      prefixTokens.push(normKw.slice(0, 2)); // 예: '강황'
+      prefixTokens.push(normKw.slice(0, 2));
     }
     if (cleanMfg) {
       prefixTokens.push(`MFG:${cleanMfg}`);
@@ -1713,16 +1706,9 @@ export async function searchFoodSafetyFunctionalFoods(
         ? `BSSH_NM=${encodeURIComponent(token.replace('MFG:', ''))}`
         : `PRDLST_NM=${encodeURIComponent(token)}`;
 
-      const foundI0030 = await fetchService('I0030', param);
-      if (foundI0030.length > 0) {
-        rows = [...rows, ...foundI0030];
-        usedService = 'I0030';
-      } else {
-        const foundC003 = await fetchService('C003', param);
-        if (foundC003.length > 0) {
-          rows = [...rows, ...foundC003];
-          usedService = 'C003';
-        }
+      const foundC003 = await fetchC003(param);
+      if (foundC003.length > 0) {
+        rows = [...rows, ...foundC003];
       }
       if (rows.length >= 10) break;
     }
@@ -1739,7 +1725,7 @@ export async function searchFoodSafetyFunctionalFoods(
 
   let dedupedRows = Array.from(uniqueMap.values());
 
-  // 4차: 클라이언트 사이드 띄어쓰기·특수문자 무시 정밀 일치도 계산 및 정렬
+  // 3차: 클라이언트 사이드 띄어쓰기·특수문자 무시 정밀 일치도 계산 및 정렬
   if (normKw) {
     dedupedRows.sort((a, b) => {
       const aScore = calcDrugMatchScore(a.PRDLST_NM, cleanKw);
@@ -1755,7 +1741,6 @@ export async function searchFoodSafetyFunctionalFoods(
       return 0;
     });
 
-    // 만약 접두사(prefix) 토큰으로 많은 항목이 불려왔다면, 띄어쓰기 무시 일치하는 항목을 우선 필터링
     const matches = dedupedRows.filter((r) => calcDrugMatchScore(r.PRDLST_NM, cleanKw) > 0);
     if (matches.length > 0) {
       dedupedRows = matches;
@@ -1776,12 +1761,12 @@ export async function searchFoodSafetyFunctionalFoods(
     const precautions = parsePrecautionsText(row.IFTKN_ATNT_MATR_CN);
     const { rawIngredientsText, parsedIngredients } = parseFunctionalFoodRecordToIngredients(row, dailyServings);
 
-    const packagingUnit = row.FRMLC_MTHD
-      ? `${row.PRDT_SHAP_CD_NM || servingUnitKorean} (${row.FRMLC_MTHD.slice(0, 22)})`
+    const packagingUnit = row.PRDT_SHAP_CD_NM
+      ? `${row.PRDT_SHAP_CD_NM} (${dailyServings * 30}${servingUnitKorean} 규격)`
       : `${dailyServings * 30}${servingUnitKorean} (1개월분 규격)`;
 
     return {
-      id: `fsk_${usedService}_${reportNoStr}`,
+      id: `fsk_C003_${reportNoStr}`,
       productName: prodName,
       manufacturer: mfgName,
       classification: 'HEALTH_FUNCTIONAL_FOOD' as ProductClassification,
@@ -1795,14 +1780,17 @@ export async function searchFoodSafetyFunctionalFoods(
       dosageInstruction: instruction,
       indicationsSummary: claims.length > 0 ? claims : ['건강기능식품 공식 신고 기능성'],
       searchKeywords: [prodName, mfgName, reportNoStr],
-      sourceOrigin: usedService === 'I0030' ? '식품안전나라 건기식 API (I0030)' : '식품안전나라 건기식 API (C003)',
-      apiSourceBadge: usedService === 'I0030' ? '식품안전나라 I0030 (건기식)' : '식품안전나라 C003 (건기식)',
+      sourceOrigin: '식품안전나라 건기식 API (C003)' as PublicDataSourceOrigin,
+      apiSourceBadge: '식품안전나라 C003 (건기식)',
       precautionsSummary: precautions,
+      safetyPrecautionsText: (row.IFTKN_ATNT_MATR_CN || '').trim(),
       standardSpecificationText: row.STDR_STND || '',
-      indivRawMaterialText: row.INDIV_RAWMTRL_NM || row.RAWMTRL_NM || '',
-      etcRawMaterialText: row.ETC_RAWMTRL_NM || '',
-      capRawMaterialText: row.CAP_RAWMTRL_NM || '',
-      foodTypeCategory: row.PRDLST_CDNM || '건강기능식품',
+      rawMaterialsText: row.RAWMTRL_NM || '',
+      appearanceKorean: (row.DISPOS || '').trim(),
+      indivRawMaterialText: row.RAWMTRL_NM || '',
+      etcRawMaterialText: '',
+      capRawMaterialText: '',
+      foodTypeCategory: '건강기능식품',
       shelfLifeText: row.POG_DAYCNT || '',
       parsedIngredientsCache: parsedIngredients
     };
@@ -2560,12 +2548,15 @@ export async function convertMasterItemToFetchResult(item: PublicDrugMasterItem)
       dosageInstruction: item.dosageInstruction,
       indicationsSummary: item.indicationsSummary,
       parsedIngredients: item.parsedIngredientsCache || parseRawIngredientString(item.rawIngredientsText),
-      sourceOrigin: item.sourceOrigin || '식품안전나라 건기식 API (I0030)',
+      sourceOrigin: item.sourceOrigin || '식품안전나라 건기식 API (C003)',
       precautionsSummary: item.precautionsSummary,
+      safetyPrecautionsText: item.safetyPrecautionsText,
       standardSpecificationText: item.standardSpecificationText,
       indivRawMaterialText: item.indivRawMaterialText,
       etcRawMaterialText: item.etcRawMaterialText,
       capRawMaterialText: item.capRawMaterialText,
+      rawMaterialsText: item.rawMaterialsText,
+      appearanceKorean: item.appearanceKorean,
       foodTypeCategory: item.foodTypeCategory,
       shelfLifeText: item.shelfLifeText
     };

@@ -78,6 +78,9 @@ export function extractProbioticStrains(rawMtrlText?: string): ProbioticStrainIn
     }
   }
 
+  // 알파벳(A-Z) 순서로 균주명 정렬
+  strains.sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
+
   return strains;
 }
 

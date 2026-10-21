@@ -2387,6 +2387,14 @@ export function parseImportedNutritionFacts(
       functionalCategory: '지구력 증진',
       saltSearchKeys: ['옥타코사놀'],
       defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['프로바이오틱스', '프로바이오틱스수', '유산균', '유산균수', 'probiotics', 'probiotic'],
+      koreanName: '프로바이오틱스',
+      englishInn: 'Probiotics',
+      functionalCategory: '정장제',
+      saltSearchKeys: ['프로바이오틱스', '유산균', '비피도박테리움', '락토바실러스'],
+      defaultUnit: 'CFU'
     }
   ];
 
@@ -2402,7 +2410,7 @@ export function parseImportedNutritionFacts(
     }
 
     const match = line.match(
-      /^\s*([가-힣A-Za-z0-9\s·\/\-]+?)\s*[:：]?\s*([0-9]+(?:\.[0-9]+)?)\s*(mg|ug|µg|mcg|g|iu|kcal|억\s*cfu)(?:\s*\(([0-9,]+)\s*(?:iu|IU)\))?(?:\s*([0-9]+)\s*%)?/i
+      /^\s*([가-힣A-Za-z0-9\s·\/\-]+?)\s*[:：]?\s*([0-9]+(?:\.[0-9]+)?)\s*(mg|ug|µg|mcg|g|iu|kcal|억\s*cfu|만\s*cfu|cfu)(?:\s*\(([0-9,]+)\s*(?:iu|IU)\))?(?:\s*([0-9]+)\s*%)?/i
     );
     if (!match) continue;
 
@@ -2433,22 +2441,38 @@ export function parseImportedNutritionFacts(
 
     const amount = parseFloat(match[2]);
     const rawUnitStr = match[3].toLowerCase();
+    const isProbioticItem =
+      effectiveMeta.functionalCategory === '정장제' ||
+      /probiotic|유산균/i.test(effectiveMeta.englishInn) ||
+      /probiotic|유산균/i.test(effectiveMeta.koreanName);
+
     const unit =
       rawUnitStr.includes('ug') || rawUnitStr.includes('µg') || rawUnitStr.includes('mcg')
         ? 'ug'
         : rawUnitStr.includes('iu')
         ? 'IU'
+        : isProbioticItem || rawUnitStr.includes('cfu')
+        ? 'CFU'
         : effectiveMeta.defaultUnit;
 
     const iuMatch = match[4];
-    let infoText = `${amount}${unit === 'ug' ? 'μg' : unit}`;
+    let infoText = '';
+    if (isProbioticItem && (rawUnitStr.includes('억') || match[3].includes('억'))) {
+      infoText = `${amount}억 CFU`;
+    } else if (isProbioticItem && rawUnitStr.includes('cfu')) {
+      infoText = `${amount} CFU`;
+    } else {
+      infoText = `${amount}${unit === 'ug' ? 'μg' : unit}`;
+    }
     if (iuMatch) {
       infoText += ` (${iuMatch} IU)`;
     }
 
     // 원재료명 텍스트에서 실제 사용된 염(Salt) 또는 원료형태 검색
     let chemicalForm = effectiveMeta.koreanName;
-    if (rawMaterialsText) {
+    if (isProbioticItem) {
+      chemicalForm = '프로바이오틱스 복합 균주';
+    } else if (rawMaterialsText) {
       const parts = rawMaterialsText.split(/[,，\+]+/).map((p) => p.trim());
       for (const saltKey of effectiveMeta.saltSearchKeys) {
         const found = parts.find((p) => p.includes(saltKey));
@@ -3186,7 +3210,7 @@ export async function searchFoodSafetyImportedFoods(
         ingredientId: `ing_imported_probiotics_${Date.now()}`,
         englishInn: 'Probiotics',
         koreanName: '프로바이오틱스',
-        functionalCategory: '기타',
+        functionalCategory: '정장제',
         chemicalFormName: '프로바이오틱스 복합 균주',
         rawAmount: cfuCount,
         unit: 'CFU',
@@ -3235,6 +3259,17 @@ export async function searchFoodSafetyImportedFoods(
       foodTypeCategory: isHealthFood ? '수입 건강기능식품' : (row.ITM_NM || '수입 가공식품'),
       shelfLifeText: row.EXPIRDE_DTM || row.EXPIRDE_END_DTM || '',
       koreanLabelText: rawLabel,
+      functionalFoodDetail: {
+        reportNo: reportNoStr,
+        koreanLabelText: rawLabel,
+        rawMaterialsText: rawIngr,
+        subIngredientsText: labelParsed.subIngredientsText || rawIngr,
+        standardSpecificationKorean: labelParsed.standardSpecificationText,
+        safetyPrecautionsText: labelParsed.safetyPrecautionsText,
+        safetyPrecautionsKorean: labelParsed.safetyPrecautionsText ? [labelParsed.safetyPrecautionsText] : [],
+        functionalClaimsKorean: labelParsed.indicationsSummary,
+        suggestedUseKorean: labelParsed.dosageInstruction
+      },
       ingredientBasis: (labelParsed.parsedNutritionIngredients && labelParsed.parsedNutritionIngredients.length > 0) ? 'PER_DAILY' : 'PER_UNIT',
       parsedIngredientsCache: parsedIngredients
     };

@@ -1693,10 +1693,16 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         product.productName.includes('가네'));
 
     if (hasNutritionOrSpec && labelText) {
+      const parsedLabel = parseImportedKoreanLabel(labelText);
+
       const rawMtrl =
         product.functionalFoodDetail?.rawMaterialsText ||
         product.functionalFoodDetail?.subIngredientsText ||
         (product as any).rawMaterialsText ||
+        (product as any).subIngredientsText ||
+        (product as any).rawIngredientsText ||
+        parsedLabel.subIngredientsText ||
+        (product as any).koreanLabelText ||
         (product.productName.includes('엠드림')
           ? '해조칼슘, 산화마그네슘, 글루콘산아연, 글루콘산구리, 요오드화칼륨, 비타민D3혼합제제, 아셀렌산나트륨, 염화크롬, 황산망간, 비타민K1혼합제제'
           : '');
@@ -1706,7 +1712,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       const isGaneDream = product.productName.includes('가네');
       const targetDailyTotal = isMdream || labelText.includes('1일 섭취량 4 정') ? 4 : (isGaneDream || labelText.includes('1일 1회, 1회 1') ? 1 : undefined);
 
-      const parsedLabel = parseImportedKoreanLabel(labelText);
       const extractedClaims =
         parsedLabel.indicationsSummary.length > 0 &&
         !parsedLabel.indicationsSummary[0].includes('공식 인정 기능성')
@@ -1718,7 +1723,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         ? rawPrecautions.split(/\r?\n+/).map((s) => s.trim()).filter(Boolean)
         : [];
 
-      // parsedNutrition에 있는 핵심 지표성분(실리마린, 셀레늄 등)이 현재 product.ingredients에 반영되지 않았거나 수치가 다른 경우
+      // parsedNutrition에 있는 핵심 지표성분(실리마린, 셀레늄, 프로바이오틱스 등)이 현재 product.ingredients에 반영되지 않았거나 수치/약효분류가 다른 경우
       const isMissingNutritionFacts =
         parsedNutrition.length > 0 &&
         parsedNutrition.some((pn) => {
@@ -1727,7 +1732,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               pi.englishInn.toLowerCase() === pn.englishInn.toLowerCase() ||
               pi.koreanName === pn.koreanName
           );
-          return !matched || matched.rawAmount !== pn.rawAmount;
+          return (
+            !matched ||
+            matched.rawAmount !== pn.rawAmount ||
+            matched.unit !== pn.unit ||
+            matched.functionalCategory !== pn.functionalCategory ||
+            matched.ingredientInfoText !== pn.ingredientInfoText
+          );
         });
 
       const currentClaims = product.functionalFoodDetail?.functionalClaimsKorean || [];
@@ -2602,8 +2613,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                       '';
                                     const rawMtrlText =
                                       product.functionalFoodDetail?.rawMaterialsText ||
-                                      (product as any).rawMaterialsText ||
                                       product.functionalFoodDetail?.subIngredientsText ||
+                                      (product as any).rawMaterialsText ||
+                                      (product as any).subIngredientsText ||
+                                      (product as any).rawIngredientsText ||
+                                      product.functionalFoodDetail?.koreanLabelText ||
+                                      (product as any).koreanLabelText ||
                                       '';
 
                                     const probioticCountFromSpec = isProbiotic ? extractProbioticCount(specText) : null;
@@ -2756,8 +2771,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                     '';
                                   const rawMtrlText =
                                     product.functionalFoodDetail?.rawMaterialsText ||
-                                    (product as any).rawMaterialsText ||
                                     product.functionalFoodDetail?.subIngredientsText ||
+                                    (product as any).rawMaterialsText ||
+                                    (product as any).subIngredientsText ||
+                                    (product as any).rawIngredientsText ||
+                                    product.functionalFoodDetail?.koreanLabelText ||
+                                    (product as any).koreanLabelText ||
                                     '';
 
                                   const probioticCountFromSpec = extractProbioticCount(specText);

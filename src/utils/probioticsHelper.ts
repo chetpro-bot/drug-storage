@@ -7,7 +7,83 @@
  * - 식약처 건강기능식품 공전 고시형 19종 균주 속(Genus) 및 한국어/영문 학명 지원
  */
 export const PROBIOTIC_GENERA_REGEX =
-  /^(?:Lactobacillus|Bifidobacterium|Lacticaseibacillus|Lactiplantibacillus|Limosilactobacillus|Ligilactobacillus|Latilactobacillus|Streptococcus|Enterococcus|Lactococcus|Bacillus|Clostridium|락토바실러스|비피도박테리움|락티카제이바실러스|락티플란티바실러스|리모시락토바실러스|리지락토바실러스|스트렙토코커스|엔테로코커스|락토코커스|바실러스|클로스트리디움|낙산균|포자균|효모균|사균체)/i;
+  /^(?:Lactobacillus|Bifidobacterium|Lacticaseibacillus|Lactiplantibacillus|Limosilactobacillus|Ligilactobacillus|Latilactobacillus|Streptococcus|Enterococcus|Lactococcus|Bacillus|Clostridium|락토\s*바실러스|비피[도토]\s*박테리움|락티카제이\s*바실러스|락티플란티\s*바실러스|리모시락토\s*바실러스|리지락토\s*바실러스|스트렙토\s*코커스|엔테로\s*코커스|락토\s*코커스|바실러스|클로스트리디움|낙산균|포자균|효모균|사균체)/i;
+
+/**
+ * 프로바이오틱스 표준 라틴 학명 <-> 한글명 상호 매핑 사전
+ */
+export const PROBIOTIC_LATIN_TO_KOR: Record<string, string> = {
+  'bifidobacterium bifidum': '비피도박테리움 비피덤',
+  'bifidobacterium longum': '비피도박테리움 롱검',
+  'bifidobacterium animalis': '비피도박테리움 애니멀리스(락티스)',
+  'bifidobacterium animalis subsp. lactis': '비피도박테리움 락티스',
+  'bifidobacterium breve': '비피도박테리움 브레브',
+  'bifidobacterium lactis': '비피도박테리움 락티스',
+  'lacticaseibacillus casei': '락티카제이바실러스 카제이',
+  'lactobacillus casei': '락토바실러스 카제이',
+  'lacticaseibacillus rhamnosus': '락티카제이바실러스 람노서스',
+  'lactobacillus rhamnosus': '락토바실러스 람노서스',
+  'lactobacillus acidophilus': '락토바실러스 아시도필루스',
+  'lactobacillus plantarum': '락토바실러스 플란타룸',
+  'lactiplantibacillus plantarum': '락티플란티바실러스 플란타룸',
+  'lactobacillus reuteri': '락토바실러스 루테리',
+  'limosilactobacillus reuteri': '리모시락토바실러스 루테리',
+  'lactobacillus gasseri': '락토바실러스 가세리',
+  'lactobacillus helveticus': '락토바실러스 헬베티쿠스',
+  'lactobacillus salivarius': '락토바실러스 살리바리우스',
+  'lactobacillus bulgaricus': '락토바실러스 불가리쿠스',
+  'lactobacillus fermentum': '락토바실러스 퍼멘텀',
+  'limosilactobacillus fermentum': '리모시락토바실러스 퍼멘텀',
+  'lactobacillus paracasei': '락토바실러스 파라카제이',
+  'lacticaseibacillus paracasei': '락티카제이바실러스 파라카제이',
+  'streptococcus thermophilus': '스트렙토코커스 써모필러스',
+  'enterococcus faecium': '엔테로코커스 페슘',
+  'enterococcus faecalis': '엔테로코커스 페칼리스',
+  'lactococcus lactis': '락토코커스 락티스'
+};
+
+const PROBIOTIC_KOR_TO_LATIN: Record<string, string> = {};
+for (const [latin, kor] of Object.entries(PROBIOTIC_LATIN_TO_KOR)) {
+  const cleanKor = kor.replace(/\s+/g, '').replace(/\([^)]+\)/g, '');
+  const binomialLatin = latin
+    .split(' ')
+    .map((w, idx) => (idx === 0 ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w.toLowerCase()))
+    .join(' ');
+  PROBIOTIC_KOR_TO_LATIN[cleanKor] = binomialLatin;
+}
+PROBIOTIC_KOR_TO_LATIN['비피토박테리움락티스'] = 'Bifidobacterium animalis subsp. lactis';
+PROBIOTIC_KOR_TO_LATIN['비피도박테리움락티스'] = 'Bifidobacterium animalis subsp. lactis';
+
+/**
+ * 프로바이오틱스 균주명 표준 표기 포맷터 (한글명 및 라틴 학명 병기)
+ */
+export function formatStrainDisplayName(name: string): string {
+  const trimmed = name.trim();
+  const lower = trimmed.toLowerCase();
+
+  // 1. 라틴 학명인 경우 -> 한글명 (라틴 학명)
+  if (PROBIOTIC_LATIN_TO_KOR[lower]) {
+    const kor = PROBIOTIC_LATIN_TO_KOR[lower];
+    const binomial = trimmed
+      .split(' ')
+      .map((w, idx) => (idx === 0 ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w.toLowerCase()))
+      .join(' ');
+    return `${kor} (${binomial})`;
+  }
+
+  // 2. 한글명인 경우 -> 표준 띄어쓰기 한글명 (라틴 학명)
+  const cleanKor = trimmed.replace(/\s+/g, '').replace(/^비피토\s*박테리움/, '비피도박테리움');
+  if (PROBIOTIC_KOR_TO_LATIN[cleanKor]) {
+    const latin = PROBIOTIC_KOR_TO_LATIN[cleanKor];
+    const prettyKor = cleanKor.replace(
+      /^(비피도박테리움|락토바실러스|락티카제이바실러스|락티플란티바실러스|리모시락토바실러스|스트렙토코커스|엔테로코커스|락토코커스)([가-힣])/,
+      '$1 $2'
+    );
+    return `${prettyKor} (${latin})`;
+  }
+
+  return trimmed;
+}
 
 /**
  * 식약처 건강기능식품 공전 고시형 19종 프로바이오틱스 균종 학명/한국어명 목록
@@ -56,8 +132,9 @@ export function extractProbioticStrains(rawMtrlText?: string): ProbioticStrainIn
     const isExplicitStandard = /고시형/.test(item);
     const isExplicitIndividual = /개별인정/.test(item);
 
-    // 괄호 법정 수식어 제거: (고시형), (개별인정형), (기능성원료...)
+    // 접두사 및 괄호 법정 수식어 제거: (고시형), (개별인정형), (기능성원료...)
     const cleaned = item
+      .replace(/^(?:원료명|원재료명|원료\s*및\s*함량|원재료명\s*및\s*함량)\s*[:：]\s*/i, '')
       .replace(/\((?:고시형|개별인정형|기능성원료[^)]*|제[0-9\-]+호)\)/gi, '')
       .replace(/\[[^\]]*\]/g, '')
       .trim();
@@ -66,11 +143,13 @@ export function extractProbioticStrains(rawMtrlText?: string): ProbioticStrainIn
 
     // 프로바이오틱스 균주에 해당하는지 검사
     if (PROBIOTIC_GENERA_REGEX.test(cleaned) || /유산균|비피더스|생균/i.test(cleaned)) {
-      if (!seen.has(cleaned.toLowerCase())) {
+      const formattedName = formatStrainDisplayName(cleaned);
+      if (!seen.has(formattedName.toLowerCase()) && !seen.has(cleaned.toLowerCase())) {
+        seen.add(formattedName.toLowerCase());
         seen.add(cleaned.toLowerCase());
         const isStandard = isExplicitStandard || (!isExplicitIndividual && isKfdaStandardSpecies(cleaned));
         strains.push({
-          name: cleaned,
+          name: formattedName,
           isStandard,
           regulatoryType: isStandard ? '고시형' : (isExplicitIndividual ? '개별인정형' : undefined)
         });

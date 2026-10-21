@@ -33,6 +33,21 @@ export function normalizeCategory(cat: string): string {
   if (res === '칼륨(K)') return '칼륨';
   if (res === '철(Fe)' || res === '제1철 (Ferrous)' || res === '제2철 (Ferric)') return '철';
 
+  // 정장제 / 프로바이오틱스 / 유산균 제제 표기 통일
+  if (
+    res === '정장제' ||
+    res === '정장제 (생균제제)' ||
+    res === '정장제(생균제제)' ||
+    res === '정장제 (유산균)' ||
+    res === '정장제(유산균)' ||
+    res === '생균제제' ||
+    res === '유산균' ||
+    res === '유산균제제' ||
+    res === '프로바이오틱스'
+  ) {
+    return '정장제';
+  }
+
   // 기타 괄호 원소기호 패턴 제거 (예: '마그네슘(Mg)' -> '마그네슘')
   res = res.replace(/\([A-Z][a-z]?\)$/, '').trim();
 
@@ -71,6 +86,7 @@ export const STANDARD_EFFICACY_CATEGORIES = [
   '아미노산',
   '간보호제',
   '기타 간장 약물',
+  '정장제',
   '자율신경제',
   '기타 심부전 치료제',
   '기타'
@@ -79,6 +95,13 @@ export const STANDARD_EFFICACY_CATEGORIES = [
 export function getCategoryColor(cat: string): string {
   const norm = normalizeCategory(cat);
   switch (norm) {
+    case '정장제':
+    case '정장제 (생균제제)':
+    case '정장제 (유산균)':
+    case '생균제제':
+    case '유산균':
+    case '프로바이오틱스':
+      return 'bg-emerald-50 text-emerald-800 border-emerald-200';
     case '비타민A':
     case '비타민A 제제':
       return 'bg-orange-50 text-orange-700 border-orange-200';

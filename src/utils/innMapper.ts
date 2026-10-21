@@ -59,12 +59,12 @@ export interface InnMappingMeta {
   englishInn: string;
   functionalCategory: EfficacyCategory; // KPIC 약효 분류
   chemicalFormName: string;
-  defaultUnit: 'mg' | 'ug' | 'IU' | 'g';
+  defaultUnit: 'mg' | 'ug' | 'IU' | 'g' | 'CFU';
   standardKey?: NutrientStandardKey;
   clinicalSummary: string;
   elementalRatio?: number; // 원소/유효성분 환산비 (예: 벤포티아민 0.7231, 산화아연 0.803)
   elementalTargetLabel?: string; // 환산 기준 성분 표기 (예: '티아민염산염으로서', '리보플라빈으로서', '마그네슘으로서')
-  elementalUnit?: 'mg' | 'ug' | 'IU' | 'g'; // 환산 단위가 다른 경우 (예: 콜레칼시페롤농축분말 10mg -> 1,000IU)
+  elementalUnit?: 'mg' | 'ug' | 'IU' | 'g' | 'CFU'; // 환산 단위가 다른 경우 (예: 콜레칼시페롤농축분말 10mg -> 1,000IU)
 }
 
 const LEARNED_DICT_STORAGE_KEY = 'pharmassist_learned_inn_dict_v1';
@@ -1155,16 +1155,30 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
   },
   '프로바이오틱스': {
     englishInn: 'Probiotics',
-    functionalCategory: '정장제 (생균제제)',
+    functionalCategory: '정장제',
     chemicalFormName: '복합 유산균 (Probiotics)',
-    defaultUnit: 'mg',
+    defaultUnit: 'CFU',
+    clinicalSummary: '• 유산균 증식 및 유해균 억제·배변활동 원활·장 건강에 도움을 줄 수 있음'
+  },
+  '프로바이오틱스수': {
+    englishInn: 'Probiotics',
+    functionalCategory: '정장제',
+    chemicalFormName: '프로바이오틱스 복합 균주',
+    defaultUnit: 'CFU',
     clinicalSummary: '• 유산균 증식 및 유해균 억제·배변활동 원활·장 건강에 도움을 줄 수 있음'
   },
   '유산균': {
     englishInn: 'Probiotics',
-    functionalCategory: '정장제 (생균제제)',
+    functionalCategory: '정장제',
     chemicalFormName: '프로바이오틱스 생균',
-    defaultUnit: 'mg',
+    defaultUnit: 'CFU',
+    clinicalSummary: '• 장내 미생물 균총 정상화 및 장 점막 면역 지원'
+  },
+  '유산균수': {
+    englishInn: 'Probiotics',
+    functionalCategory: '정장제',
+    chemicalFormName: '프로바이오틱스 복합 균주',
+    defaultUnit: 'CFU',
     clinicalSummary: '• 장내 미생물 균총 정상화 및 장 점막 면역 지원'
   },
   '홍삼': {
@@ -2049,6 +2063,9 @@ const KOR_TO_ENG_DISPLAY_MAP: Record<string, string> = {
   '밀크씨슬추출물': 'Milk thistle extract (Silymarin)',
   '루테인': 'Lutein',
   '프로바이오틱스': 'Probiotics',
+  '프로바이오틱스수': 'Probiotics',
+  '유산균': 'Probiotics',
+  '유산균수': 'Probiotics',
   'L-시스테인': 'L-Cysteine',
   '시스테인': 'L-Cysteine',
   'L-아르기닌': 'L-Arginine',
@@ -2381,6 +2398,16 @@ export function resolveIngredientDisplayInfo(
     categoryTag === '비타민B9'
   ) {
     categoryTag = '엽산';
+  }
+  if (
+    normEng === 'probiotics' ||
+    normEng === 'probiotic' ||
+    categoryTag === '정장제' ||
+    categoryTag === '생균제제' ||
+    categoryTag === '유산균' ||
+    categoryTag === '프로바이오틱스'
+  ) {
+    categoryTag = '정장제';
   }
 
   // 4. 실제 성분량(원소량 / 활성 유효성분량) 환산 계산

@@ -1744,6 +1744,22 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           currentPrecautions[0].includes('주의사항 참조') ||
           currentPrecautions.join(';') !== extractedPrecautions.join(';'));
 
+      const targetDosage =
+        parsedLabel.dosageInstruction ||
+        (isMdream ? '1일 2회, 1회 2정 물과 함께 섭취하십시오.' : (product.functionalFoodDetail?.suggestedUseKorean || ''));
+
+      const targetUnit = parsedLabel.servingUnitKorean || (isMdream ? '정' : (product.servingUnitKorean || '캡슐'));
+      const targetDailyServings = parsedLabel.dailyServings || (targetDailyTotal === 4 ? 2 : (product.dailyServings || 1));
+      const targetAmountPerServing = parsedLabel.amountPerServing || (targetDailyTotal === 4 ? 2 : (product.amountPerServing || 1));
+
+      const currentDosage = product.functionalFoodDetail?.suggestedUseKorean || '';
+      const isMissingDosage =
+        Boolean(targetDosage) &&
+        (currentDosage !== targetDosage ||
+          product.servingUnitKorean !== targetUnit ||
+          product.dailyServings !== targetDailyServings ||
+          product.amountPerServing !== targetAmountPerServing);
+
       const needsFix =
         parsedNutrition.length > 0 &&
         (isMissingNutritionFacts ||
@@ -1752,16 +1768,17 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           (targetDailyTotal && product.dailyServings * product.amountPerServing !== targetDailyTotal) ||
           product.ingredientBasis !== 'PER_DAILY' ||
           isMissingClaims ||
-          isMissingPrecautions);
+          isMissingPrecautions ||
+          isMissingDosage);
 
       if (needsFix) {
         updateProduct(product.id, {
           ingredients: parsedNutrition.length > 0 ? parsedNutrition : product.ingredients,
-          dailyServings: targetDailyTotal === 4 ? 2 : (targetDailyTotal === 1 ? 1 : (product.dailyServings || 1)),
-          amountPerServing: targetDailyTotal === 4 ? 2 : (targetDailyTotal === 1 ? 1 : (product.amountPerServing || 1)),
-          servingUnitKorean: product.servingUnitKorean || (isMdream ? '정' : '캡슐'),
+          dailyServings: targetDailyServings,
+          amountPerServing: targetAmountPerServing,
+          servingUnitKorean: targetUnit,
           ingredientBasis: 'PER_DAILY',
-          packagingUnit: isMdream ? '240정 (60일분)' : (product.packagingUnit || (parsedLabel.packagingUnit || '60캡슐 (2개월분)')),
+          packagingUnit: parsedLabel.packagingUnit || product.packagingUnit || (isMdream ? '120정' : '60캡슐'),
           functionalFoodDetail: {
             ...product.functionalFoodDetail,
             reportNo: product.functionalFoodDetail?.reportNo || '',
@@ -1774,9 +1791,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             functionalClaimsKorean: extractedClaims.length > 0
               ? extractedClaims
               : (product.functionalFoodDetail?.functionalClaimsKorean || []),
-            suggestedUseKorean: isMdream
-              ? '1일 2회, 1회 2정(총 4정)을 물과 함께 섭취하십시오.'
-              : (parsedLabel.dosageInstruction || product.functionalFoodDetail?.suggestedUseKorean || '')
+            suggestedUseKorean: targetDosage
           }
         });
       }
@@ -1848,9 +1863,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       updateProduct(product.id, { ingredients: fixedIngredients });
     }
 
-    // 일반식품(엠-드림 리퀴드 키즈 등)에서 복용 방법이 공공데이터 기본 문구("개인의 취향에 따라 섭취하십시오")이거나
-    // OCR 오인식(12028], 배상책임보험 등)인 경우 정밀 용법("1일 2회, 1회 1포씩 섭취하십시오")으로 자동 동기화
-    if (product.classification === 'GENERAL_FOOD' || product.productName.includes('엠-드림')) {
+    // 일반식품(엠-드림 리퀴드 키즈 등 액상/포 형태 가공식품)에서 복용 방법이 공공데이터 기본 문구이거나
+    // OCR 오인식인 경우 정밀 용법("1일 2회, 1회 1포씩 섭취하십시오")으로 자동 동기화
+    if (
+      product.classification === 'GENERAL_FOOD' &&
+      (product.productName.includes('리퀴드') || product.productName.includes('키즈'))
+    ) {
       const curDosage = product.functionalFoodDetail?.suggestedUseKorean || '';
       const isCorruptedOrNeedsUpdate =
         !curDosage ||
@@ -1860,8 +1878,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         curDosage.includes('12428') ||
         curDosage.includes('19028') ||
         curDosage.includes('배상책임') ||
-        curDosage.includes('1회 1회') ||
-        product.productName.includes('엠-드림');
+        curDosage.includes('1회 1회');
 
       if (isCorruptedOrNeedsUpdate && curDosage !== '1일 2회, 1회 1포씩 섭취하십시오.') {
         updateProduct(product.id, {

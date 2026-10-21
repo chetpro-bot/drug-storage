@@ -3504,7 +3504,7 @@ function formatNedrugIngrInfo(rawInfo?: string | null): string {
   return formatSingleNedrugIngrInfo(rawInfo);
 }
 
-interface NedrugRawRow {
+export interface NedrugRawRow {
   ingrName?: string | null;
   ingrTotqy?: string | null;
   ingrUnitName?: string | null;
@@ -3571,12 +3571,131 @@ function extractNedrugRowsFromHtml(html: string): NedrugRawRow[] {
 }
 
 /**
+ * 의약품안전나라(nedrug.mfds.go.kr) 품목 상세 페이지 내 원료약품 JSON(var aasda = {...}) 원본 행 배열 반환 (가공 없음)
+ */
+export async function fetchNedrugRawRows(itemSeq: string): Promise<NedrugRawRow[] | null> {
+  const cleanSeq = (itemSeq || '').trim();
+  if (!cleanSeq) return null;
+
+  const directUrl = `https://nedrug.mfds.go.kr/pbp/CCBBB01/getItemDetailCache?cacheSeq=${encodeURIComponent(cleanSeq)}aupdateTs2025-01-01b`;
+
+  // 0. 캐시 확인 (품목당 1회 수집 후 영구 재사용)
+  const cached = loadCachedNedrugRows(cleanSeq);
+  if (cached && cached.length > 0) {
+    return cached;
+  }
+
+  // 0-B. 배포 정적 캐시 (/nedrug_cache.json) 확인
+  if (typeof window !== 'undefined') {
+    try {
+      const staticRes = await fetch('/nedrug_cache.json');
+      if (staticRes.ok) {
+        const staticMap = (await staticRes.json()) as Record<string, NedrugRawRow[]>;
+        for (const [k, v] of Object.entries(staticMap)) {
+          if (Array.isArray(v) && v.length > 0) {
+            nedrugMemoryCache.set(k, v);
+          }
+        }
+        if (Array.isArray(staticMap[cleanSeq]) && staticMap[cleanSeq].length > 0) {
+          return staticMap[cleanSeq];
+        }
+      }
+    } catch {
+      // ignore static cache error
+    }
+  }
+
+  // 1. Node.js 환경 (테스트/스크립트 실행 시) 직접 호출
+  if (typeof window === 'undefined') {
+    const r = await fetch(directUrl);
+    if (r.ok) {
+      const rows = extractNedrugRowsFromHtml(await r.text());
+      if (rows.length > 0) {
+        saveCachedNedrugRows(cleanSeq, rows);
+        return rows;
+      }
+    }
+    return null;
+  }
+
+  // 2. 브라우저 환경 1순위: 로컬 Vite 프록시 (/api/nedrug) 호출
+  try {
+    const proxyRes = await fetch(`/api/nedrug/pbp/CCBBB01/getItemDetailCache?cacheSeq=${encodeURIComponent(cleanSeq)}aupdateTs2025-01-01b`);
+    if (proxyRes.ok) {
+      const txt = await proxyRes.text();
+      if (txt.includes('var aasda =')) {
+        const rows = extractNedrugRowsFromHtml(txt);
+        if (rows.length > 0) {
+          saveCachedNedrugRows(cleanSeq, rows);
+          return rows;
+        }
+      }
+    }
+  } catch {
+    // ignore and try next fallback
+  }
+
+  // 3. 브라우저 환경 2순위: Firebase Cloud Function 서버 프록시 (nedrugItemDetailProxy)
+  const serverProxyUrls = [
+    `/api/nedrug-proxy?itemSeq=${encodeURIComponent(cleanSeq)}`,
+    `https://asia-northeast3-drug-storage-175fe.cloudfunctions.net/nedrugItemDetailProxy?itemSeq=${encodeURIComponent(cleanSeq)}`,
+    `https://us-central1-drug-storage-175fe.cloudfunctions.net/nedrugItemDetailProxy?itemSeq=${encodeURIComponent(cleanSeq)}`
+  ];
+  for (const sUrl of serverProxyUrls) {
+    try {
+      const res = await fetch(sUrl);
+      if (res.ok) {
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const data = await res.json();
+          if (Array.isArray(data?.rows) && data.rows.length > 0) {
+            saveCachedNedrugRows(cleanSeq, data.rows);
+            return data.rows as NedrugRawRow[];
+          }
+        } else {
+          const txt = await res.text();
+          if (txt.includes('var aasda =')) {
+            const rows = extractNedrugRowsFromHtml(txt);
+            if (rows.length > 0) {
+              saveCachedNedrugRows(cleanSeq, rows);
+              return rows;
+            }
+          }
+        }
+      }
+    } catch {
+      // try next server proxy URL
+    }
+  }
+
+  // 4. 브라우저 환경 3순위 (최후 백업): 공개 CORS 프록시 우회 호출
+  const corsProxies = [
+    `https://corsproxy.io/?${encodeURIComponent(directUrl)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`
+  ];
+  for (const pUrl of corsProxies) {
+    try {
+      const r = await fetch(pUrl);
+      if (r.ok) {
+        const txt = await r.text();
+        if (txt.includes('var aasda =')) {
+          const rows = extractNedrugRowsFromHtml(txt);
+          if (rows.length > 0) {
+            saveCachedNedrugRows(cleanSeq, rows);
+            return rows;
+          }
+        }
+      }
+    } catch {
+      // try next
+    }
+  }
+  return null;
+}
+
+/**
  * 의약품안전나라(nedrug.mfds.go.kr) 품목 상세 페이지 내 원료약품 JSON(var aasda = {...})을 직접 파싱하여
  * 약학정보원(KPIC)과 100% 동일한 성분/함량/환산량 텍스트 생성
- * - 1순위: 로컬 캐시 (한 번 수집된 품목은 재요청 없이 즉시 반환)
- * - 2순위: Firebase Cloud Function 서버 프록시 (/api/nedrug-proxy 또는 asia-northeast3 클라우드 함수)
- * - 3순위: 개발 서버 Vite 프록시 (/api/nedrug)
- * - 4순위: 백업 CORS 프록시
  */
 export async function fetchNedrugIngredientsText(
   itemSeq: string,
@@ -3585,115 +3704,9 @@ export async function fetchNedrugIngredientsText(
   const cleanSeq = (itemSeq || '').trim();
   if (!cleanSeq) return null;
 
-  const directUrl = `https://nedrug.mfds.go.kr/pbp/CCBBB01/getItemDetailCache?cacheSeq=${encodeURIComponent(cleanSeq)}aupdateTs2025-01-01b`;
-
-  const fetchRows = async (): Promise<NedrugRawRow[] | null> => {
-    // 0. 캐시 확인 (품목당 1회 수집 후 영구 재사용)
-    const cached = loadCachedNedrugRows(cleanSeq);
-    if (cached && cached.length > 0) {
-      return cached;
-    }
-
-    // 0-B. 배포 정적 캐시 (/nedrug_cache.json) 확인
-    if (typeof window !== 'undefined') {
-      try {
-        const staticRes = await fetch('/nedrug_cache.json');
-        if (staticRes.ok) {
-          const staticMap = (await staticRes.json()) as Record<string, NedrugRawRow[]>;
-          for (const [k, v] of Object.entries(staticMap)) {
-            if (Array.isArray(v) && v.length > 0) {
-              nedrugMemoryCache.set(k, v);
-            }
-          }
-          if (Array.isArray(staticMap[cleanSeq]) && staticMap[cleanSeq].length > 0) {
-            return staticMap[cleanSeq];
-          }
-        }
-      } catch {
-        // ignore static cache error
-      }
-    }
-
-    // 1. Node.js 환경 (테스트/스크립트 실행 시) 직접 호출
-    if (typeof window === 'undefined') {
-      const r = await fetch(directUrl);
-      if (r.ok) {
-        const rows = extractNedrugRowsFromHtml(await r.text());
-        if (rows.length > 0) return rows;
-      }
-      return null;
-    }
-
-    // 2. 브라우저 환경 1순위: 로컬 Vite 프록시 (/api/nedrug) 호출 (302 리다이렉트 없는 getItemDetailCache 사용)
-    try {
-      const proxyRes = await fetch(`/api/nedrug/pbp/CCBBB01/getItemDetailCache?cacheSeq=${encodeURIComponent(cleanSeq)}aupdateTs2025-01-01b`);
-      if (proxyRes.ok) {
-        const txt = await proxyRes.text();
-        if (txt.includes('var aasda =')) {
-          const rows = extractNedrugRowsFromHtml(txt);
-          if (rows.length > 0) return rows;
-        }
-      }
-    } catch {
-      // ignore and try next fallback
-    }
-
-    // 3. 브라우저 환경 2순위: Firebase Cloud Function 서버 프록시 (nedrugItemDetailProxy)
-    const serverProxyUrls = [
-      `/api/nedrug-proxy?itemSeq=${encodeURIComponent(cleanSeq)}`,
-      `https://asia-northeast3-drug-storage-175fe.cloudfunctions.net/nedrugItemDetailProxy?itemSeq=${encodeURIComponent(cleanSeq)}`,
-      `https://us-central1-drug-storage-175fe.cloudfunctions.net/nedrugItemDetailProxy?itemSeq=${encodeURIComponent(cleanSeq)}`
-    ];
-    for (const sUrl of serverProxyUrls) {
-      try {
-        const res = await fetch(sUrl);
-        if (res.ok) {
-          const contentType = res.headers.get('content-type') || '';
-          if (contentType.includes('application/json')) {
-            const data = await res.json();
-            if (Array.isArray(data?.rows) && data.rows.length > 0) {
-              return data.rows as NedrugRawRow[];
-            }
-          } else {
-            const txt = await res.text();
-            if (txt.includes('var aasda =')) {
-              const rows = extractNedrugRowsFromHtml(txt);
-              if (rows.length > 0) return rows;
-            }
-          }
-        }
-      } catch {
-        // try next server proxy URL
-      }
-    }
-
-    // 4. 브라우저 환경 3순위 (최후 백업): 공개 CORS 프록시 우회 호출
-    const corsProxies = [
-      `https://corsproxy.io/?${encodeURIComponent(directUrl)}`,
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`
-    ];
-    for (const pUrl of corsProxies) {
-      try {
-        const r = await fetch(pUrl);
-        if (r.ok) {
-          const txt = await r.text();
-          if (txt.includes('var aasda =')) {
-            const rows = extractNedrugRowsFromHtml(txt);
-            if (rows.length > 0) return rows;
-          }
-        }
-      } catch {
-        // try next
-      }
-    }
-    return null;
-  };
-
   try {
-    const rows = await fetchRows();
+    const rows = await fetchNedrugRawRows(cleanSeq);
     if (!rows || rows.length === 0) return null;
-
-    saveCachedNedrugRows(cleanSeq, rows);
 
     const lines: string[] = [];
     for (const obj of rows) {

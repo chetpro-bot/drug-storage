@@ -5,6 +5,7 @@ import { useProductStore } from '../stores/useProductStore';
 import {
   fetchMfdsDrugDetail,
   fetchMfdsDrugRawByItemSeq,
+  fetchNedrugRawRows,
   searchPublicDrugDatabase,
   convertMasterItemToFetchResult,
   fetchFoodSafetyC003RawByReportNo,
@@ -1521,13 +1522,81 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           }
 
           if (itemSeq) {
-            // 1. 가공하지 않은 식약처 API(getDrugPrdtPrmsnDtlInq08) 원본 전문 조회
-            const rawMfds = await fetchMfdsDrugRawByItemSeq(itemSeq);
-            if (isMounted && rawMfds) {
-              const rawLines = Object.entries(rawMfds).map(
-                ([key, val]) => `[${key}]\n${val === null || val === undefined ? '' : String(val)}`
-              );
-              setPureApiText(rawLines.join('\n\n'));
+            // 1. 가공하지 않은 식약처 API(getDrugPrdtPrmsnDtlInq08) 원본 전문 + 의약품안전나라(nedrug) 원료약품 원문 조회
+            const [rawMfds, nedrugRows] = await Promise.all([
+              fetchMfdsDrugRawByItemSeq(itemSeq),
+              fetchNedrugRawRows(itemSeq)
+            ]);
+            if (isMounted && (rawMfds || (nedrugRows && nedrugRows.length > 0))) {
+              const FIELD_KOR_LABELS: Record<string, string> = {
+                ITEM_SEQ: '품목기준코드',
+                ITEM_NAME: '제품명',
+                ITEM_ENG_NAME: '영문 제품명',
+                ENTP_NAME: '업체명',
+                ENTP_ENG_NAME: '영문 업체명',
+                ITEM_PERMIT_DATE: '허가일자',
+                ETC_OTC_CODE: '전문/일반 구분',
+                CLASS_NO: '분류번호',
+                CHART: '성상',
+                BAR_CODE: '표준코드(바코드)',
+                MATERIAL_NAME: '원료약품 및 분량 (공공데이터포털 API 원문)',
+                MAIN_ITEM_INGR: '유효성분 (주성분 국문)',
+                MAIN_INGR_ENG: '유효성분 (주성분 영문)',
+                INGR_NAME: '첨가제',
+                STORAGE_METHOD: '저장방법',
+                VALID_TERM: '유효기간',
+                PACK_UNIT: '포장단위',
+                MAKE_MATERIAL_FLAG: '완제/원료/수입 구분',
+                EE_DOC_DATA: '효능·효과 (XML 원문)',
+                UD_DOC_DATA: '용법·용량 (XML 원문)',
+                NB_DOC_DATA: '사용상의 주의사항 (XML 원문)'
+              };
+
+              const sections: string[] = [];
+
+              // 상단 고정: 성분 관련 항목을 최상단에 먼저 배치하여 스크롤 없이 바로 확인 가능하도록 구성
+              const topKeys = ['ITEM_SEQ', 'ITEM_NAME', 'ENTP_NAME', 'ETC_OTC_CODE', 'MAKE_MATERIAL_FLAG'];
+              if (rawMfds) {
+                for (const k of topKeys) {
+                  if (k in rawMfds) {
+                    sections.push(`[${k} (${FIELD_KOR_LABELS[k] || k})]\n${rawMfds[k] ?? ''}`);
+                  }
+                }
+              }
+
+              // 의약품안전나라(nedrug) 원료약품 및 분량 원문 (var aasda)
+              if (nedrugRows && nedrugRows.length > 0) {
+                const nedrugLines = nedrugRows.map(
+                  (r, i) =>
+                    `${i + 1}. 총량 : ${r.totqyCont || ''} | 성분명 : ${r.ingrName || ''} | 분량 : ${r.ingrTotqy || ''} | 단위 : ${r.ingrUnitName || ''} | 규격 : ${r.ingrStdName || ''} | 성분정보 : ${r.ingrInfo || ''}`
+                );
+                sections.push(
+                  `[NEDRUG_AASDA (의약품안전나라 원료약품 및 분량 원문 — 환산성분량 포함)]\n${nedrugLines.join('\n')}`
+                );
+              }
+
+              // 공공데이터포털 API의 성분 관련 4대 필드 (MATERIAL_NAME, MAIN_ITEM_INGR, MAIN_INGR_ENG, INGR_NAME) 상단 배치
+              const ingrKeys = ['MATERIAL_NAME', 'MAIN_ITEM_INGR', 'MAIN_INGR_ENG', 'INGR_NAME'];
+              if (rawMfds) {
+                for (const k of ingrKeys) {
+                  if (k in rawMfds) {
+                    const rawVal = String(rawMfds[k] ?? '');
+                    // MATERIAL_NAME은 세미콜론(;) 단위로 줄바꿈만 추가하여 원문 그대로 가독성 확보
+                    const displayVal = k === 'MATERIAL_NAME' ? rawVal.split(';').join(';\n') : rawVal;
+                    sections.push(`[${k} (${FIELD_KOR_LABELS[k] || k})]\n${displayVal}`);
+                  }
+                }
+
+                // 나머지 모든 API 원본 필드 그대로 출력
+                const usedKeys = new Set([...topKeys, ...ingrKeys]);
+                for (const [key, val] of Object.entries(rawMfds)) {
+                  if (usedKeys.has(key)) continue;
+                  const label = FIELD_KOR_LABELS[key] ? `${key} (${FIELD_KOR_LABELS[key]})` : key;
+                  sections.push(`[${label}]\n${val === null || val === undefined ? '' : String(val)}`);
+                }
+              }
+
+              setPureApiText(sections.join('\n\n'));
             }
 
             // 2. 요약본이 비어있는 경우에만 상세 정보 자동 보완

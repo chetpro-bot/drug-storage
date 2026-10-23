@@ -26,7 +26,6 @@ import {
   parseIngredientInfoString
 } from '../utils/innMapper';
 import { STANDARD_EFFICACY_CATEGORIES } from '../utils/categoryColors';
-import { inferInitialEfficacyTags } from '../constants/efficacyTags';
 import { 
   X, 
   Search, 
@@ -95,7 +94,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
   const [priceRetailKrw, setPriceRetailKrw] = useState(70000);
   const [storageLocation, setStorageLocation] = useState('');
   const [productImageUrl, setProductImageUrl] = useState('');
-  const [tags, setTags] = useState('피로, 활성비타민');
+  const [tags, setTags] = useState('');
   const [regulatoryCode, setRegulatoryCode] = useState('');
   const [dosageInstruction, setDosageInstruction] = useState('');
   const [indicationsText, setIndicationsText] = useState('');
@@ -186,7 +185,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
     setPriceRetailKrw(70000);
     setStorageLocation('');
     setProductImageUrl('');
-    setTags('피로, 활성비타민');
+    setTags('');
     setRegulatoryCode('');
     setDosageInstruction('');
     setIndicationsText('');
@@ -331,17 +330,6 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
     setVerifiedIngredients(result.parsedIngredients);
     if (result.classification === 'HEALTH_FUNCTIONAL_FOOD') {
       setIngredientBasis('PER_DAILY');
-    }
-
-    if (!isEditMode) {
-      const suggestedTags = inferInitialEfficacyTags(
-        result.productName,
-        result.indicationsSummary,
-        result.parsedIngredients
-      );
-      if (suggestedTags.length > 0) {
-        setTags(suggestedTags.join(', '));
-      }
     }
   };
 

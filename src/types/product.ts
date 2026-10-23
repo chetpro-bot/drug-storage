@@ -13,6 +13,7 @@ export interface OtcDrugRegulatoryDetail {
   dosageAndAdministrationKorean: string;// 용법·용량 (식약처 허가사항)
   storageMethodKorean: string;          // 저장 방법 (예: "기밀용기, 실온(1~30℃)보관")
   precautionsSummaryKorean: string[];   // 사용상의 주의사항 요약
+  precautionsFullText?: string;         // 사용상의 주의사항 직접 수정/전문
 }
 
 /**
@@ -21,6 +22,7 @@ export interface OtcDrugRegulatoryDetail {
 export interface FunctionalFoodRegulatoryDetail {
   reportNo: string;                     // 품목제조보고번호 (식품안전나라)
   functionalClaimsKorean: string[];     // 인정받은 영양·기능 정보 (예: "결합조직 형성과 기능유지에 필요")
+  functionalClaimsText?: string;        // 인정받은 영양·기능 정보 직접 수정 전문
   suggestedUseKorean: string;           // 섭취량 및 섭취방법
   safetyPrecautionsKorean: string[];    // 섭취 시 주의사항
   standardSpecificationKorean?: string; // 기준 및 규격
@@ -30,6 +32,19 @@ export interface FunctionalFoodRegulatoryDetail {
   appearanceKorean?: string;            // 성상 (식품안전나라 C003 DISPOS)
   safetyPrecautionsText?: string;       // 섭취 시 주의사항 전문 (식품안전나라 C003 IFTKN_ATNT_MATR_CN)
   koreanLabelText?: string;             // 수입식품 한글표시사항 원문 전문 (KORLABEL)
+}
+
+/**
+ * 사용자 열람 전용 제품 참고 자료 (이미지, PDF 등)
+ * - AI나 OCR이 분석하여 성분/자료에 반영하지 않고, 사용자가 직접 열람하는 순수 참고용 문서
+ */
+export interface ReferenceAttachment {
+  id: string;
+  fileName: string;
+  fileSize?: number;
+  fileType?: string;                    // MIME 타입 (예: 'image/jpeg', 'application/pdf')
+  uploadedAt: string;
+  dataUrl: string;                      // Base64 데이터 URL
 }
 
 export interface AttachedDocument {
@@ -108,6 +123,15 @@ export interface ProductItem {
 
   // 첨부 참고 자료 (약학정보원 캡처, 라벨 사진, 제약사 브로슈어 등)
   attachments?: AttachedDocument[];
+
+  // 사용자 열람 전용 참고 자료 (이미지, PDF 등 - OCR 분석/자동반영 없이 사용자 팝업 확인용)
+  referenceAttachments?: ReferenceAttachment[];
+
+  // 사용자 직접 수정 플래그 (자동 동기화/재파싱 시 덮어쓰기 방지)
+  isCustomFunctionality?: boolean;
+  isCustomPrecautions?: boolean;
+  isCustomDosage?: boolean;
+  isCustomIndications?: boolean;
 
   // 분류별 규제 세부 정보
   otcDetail?: OtcDrugRegulatoryDetail;

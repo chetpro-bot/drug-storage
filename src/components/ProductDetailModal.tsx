@@ -54,9 +54,7 @@ import {
   StickyNote,
   Check,
   Save,
-  Highlighter,
-  LayoutGrid,
-  CheckCircle2
+  Highlighter
 } from 'lucide-react';
 import { parseFunctionalClaimsToStructuredGroups } from '../utils/functionalClaimsHelper';
 
@@ -1182,65 +1180,56 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       {totalItems}개 기능성 항목 (원문 100% 보존)
                     </span>
                   </div>
-                  <div className="p-4 bg-slate-50/50">
-                    {hasHeaders ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {groups.map((group) => (
-                          <div
-                            key={group.id}
-                            className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2"
-                          >
-                            <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
-                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-sky-50 text-sky-900 border border-sky-200">
-                                {group.header}
-                              </span>
-                              <span className="text-[10px] text-slate-400 font-medium">
-                                {group.items.length}개
-                              </span>
-                            </div>
-                            <ul className="space-y-1.5">
-                              {group.items.map((item) => (
-                                <li
-                                  key={item.id}
-                                  className="flex items-start gap-2 text-xs text-slate-700 leading-relaxed font-medium"
-                                >
-                                  {item.bulletPrefix ? (
-                                    <span className="text-[10px] font-bold text-sky-700 bg-sky-50 px-1 py-0.2 rounded shrink-0">
-                                      {item.bulletPrefix}
+                  <div className="p-4 bg-[#f8fafc]">
+                    <div className="space-y-3 font-sans select-text">
+                      {hasHeaders ? (
+                        <div className="space-y-3.5 divide-y divide-slate-200/60">
+                          {groups.map((group, idx) => (
+                            <div key={group.id} className={idx > 0 ? "pt-3.5 space-y-1.5" : "space-y-1.5"}>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-sky-600 font-black text-xs">■</span>
+                                <span className="font-extrabold text-slate-900 text-xs sm:text-[13px] tracking-tight">
+                                  {group.header}
+                                </span>
+                              </div>
+                              <ul className="pl-4 space-y-1.5 text-xs text-slate-700 font-medium">
+                                {group.items.map((item) => (
+                                  <li key={item.id} className="flex items-start gap-2 leading-relaxed">
+                                    {item.bulletPrefix ? (
+                                      <span className="text-[11px] font-bold text-sky-700 bg-sky-100/60 px-1 py-0.2 rounded shrink-0 mt-0.5">
+                                        {item.bulletPrefix}
+                                      </span>
+                                    ) : (
+                                      <span className="text-sky-500 font-black shrink-0 leading-relaxed">•</span>
+                                    )}
+                                    <span className="break-keep leading-relaxed">
+                                      {renderApiTextWithCustomHighlights(item.text, highlights)}
                                     </span>
-                                  ) : (
-                                    <span className="w-1.5 h-1.5 rounded-full bg-sky-500 mt-1.5 shrink-0" />
-                                  )}
-                                  <span className="break-keep">
-                                    {renderApiTextWithCustomHighlights(item.text, highlights)}
-                                  </span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <ul className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-2xs space-y-2">
-                        {groups.flatMap((g) => g.items).map((item) => (
-                          <li
-                            key={item.id}
-                            className="flex items-start gap-2 text-xs text-slate-700 leading-relaxed font-medium"
-                          >
-                            {item.bulletPrefix ? (
-                              <span className="text-[10px] font-bold text-sky-700 bg-sky-50 px-1 py-0.2 rounded shrink-0">
-                                {item.bulletPrefix}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <ul className="space-y-2 text-xs text-slate-700 font-medium font-sans">
+                          {groups.flatMap((g) => g.items).map((item) => (
+                            <li key={item.id} className="flex items-start gap-2 leading-relaxed">
+                              {item.bulletPrefix ? (
+                                <span className="text-[11px] font-bold text-sky-700 bg-sky-100/60 px-1 py-0.2 rounded shrink-0 mt-0.5">
+                                  {item.bulletPrefix}
+                                </span>
+                              ) : (
+                                <span className="text-sky-500 font-black shrink-0 leading-relaxed">•</span>
+                              )}
+                              <span className="break-keep leading-relaxed">
+                                {renderApiTextWithCustomHighlights(item.text, highlights)}
                               </span>
-                            ) : (
-                              <span className="w-1.5 h-1.5 rounded-full bg-sky-500 mt-1.5 shrink-0" />
-                            )}
-                            <span className="break-keep">
-                              {renderApiTextWithCustomHighlights(item.text, highlights)}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -3296,12 +3285,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                             type="button"
                             onClick={() => setClaimsViewMode((prev) => (prev === 'RAW' ? 'FORMATTED' : 'RAW'))}
                             className="text-[11px] font-semibold text-slate-600 hover:text-sky-700 bg-white hover:bg-sky-50 border border-slate-200 hover:border-sky-300 px-2.5 py-1 rounded-lg transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                            title={claimsViewMode === 'RAW' ? '가독성 높은 정리 카드 보기로 전환' : 'API 원문 텍스트 그대로 보기'}
+                            title={claimsViewMode === 'RAW' ? '가독성 높은 서술형 보기로 전환' : 'API 원문 텍스트 그대로 보기'}
                           >
                             {claimsViewMode === 'RAW' ? (
                               <>
-                                <LayoutGrid className="w-3 h-3 text-sky-600" />
-                                <span>정리 카드 보기</span>
+                                <FileText className="w-3 h-3 text-sky-600" />
+                                <span>서술형 보기</span>
                               </>
                             ) : (
                               <>
@@ -3369,78 +3358,62 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         </p>
                       </div>
                     ) : (
-                      <div className="bg-slate-50/70 border border-slate-200/90 rounded-2xl p-3 sm:p-4 shadow-2xs">
+                      <div className="bg-[#f8fafc] border border-slate-200/90 rounded-xl p-4 sm:p-5 select-text">
                         {hasNutrientHeaders ? (
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {structuredGroups.map((group) => (
+                          <div className="space-y-3.5 divide-y divide-slate-200/60 font-sans">
+                            {structuredGroups.map((group, idx) => (
                               <div
                                 key={group.id}
-                                className="bg-white border border-slate-200/80 rounded-xl p-3.5 shadow-2xs hover:border-sky-300 transition-all flex flex-col justify-between"
+                                className={idx > 0 ? "pt-3.5 space-y-1.5" : "space-y-1.5"}
                               >
-                                <div>
-                                  {/* 카드 상단: 영양소/원료명 뱃지 및 항목 수 */}
-                                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-black bg-sky-50 text-sky-900 border border-sky-200 shadow-2xs">
-                                      <Sparkles className="w-3 h-3 text-sky-600 shrink-0" />
-                                      <span>{group.header || '기능성'}</span>
-                                    </span>
-                                    <span className="text-[11px] font-semibold text-slate-400">
-                                      {group.items.length}개 항목
-                                    </span>
-                                  </div>
-
-                                  {/* 기능성 항목 리스트 (내용 원형 100% 보존) */}
-                                  <ul className="pt-2.5 space-y-2">
-                                    {group.items.map((item) => (
-                                      <li
-                                        key={item.id}
-                                        className="flex items-start gap-2 text-xs text-slate-700 leading-relaxed font-medium"
-                                      >
-                                        {item.bulletPrefix ? (
-                                          <span className="text-[11px] font-bold text-sky-700 bg-sky-50 px-1 py-0.2 rounded shrink-0">
-                                            {item.bulletPrefix}
-                                          </span>
-                                        ) : (
-                                          <span className="w-1.5 h-1.5 rounded-full bg-sky-500 mt-1.5 shrink-0" />
-                                        )}
-                                        <span className="select-text break-keep leading-relaxed">{item.text}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
+                                {/* 영양소/원료명 헤더 */}
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-sky-600 font-black text-xs">■</span>
+                                  <span className="font-extrabold text-slate-900 text-xs sm:text-[13px] tracking-tight">
+                                    {group.header}
+                                  </span>
                                 </div>
+
+                                {/* 기능성 항목 리스트 (내용 원형 100% 보존 서술형) */}
+                                <ul className="pl-4 space-y-1.5 text-xs sm:text-[13px] text-slate-700 font-medium">
+                                  {group.items.map((item) => (
+                                    <li
+                                      key={item.id}
+                                      className="flex items-start gap-2 leading-relaxed"
+                                    >
+                                      {item.bulletPrefix ? (
+                                        <span className="text-[11px] font-bold text-sky-700 bg-sky-100/60 px-1 py-0.2 rounded shrink-0 mt-0.5">
+                                          {item.bulletPrefix}
+                                        </span>
+                                      ) : (
+                                        <span className="text-sky-500 font-black shrink-0 leading-relaxed">•</span>
+                                      )}
+                                      <span className="select-text break-keep leading-relaxed">{item.text}</span>
+                                    </li>
+                                  ))}
+                                </ul>
                               </div>
                             ))}
                           </div>
                         ) : (
-                          /* 영양소 헤더 구분이 없는 단일 기능성 목록인 경우 */
-                          <div className="bg-white border border-slate-200/80 rounded-xl p-4 shadow-2xs space-y-2.5">
-                            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-                              <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-                                <CheckCircle2 className="w-4 h-4 text-sky-600 shrink-0" />
-                                <span>식약처 인정 기능성 내용</span>
-                              </div>
-                              <span className="text-[11px] font-semibold text-slate-400">
-                                {totalItemsCount}개 항목
-                              </span>
-                            </div>
-                            <ul className="space-y-2 pt-1">
-                              {structuredGroups.flatMap((g) => g.items).map((item) => (
-                                <li
-                                  key={item.id}
-                                  className="flex items-start gap-2 text-xs text-slate-700 leading-relaxed font-medium"
-                                >
-                                  {item.bulletPrefix ? (
-                                    <span className="text-[11px] font-bold text-sky-700 bg-sky-50 px-1 py-0.2 rounded shrink-0">
-                                      {item.bulletPrefix}
-                                    </span>
-                                  ) : (
-                                    <span className="w-1.5 h-1.5 rounded-full bg-sky-500 mt-1.5 shrink-0" />
-                                  )}
-                                  <span className="select-text break-keep leading-relaxed">{item.text}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
+                          /* 영양소 헤더 구분이 없는 단일 기능성 서술 목록인 경우 */
+                          <ul className="space-y-2 text-xs sm:text-[13px] text-slate-700 font-medium font-sans">
+                            {structuredGroups.flatMap((g) => g.items).map((item) => (
+                              <li
+                                key={item.id}
+                                className="flex items-start gap-2 leading-relaxed"
+                              >
+                                {item.bulletPrefix ? (
+                                  <span className="text-[11px] font-bold text-sky-700 bg-sky-100/60 px-1 py-0.2 rounded shrink-0 mt-0.5">
+                                    {item.bulletPrefix}
+                                  </span>
+                                ) : (
+                                  <span className="text-sky-500 font-black shrink-0 leading-relaxed">•</span>
+                                )}
+                                <span className="select-text break-keep leading-relaxed">{item.text}</span>
+                              </li>
+                            ))}
+                          </ul>
                         )}
                       </div>
                     )}

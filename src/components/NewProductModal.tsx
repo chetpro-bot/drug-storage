@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useProductStore, getDeletedIds } from '../stores/useProductStore';
+import { useProductStore, getDeletedIds, isDiscardedMockProduct } from '../stores/useProductStore';
 import { ProductClassification, DosageForm } from '../types/classification';
 import { ProductItem, AttachedDocument } from '../types/product';
 import { ProductIngredientEntry } from '../types/ingredient';
@@ -136,7 +136,7 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
 
     return products.find((p) => {
       // 이미 삭제된 품목이나 과거 시드 잔재는 중복 대상에서 제외
-      if (deletedIds.has(p.id) || p.id === 'prod_mdream_liquid_kids') return false;
+      if (deletedIds.has(p.id) || isDiscardedMockProduct(p)) return false;
 
       // 수정 모드일 때 자기 자신은 중복 대상에서 제외
       if (productToEdit && p.id === productToEdit.id) return false;

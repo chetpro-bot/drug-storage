@@ -4,7 +4,7 @@ import { ProductItem } from '../types/product';
  * 약국 현장 취급 영양제 & 일반의약품 목업 시드 데이터
  * 1. 일반의약품: 녹십자 비맥스제트정 (GC녹십자)
  * 2. 건강기능식품: 네이처스팜 마이타민업 (네이처스팜)
- * 3. 기타가공품/식품: 고려은단 활력 비타민워터 (일반식품)
+ * 3. 기타가공품/식품: 리퀴드씨엠키즈 (주식회사 아리너스)
  */
 export const MOCK_PRODUCTS: ProductItem[] = [
   {
@@ -419,59 +419,6 @@ export const MOCK_PRODUCTS: ProductItem[] = [
       safetyPrecautionsText: '특이체질 등 알러지 체질인 경우에는 성분을 확인하신 후 섭취하십시오.',
       safetyPrecautionsKorean: [
         '특이체질 등 알러지 체질인 경우에는 성분을 확인하신 후 섭취하십시오.'
-      ]
-    }
-  },
-  {
-    id: 'prod_general_water',
-    barcode: '8801234991102',
-    productName: '데일리 비타 에너지 워터',
-    classification: 'GENERAL_FOOD',
-    manufacturer: '일화(주)',
-    dosageForm: 'LIQUID_ORAL',
-    packagingUnit: '500ml x 20페트',
-    dailyServings: 1,
-    amountPerServing: 1,
-    servingUnitKorean: '병(500ml)',
-    priceRetailKrw: 2000,
-    storageLocation: '전면 음료 냉장고 1단',
-    inventoryCount: 45,
-    tags: ['항산화', '피로', '수분보충', '기타가공품', '혼합음료'],
-    isActive: true,
-    createdAt: '2026-03-01T09:00:00Z',
-    updatedAt: '2026-10-11T12:00:00Z',
-    ingredients: [
-      {
-        ingredientId: 'ing_ascorbic_acid',
-        englishInn: 'Ascorbic acid',
-        functionalCategory: '비타민C',
-        chemicalFormName: '순수 L-아스코르브산',
-        rawAmount: 500,
-        unit: 'mg',
-        isMainActive: true,
-        standardKey: 'VITAMIN_C',
-        clinicalSummary: '• 결합조직 형성과 기능 유지, 항산화 작용으로 유해산소로부터 세포 보호',
-        noteKorean: '비타민 C 500mg 첨가 음료'
-      },
-      {
-        ingredientId: 'ing_taurine',
-        englishInn: 'Taurine',
-        functionalCategory: '비필수 아미노산제제',
-        chemicalFormName: '유리 타우린',
-        rawAmount: 1000,
-        unit: 'mg',
-        isMainActive: false,
-        clinicalSummary: '• 담즙산 결합 및 삼투압 조절, 근육 수축 피로 완화 보조'
-      }
-    ],
-    functionalFoodDetail: {
-      reportNo: '20160412033-12',
-      functionalClaimsKorean: [
-        '일반식품(혼합음료)으로 법정 기능성 심의 대상이 아님'
-      ],
-      suggestedUseKorean: '기호에 따라 차갑게 보관하여 섭취하십시오.',
-      safetyPrecautionsKorean: [
-        '개봉 후 냉장 보관하거나 빨리 드십시오.'
       ]
     }
   },

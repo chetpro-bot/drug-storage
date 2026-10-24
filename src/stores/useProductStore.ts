@@ -976,6 +976,16 @@ function migrateAndEnsureKpic(products: ProductItem[]): ProductItem[] {
   });
 }
 
+export const DISCARDED_MOCK_IDS = new Set(['prod_mdream_liquid_kids', 'prod_general_water']);
+
+export function isDiscardedMockProduct(p: { id?: string; productName?: string }): boolean {
+  if (!p) return false;
+  if (p.id && DISCARDED_MOCK_IDS.has(p.id)) return true;
+  const name = (p.productName || '').replace(/\s+/g, '');
+  if (name.includes('데일리비타에너지워터')) return true;
+  return false;
+}
+
 export function getDeletedIds(): Set<string> {
   try {
     const saved = localStorage.getItem(DELETED_IDS_KEY);
@@ -1011,6 +1021,10 @@ export function unmarkDeletedId(id: string) {
 }
 
 function getInitialProducts(): ProductItem[] {
+  // 과거 목업 잔재 ID들은 로컬 차단 목록에 즉시 등록
+  markDeletedId('prod_mdream_liquid_kids');
+  markDeletedId('prod_general_water');
+
   const deletedIds = getDeletedIds();
   let loadedProducts: ProductItem[] = [];
 
@@ -1022,7 +1036,7 @@ function getInitialProducts(): ProductItem[] {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length > 0) {
         loadedProducts = parsed.filter(
-          (p: ProductItem) => p.id !== 'prod_mdream_liquid_kids' && !deletedIds.has(p.id)
+          (p: ProductItem) => !isDiscardedMockProduct(p) && !deletedIds.has(p.id)
         );
       }
     }
@@ -1033,7 +1047,7 @@ function getInitialProducts(): ProductItem[] {
   // 기본 목업 제품은 아직 등록된 적 없는 신규 환경에서만 초기 시드로 추가
   const existingIds = new Set(loadedProducts.map((p) => p.id));
   MOCK_PRODUCTS.forEach((mock) => {
-    if (mock.id !== 'prod_mdream_liquid_kids' && !deletedIds.has(mock.id) && !existingIds.has(mock.id)) {
+    if (!isDiscardedMockProduct(mock) && !deletedIds.has(mock.id) && !existingIds.has(mock.id)) {
       loadedProducts.push(mock);
     }
   });
@@ -1086,14 +1100,17 @@ export const useProductStore = create<ProductState>((set, get) => {
     initRealtimeSubscription: () => {
       set({ isSyncing: true });
       const unsubscribe = subscribeToProducts((firestoreList) => {
-        // 과거 목업 잔재 백그라운드 삭제
-        if (firestoreList.some((p) => p.id === 'prod_mdream_liquid_kids')) {
-          deleteProductFromFirestore('prod_mdream_liquid_kids').catch(() => {});
-        }
+        // 과거 목업 잔재 백그라운드 영구 삭제
+        firestoreList.forEach((p) => {
+          if (isDiscardedMockProduct(p)) {
+            deleteProductFromFirestore(p.id).catch(() => {});
+            markDeletedId(p.id);
+          }
+        });
 
         const currentSort = get().sortBy || 'NAME_ASC';
         const currentProducts = get().products;
-        const validFromFirestore = firestoreList.filter((p) => p.id !== 'prod_mdream_liquid_kids');
+        const validFromFirestore = firestoreList.filter((p) => !isDiscardedMockProduct(p));
         const firestoreIds = new Set(validFromFirestore.map((p) => p.id));
 
         // Firestore에 존재하는 정상 제품 ID는 로컬 deletedIds 차단 목록에서 즉시 해제
@@ -1119,7 +1136,7 @@ export const useProductStore = create<ProductState>((set, get) => {
         // 오프라인 상태에서 방금 신규 등록된 로컬 제품(최근 5분 이내)은 보존 및 Firestore 백그라운드 전송
         const now = Date.now();
         currentProducts.forEach((p) => {
-          if (!firestoreIds.has(p.id) && p.id !== 'prod_mdream_liquid_kids') {
+          if (!firestoreIds.has(p.id) && !isDiscardedMockProduct(p)) {
             const createdTime = new Date(p.createdAt || 0).getTime();
             if (now - createdTime < 5 * 60 * 1000) {
               mergedMap.set(p.id, p);
@@ -1152,13 +1169,17 @@ export const useProductStore = create<ProductState>((set, get) => {
       set({ isSyncing: true });
       try {
         const firestoreList = await fetchProductsOnce();
-        if (firestoreList.some((p) => p.id === 'prod_mdream_liquid_kids')) {
-          deleteProductFromFirestore('prod_mdream_liquid_kids').catch(() => {});
-        }
+        // 과거 목업 잔재 백그라운드 영구 삭제
+        firestoreList.forEach((p) => {
+          if (isDiscardedMockProduct(p)) {
+            deleteProductFromFirestore(p.id).catch(() => {});
+            markDeletedId(p.id);
+          }
+        });
 
         const currentSort = get().sortBy || 'NAME_ASC';
         const currentProducts = get().products;
-        const validFromFirestore = firestoreList.filter((p) => p.id !== 'prod_mdream_liquid_kids');
+        const validFromFirestore = firestoreList.filter((p) => !isDiscardedMockProduct(p));
         const firestoreIds = new Set(validFromFirestore.map((p) => p.id));
 
         validFromFirestore.forEach((p) => unmarkDeletedId(p.id));
@@ -1180,7 +1201,7 @@ export const useProductStore = create<ProductState>((set, get) => {
 
         const now = Date.now();
         currentProducts.forEach((p) => {
-          if (!firestoreIds.has(p.id) && p.id !== 'prod_mdream_liquid_kids') {
+          if (!firestoreIds.has(p.id) && !isDiscardedMockProduct(p)) {
             const createdTime = new Date(p.createdAt || 0).getTime();
             if (now - createdTime < 5 * 60 * 1000) {
               mergedMap.set(p.id, p);
@@ -1433,6 +1454,21 @@ export const useProductStore = create<ProductState>((set, get) => {
             return true;
           }
         }
+        // 데일리 비타 에너지 워터 시드 목업 잔재 자동 정리
+        if (
+          target &&
+          (target.id === 'prod_general_water' ||
+            target.productName.includes('데일리 비타 에너지 워터') ||
+            target.productName.includes('데일리비타에너지워터'))
+        ) {
+          if (
+            p.id === 'prod_general_water' ||
+            p.productName.includes('데일리 비타 에너지 워터') ||
+            p.productName.includes('데일리비타에너지워터')
+          ) {
+            return true;
+          }
+        }
         if (targetCode) {
           const pCode = p.otcDetail?.itemSeq || p.functionalFoodDetail?.reportNo;
           if (pCode && pCode.trim() === targetCode.trim()) return true;
@@ -1456,6 +1492,14 @@ export const useProductStore = create<ProductState>((set, get) => {
           target.productName.includes('M-Dream'))
       ) {
         markDeletedId('prod_mdream_liquid_kids');
+      }
+      if (
+        target &&
+        (target.id === 'prod_general_water' ||
+          target.productName.includes('데일리 비타 에너지 워터') ||
+          target.productName.includes('데일리비타에너지워터'))
+      ) {
+        markDeletedId('prod_general_water');
       }
 
       const next = currentProducts.filter((p) => !idsToDelete.includes(p.id));

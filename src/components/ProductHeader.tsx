@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { ProductItem, getProductThumbnail } from '../types/product';
 import { useProductStore } from '../stores/useProductStore';
+import { isImportedProduct } from '../utils/productHelper';
 import { AttachedDocumentsModal } from './AttachedDocumentsModal';
 import { NewProductModal } from './NewProductModal';
 import { 
@@ -62,23 +63,24 @@ export const ProductHeader: React.FC<ProductHeaderProps> = ({ product }) => {
   };
 
   const getClassificationBadge = () => {
+    const isImported = isImportedProduct(product);
     switch (product.classification) {
       case 'OTC_DRUG':
         return (
           <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-blue-600 text-white shadow-xs">
-            일반의약품 (OTC: Over-The-Counter)
+            일반의약품 (OTC)
           </span>
         );
       case 'HEALTH_FUNCTIONAL_FOOD':
         return (
           <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-emerald-600 text-white shadow-xs">
-            건강기능식품
+            건강기능식품{isImported ? ' (수입)' : ''}
           </span>
         );
       case 'GENERAL_FOOD':
         return (
           <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-slate-600 text-white shadow-xs">
-            기타가공품/식품
+            기타가공품/식품{isImported ? ' (수입)' : ''}
           </span>
         );
     }

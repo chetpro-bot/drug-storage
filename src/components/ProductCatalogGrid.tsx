@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useProductStore, ProductSortOption } from '../stores/useProductStore';
 import { ProductItem, getProductThumbnail } from '../types/product';
 import { ProductClassification } from '../types/classification';
+import { isImportedProduct } from '../utils/productHelper';
 import {
   doesProductMatchEfficacyTag,
   getMatchedEfficacyTagsForProduct
@@ -148,7 +149,7 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
     onSelectProduct(product);
   };
 
-  const getClassificationInfo = (classification: ProductClassification) => {
+  const getClassificationInfo = (classification: ProductClassification, isImported: boolean = false) => {
     switch (classification) {
       case 'OTC_DRUG':
         return {
@@ -160,7 +161,7 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
         };
       case 'HEALTH_FUNCTIONAL_FOOD':
         return {
-          label: '건강기능식품',
+          label: isImported ? '건강기능식품 (수입)' : '건강기능식품',
           badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
           subTextClass: 'text-emerald-600',
           boxBgClass: 'from-emerald-50/70 via-white to-teal-50/50',
@@ -168,7 +169,7 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
         };
       case 'GENERAL_FOOD':
         return {
-          label: '기타가공품/식품',
+          label: isImported ? '기타가공품/식품 (수입)' : '기타가공품/식품',
           badgeClass: 'bg-slate-100 text-slate-700 border-slate-200',
           subTextClass: 'text-slate-600',
           boxBgClass: 'from-slate-50 via-white to-amber-50/30',
@@ -369,7 +370,8 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
             {filteredProducts.map((product) => {
-              const classInfo = getClassificationInfo(product.classification);
+              const isImported = isImportedProduct(product);
+              const classInfo = getClassificationInfo(product.classification, isImported);
               const thumbnail = getProductThumbnail(product);
               const matchedEfficacyTags = getMatchedEfficacyTagsForProduct(product);
               const isEditingLoc = editingLocationId === product.id;

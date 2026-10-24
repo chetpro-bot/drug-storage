@@ -325,8 +325,12 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
     setServingUnitKorean(result.servingUnitKorean);
     setRegulatoryCode(result.regulatoryCode);
     setDosageInstruction(result.dosageInstruction);
-    setIndicationsText(result.indicationsSummary.join('\n'));
-    setPrecautionsText((result.precautionsSummary || []).join('\n'));
+    setIndicationsText(
+      result.functionalClaimsText || result.indicationsSummary.join('\n')
+    );
+    setPrecautionsText(
+      result.safetyPrecautionsText || (result.precautionsSummary || []).join('\n')
+    );
     setVerifiedIngredients(result.parsedIngredients);
     if (result.classification === 'HEALTH_FUNCTIONAL_FOOD') {
       setIngredientBasis('PER_DAILY');
@@ -844,8 +848,10 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                 functionalFoodDetail: {
                   ...productToEdit.functionalFoodDetail,
                   reportNo: regulatoryCode || productToEdit.functionalFoodDetail?.reportNo || `202400${Math.floor(10000 + Math.random() * 90000)}`,
+                  functionalClaimsText: indicationsText || publicDataFetched?.functionalClaimsText || productToEdit.functionalFoodDetail?.functionalClaimsText,
                   functionalClaimsKorean: parsedIndications.length > 0 ? parsedIndications : productToEdit.functionalFoodDetail?.functionalClaimsKorean || ['정상적인 면역 및 에너지 대사'],
                   suggestedUseKorean: dosageInstruction || `1일 ${dailyServings}회, 1회 ${amountPerServing}${servingUnitKorean} 섭취`,
+                  safetyPrecautionsText: precautionsText || publicDataFetched?.safetyPrecautionsText || productToEdit.functionalFoodDetail?.safetyPrecautionsText,
                   safetyPrecautionsKorean:
                     parsedPrecautions.length > 0
                       ? parsedPrecautions
@@ -863,9 +869,6 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                   appearanceKorean:
                     publicDataFetched?.appearanceKorean ||
                     productToEdit.functionalFoodDetail?.appearanceKorean,
-                  safetyPrecautionsText:
-                    publicDataFetched?.safetyPrecautionsText ||
-                    productToEdit.functionalFoodDetail?.safetyPrecautionsText,
                   koreanLabelText:
                     publicDataFetched?.koreanLabelText ||
                     productToEdit.functionalFoodDetail?.koreanLabelText
@@ -915,14 +918,15 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
           : {
               functionalFoodDetail: {
                 reportNo: regulatoryCode || `202400${Math.floor(10000 + Math.random() * 90000)}`,
+                functionalClaimsText: indicationsText || publicDataFetched?.functionalClaimsText || undefined,
                 functionalClaimsKorean: parsedIndications.length > 0 ? parsedIndications : ['정상적인 면역 및 에너지 대사'],
                 suggestedUseKorean: dosageInstruction || `1일 ${dailyServings}회, 1회 ${amountPerServing}${servingUnitKorean} 섭취`,
+                safetyPrecautionsText: precautionsText || publicDataFetched?.safetyPrecautionsText || undefined,
                 safetyPrecautionsKorean: parsedPrecautions.length > 0 ? parsedPrecautions : ['특이체질 시 성분 확인'],
                 standardSpecificationKorean: publicDataFetched?.standardSpecificationText,
                 subIngredientsText: publicDataFetched?.etcRawMaterialText,
                 rawMaterialsText: publicDataFetched?.rawMaterialsText || publicDataFetched?.indivRawMaterialText,
                 appearanceKorean: publicDataFetched?.appearanceKorean,
-                safetyPrecautionsText: publicDataFetched?.safetyPrecautionsText,
                 koreanLabelText: publicDataFetched?.koreanLabelText
               }
             })

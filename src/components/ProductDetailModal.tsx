@@ -28,11 +28,7 @@ import {
   summarizePrecautions,
   getPrecautionHighlightKeywords
 } from '../utils/precautionsHelper';
-import {
-  resolveFunctionalClaimsWithNutrients,
-  deduplicatePrecautionsText,
-  splitDescriptionPoints
-} from '../utils/functionalClaimsHelper';
+import { isImportedProduct } from '../utils/productHelper';
 import {
   isProbioticIngredient,
   extractProbioticCount,
@@ -54,12 +50,6 @@ import {
   Loader2,
   Sparkles,
   Baby,
-  Activity,
-  Shield,
-  Heart,
-  Eye,
-  Leaf,
-  CheckCircle2,
   ExternalLink,
   StickyNote,
   Check,
@@ -1245,38 +1235,23 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   // 기능성 직접 수정 시작
   const handleStartEditClaims = () => {
     if (!product) return;
-    let currentText = product.functionalFoodDetail?.functionalClaimsText;
-    if (!currentText && product.functionalFoodDetail?.functionalClaimsKorean?.length) {
-      currentText = product.functionalFoodDetail.functionalClaimsKorean.join('\n');
-    }
-    if (!currentText) {
-      let rawClaims = product.functionalFoodDetail?.functionalClaimsKorean || [];
-      const labelText =
-        (product as any).koreanLabelText ||
-        product.functionalFoodDetail?.koreanLabelText ||
-        pureApiText ||
-        '';
-      if (labelText) {
-        const parsed = parseImportedKoreanLabel(labelText);
-        if (parsed.indicationsSummary.length > 0 && !parsed.indicationsSummary[0].includes('공식 인정 기능성')) {
-          rawClaims = parsed.indicationsSummary;
-        }
-      }
-      const resolvedList = resolveFunctionalClaimsWithNutrients(rawClaims, product.ingredients);
-      if (resolvedList.length > 0) {
-        currentText = resolvedList.map((r) => `${r.nutrient}: ${r.description}`).join('\n');
-      }
-    }
-    setEditClaimsValue(currentText || '');
+    const currentText =
+      product.functionalFoodDetail?.functionalClaimsText ||
+      (product.functionalFoodDetail?.functionalClaimsKorean &&
+        product.functionalFoodDetail.functionalClaimsKorean.join('\n')) ||
+      '';
+    setEditClaimsValue(currentText);
     setIsEditingClaims(true);
   };
 
-  // 기능성 수정 저장 (줄바꿈 보존 및 영구 유지)
+  // 기능성 수정 저장 (줄바꿈 및 빈 줄 원형 100% 보존)
   const handleSaveClaims = async () => {
     if (!product) return;
-    const trimmed = editClaimsValue.trim();
+    const rawVal = editClaimsValue;
+    const trimmed = rawVal.trim();
     setIsEditingClaims(false);
-    const lines = trimmed.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+    // 빈 줄(엔터 2번 등)을 제거하지 않고 원본 그대로 보존
+    const lines = rawVal.split(/\r?\n/).map((s) => s.trimEnd());
 
     try {
       await updateProduct(product.id, {
@@ -1287,7 +1262,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             suggestedUseKorean: '',
             safetyPrecautionsKorean: []
           }),
-          functionalClaimsText: trimmed,
+          functionalClaimsText: rawVal,
           functionalClaimsKorean: lines.length > 0 ? lines : [trimmed]
         }
       });
@@ -1828,13 +1803,22 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             await updateProduct(product.id, {
               functionalFoodDetail: {
                 reportNo: rawC003.PRDLST_REPORT_NO || reportNo,
-                functionalClaimsKorean: product.functionalFoodDetail?.functionalClaimsKorean || [],
                 suggestedUseKorean: product.functionalFoodDetail?.suggestedUseKorean || rawC003.NTK_MTHD || '',
-                safetyPrecautionsKorean: product.functionalFoodDetail?.safetyPrecautionsKorean || [],
                 ...product.functionalFoodDetail,
+                functionalClaimsText: product.isCustomFunctionality
+                  ? product.functionalFoodDetail?.functionalClaimsText
+                  : (product.functionalFoodDetail?.functionalClaimsText || rawC003.PRIMARY_FNCLTY || ''),
+                functionalClaimsKorean: product.functionalFoodDetail?.functionalClaimsKorean?.length
+                  ? product.functionalFoodDetail.functionalClaimsKorean
+                  : (rawC003.PRIMARY_FNCLTY ? rawC003.PRIMARY_FNCLTY.split(/\r?\n/).map((s: string) => s.trim()).filter(Boolean) : []),
                 appearanceKorean: (rawC003.DISPOS || '').trim(),
                 rawMaterialsText: rawC003.RAWMTRL_NM || product.functionalFoodDetail?.rawMaterialsText || '',
-                safetyPrecautionsText: rawC003.IFTKN_ATNT_MATR_CN || product.functionalFoodDetail?.safetyPrecautionsText || '',
+                safetyPrecautionsText: product.isCustomPrecautions
+                  ? product.functionalFoodDetail?.safetyPrecautionsText
+                  : (product.functionalFoodDetail?.safetyPrecautionsText || rawC003.IFTKN_ATNT_MATR_CN || ''),
+                safetyPrecautionsKorean: product.functionalFoodDetail?.safetyPrecautionsKorean?.length
+                  ? product.functionalFoodDetail.safetyPrecautionsKorean
+                  : (rawC003.IFTKN_ATNT_MATR_CN ? rawC003.IFTKN_ATNT_MATR_CN.split(/\r?\n/).map((s: string) => s.trimEnd()) : []),
                 standardSpecificationKorean: rawC003.STDR_STND || product.functionalFoodDetail?.standardSpecificationKorean || '',
                 subIngredientsText: rawC003.RAWMTRL_NM || product.functionalFoodDetail?.subIngredientsText || ''
               }
@@ -2226,12 +2210,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
   if (!isOpen || !product) return null;
 
+  const isImported = isImportedProduct(product);
   const classificationShort =
     product.classification === 'OTC_DRUG'
       ? '일반의약품'
       : product.classification === 'HEALTH_FUNCTIONAL_FOOD'
-      ? '건기식'
-      : '기타가공품/식품';
+      ? (isImported ? '건기식 (수입)' : '건기식')
+      : (isImported ? '기타가공품/식품 (수입)' : '기타가공품/식품');
 
   const isChildProduct =
     (product.tags || []).includes('어린이') ||
@@ -2732,12 +2717,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
             <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
               {(() => {
-                const isImportedProduct =
-                  product.id.startsWith('imported_') ||
-                  Boolean((product as any).sourceOrigin?.includes('수입')) ||
-                  Boolean(product.functionalFoodDetail?.koreanLabelText) ||
-                  Boolean((product as any).koreanLabelText) ||
-                  Boolean(pureApiText?.includes('■ 수입원'));
+                const isImportedProduct = isImported;
 
                 const isSeparatedFormat =
                   product.classification === 'OTC_DRUG' || product.classification === 'HEALTH_FUNCTIONAL_FOOD';
@@ -3227,94 +3207,23 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </div>
               ) : (
                 <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-4">
-                  {product.functionalFoodDetail?.functionalClaimsText ? (
-                    <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap font-sans font-medium">
-                      {product.functionalFoodDetail.functionalClaimsText}
-                    </p>
-                  ) : (() => {
-                    let rawClaims = product.functionalFoodDetail?.functionalClaimsKorean || [];
-                    const labelText =
-                      (product as any).koreanLabelText ||
-                      product.functionalFoodDetail?.koreanLabelText ||
-                      pureApiText ||
+                  {(() => {
+                    const claimsDisplay =
+                      product.functionalFoodDetail?.functionalClaimsText ||
+                      (product.functionalFoodDetail?.functionalClaimsKorean &&
+                        product.functionalFoodDetail.functionalClaimsKorean.join('\n')) ||
                       '';
-                    if (labelText) {
-                      const parsed = parseImportedKoreanLabel(labelText);
-                      if (parsed.indicationsSummary.length > 0 && !parsed.indicationsSummary[0].includes('공식 인정 기능성')) {
-                        rawClaims = parsed.indicationsSummary;
-                      }
+                    if (claimsDisplay) {
+                      return (
+                        <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap font-sans font-medium">
+                          {claimsDisplay}
+                        </p>
+                      );
                     }
-
-                    const resolvedList = resolveFunctionalClaimsWithNutrients(rawClaims, product.ingredients);
-                    if (resolvedList.length === 0) {
-                      return <p className="text-xs text-slate-400">등록된 기능성 정보가 없습니다. (우측 '기능성 수정'으로 등록 가능)</p>;
-                    }
-
-                    const getNutrientIcon = (nutrient: string) => {
-                      const n = nutrient.toLowerCase();
-                      if (n.includes('프로바이오틱스') || n.includes('유산균')) {
-                        return <Activity className="w-3.5 h-3.5 text-emerald-600 shrink-0" />;
-                      }
-                      if (n.includes('비타민')) {
-                        return <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />;
-                      }
-                      if (
-                        n.includes('칼슘') ||
-                        n.includes('마그네슘') ||
-                        n.includes('아연') ||
-                        n.includes('철') ||
-                        n.includes('셀레늄') ||
-                        n.includes('구리') ||
-                        n.includes('망간') ||
-                        n.includes('요오드') ||
-                        n.includes('크롬') ||
-                        n.includes('몰리브덴') ||
-                        n.includes('미네랄')
-                      ) {
-                        return <Shield className="w-3.5 h-3.5 text-sky-600 shrink-0" />;
-                      }
-                      if (n.includes('오메가') || n.includes('혈행') || n.includes('epa')) {
-                        return <Heart className="w-3.5 h-3.5 text-rose-500 shrink-0" />;
-                      }
-                      if (n.includes('루테인') || n.includes('눈') || n.includes('지아잔틴')) {
-                        return <Eye className="w-3.5 h-3.5 text-amber-600 shrink-0" />;
-                      }
-                      if (n.includes('밀크씨슬') || n.includes('간') || n.includes('실리마린') || n.includes('홍삼')) {
-                        return <Leaf className="w-3.5 h-3.5 text-emerald-600 shrink-0" />;
-                      }
-                      return <CheckCircle2 className="w-3.5 h-3.5 text-sky-600 shrink-0" />;
-                    };
-
-                    // 영양소별 그룹화
-                    const groupsMap = new Map<string, string[]>();
-                    resolvedList.forEach((item) => {
-                      const existing = groupsMap.get(item.nutrient) || [];
-                      const points = splitDescriptionPoints(item.description);
-                      points.forEach((p) => {
-                        if (!existing.includes(p)) existing.push(p);
-                      });
-                      groupsMap.set(item.nutrient, existing);
-                    });
-
                     return (
-                      <div className="space-y-3.5">
-                        {Array.from(groupsMap.entries()).map(([nutrient, points], gIdx) => (
-                          <div key={gIdx} className="space-y-1">
-                            <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
-                              {getNutrientIcon(nutrient)}
-                              <span>{nutrient}</span>
-                            </div>
-                            <ul className="pl-3.5 space-y-0.5">
-                              {points.map((pt, pIdx) => (
-                                <li key={pIdx} className="text-xs text-slate-700 flex items-start gap-1.5 leading-relaxed">
-                                  <span className="text-slate-400 font-bold shrink-0 select-none">-</span>
-                                  <span>{pt}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        ))}
-                      </div>
+                      <p className="text-xs text-slate-400">
+                        등록된 기능성 정보가 없습니다. (우측 '수정'으로 등록 가능)
+                      </p>
                     );
                   })()}
                 </div>
@@ -3376,13 +3285,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               ) : (
                 <div className="bg-rose-50/30 border border-rose-200/70 rounded-xl p-4">
                   <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap font-sans font-medium">
-                    {deduplicatePrecautionsText(
-                      product.functionalFoodDetail?.safetyPrecautionsText ||
-                        (product.functionalFoodDetail?.safetyPrecautionsKorean &&
-                          product.functionalFoodDetail.safetyPrecautionsKorean.join('\n')) ||
-                        precautionsFullText ||
-                        '등록된 섭취 시 주의사항이 없습니다.'
-                    )}
+                    {product.functionalFoodDetail?.safetyPrecautionsText ||
+                      (product.functionalFoodDetail?.safetyPrecautionsKorean &&
+                        product.functionalFoodDetail.safetyPrecautionsKorean.join('\n')) ||
+                      precautionsFullText ||
+                      '등록된 섭취 시 주의사항이 없습니다.'}
                   </p>
                 </div>
               )}

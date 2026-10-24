@@ -1,7 +1,6 @@
 import { ProductClassification, DosageForm } from '../types/classification';
 import { ProductIngredientEntry } from '../types/ingredient';
 import { parseRawIngredientString, INN_DICTIONARY, inferDrugIngredientConversion } from '../utils/innMapper';
-import { deduplicatePrecautionsText } from '../utils/functionalClaimsHelper';
 
 export type PublicDataSourceOrigin =
   | '약학정보원(KPAIC) DB'
@@ -30,6 +29,7 @@ export interface PublicDataFetchResult {
   sourceOrigin: PublicDataSourceOrigin;
   precautionsSummary?: string[];
   safetyPrecautionsText?: string; // C003 섭취 시 주의사항 원문 전문 (IFTKN_ATNT_MATR_CN)
+  functionalClaimsText?: string; // C003 주된 기능성 원문 전문 (PRIMARY_FNCLTY)
   standardSpecificationText?: string; // STDR_STND 기준 및 규격 원문
   indivRawMaterialText?: string; // 기능성 주원료
   etcRawMaterialText?: string; // 기타원료/부원료
@@ -61,6 +61,7 @@ export interface PublicDrugMasterItem {
   apiSourceBadge?: string;
   precautionsSummary?: string[];
   safetyPrecautionsText?: string;
+  functionalClaimsText?: string;
   standardSpecificationText?: string;
   indivRawMaterialText?: string;
   etcRawMaterialText?: string;
@@ -1937,9 +1938,17 @@ export async function searchFoodSafetyFunctionalFoods(
       row.PRDT_SHAP_CD_NM || ''
     );
     const dosageForm = inferDosageForm(row.DISPOS || '', prodName, row.PRDT_SHAP_CD_NM || '');
-    const claims = parseFunctionalClaims(row.PRIMARY_FNCLTY);
-    const dedupedPrecautions = deduplicatePrecautionsText(row.IFTKN_ATNT_MATR_CN);
-    const precautions = parsePrecautionsText(dedupedPrecautions);
+    const rawClaims = (row.PRIMARY_FNCLTY || '')
+      .split(/\r?\n/)
+      .map((s: string) => s.trim())
+      .filter(Boolean);
+    const claims = rawClaims.length > 0 ? rawClaims : parseFunctionalClaims(row.PRIMARY_FNCLTY);
+
+    const rawPrecautions = (row.IFTKN_ATNT_MATR_CN || '')
+      .split(/\r?\n/)
+      .map((s: string) => s.trim())
+      .filter(Boolean);
+    const precautions = rawPrecautions.length > 0 ? rawPrecautions : parsePrecautionsText(row.IFTKN_ATNT_MATR_CN);
     const { rawIngredientsText, parsedIngredients } = parseFunctionalFoodRecordToIngredients(row, dailyServings);
 
     const packagingUnit = row.PRDT_SHAP_CD_NM
@@ -1965,6 +1974,7 @@ export async function searchFoodSafetyFunctionalFoods(
       apiSourceBadge: '식품안전나라 C003 (건기식)',
       precautionsSummary: precautions,
       safetyPrecautionsText: row.IFTKN_ATNT_MATR_CN || '',
+      functionalClaimsText: row.PRIMARY_FNCLTY || '',
       standardSpecificationText: row.STDR_STND || '',
       rawMaterialsText: row.RAWMTRL_NM || '',
       appearanceKorean: (row.DISPOS || '').trim(),
@@ -4102,6 +4112,7 @@ export async function convertMasterItemToFetchResult(item: PublicDrugMasterItem)
       sourceOrigin: item.sourceOrigin || (item.id.startsWith('imported_') ? '공공데이터포털 수입식품 한글표시사항 API' : '식품안전나라 건기식 API (C003)'),
       precautionsSummary: item.precautionsSummary,
       safetyPrecautionsText: item.safetyPrecautionsText,
+      functionalClaimsText: item.functionalClaimsText,
       standardSpecificationText: item.standardSpecificationText,
       indivRawMaterialText: item.indivRawMaterialText,
       etcRawMaterialText: item.etcRawMaterialText,

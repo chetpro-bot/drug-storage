@@ -53,33 +53,81 @@ for (const [latin, kor] of Object.entries(PROBIOTIC_LATIN_TO_KOR)) {
 }
 PROBIOTIC_KOR_TO_LATIN['비피토박테리움락티스'] = 'Bifidobacterium animalis subsp. lactis';
 PROBIOTIC_KOR_TO_LATIN['비피도박테리움락티스'] = 'Bifidobacterium animalis subsp. lactis';
+PROBIOTIC_KOR_TO_LATIN['비피도박테리움애니멀리스락티스'] = 'Bifidobacterium animalis subsp. lactis';
+PROBIOTIC_KOR_TO_LATIN['비피도박테리움애니멀리스'] = 'Bifidobacterium animalis';
+PROBIOTIC_KOR_TO_LATIN['락토바실러스델브루키'] = 'Lactobacillus delbrueckii';
+PROBIOTIC_KOR_TO_LATIN['바실러스코아귤런스'] = 'Bacillus coagulans';
+PROBIOTIC_KOR_TO_LATIN['바실러스서브틸리스'] = 'Bacillus subtilis';
+PROBIOTIC_KOR_TO_LATIN['클로스트리디움부티리쿰'] = 'Clostridium butyricum';
+PROBIOTIC_KOR_TO_LATIN['낙산균'] = 'Clostridium butyricum';
+PROBIOTIC_KOR_TO_LATIN['사카로미세스보울라디'] = 'Saccharomyces boulardii';
 
 /**
- * 프로바이오틱스 균주명 표준 표기 포맷터 (한글명 및 라틴 학명 병기)
+ * 라틴 학명 표준 서식 적용 (속명 첫글자 대문자, 종명 소문자, subsp. 소문자)
+ */
+function formatLatinBinomial(latin: string): string {
+  const parts = latin.trim().split(/\s+/);
+  return parts
+    .map((w, idx) => {
+      if (idx === 0) return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+      if (w.toLowerCase() === 'subsp.' || w.toLowerCase() === 'subsp') return 'subsp.';
+      if (/^[A-Z0-9\-]+$/.test(w)) return w; // 균주 식별 코드(GG, BB-12, HN001 등)는 대문자 유지
+      return w.toLowerCase();
+    })
+    .join(' ');
+}
+
+/**
+ * 프로바이오틱스 균주명 표준 표기 포맷터 (한글 병용 없이 순수 영문 학명만 표기)
  */
 export function formatStrainDisplayName(name: string): string {
   const trimmed = name.trim();
-  const lower = trimmed.toLowerCase();
 
-  // 1. 라틴 학명인 경우 -> 한글명 (라틴 학명)
-  if (PROBIOTIC_LATIN_TO_KOR[lower]) {
-    const kor = PROBIOTIC_LATIN_TO_KOR[lower];
-    const binomial = trimmed
-      .split(' ')
-      .map((w, idx) => (idx === 0 ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w.toLowerCase()))
-      .join(' ');
-    return `${kor} (${binomial})`;
+  // 1. 이미 괄호 안에 영문 학명이 포함되어 있는 경우 (예: '락티카제이바실러스 람노서스 (Lacticaseibacillus rhamnosus)')
+  const parenMatch = trimmed.match(/\(([A-Za-z0-9\s\.\-_]+)\)/);
+  if (parenMatch && parenMatch[1].trim().length >= 3) {
+    return formatLatinBinomial(parenMatch[1].trim());
   }
 
-  // 2. 한글명인 경우 -> 표준 띄어쓰기 한글명 (라틴 학명)
-  const cleanKor = trimmed.replace(/\s+/g, '').replace(/^비피토\s*박테리움/, '비피도박테리움');
+  // 2. 전체 문자열이 이미 영문인 경우 (예: 'Lacticaseibacillus rhamnosus' 또는 'Lactobacillus acidophilus DDS-1')
+  const strippedEnglish = trimmed.replace(/[^A-Za-z0-9\s\.\-_]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (/^[A-Za-z]/.test(strippedEnglish) && strippedEnglish.split(' ').length >= 2) {
+    return formatLatinBinomial(strippedEnglish);
+  }
+
+  // 3. 한글명에서 라틴 영문 학명으로 변환
+  const cleanKor = trimmed
+    .replace(/\s+/g, '')
+    .replace(/\([^)]*\)/g, '')
+    .replace(/^비피토\s*박테리움/, '비피도박테리움');
+
   if (PROBIOTIC_KOR_TO_LATIN[cleanKor]) {
-    const latin = PROBIOTIC_KOR_TO_LATIN[cleanKor];
-    const prettyKor = cleanKor.replace(
-      /^(비피도박테리움|락토바실러스|락티카제이바실러스|락티플란티바실러스|리모시락토바실러스|스트렙토코커스|엔테로코커스|락토코커스)([가-힣])/,
-      '$1 $2'
-    );
-    return `${prettyKor} (${latin})`;
+    return PROBIOTIC_KOR_TO_LATIN[cleanKor];
+  }
+
+  // 부분 일치 탐색 (예: '비피도박테리움롱검BB536' 또는 '락티카제이바실러스람노서스원료')
+  for (const [korKey, latinVal] of Object.entries(PROBIOTIC_KOR_TO_LATIN)) {
+    if (cleanKor.includes(korKey)) {
+      const extraCode = trimmed
+        .replace(new RegExp(korKey, 'g'), '')
+        .replace(/[^A-Za-z0-9\-_]/g, '')
+        .trim();
+      return extraCode ? `${latinVal} ${extraCode}` : latinVal;
+    }
+  }
+
+  // 4. 소문자 라틴 매핑 확인
+  const lower = trimmed.toLowerCase();
+  if (PROBIOTIC_LATIN_TO_KOR[lower]) {
+    return formatLatinBinomial(trimmed);
+  }
+
+  // 5. 영문 단어가 포함된 경우 영문 부분만 추출 (한글 제거)
+  if (/[A-Za-z]/.test(trimmed)) {
+    const englishOnly = trimmed.replace(/[가-힣\(\)\[\]]/g, ' ').replace(/\s+/g, ' ').trim();
+    if (englishOnly.length >= 3) {
+      return formatLatinBinomial(englishOnly);
+    }
   }
 
   return trimmed;

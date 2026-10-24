@@ -2935,14 +2935,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                                   className="flex items-center gap-1.5 text-xs text-slate-700 font-medium leading-tight flex-wrap"
                                                 >
                                                   <span className="w-1 h-1 rounded-full bg-slate-400 shrink-0" />
-                                                  <span className="font-sans tracking-tight">{strain.name}</span>
+                                                  <span className="font-sans italic font-semibold text-slate-800 tracking-tight">{strain.name}</span>
                                                   {strain.isStandard && (
-                                                    <span className="text-[10px] font-semibold text-sky-700 bg-sky-50 border border-sky-200/80 px-1.5 py-0.2 rounded leading-none shrink-0">
+                                                    <span className="text-[10px] font-semibold text-sky-700 bg-sky-50 border border-sky-200/80 px-1.5 py-0.2 rounded leading-none shrink-0 not-italic">
                                                       고시형
                                                     </span>
                                                   )}
                                                   {strain.regulatoryType === '개별인정형' && (
-                                                    <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded leading-none shrink-0">
+                                                    <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded leading-none shrink-0 not-italic">
                                                       개별인정형
                                                     </span>
                                                   )}
@@ -3083,14 +3083,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                                 className="flex items-center gap-1.5 text-xs text-slate-700 font-medium leading-tight flex-wrap"
                                               >
                                                 <span className="w-1 h-1 rounded-full bg-slate-400 shrink-0" />
-                                                <span className="font-sans tracking-tight">{strain.name}</span>
+                                                <span className="font-sans italic font-semibold text-slate-800 tracking-tight">{strain.name}</span>
                                                 {strain.isStandard && (
-                                                  <span className="text-[10px] font-semibold text-sky-700 bg-sky-50 border border-sky-200/80 px-1.5 py-0.2 rounded leading-none shrink-0">
+                                                  <span className="text-[10px] font-semibold text-sky-700 bg-sky-50 border border-sky-200/80 px-1.5 py-0.2 rounded leading-none shrink-0 not-italic">
                                                     고시형
                                                   </span>
                                                 )}
                                                 {strain.regulatoryType === '개별인정형' && (
-                                                  <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded leading-none shrink-0">
+                                                  <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded leading-none shrink-0 not-italic">
                                                     개별인정형
                                                   </span>
                                                 )}

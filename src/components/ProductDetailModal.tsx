@@ -3425,15 +3425,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </div>
           )}
 
-          {/* SECTION 3: 효능·효과 (일반의약품 전용 핵심 요약 + 직접 수정 및 전문보기) */}
+          {/* SECTION 3: 효능·효과 (일반의약품 전용 + 직접 수정) */}
           {product.classification === 'OTC_DRUG' && (otcIndicationsFullText || isEditingOtcIndications) && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-xs font-extrabold text-slate-600">효능·효과 요약</h3>
-                  <span className="text-[10px] font-bold text-sky-700 bg-sky-50 border border-sky-200 px-1.5 py-0.2 rounded">
-                    핵심 복약 요약
-                  </span>
+                  <h3 className="text-xs font-extrabold text-slate-600">효능·효과</h3>
                 </div>
                 <div className="flex items-center gap-2">
                   {!isEditingOtcIndications && (
@@ -3447,14 +3444,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       <span>효능 수정</span>
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => setIsIndicationsFullModalOpen(true)}
-                    className="text-xs font-bold text-sky-600 hover:text-sky-700 bg-sky-50 hover:bg-sky-100/80 border border-sky-200 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
-                  >
-                    <FileText className="w-3.5 h-3.5" />
-                    <span>전문보기</span>
-                  </button>
                 </div>
               </div>
 
@@ -3506,18 +3495,15 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             </div>
           )}
 
-          {/* SECTION 4: 일반의약품 사용상의 주의사항 (연령금기, 임부/수유부 금기, 약과 병용 금기 성분 요약 + 직접 수정 및 전문보기) */}
+          {/* SECTION 4: 일반의약품 사용상의 주의사항 (연령금기, 임부/수유부 금기, 약과 병용 금기 성분 + 직접 수정) */}
           {product.classification === 'OTC_DRUG' && (precautionsFullText || isEditingCustomPrecautions) && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
                   <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
                   <h3 className="text-xs font-extrabold text-slate-600">
-                    사용상의 주의사항 요약
+                    사용상의 주의사항
                   </h3>
-                  <span className="text-[10px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.2 rounded">
-                    복약지도 핵심
-                  </span>
                 </div>
                 <div className="flex items-center gap-2">
                   {!isEditingCustomPrecautions && (
@@ -3531,17 +3517,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       <span>주의사항 수정</span>
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPrecautionsModalTab('API');
-                      setIsPrecautionsFullModalOpen(true);
-                    }}
-                    className="text-xs font-bold text-rose-700 hover:text-rose-800 bg-rose-50 hover:bg-rose-100/80 border border-rose-200 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
-                  >
-                    <FileText className="w-3.5 h-3.5" />
-                    <span>전문보기</span>
-                  </button>
                 </div>
               </div>
 

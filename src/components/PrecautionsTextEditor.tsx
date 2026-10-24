@@ -13,8 +13,9 @@ interface PrecautionsTextEditorProps {
 /**
  * 주의사항 본문 포맷팅 렌더러 (보기 모드)
  * - ==텍스트== 및 <mark>텍스트</mark> 형광펜 마크업 파싱 및 스타일 적용
- * - 들여쓰기 공백('    ', '  ', '\t') 감지 시 CSS padding-left를 적용하여,
- *   긴 문장이 자동 줄바꿈(wrap)되어 여러 줄로 표시되더라도 전체 문장이 안쪽으로 정렬(hanging/soft-wrap indent)되도록 보장
+ * - 들여쓰기 공백('    ', '  ', '\t') 및 하위 항목((1), (2), ①, - 등) 감지
+ * - 긴 문장이나 데이터 내 줄바꿈(\n)으로 분절되어 다음 줄로 넘어간 텍스트도
+ *   상위 항목의 들여쓰기 위치를 계승하여 완벽한 수직 정렬(Hanging Indent)을 보장
  */
 export function renderFormattedPrecautionsText(text?: string | null) {
   if (!text || !text.trim()) {
@@ -25,14 +26,24 @@ export function renderFormattedPrecautionsText(text?: string | null) {
   const highlightRegex = /(?:==([\s\S]+?)==|<mark>([\s\S]+?)<\/mark>)/g;
   const lines = text.split(/\r?\n/);
 
+  // 상위 항목의 들여쓰기 상태 추적 (이어진 줄의 수직 정렬용)
+  let currentInheritedIndentPx = 0;
+
   return (
     <div className="space-y-1.5 text-xs text-slate-800 leading-relaxed font-sans font-medium">
       {lines.map((line, lineIdx) => {
         if (!line.trim()) {
+          currentInheritedIndentPx = 0;
           return <div key={lineIdx} className="h-3" />;
         }
 
-        // 앞쪽 공백(스페이스 또는 탭) 감지 -> 줄바꿈 시에도 전체 줄 들여쓰기 유지
+        // 1. 대항목(1., 2. 등) 판별: 숫자로 시작하고 점이 붙은 대제목
+        const isLevel1Header = /^\s*\d+\.\s+/.test(line) || /^\s*\[\s*\d+\s*\]/.test(line);
+
+        // 2. 중항목/소항목 ((1), (2), 1), ①, -, • 등) 판별
+        const isSubItem = /^\s*(\(\d+\)|\d+\)|[①-⑳]|[-•·]|[가-힣]\.)/.test(line);
+
+        // 3. 앞쪽 공백(스페이스 또는 탭) 감지
         const leadingWhitespaceMatch = line.match(/^([ \t]+)/);
         let spaceCount = 0;
         let contentLine = line;
@@ -43,6 +54,31 @@ export function renderFormattedPrecautionsText(text?: string | null) {
             spaceCount += ch === '\t' ? 4 : 1;
           }
           contentLine = line.slice(whitespace.length);
+        }
+
+        let paddingLeftPx = 0;
+
+        if (isLevel1Header) {
+          // 대제목(1. 경고, 2. 복용 금기 등)은 들여쓰기 리셋 (맨 왼쪽 정렬)
+          paddingLeftPx = spaceCount > 0 ? spaceCount * 6 : 0;
+          currentInheritedIndentPx = 0;
+        } else if (isSubItem) {
+          // 하위 항목 ((1), (2) 등): 명시적 공백이 있으면 그에 맞추고, 없어도 기본 들여쓰기 16px 부여
+          if (spaceCount > 0) {
+            paddingLeftPx = Math.max(spaceCount * 8, 16);
+          } else {
+            paddingLeftPx = 16;
+          }
+          currentInheritedIndentPx = paddingLeftPx; // 이어진 다음 줄들이 이어받도록 보존
+        } else {
+          // 기호 없이 줄바꿈되어 이어진 텍스트 (예: "로 어린이의 손에 닿지 않는곳에...", ": 원인을 알 수 없는...", "빈혈")
+          if (spaceCount > 0) {
+            paddingLeftPx = Math.max(spaceCount * 8, 16);
+            currentInheritedIndentPx = paddingLeftPx;
+          } else if (currentInheritedIndentPx > 0) {
+            // 앞선 항목의 들여쓰기를 그대로 계승하여 완벽한 수직 라인 맞춤!
+            paddingLeftPx = currentInheritedIndentPx;
+          }
         }
 
         const parts: React.ReactNode[] = [];
@@ -59,7 +95,6 @@ export function renderFormattedPrecautionsText(text?: string | null) {
             parts.push(contentLine.slice(lastIndex, matchStart));
           }
 
-          // ==...== 내부 내용 (match[1]) 또는 <mark>...</mark> 내부 내용 (match[2])
           const highlightedContent = match[1] !== undefined ? match[1] : match[2];
 
           parts.push(
@@ -77,9 +112,6 @@ export function renderFormattedPrecautionsText(text?: string | null) {
         if (lastIndex < contentLine.length) {
           parts.push(contentLine.slice(lastIndex));
         }
-
-        // 4칸 공백당 24px (1.5rem) 들여쓰기 패딩
-        const paddingLeftPx = spaceCount > 0 ? (spaceCount / 4) * 24 : 0;
 
         return (
           <div
@@ -105,6 +137,9 @@ export const PrecautionsTextEditor: React.FC<PrecautionsTextEditorProps> = ({
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // 마우스로 선택한 범위를 실시간으로 안전하게 기억하는 Ref (버튼 클릭 시 selection 소실 방지)
+  const lastSelectionRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 });
+
   // 마우스로 선택한 텍스트에 대한 플로팅 툴팁 상태
   const [floatingToolbar, setFloatingToolbar] = useState<{
     top: number;
@@ -114,22 +149,54 @@ export const PrecautionsTextEditor: React.FC<PrecautionsTextEditorProps> = ({
     selectedText: string;
   } | null>(null);
 
+  // textarea 선택 영역 실시간 추적
+  const updateSelectionState = () => {
+    const textarea = textareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    lastSelectionRef.current = { start, end };
+
+    if (start !== end) {
+      const selected = textarea.value.slice(start, end).trim();
+      if (selected.length > 0) {
+        const rect = textarea.getBoundingClientRect();
+        setFloatingToolbar({
+          top: Math.max(12, rect.top - 46),
+          left: rect.left + rect.width / 2,
+          selectionStart: start,
+          selectionEnd: end,
+          selectedText: selected
+        });
+        return;
+      }
+    }
+    setFloatingToolbar(null);
+  };
+
   // 들여쓰기 (4칸 공백) / 내어쓰기 실행
   const handleIndent = (isOutdent = false) => {
     const textarea = textareaRef.current;
     if (!textarea) return;
 
-    // 플로팅 툴바가 떠 있을 때는 플로팅 툴바에 저장된 선택 범위 우선 활용
-    const selectionStart = floatingToolbar ? floatingToolbar.selectionStart : textarea.selectionStart;
-    const selectionEnd = floatingToolbar ? floatingToolbar.selectionEnd : textarea.selectionEnd;
+    // 실시간으로 추적된 lastSelectionRef를 최우선 사용하여 버튼 클릭 시 선택 해제 방지
+    let selectionStart = lastSelectionRef.current.start;
+    let selectionEnd = lastSelectionRef.current.end;
+
+    // 만약 textarea 자체에 살아있는 선택 영역이 더 넓다면 최신 값 활용
+    if (textarea.selectionStart !== textarea.selectionEnd) {
+      selectionStart = textarea.selectionStart;
+      selectionEnd = textarea.selectionEnd;
+    }
+
     const textVal = textarea.value;
     const indentStr = '    '; // 4칸 스페이스
 
-    // 선택 영역이 걸쳐 있는 첫 번째 줄의 시작 위치
+    // 선택 영역이 걸쳐 있는 첫 번째 줄의 시작 인덱스
     const startOfFirstLine = textVal.lastIndexOf('\n', selectionStart - 1) + 1;
 
-    // 선택 영역이 걸쳐 있는 마지막 줄의 끝 위치
-    // 만약 selectionEnd가 정확히 줄의 시작(이전 줄 끝의 \n 바로 다음)이고 여러 줄 선택 상태라면 이전 줄까지만 포함
+    // 선택 영역이 걸쳐 있는 마지막 줄의 끝 인덱스
     let effectiveEnd = selectionEnd;
     if (effectiveEnd > selectionStart && textVal[effectiveEnd - 1] === '\n') {
       effectiveEnd = effectiveEnd - 1;
@@ -175,6 +242,11 @@ export const PrecautionsTextEditor: React.FC<PrecautionsTextEditorProps> = ({
       newLines.join('\n') +
       textVal.slice(endOfLastLine);
 
+    const newStart = Math.max(startOfFirstLine, selectionStart + deltaStart);
+    const newEnd = Math.max(newStart, selectionEnd + deltaTotal);
+
+    lastSelectionRef.current = { start: newStart, end: newEnd };
+
     onChange(updatedText);
     setFloatingToolbar(null);
 
@@ -182,8 +254,6 @@ export const PrecautionsTextEditor: React.FC<PrecautionsTextEditorProps> = ({
     setTimeout(() => {
       if (!textarea) return;
       textarea.focus();
-      const newStart = Math.max(startOfFirstLine, selectionStart + deltaStart);
-      const newEnd = Math.max(newStart, selectionEnd + deltaTotal);
       textarea.setSelectionRange(newStart, newEnd);
     }, 0);
   };
@@ -193,8 +263,14 @@ export const PrecautionsTextEditor: React.FC<PrecautionsTextEditorProps> = ({
     const textarea = textareaRef.current;
     if (!textarea) return;
 
-    const selStart = floatingToolbar ? floatingToolbar.selectionStart : textarea.selectionStart;
-    const selEnd = floatingToolbar ? floatingToolbar.selectionEnd : textarea.selectionEnd;
+    let selStart = lastSelectionRef.current.start;
+    let selEnd = lastSelectionRef.current.end;
+
+    if (textarea.selectionStart !== textarea.selectionEnd) {
+      selStart = textarea.selectionStart;
+      selEnd = textarea.selectionEnd;
+    }
+
     const textVal = textarea.value;
 
     if (selStart === selEnd) {
@@ -239,6 +315,7 @@ export const PrecautionsTextEditor: React.FC<PrecautionsTextEditorProps> = ({
       newEnd = selStart + highlighted.length;
     }
 
+    lastSelectionRef.current = { start: newStart, end: newEnd };
     onChange(updated);
     setFloatingToolbar(null);
 
@@ -262,32 +339,6 @@ export const PrecautionsTextEditor: React.FC<PrecautionsTextEditorProps> = ({
       onChange(cleared);
       setFloatingToolbar(null);
     }
-  };
-
-  // 마우스 선택 감지 -> 플로팅 툴바 띄우기
-  const handleMouseUp = () => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-
-    if (start !== end) {
-      const selected = textarea.value.slice(start, end).trim();
-      if (selected.length > 0) {
-        const rect = textarea.getBoundingClientRect();
-        // textarea 상단 중앙에 플로팅 툴팁 띄우기
-        setFloatingToolbar({
-          top: Math.max(12, rect.top - 46),
-          left: rect.left + rect.width / 2,
-          selectionStart: start,
-          selectionEnd: end,
-          selectedText: selected
-        });
-        return;
-      }
-    }
-    setFloatingToolbar(null);
   };
 
   // 키보드 Tab (들여쓰기) / Shift+Tab (내어쓰기) 지원
@@ -343,7 +394,7 @@ export const PrecautionsTextEditor: React.FC<PrecautionsTextEditorProps> = ({
               handleIndent(false);
             }}
             className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-md transition-colors cursor-pointer shadow-2xs"
-            title="선택한 줄 오른쪽으로 들여쓰기 (Tab 키로도 가능)"
+            title="선택한 줄 전체 오른쪽으로 들여쓰기 (Tab 키로도 가능)"
           >
             <Indent className="w-3.5 h-3.5 text-indigo-600" />
             <span>들여쓰기</span>
@@ -357,7 +408,7 @@ export const PrecautionsTextEditor: React.FC<PrecautionsTextEditorProps> = ({
               handleIndent(true);
             }}
             className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-md transition-colors cursor-pointer shadow-2xs"
-            title="선택한 줄 왼쪽으로 내어쓰기 (Shift+Tab 키로도 가능)"
+            title="선택한 줄 전체 왼쪽으로 내어쓰기 (Shift+Tab 키로도 가능)"
           >
             <Outdent className="w-3.5 h-3.5 text-slate-600" />
             <span>내어쓰기</span>
@@ -383,8 +434,10 @@ export const PrecautionsTextEditor: React.FC<PrecautionsTextEditorProps> = ({
         ref={textareaRef}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        onMouseUp={handleMouseUp}
-        onKeyUp={handleMouseUp}
+        onSelect={updateSelectionState}
+        onMouseUp={updateSelectionState}
+        onKeyUp={updateSelectionState}
+        onTouchEnd={updateSelectionState}
         onKeyDown={handleKeyDown}
         rows={12}
         placeholder={placeholder || '주의사항 내용을 입력하세요.'}
@@ -425,7 +478,7 @@ export const PrecautionsTextEditor: React.FC<PrecautionsTextEditorProps> = ({
               handleIndent(false);
             }}
             className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer"
-            title="들여쓰기 (4칸)"
+            title="선택한 줄 전체 들여쓰기 (4칸)"
           >
             <Indent className="w-3.5 h-3.5 text-sky-400" />
             <span>들여쓰기</span>
@@ -438,7 +491,7 @@ export const PrecautionsTextEditor: React.FC<PrecautionsTextEditorProps> = ({
               handleIndent(true);
             }}
             className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer"
-            title="내어쓰기"
+            title="선택한 줄 전체 내어쓰기"
           >
             <Outdent className="w-3.5 h-3.5 text-slate-400" />
             <span>내어쓰기</span>

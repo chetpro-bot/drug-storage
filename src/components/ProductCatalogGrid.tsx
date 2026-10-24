@@ -160,21 +160,37 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
           accentBorder: 'group-hover:border-sky-400'
         };
       case 'HEALTH_FUNCTIONAL_FOOD':
-        return {
-          label: isImported ? '건강기능식품 (수입)' : '건강기능식품',
-          badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-          subTextClass: 'text-emerald-600',
-          boxBgClass: 'from-emerald-50/70 via-white to-teal-50/50',
-          accentBorder: 'group-hover:border-emerald-400'
-        };
+        return isImported
+          ? {
+              label: '건강기능식품 (수입)',
+              badgeClass: 'bg-purple-50 text-purple-900 border-purple-300 font-extrabold shadow-2xs',
+              subTextClass: 'text-purple-600',
+              boxBgClass: 'from-purple-50/70 via-white to-indigo-50/50',
+              accentBorder: 'group-hover:border-purple-400'
+            }
+          : {
+              label: '건강기능식품',
+              badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 font-bold',
+              subTextClass: 'text-emerald-600',
+              boxBgClass: 'from-emerald-50/70 via-white to-teal-50/50',
+              accentBorder: 'group-hover:border-emerald-400'
+            };
       case 'GENERAL_FOOD':
-        return {
-          label: isImported ? '기타가공품/식품 (수입)' : '기타가공품/식품',
-          badgeClass: 'bg-slate-100 text-slate-700 border-slate-200',
-          subTextClass: 'text-slate-600',
-          boxBgClass: 'from-slate-50 via-white to-amber-50/30',
-          accentBorder: 'group-hover:border-slate-400'
-        };
+        return isImported
+          ? {
+              label: '기타가공품/식품 (수입)',
+              badgeClass: 'bg-amber-50 text-amber-900 border-amber-300 font-extrabold shadow-2xs',
+              subTextClass: 'text-amber-700',
+              boxBgClass: 'from-amber-50/70 via-white to-orange-50/40',
+              accentBorder: 'group-hover:border-amber-400'
+            }
+          : {
+              label: '기타가공품/식품',
+              badgeClass: 'bg-slate-100 text-slate-700 border-slate-200 font-bold',
+              subTextClass: 'text-slate-600',
+              boxBgClass: 'from-slate-50 via-white to-amber-50/30',
+              accentBorder: 'group-hover:border-slate-400'
+            };
     }
   };
 
@@ -441,9 +457,26 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
                     {/* 2. 분류 (일반의약품 / 건강기능식품 / 기타가공품) & 수정 버튼 */}
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <span
-                        className={`text-[11px] font-bold px-2 py-0.5 rounded-md border ${classInfo.badgeClass}`}
+                        className={`text-[11px] font-bold px-2 py-0.5 rounded-md border inline-flex items-center gap-1.5 ${classInfo.badgeClass}`}
                       >
-                        {classInfo.label}
+                        <span>
+                          {product.classification === 'OTC_DRUG'
+                            ? '일반의약품'
+                            : product.classification === 'HEALTH_FUNCTIONAL_FOOD'
+                            ? '건강기능식품'
+                            : '기타가공품/식품'}
+                        </span>
+                        {isImportedProduct(product) && product.classification !== 'OTC_DRUG' && (
+                          <span
+                            className={`text-[9.5px] font-black px-1.5 py-0.2 rounded ${
+                              product.classification === 'HEALTH_FUNCTIONAL_FOOD'
+                                ? 'bg-purple-600 text-white'
+                                : 'bg-amber-600 text-white'
+                            }`}
+                          >
+                            수입
+                          </span>
+                        )}
                       </span>
 
                       {onEditProduct && (

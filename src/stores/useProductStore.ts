@@ -976,7 +976,7 @@ function migrateAndEnsureKpic(products: ProductItem[]): ProductItem[] {
   });
 }
 
-export const DISCARDED_MOCK_IDS = new Set(['prod_mdream_liquid_kids', 'prod_general_water']);
+export const DISCARDED_MOCK_IDS = new Set(['prod_mdream_liquid_kids', 'prod_general_water', 'prod_mytamin_up']);
 
 export function isDiscardedMockProduct(p: { id?: string; productName?: string }): boolean {
   if (!p) return false;
@@ -1024,6 +1024,7 @@ function getInitialProducts(): ProductItem[] {
   // 과거 목업 잔재 ID들은 로컬 차단 목록에 즉시 등록
   markDeletedId('prod_mdream_liquid_kids');
   markDeletedId('prod_general_water');
+  markDeletedId('prod_mytamin_up');
 
   const deletedIds = getDeletedIds();
   let loadedProducts: ProductItem[] = [];

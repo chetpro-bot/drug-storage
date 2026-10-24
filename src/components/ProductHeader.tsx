@@ -72,15 +72,25 @@ export const ProductHeader: React.FC<ProductHeaderProps> = ({ product }) => {
           </span>
         );
       case 'HEALTH_FUNCTIONAL_FOOD':
-        return (
+        return isImported ? (
+          <span className="text-xs font-extrabold px-2.5 py-1 rounded-md bg-purple-50 text-purple-900 border border-purple-300 shadow-xs flex items-center gap-1.5">
+            <span>건강기능식품</span>
+            <span className="px-1.5 py-0.2 rounded bg-purple-600 text-white text-[10px] font-black">수입</span>
+          </span>
+        ) : (
           <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-emerald-600 text-white shadow-xs">
-            건강기능식품{isImported ? ' (수입)' : ''}
+            건강기능식품
           </span>
         );
       case 'GENERAL_FOOD':
-        return (
+        return isImported ? (
+          <span className="text-xs font-extrabold px-2.5 py-1 rounded-md bg-amber-50 text-amber-900 border border-amber-300 shadow-xs flex items-center gap-1.5">
+            <span>기타가공품/식품</span>
+            <span className="px-1.5 py-0.2 rounded bg-amber-600 text-white text-[10px] font-black">수입</span>
+          </span>
+        ) : (
           <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-slate-600 text-white shadow-xs">
-            기타가공품/식품{isImported ? ' (수입)' : ''}
+            기타가공품/식품
           </span>
         );
     }

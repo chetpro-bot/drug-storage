@@ -2514,8 +2514,36 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               {/* 제약회사 · 분류 · 가격 · 약 위치 */}
               <div className="flex items-center gap-2.5 flex-wrap text-sm">
                 <span className="font-extrabold text-slate-800">
-                  {product.manufacturer} · {classificationShort}
+                  {product.manufacturer} ·
                 </span>
+                {isImported && product.classification !== 'OTC_DRUG' ? (
+                  <span
+                    className={`text-xs font-extrabold px-2 py-0.5 rounded-md inline-flex items-center gap-1.5 border ${
+                      product.classification === 'HEALTH_FUNCTIONAL_FOOD'
+                        ? 'bg-purple-50 text-purple-900 border-purple-300'
+                        : 'bg-amber-50 text-amber-900 border-amber-300'
+                    }`}
+                  >
+                    <span>
+                      {product.classification === 'HEALTH_FUNCTIONAL_FOOD'
+                        ? '건강기능식품'
+                        : '기타가공품/식품'}
+                    </span>
+                    <span
+                      className={`text-[10px] font-black px-1.5 py-0.2 rounded ${
+                        product.classification === 'HEALTH_FUNCTIONAL_FOOD'
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-amber-600 text-white'
+                      }`}
+                    >
+                      수입
+                    </span>
+                  </span>
+                ) : (
+                  <span className="font-extrabold text-slate-800">
+                    {classificationShort}
+                  </span>
+                )}
                 {product.packagingUnit && (
                   <span className="text-xs text-slate-500">({product.packagingUnit})</span>
                 )}

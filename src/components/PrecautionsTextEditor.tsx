@@ -11,9 +11,10 @@ interface PrecautionsTextEditorProps {
 }
 
 /**
- * 주의사항 본문 포맷팅 렌더러 (보기 모드 & 실시간 미리보기 공용)
+ * 주의사항 본문 포맷팅 렌더러 (보기 모드)
  * - ==텍스트== 및 <mark>텍스트</mark> 형광펜 마크업 파싱 및 스타일 적용
- * - 들여쓰기 공백('    ', '  ', '\t') 및 줄바꿈 보존
+ * - 들여쓰기 공백('    ', '  ', '\t') 감지 시 CSS padding-left를 적용하여,
+ *   긴 문장이 자동 줄바꿈(wrap)되어 여러 줄로 표시되더라도 전체 문장이 안쪽으로 정렬(hanging/soft-wrap indent)되도록 보장
  */
 export function renderFormattedPrecautionsText(text?: string | null) {
   if (!text || !text.trim()) {
@@ -25,10 +26,23 @@ export function renderFormattedPrecautionsText(text?: string | null) {
   const lines = text.split(/\r?\n/);
 
   return (
-    <div className="space-y-1 text-xs text-slate-800 leading-relaxed whitespace-pre-wrap font-sans font-medium">
+    <div className="space-y-1.5 text-xs text-slate-800 leading-relaxed font-sans font-medium">
       {lines.map((line, lineIdx) => {
-        if (!line) {
+        if (!line.trim()) {
           return <div key={lineIdx} className="h-3" />;
+        }
+
+        // 앞쪽 공백(스페이스 또는 탭) 감지 -> 줄바꿈 시에도 전체 줄 들여쓰기 유지
+        const leadingWhitespaceMatch = line.match(/^([ \t]+)/);
+        let spaceCount = 0;
+        let contentLine = line;
+
+        if (leadingWhitespaceMatch) {
+          const whitespace = leadingWhitespaceMatch[1];
+          for (const ch of whitespace) {
+            spaceCount += ch === '\t' ? 4 : 1;
+          }
+          contentLine = line.slice(whitespace.length);
         }
 
         const parts: React.ReactNode[] = [];
@@ -37,12 +51,12 @@ export function renderFormattedPrecautionsText(text?: string | null) {
 
         highlightRegex.lastIndex = 0;
 
-        while ((match = highlightRegex.exec(line)) !== null) {
+        while ((match = highlightRegex.exec(contentLine)) !== null) {
           const matchStart = match.index;
           const matchEnd = highlightRegex.lastIndex;
 
           if (matchStart > lastIndex) {
-            parts.push(line.slice(lastIndex, matchStart));
+            parts.push(contentLine.slice(lastIndex, matchStart));
           }
 
           // ==...== 내부 내용 (match[1]) 또는 <mark>...</mark> 내부 내용 (match[2])
@@ -60,12 +74,19 @@ export function renderFormattedPrecautionsText(text?: string | null) {
           lastIndex = matchEnd;
         }
 
-        if (lastIndex < line.length) {
-          parts.push(line.slice(lastIndex));
+        if (lastIndex < contentLine.length) {
+          parts.push(contentLine.slice(lastIndex));
         }
 
+        // 4칸 공백당 24px (1.5rem) 들여쓰기 패딩
+        const paddingLeftPx = spaceCount > 0 ? (spaceCount / 4) * 24 : 0;
+
         return (
-          <div key={lineIdx} className="min-h-[1.25rem]">
+          <div
+            key={lineIdx}
+            style={paddingLeftPx > 0 ? { paddingLeft: `${paddingLeftPx}px` } : undefined}
+            className="min-h-[1.25rem] whitespace-pre-wrap break-words"
+          >
             {parts}
           </div>
         );
@@ -98,28 +119,39 @@ export const PrecautionsTextEditor: React.FC<PrecautionsTextEditorProps> = ({
     const textarea = textareaRef.current;
     if (!textarea) return;
 
-    const { selectionStart, selectionEnd, value: textVal } = textarea;
+    // 플로팅 툴바가 떠 있을 때는 플로팅 툴바에 저장된 선택 범위 우선 활용
+    const selectionStart = floatingToolbar ? floatingToolbar.selectionStart : textarea.selectionStart;
+    const selectionEnd = floatingToolbar ? floatingToolbar.selectionEnd : textarea.selectionEnd;
+    const textVal = textarea.value;
     const indentStr = '    '; // 4칸 스페이스
 
-    // 선택 영역이 걸쳐 있는 모든 라인의 시작/끝 위치 탐색
+    // 선택 영역이 걸쳐 있는 첫 번째 줄의 시작 위치
     const startOfFirstLine = textVal.lastIndexOf('\n', selectionStart - 1) + 1;
-    let endOfLastLine = textVal.indexOf('\n', selectionEnd);
+
+    // 선택 영역이 걸쳐 있는 마지막 줄의 끝 위치
+    // 만약 selectionEnd가 정확히 줄의 시작(이전 줄 끝의 \n 바로 다음)이고 여러 줄 선택 상태라면 이전 줄까지만 포함
+    let effectiveEnd = selectionEnd;
+    if (effectiveEnd > selectionStart && textVal[effectiveEnd - 1] === '\n') {
+      effectiveEnd = effectiveEnd - 1;
+    }
+
+    let endOfLastLine = textVal.indexOf('\n', effectiveEnd);
     if (endOfLastLine === -1) endOfLastLine = textVal.length;
 
     const targetChunk = textVal.slice(startOfFirstLine, endOfLastLine);
-    const lines = targetChunk.split('\n');
+    const lines = targetChunk.split(/\r?\n/);
 
     let newLines: string[];
     let deltaStart = 0;
     let deltaTotal = 0;
 
     if (!isOutdent) {
-      // 들여쓰기: 각 라인 앞에 4칸 공백 추가
+      // 들여쓰기: 선택된 모든 라인 앞에 4칸 공백 추가
       newLines = lines.map((l) => indentStr + l);
       deltaStart = indentStr.length;
       deltaTotal = indentStr.length * lines.length;
     } else {
-      // 내어쓰기: 각 라인 앞의 공백(최대 4칸) 제거
+      // 내어쓰기: 선택된 모든 라인 앞의 공백(최대 4칸) 제거
       newLines = lines.map((l, idx) => {
         let removed = 0;
         if (l.startsWith(indentStr)) {
@@ -144,6 +176,7 @@ export const PrecautionsTextEditor: React.FC<PrecautionsTextEditorProps> = ({
       textVal.slice(endOfLastLine);
 
     onChange(updatedText);
+    setFloatingToolbar(null);
 
     // 커서 및 선택 영역 유지
     setTimeout(() => {

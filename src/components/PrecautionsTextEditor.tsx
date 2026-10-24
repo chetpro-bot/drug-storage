@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Highlighter, Indent, Outdent, Eraser, Eye, EyeOff, Check } from 'lucide-react';
+import { Highlighter, Indent, Outdent, Eraser, Check } from 'lucide-react';
 
 interface PrecautionsTextEditorProps {
   value: string;
@@ -83,7 +83,6 @@ export const PrecautionsTextEditor: React.FC<PrecautionsTextEditorProps> = ({
   saveButtonColor = 'rose'
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [showPreview, setShowPreview] = useState(true);
 
   // 마우스로 선택한 텍스트에 대한 플로팅 툴팁 상태
   const [floatingToolbar, setFloatingToolbar] = useState<{
@@ -344,36 +343,6 @@ export const PrecautionsTextEditor: React.FC<PrecautionsTextEditorProps> = ({
             </button>
           )}
         </div>
-
-        {/* 실시간 미리보기 토글 */}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setShowPreview((prev) => !prev)}
-            className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-md transition-colors cursor-pointer"
-            title={showPreview ? '미리보기 닫기' : '실시간 미리보기 열기'}
-          >
-            {showPreview ? (
-              <>
-                <EyeOff className="w-3.5 h-3.5 text-slate-500" />
-                <span>미리보기 접기</span>
-              </>
-            ) : (
-              <>
-                <Eye className="w-3.5 h-3.5 text-sky-600" />
-                <span>실시간 미리보기</span>
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {/* 도움말 안내 바 */}
-      <div className="flex items-center justify-between text-[11px] text-slate-500 px-1">
-        <span>
-          💡 <strong>마우스로 원하는 부분을 드래그</strong>한 뒤 <strong>[형광펜]</strong>이나 <strong>[들여쓰기]</strong>를 누르세요. (키보드 Tab / Shift+Tab 지원)
-        </span>
-        <span className="text-amber-700 font-bold hidden sm:inline">형광펜: ==문구==</span>
       </div>
 
       {/* 본문 텍스트 영역 */}
@@ -441,22 +410,6 @@ export const PrecautionsTextEditor: React.FC<PrecautionsTextEditorProps> = ({
             <Outdent className="w-3.5 h-3.5 text-slate-400" />
             <span>내어쓰기</span>
           </button>
-        </div>
-      )}
-
-      {/* 실시간 미리보기 패널 */}
-      {showPreview && (
-        <div className="bg-white border border-slate-200 rounded-lg p-3 space-y-1.5 mt-2">
-          <div className="flex items-center justify-between pb-1 border-b border-slate-100">
-            <span className="text-[11px] font-bold text-slate-600 flex items-center gap-1">
-              <Eye className="w-3.5 h-3.5 text-sky-600" />
-              <span>실시간 미리보기 (실제 표시될 화면)</span>
-            </span>
-            <span className="text-[10px] text-slate-400">형광펜 및 들여쓰기 확인</span>
-          </div>
-          <div className="bg-rose-50/20 rounded-md p-2.5 max-h-[220px] overflow-y-auto">
-            {renderFormattedPrecautionsText(value)}
-          </div>
         </div>
       )}
 

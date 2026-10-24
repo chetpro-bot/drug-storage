@@ -15,10 +15,10 @@ export const PROBIOTIC_GENERA_REGEX =
 export const PROBIOTIC_LATIN_TO_KOR: Record<string, string> = {
   'bifidobacterium bifidum': '비피도박테리움 비피덤',
   'bifidobacterium longum': '비피도박테리움 롱검',
-  'bifidobacterium animalis': '비피도박테리움 애니멀리스(락티스)',
-  'bifidobacterium animalis subsp. lactis': '비피도박테리움 락티스',
-  'bifidobacterium breve': '비피도박테리움 브레브',
+  'bifidobacterium animalis': '비피도박테리움 애니멀리스',
   'bifidobacterium lactis': '비피도박테리움 락티스',
+  'bifidobacterium animalis subsp. lactis': '비피도박테리움 애니멀리스 락티스',
+  'bifidobacterium breve': '비피도박테리움 브레브',
   'lacticaseibacillus casei': '락티카제이바실러스 카제이',
   'lactobacillus casei': '락토바실러스 카제이',
   'lacticaseibacillus rhamnosus': '락티카제이바실러스 람노서스',
@@ -51,9 +51,10 @@ for (const [latin, kor] of Object.entries(PROBIOTIC_LATIN_TO_KOR)) {
     .join(' ');
   PROBIOTIC_KOR_TO_LATIN[cleanKor] = binomialLatin;
 }
-PROBIOTIC_KOR_TO_LATIN['비피토박테리움락티스'] = 'Bifidobacterium animalis subsp. lactis';
-PROBIOTIC_KOR_TO_LATIN['비피도박테리움락티스'] = 'Bifidobacterium animalis subsp. lactis';
-PROBIOTIC_KOR_TO_LATIN['비피도박테리움애니멀리스락티스'] = 'Bifidobacterium animalis subsp. lactis';
+// API 전문 표기 '락티스'에 맞춘 Bifidobacterium lactis 매핑
+PROBIOTIC_KOR_TO_LATIN['비피토박테리움락티스'] = 'Bifidobacterium lactis';
+PROBIOTIC_KOR_TO_LATIN['비피도박테리움락티스'] = 'Bifidobacterium lactis';
+PROBIOTIC_KOR_TO_LATIN['비피도박테리움애니멀리스락티스'] = 'Bifidobacterium lactis';
 PROBIOTIC_KOR_TO_LATIN['비피도박테리움애니멀리스'] = 'Bifidobacterium animalis';
 PROBIOTIC_KOR_TO_LATIN['락토바실러스델브루키'] = 'Lactobacillus delbrueckii';
 PROBIOTIC_KOR_TO_LATIN['바실러스코아귤런스'] = 'Bacillus coagulans';

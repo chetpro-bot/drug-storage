@@ -718,54 +718,6 @@ export function buildHealthFunctionalFoodClaims(product: ProductItem): string[] 
   });
 }
 
-/**
- * 효능·효과 전문을 상담 시 한눈에 파악하기 좋게 핵심 효능별로 요약
- */
-function summarizeIndications(rawLines: string[]): string[] {
-  if (!rawLines || rawLines.length === 0) return [];
-  const fullText = rawLines.join('\n');
-  const summarized: string[] = [];
-
-  // 1. 피로/비타민 보급군
-  if (/육체피로|체력저하|발육기|노년기|임신|수유기|비타민.*보급/i.test(fullText)) {
-    summarized.push('육체피로 · 체력저하 시 비타민 보급 (임신·수유기, 발육기, 노년기)');
-  }
-  // 2. 통증 완화군
-  if (/신경통|근육통|관절통|요통|어깨결림|각기/i.test(fullText)) {
-    summarized.push('신경통 · 근육통 · 관절통(요통, 어깨결림) 및 각기 증상 완화');
-  }
-  // 3. 눈의 피로
-  if (/눈의\s*피로|안구/i.test(fullText)) {
-    summarized.push('눈의 피로 완화');
-  }
-  // 4. 구내염/피부 점막
-  if (/구내염|구순염|구각염|설염|피부염|습진/i.test(fullText)) {
-    summarized.push('구내염(입안염) · 설염(혀염) · 구순염 · 구각염 및 피부염 완화');
-  }
-  // 5. 뼈/치아/구루병
-  if (/뼈.*치아|치아.*발육|구루병/i.test(fullText)) {
-    summarized.push('뼈 · 치아 발육불량 및 구루병 예방');
-  }
-  // 6. 아연/면역
-  if (/아연.*보급|면역.*기능|세포분열/i.test(fullText)) {
-    summarized.push('면역 기능 정상화 및 아연 보급');
-  }
-  // 7. 간기능/해독/UDCA
-  if (/간기능|간질환|이담|소화/i.test(fullText)) {
-    summarized.push('간기능 개선 및 담즙 분비 촉진');
-  }
-
-  // 매칭된 표준 카테고리가 없는 경우 원본 텍스트를 문장 단위로 정제하여 상위 최대 4줄 추출
-  if (summarized.length === 0) {
-    const cleaned = rawLines
-      .map((l) => l.replace(/^[\d+·\-\*\s]+/, '').trim())
-      .filter((l) => l.length > 0 && !l.includes('첨부문서 참조'));
-    return cleaned.slice(0, 4);
-  }
-
-  return summarized;
-}
-
 // 주의사항 요약 및 연령금기 추출은 src/utils/precautionsHelper.ts 에서 관리됩니다.
 
 
@@ -2321,10 +2273,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   // 성분 정렬 (비타민 A, B1..B9..B12, C, D, E, K -> 미네랄 알파벳순 -> 기타 성분 알파벳순; 동일 분류 내 알파벳순)
   const sortedIngredients = sortProductIngredients(product.ingredients, product.productName);
 
-  // 일반의약품: 식약처 효능·효과 전문 텍스트 및 핵심 요약
+  // 일반의약품: 식약처 효능·효과 전문 텍스트 (요약 없이 원문 그대로 표시)
   const otcIndicationsList = product.otcDetail?.indicationsKorean || [];
   const otcIndicationsFullText = otcIndicationsList.join('\n');
-  const summarizedIndicationsList = summarizeIndications(otcIndicationsList);
 
 
 
@@ -3478,18 +3429,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </div>
               ) : (
                 <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-4">
-                  <ul className="space-y-1.5 text-xs text-slate-800 leading-relaxed font-medium">
-                    {summarizedIndicationsList.length > 0 ? (
-                      summarizedIndicationsList.map((item, idx) => (
-                        <li key={idx} className="flex items-start gap-2">
-                          <span className="text-sky-600 font-bold shrink-0">•</span>
-                          <span>{item}</span>
-                        </li>
-                      ))
-                    ) : (
-                      <li className="text-slate-600 whitespace-pre-wrap">{otcIndicationsFullText}</li>
-                    )}
-                  </ul>
+                  <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap font-sans font-medium">
+                    {otcIndicationsFullText || (otcIndicationsList.length > 0 ? otcIndicationsList.join('\n') : '등록된 효능·효과가 없습니다.')}
+                  </p>
                 </div>
               )}
             </div>
@@ -3551,131 +3493,17 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </div>
               ) : (
                 <div className="bg-rose-50/30 border border-rose-200/70 rounded-xl p-4 space-y-3">
-                  {/* 1. 연령 금기 */}
-                {summarizedPrecautions.ageContraindication && (
-                  <div className="flex items-start gap-2.5 text-xs">
-                    <span className="px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-extrabold text-[11px] shrink-0 border border-rose-200">
-                      연령 금기
-                    </span>
-                    <span className="font-bold text-rose-950 pt-0.5">
-                      {summarizedPrecautions.ageContraindication}
-                    </span>
+                  <div className="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap font-sans font-medium max-h-[380px] overflow-y-auto pr-1">
+                    {precautionsFullText || '등록된 사용상의 주의사항이 없습니다.'}
                   </div>
-                )}
 
-                {/* 2. 임부 및 수유부 금기 */}
-                {summarizedPrecautions.pregnancyContraindication && (
-                  <div className="flex items-start gap-2.5 text-xs">
-                    <span className="px-2 py-0.5 rounded bg-purple-100 text-purple-800 font-extrabold text-[11px] shrink-0 border border-purple-200">
-                      임부·수유부
-                    </span>
-                    <span className="font-semibold text-purple-950 pt-0.5">
-                      {summarizedPrecautions.pregnancyContraindication}
-                    </span>
-                  </div>
-                )}
-
-                {/* 3. 약과 병용 금기 성분 위주 */}
-                {summarizedPrecautions.drugInteractions.length > 0 && (
-                  <div className="space-y-1.5 pt-1 border-t border-rose-100">
-                    <div className="flex items-center gap-1.5">
-                      <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-extrabold text-[11px] shrink-0 border border-amber-200">
-                        병용 금기/상호작용
-                      </span>
-                      <span className="text-[11px] font-bold text-slate-600">
-                        주의 약물 및 복용 간격
-                      </span>
-                    </div>
-                    <ul className="space-y-1 pl-1 text-xs text-slate-800 leading-relaxed font-medium">
-                      {summarizedPrecautions.drugInteractions.map((item, idx) => (
-                        <li key={idx} className="flex items-start gap-2">
-                          <span className="text-amber-600 font-bold shrink-0">•</span>
-                          <span>{item}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* 4. 주요 금기 질환 */}
-                {summarizedPrecautions.generalWarning && (
-                  <div className="flex items-start gap-2.5 text-xs pt-1 border-t border-rose-100">
-                    <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-bold text-[11px] shrink-0 border border-slate-200">
-                      투여 금기
-                    </span>
-                    <span className="text-slate-800 pt-0.5 font-medium">
-                      {summarizedPrecautions.generalWarning}
-                    </span>
-                  </div>
-                )}
-
-                {/* 실물 라벨 추출 텍스트가 있을 경우 실물 라벨 우선 표시 */}
-                {product.functionalFoodDetail?.labelPrecautionsText ? (
-                  !isMeaningfulKoreanText(product.functionalFoodDetail.labelPrecautionsText) ? (
-                    <div className="space-y-1 pt-1 border-t border-rose-100">
-                      <div className="flex items-center justify-between text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2.5">
-                        <span className="text-[11px] font-bold flex items-center gap-1.5">
-                          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                          <span>사진 글자 인식 오류 (외계어 감지됨)</span>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPrecautionsModalTab('LABEL');
-                            setIsPrecautionsFullModalOpen(true);
-                            handleStartEditLabelPrecautions();
-                          }}
-                          className="text-[11px] font-extrabold text-amber-900 bg-amber-200/80 hover:bg-amber-300 px-2 py-0.5 rounded cursor-pointer transition-colors"
-                        >
-                          직접 수정 / 템플릿 적용
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-1 pt-1 border-t border-rose-100">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-bold text-emerald-700 flex items-center gap-1">
-                          <Camera className="w-3 h-3 text-emerald-600" />
-                          <span>제품사진 뒷면 실물 라벨 주의사항</span>
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={handleClearLabelPrecautions}
-                            className="text-[10px] font-semibold text-rose-500 hover:text-rose-700 hover:underline cursor-pointer"
-                            title="실물 라벨 텍스트와 첨부된 뒷면 사진을 모두 삭제합니다"
-                          >
-                            라벨/사진 삭제
-                          </button>
-                          <span className="text-[10px] text-slate-400">
-                            상세내용은 [전문보기] 클릭
-                          </span>
-                        </div>
-                      </div>
-                      <p className="text-xs text-slate-700 leading-relaxed line-clamp-3 whitespace-pre-line font-medium">
-                        {product.functionalFoodDetail.labelPrecautionsText}
-                      </p>
-                    </div>
-                  )
-                ) : (
-                  /* 요약 항목이 하나도 매칭되지 않은 경우 안전하게 앞부분 2~3줄 요약 노출 */
-                  !summarizedPrecautions.ageContraindication &&
-                  !summarizedPrecautions.pregnancyContraindication &&
-                  summarizedPrecautions.drugInteractions.length === 0 &&
-                  !summarizedPrecautions.generalWarning && (
-                    <p className="text-xs text-slate-700 leading-relaxed line-clamp-3">
-                      {precautionsFullText}
+                  {product.otcDetail?.storageMethodKorean && (
+                    <p className="text-xs text-slate-600 font-medium pt-2 border-t border-rose-200/60">
+                      보관방법: {product.otcDetail.storageMethodKorean}
                     </p>
-                  )
-                )}
-
-                {product.otcDetail?.storageMethodKorean && (
-                  <p className="text-xs text-slate-600 font-medium pt-2 border-t border-rose-200/60">
-                    보관방법: {product.otcDetail.storageMethodKorean}
-                  </p>
-                )}
-              </div>
-            )}
+                  )}
+                </div>
+              )}
           </div>
         )}
 

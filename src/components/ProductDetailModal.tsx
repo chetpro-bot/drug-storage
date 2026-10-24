@@ -16,6 +16,7 @@ import {
 } from '../services/publicDataService';
 import { AttachedDocumentsModal } from './AttachedDocumentsModal';
 import { ReferenceAttachmentsModal } from './ReferenceAttachmentsModal';
+import { PrecautionsTextEditor, renderFormattedPrecautionsText } from './PrecautionsTextEditor';
 import {
   resolveIngredientDisplayInfo,
   sortProductIngredients,
@@ -731,9 +732,9 @@ function renderFormattedApiText(fullText: string, highlightKeywords: string[]) {
       ? new RegExp(`(${validKeywords.map((k) => k.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|')})`, 'gi')
       : null;
 
-  const renderHighlightedLine = (text: string) => {
-    if (!highlightRegex) return text;
-    const parts = text.split(highlightRegex);
+  const renderKeywordsOnly = (raw: string) => {
+    if (!highlightRegex) return raw;
+    const parts = raw.split(highlightRegex);
     return parts.map((part, i) => {
       const isMatch = validKeywords.some((kw) => kw.toLowerCase() === part.toLowerCase());
       if (isMatch) {
@@ -748,6 +749,38 @@ function renderFormattedApiText(fullText: string, highlightKeywords: string[]) {
       }
       return part;
     });
+  };
+
+  const renderHighlightedLine = (text: string) => {
+    // 사용자가 ==문구== 로 칠한 형광펜 마크업 파싱 지원
+    const customHighlightRegex = /(?:==([\s\S]+?)==|<mark>([\s\S]+?)<\/mark>)/g;
+    if (text.includes('==') || text.includes('<mark>')) {
+      const segments: React.ReactNode[] = [];
+      let lastIdx = 0;
+      let match: RegExpExecArray | null;
+      customHighlightRegex.lastIndex = 0;
+      while ((match = customHighlightRegex.exec(text)) !== null) {
+        if (match.index > lastIdx) {
+          segments.push(renderKeywordsOnly(text.slice(lastIdx, match.index)));
+        }
+        const hlContent = match[1] !== undefined ? match[1] : match[2];
+        segments.push(
+          <mark
+            key={`custom-${match.index}`}
+            className="bg-amber-200/90 text-amber-950 font-bold px-1 py-0.5 rounded shadow-2xs"
+          >
+            {hlContent}
+          </mark>
+        );
+        lastIdx = customHighlightRegex.lastIndex;
+      }
+      if (lastIdx < text.length) {
+        segments.push(renderKeywordsOnly(text.slice(lastIdx)));
+      }
+      return segments;
+    }
+
+    return renderKeywordsOnly(text);
   };
 
   const lines = fullText.split(/\r?\n/);
@@ -3445,44 +3478,22 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </div>
 
               {isEditingCustomPrecautions ? (
-                <div className="space-y-2 bg-[#f8fafc] border border-rose-300 rounded-xl p-3">
-                  <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
-                    <span>엔터(Enter) 키로 줄바꿈하여 주의사항을 입력하세요.</span>
-                    <span className="text-amber-600 font-bold">줄바꿈 지원</span>
-                  </div>
-                  <textarea
-                    value={editCustomPrecautionsValue}
-                    onChange={(e) => setEditCustomPrecautionsValue(e.target.value)}
-                    rows={12}
-                    placeholder={`예)\n1. 이상사례 발생 시 섭취를 중단하고 전문가와 상담하십시오.\n2. 특이체질, 알레르기 체질의 경우 원료를 확인한 후 섭취하십시오.`}
-                    className="w-full text-xs font-medium text-slate-800 bg-white border border-slate-300 rounded-lg p-3 leading-relaxed focus:outline-none focus:ring-2 focus:ring-rose-500 whitespace-pre-wrap font-sans min-h-[280px] resize-y"
-                  />
-                  <div className="flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingCustomPrecautions(false)}
-                      className="px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 rounded-md transition-colors cursor-pointer"
-                    >
-                      취소
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSaveCustomPrecautions}
-                      className="px-3 py-1 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-md shadow-2xs transition-colors cursor-pointer"
-                    >
-                      저장
-                    </button>
-                  </div>
-                </div>
+                <PrecautionsTextEditor
+                  value={editCustomPrecautionsValue}
+                  onChange={setEditCustomPrecautionsValue}
+                  onSave={handleSaveCustomPrecautions}
+                  onCancel={() => setIsEditingCustomPrecautions(false)}
+                  placeholder={`예)\n1. 이상사례 발생 시 섭취를 중단하고 전문가와 상담하십시오.\n2. 특이체질, 알레르기 체질의 경우 원료를 확인한 후 섭취하십시오.`}
+                  saveButtonColor="rose"
+                />
               ) : (
                 <div className="bg-rose-50/30 border border-rose-200/70 rounded-xl p-4">
-                  <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap font-sans font-medium">
-                    {product.functionalFoodDetail?.safetyPrecautionsText ||
+                  {renderFormattedPrecautionsText(
+                    product.functionalFoodDetail?.safetyPrecautionsText ||
                       (product.functionalFoodDetail?.safetyPrecautionsKorean &&
                         product.functionalFoodDetail.safetyPrecautionsKorean.join('\n')) ||
-                      precautionsFullText ||
-                      '등록된 섭취 시 주의사항이 없습니다.'}
-                  </p>
+                      precautionsFullText
+                  )}
                 </div>
               )}
             </div>
@@ -3575,38 +3586,18 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </div>
 
               {isEditingCustomPrecautions ? (
-                <div className="space-y-2 bg-[#f8fafc] border border-rose-300 rounded-xl p-3">
-                  <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
-                    <span>엔터(Enter) 키로 줄바꿈하여 주의사항을 입력하세요.</span>
-                    <span className="text-amber-600 font-bold">줄바꿈 지원</span>
-                  </div>
-                  <textarea
-                    value={editCustomPrecautionsValue}
-                    onChange={(e) => setEditCustomPrecautionsValue(e.target.value)}
-                    rows={12}
-                    className="w-full text-xs font-medium text-slate-800 bg-white border border-slate-300 rounded-lg p-3 leading-relaxed focus:outline-none focus:ring-2 focus:ring-rose-500 whitespace-pre-wrap font-sans min-h-[280px] resize-y"
-                  />
-                  <div className="flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingCustomPrecautions(false)}
-                      className="px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 rounded-md transition-colors cursor-pointer"
-                    >
-                      취소
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSaveCustomPrecautions}
-                      className="px-3 py-1 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-md shadow-2xs transition-colors cursor-pointer"
-                    >
-                      저장
-                    </button>
-                  </div>
-                </div>
+                <PrecautionsTextEditor
+                  value={editCustomPrecautionsValue}
+                  onChange={setEditCustomPrecautionsValue}
+                  onSave={handleSaveCustomPrecautions}
+                  onCancel={() => setIsEditingCustomPrecautions(false)}
+                  placeholder="사용상의 주의사항 내용을 입력하세요."
+                  saveButtonColor="rose"
+                />
               ) : (
                 <div className="bg-rose-50/30 border border-rose-200/70 rounded-xl p-4 space-y-3">
-                  <div className="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap font-sans font-medium max-h-[380px] overflow-y-auto pr-1">
-                    {precautionsFullText || '등록된 사용상의 주의사항이 없습니다.'}
+                  <div className="max-h-[380px] overflow-y-auto pr-1">
+                    {renderFormattedPrecautionsText(precautionsFullText)}
                   </div>
 
                   {product.otcDetail?.storageMethodKorean && (

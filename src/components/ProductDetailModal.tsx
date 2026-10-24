@@ -3190,7 +3190,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     title="기능성 및 영양 정보 직접 수정 (줄바꿈 가능)"
                   >
                     <Edit3 className="w-3 h-3" />
-                    <span>기능성 수정</span>
+                    <span>수정</span>
                   </button>
                 )}
               </div>
@@ -3204,9 +3204,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <textarea
                     value={editClaimsValue}
                     onChange={(e) => setEditClaimsValue(e.target.value)}
-                    rows={4}
+                    rows={12}
                     placeholder={`예)\n결합조직 형성과 기능유지에 필요\n철의 흡수에 필요\n항산화 작용을 하여 유해산소로부터 세포를 보호하는데 필요`}
-                    className="w-full text-xs font-medium text-slate-800 bg-white border border-slate-300 rounded-lg p-2.5 leading-relaxed focus:outline-none focus:ring-2 focus:ring-sky-500 whitespace-pre-wrap font-sans"
+                    className="w-full text-xs font-medium text-slate-800 bg-white border border-slate-300 rounded-lg p-3 leading-relaxed focus:outline-none focus:ring-2 focus:ring-sky-500 whitespace-pre-wrap font-sans min-h-[280px] resize-y"
                   />
                   <div className="flex justify-end gap-2">
                     <button
@@ -3338,7 +3338,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     title="섭취 시 주의사항 직접 수정 (줄바꿈 가능)"
                   >
                     <Edit3 className="w-3 h-3" />
-                    <span>주의사항 수정</span>
+                    <span>수정</span>
                   </button>
                 )}
               </div>
@@ -3352,9 +3352,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <textarea
                     value={editCustomPrecautionsValue}
                     onChange={(e) => setEditCustomPrecautionsValue(e.target.value)}
-                    rows={4}
+                    rows={12}
                     placeholder={`예)\n1. 이상사례 발생 시 섭취를 중단하고 전문가와 상담하십시오.\n2. 특이체질, 알레르기 체질의 경우 원료를 확인한 후 섭취하십시오.`}
-                    className="w-full text-xs font-medium text-slate-800 bg-white border border-slate-300 rounded-lg p-2.5 leading-relaxed focus:outline-none focus:ring-2 focus:ring-rose-500 whitespace-pre-wrap font-sans"
+                    className="w-full text-xs font-medium text-slate-800 bg-white border border-slate-300 rounded-lg p-3 leading-relaxed focus:outline-none focus:ring-2 focus:ring-rose-500 whitespace-pre-wrap font-sans min-h-[280px] resize-y"
                   />
                   <div className="flex justify-end gap-2">
                     <button
@@ -3405,7 +3405,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       title="효능·효과 직접 수정"
                     >
                       <Edit3 className="w-3 h-3" />
-                      <span>효능 수정</span>
+                      <span>수정</span>
                     </button>
                   )}
                 </div>
@@ -3420,8 +3420,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <textarea
                     value={editOtcIndicationsValue}
                     onChange={(e) => setEditOtcIndicationsValue(e.target.value)}
-                    rows={4}
-                    className="w-full text-xs font-medium text-slate-800 bg-white border border-slate-300 rounded-lg p-2.5 leading-relaxed focus:outline-none focus:ring-2 focus:ring-sky-500 whitespace-pre-wrap font-sans"
+                    rows={12}
+                    className="w-full text-xs font-medium text-slate-800 bg-white border border-slate-300 rounded-lg p-3 leading-relaxed focus:outline-none focus:ring-2 focus:ring-sky-500 whitespace-pre-wrap font-sans min-h-[280px] resize-y"
                   />
                   <div className="flex justify-end gap-2">
                     <button
@@ -3469,7 +3469,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       title="주의사항 직접 수정"
                     >
                       <Edit3 className="w-3 h-3" />
-                      <span>주의사항 수정</span>
+                      <span>수정</span>
                     </button>
                   )}
                 </div>
@@ -3484,8 +3484,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <textarea
                     value={editCustomPrecautionsValue}
                     onChange={(e) => setEditCustomPrecautionsValue(e.target.value)}
-                    rows={4}
-                    className="w-full text-xs font-medium text-slate-800 bg-white border border-slate-300 rounded-lg p-2.5 leading-relaxed focus:outline-none focus:ring-2 focus:ring-rose-500 whitespace-pre-wrap font-sans"
+                    rows={12}
+                    className="w-full text-xs font-medium text-slate-800 bg-white border border-slate-300 rounded-lg p-3 leading-relaxed focus:outline-none focus:ring-2 focus:ring-rose-500 whitespace-pre-wrap font-sans min-h-[280px] resize-y"
                   />
                   <div className="flex justify-end gap-2">
                     <button

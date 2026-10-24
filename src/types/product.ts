@@ -10,6 +10,7 @@ export interface OtcDrugRegulatoryDetail {
   atcCode?: string;                     // ATC(Anatomical Therapeutic Chemical) 분류 코드
   kpaicCode?: string;                   // 약학정보원 표준 식별 코드
   indicationsKorean: string[];          // 허가받은 효능·효과 (식약처 전문)
+  indicationsFullText?: string;         // 허가받은 효능·효과 직접 수정/전문
   dosageAndAdministrationKorean: string;// 용법·용량 (식약처 허가사항)
   storageMethodKorean: string;          // 저장 방법 (예: "기밀용기, 실온(1~30℃)보관")
   precautionsSummaryKorean: string[];   // 사용상의 주의사항 요약

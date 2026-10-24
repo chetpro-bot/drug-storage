@@ -1312,12 +1312,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     setIsEditingCustomPrecautions(true);
   };
 
-  // 주의사항 수정 저장 (줄바꿈 보존 및 영구 유지)
+  // 주의사항 수정 저장 (줄바꿈 및 빈 줄 원형 100% 보존)
   const handleSaveCustomPrecautions = async () => {
     if (!product) return;
-    const trimmed = editCustomPrecautionsValue.trim();
+    const rawVal = editCustomPrecautionsValue;
+    const trimmed = rawVal.trim();
     setIsEditingCustomPrecautions(false);
-    const lines = trimmed.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+    // 빈 줄(엔터 2번 등)을 제거하지 않고 원본 그대로 보존
+    const lines = rawVal.split(/\r?\n/).map((s) => s.trimEnd());
 
     try {
       if (product.classification === 'OTC_DRUG') {
@@ -1332,7 +1334,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               storageMethodKorean: '',
               precautionsSummaryKorean: []
             }),
-            precautionsFullText: trimmed,
+            precautionsFullText: rawVal,
             precautionsSummaryKorean: lines.length > 0 ? lines : [trimmed]
           }
         });
@@ -1345,7 +1347,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               functionalClaimsKorean: [],
               suggestedUseKorean: ''
             }),
-            safetyPrecautionsText: trimmed,
+            safetyPrecautionsText: rawVal,
             safetyPrecautionsKorean: lines.length > 0 ? lines : [trimmed]
           }
         });
@@ -1358,17 +1360,21 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   // 일반의약품 효능·효과 직접 수정 시작
   const handleStartEditOtcIndications = () => {
     if (!product) return;
-    const currentText = otcIndicationsFullText || (product.otcDetail?.indicationsKorean || []).join('\n');
+    const currentText =
+      product.otcDetail?.indicationsFullText ||
+      otcIndicationsFullText ||
+      (product.otcDetail?.indicationsKorean || []).join('\n');
     setEditOtcIndicationsValue(currentText);
     setIsEditingOtcIndications(true);
   };
 
-  // 일반의약품 효능·효과 수정 저장
+  // 일반의약품 효능·효과 수정 저장 (줄바꿈 및 빈 줄 원형 100% 보존)
   const handleSaveOtcIndications = async () => {
     if (!product) return;
-    const trimmed = editOtcIndicationsValue.trim();
+    const rawVal = editOtcIndicationsValue;
+    const trimmed = rawVal.trim();
     setIsEditingOtcIndications(false);
-    const lines = trimmed.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+    const lines = rawVal.split(/\r?\n/).map((s) => s.trimEnd());
 
     try {
       await updateProduct(product.id, {
@@ -1381,6 +1387,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             storageMethodKorean: '',
             precautionsSummaryKorean: []
           }),
+          indicationsFullText: rawVal,
           indicationsKorean: lines.length > 0 ? lines : [trimmed]
         }
       });
@@ -2273,9 +2280,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   // 성분 정렬 (비타민 A, B1..B9..B12, C, D, E, K -> 미네랄 알파벳순 -> 기타 성분 알파벳순; 동일 분류 내 알파벳순)
   const sortedIngredients = sortProductIngredients(product.ingredients, product.productName);
 
-  // 일반의약품: 식약처 효능·효과 전문 텍스트 (요약 없이 원문 그대로 표시)
+  // 일반의약품: 식약처 효능·효과 전문 텍스트 (요약 없이 원문 그대로 표시, 직접 수정 텍스트 최우선)
   const otcIndicationsList = product.otcDetail?.indicationsKorean || [];
-  const otcIndicationsFullText = otcIndicationsList.join('\n');
+  const otcIndicationsFullText =
+    product.otcDetail?.indicationsFullText ||
+    otcIndicationsList.join('\n');
 
 
 
@@ -2311,7 +2320,11 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   };
 
   const precautionsList = getOfficialApiPrecautions();
-  const precautionsFullText = precautionsList.join('\n');
+  const precautionsFullText =
+    (product.classification === 'OTC_DRUG'
+      ? product.otcDetail?.precautionsFullText || (product.otcDetail?.precautionsSummaryKorean || []).join('\n')
+      : product.functionalFoodDetail?.safetyPrecautionsText || (product.functionalFoodDetail?.safetyPrecautionsKorean || []).join('\n')) ||
+    precautionsList.join('\n');
   const summarizedPrecautions = summarizePrecautions(
     precautionsList,
     product.functionalFoodDetail?.labelPrecautionsText

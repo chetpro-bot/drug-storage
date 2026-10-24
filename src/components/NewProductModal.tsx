@@ -771,10 +771,10 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
     setIsSubmitting(true);
     try {
       const parsedIndications = indicationsText
-        ? indicationsText.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)
+        ? indicationsText.split(/\r?\n/).map((s) => s.trimEnd())
         : [];
       const parsedPrecautions = precautionsText
-        ? precautionsText.split(/\r?\n/).map((s) => s.trim()).filter(Boolean)
+        ? precautionsText.split(/\r?\n/).map((s) => s.trimEnd())
         : publicDataFetched?.precautionsSummary || [];
 
       // 시스템 정식 사전에 미등록된 신규 성분 자동 영구 학습 및 사전 등록
@@ -830,8 +830,10 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                   itemSeq: regulatoryCode || productToEdit.otcDetail?.itemSeq || `${Math.floor(202000000 + Math.random() * 4000000)}`,
                   permitDate: productToEdit.otcDetail?.permitDate || new Date().toISOString().slice(0, 10),
                   indicationsKorean: parsedIndications.length > 0 ? parsedIndications : productToEdit.otcDetail?.indicationsKorean || ['피로회복 및 신경통 완화'],
+                  indicationsFullText: indicationsText || productToEdit.otcDetail?.indicationsFullText,
                   dosageAndAdministrationKorean: dosageInstruction || `1일 ${dailyServings}회, 1회 ${amountPerServing}${servingUnitKorean} 복용`,
                   storageMethodKorean: publicDataFetched?.storageMethod || productToEdit.otcDetail?.storageMethodKorean || '기밀용기, 실온(1~30℃)보관',
+                  precautionsFullText: precautionsText || productToEdit.otcDetail?.precautionsFullText,
                   precautionsSummaryKorean:
                     parsedPrecautions.length > 0
                       ? parsedPrecautions
@@ -903,8 +905,10 @@ export const NewProductModal: React.FC<NewProductModalProps> = ({
                 itemSeq: regulatoryCode || `${Math.floor(202000000 + Math.random() * 4000000)}`,
                 permitDate: new Date().toISOString().slice(0, 10),
                 indicationsKorean: parsedIndications.length > 0 ? parsedIndications : ['피로회복 및 신경통 완화'],
+                indicationsFullText: indicationsText || undefined,
                 dosageAndAdministrationKorean: dosageInstruction || `1일 ${dailyServings}회, 1회 ${amountPerServing}${servingUnitKorean} 복용`,
                 storageMethodKorean: publicDataFetched?.storageMethod || '기밀용기, 실온(1~30℃)보관',
+                precautionsFullText: precautionsText || undefined,
                 precautionsSummaryKorean: parsedPrecautions.length > 0 ? parsedPrecautions : ['복용 전 설명서 참조']
               }
             }

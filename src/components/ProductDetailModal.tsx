@@ -54,8 +54,11 @@ import {
   StickyNote,
   Check,
   Save,
-  Highlighter
+  Highlighter,
+  LayoutGrid,
+  CheckCircle2
 } from 'lucide-react';
+import { parseFunctionalClaimsToStructuredGroups } from '../utils/functionalClaimsHelper';
 
 interface ProductDetailModalProps {
   product: ProductItem | null;
@@ -903,6 +906,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   // 기능성 직접 수정 모드 및 입력값 상태 (줄바꿈 지원)
   const [isEditingClaims, setIsEditingClaims] = useState(false);
   const [editClaimsValue, setEditClaimsValue] = useState('');
+  // 기능성 가독성 뷰 모드 ('FORMATTED': 고가독성 구조화 카드 보기, 'RAW': API 원문 텍스트 보기)
+  const [claimsViewMode, setClaimsViewMode] = useState<'FORMATTED' | 'RAW'>('FORMATTED');
 
   // 섭취 시/사용상의 주의사항 직접 수정 모드 및 입력값 상태 (줄바꿈 지원)
   const [isEditingCustomPrecautions, setIsEditingCustomPrecautions] = useState(false);
@@ -1068,118 +1073,187 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     return { servingInfo, footerNote, rows };
   };
 
-  // API 전문 보기 모달 본문 렌더러 (영양정보를 고가독성 표로 스마트 전환 렌더링)
+  // API 전문 보기 모달 본문 렌더러 (영양정보를 고가독성 표로 스마트 전환, 기능성을 고가독성 카드로 구조화 렌더링)
   const renderApiModalContent = (fullText: string, highlights: string[]) => {
     if (!fullText) return null;
 
-    // '■ 영양정보:' 블록이 포함되어 있는지 확인
-    const nutritionHeaderIndex = fullText.indexOf('■ 영양정보:');
-    if (nutritionHeaderIndex === -1) {
-      return (
-        <div className="whitespace-pre-wrap">
-          {renderApiTextWithCustomHighlights(fullText, highlights)}
-        </div>
-      );
-    }
-
-    // 영양정보 이전 텍스트와 영양정보 이후(다음 ■ 섹션 시작) 텍스트를 분리
-    const beforeNutrition = fullText.slice(0, nutritionHeaderIndex).trim();
-    const afterHeader = fullText.slice(nutritionHeaderIndex + '■ 영양정보:'.length);
-
-    // 다음 ■ 섹션 찾기
-    const nextSectionMatch = afterHeader.search(/\n\s*■\s+/);
-    let nutritionContent = '';
-    let afterNutrition = '';
-
-    if (nextSectionMatch !== -1) {
-      nutritionContent = afterHeader.slice(0, nextSectionMatch).trim();
-      afterNutrition = afterHeader.slice(nextSectionMatch).trim();
-    } else {
-      nutritionContent = afterHeader.trim();
-    }
-
-    const { servingInfo, footerNote, rows } = parseNutritionTableFromSection(nutritionContent);
+    // ■ 기호로 시작하는 섹션들로 분할
+    const sectionChunks = fullText.split(/(?=\n\s*■\s+)/);
 
     return (
       <div className="space-y-4 font-sans">
-        {beforeNutrition && (
-          <div className="whitespace-pre-wrap leading-relaxed font-mono">
-            {renderApiTextWithCustomHighlights(beforeNutrition, highlights)}
-          </div>
-        )}
+        {sectionChunks.map((chunk, cIdx) => {
+          const trimmedChunk = chunk.trim();
+          if (!trimmedChunk) return null;
 
-        {/* 영양정보 깔끔한 표 영역 */}
-        <div className="border border-slate-300 rounded-xl overflow-hidden bg-white shadow-xs">
-          <div className="px-4 py-2.5 bg-slate-100 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
-            <span className="font-extrabold text-slate-900 text-xs sm:text-[13px] flex items-center gap-1.5">
-              ■ 영양정보
-            </span>
-            {servingInfo && (
-              <span className="text-[11px] font-semibold text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200 shadow-2xs">
-                {renderApiTextWithCustomHighlights(servingInfo, highlights)}
-              </span>
-            )}
-          </div>
+          // 1. 영양정보 섹션 감지 -> 고가독성 표 렌더링
+          if (/^■\s*(?:영양정보|영양·기능정보|영양성분)\s*[:：]?/i.test(trimmedChunk)) {
+            const headerMatch = trimmedChunk.match(/^■\s*(?:영양정보|영양·기능정보|영양성분)\s*[:：]?\s*/i);
+            const content = headerMatch ? trimmedChunk.slice(headerMatch[0].length).trim() : trimmedChunk;
+            const { servingInfo, footerNote, rows } = parseNutritionTableFromSection(content);
 
-          {rows.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
-                    <th className="px-4 py-2">영양성분명</th>
-                    <th className="px-4 py-2 text-right">1일 섭취량당 함량</th>
-                    <th className="px-4 py-2 text-right">% 영양성분기준치</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-mono">
-                  {rows.map((row, rIdx) => {
-                    if (row.type === 'SECTION_HEADER') {
-                      return (
-                        <tr key={rIdx} className="bg-sky-50/70 border-y border-sky-200 font-bold text-sky-900 font-sans">
-                          <td colSpan={3} className="px-4 py-1.5 text-xs">
-                            <span className="flex items-center gap-1.5">
-                              <Sparkles className="w-3.5 h-3.5 text-sky-600 shrink-0" />
-                              {row.title}
-                            </span>
-                          </td>
+            return (
+              <div key={cIdx} className="border border-slate-300 rounded-xl overflow-hidden bg-white shadow-xs">
+                <div className="px-4 py-2.5 bg-slate-100 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-extrabold text-slate-900 text-xs sm:text-[13px] flex items-center gap-1.5">
+                    ■ 영양정보
+                  </span>
+                  {servingInfo && (
+                    <span className="text-[11px] font-semibold text-slate-700 bg-white px-2 py-0.5 rounded border border-slate-200 shadow-2xs">
+                      {renderApiTextWithCustomHighlights(servingInfo, highlights)}
+                    </span>
+                  )}
+                </div>
+
+                {rows.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+                          <th className="px-4 py-2">영양성분명</th>
+                          <th className="px-4 py-2 text-right">1일 섭취량당 함량</th>
+                          <th className="px-4 py-2 text-right">% 영양성분기준치</th>
                         </tr>
-                      );
-                    }
-                    return (
-                      <tr key={rIdx} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="px-4 py-2 font-medium text-slate-800 font-sans">
-                          {renderApiTextWithCustomHighlights(row.name || '', highlights)}
-                        </td>
-                        <td className="px-4 py-2 text-right font-bold text-slate-900">
-                          {renderApiTextWithCustomHighlights(row.amount || '', highlights)}
-                        </td>
-                        <td className="px-4 py-2 text-right text-slate-600 font-medium">
-                          {renderApiTextWithCustomHighlights(row.percent || '-', highlights)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="p-4 whitespace-pre-wrap font-mono">
-              {renderApiTextWithCustomHighlights(nutritionContent, highlights)}
-            </div>
-          )}
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-mono">
+                        {rows.map((row, rIdx) => {
+                          if (row.type === 'SECTION_HEADER') {
+                            return (
+                              <tr key={rIdx} className="bg-sky-50/70 border-y border-sky-200 font-bold text-sky-900 font-sans">
+                                <td colSpan={3} className="px-4 py-1.5 text-xs">
+                                  <span className="flex items-center gap-1.5">
+                                    <Sparkles className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                                    {row.title}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          }
+                          return (
+                            <tr key={rIdx} className="hover:bg-slate-50/70 transition-colors">
+                              <td className="px-4 py-2 font-medium text-slate-800 font-sans">
+                                {renderApiTextWithCustomHighlights(row.name || '', highlights)}
+                              </td>
+                              <td className="px-4 py-2 text-right font-bold text-slate-900">
+                                {renderApiTextWithCustomHighlights(row.amount || '', highlights)}
+                              </td>
+                              <td className="px-4 py-2 text-right text-slate-600 font-medium">
+                                {renderApiTextWithCustomHighlights(row.percent || '-', highlights)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="p-4 whitespace-pre-wrap font-mono">
+                    {renderApiTextWithCustomHighlights(content, highlights)}
+                  </div>
+                )}
 
-          {footerNote && (
-            <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500 leading-normal font-sans">
-              {renderApiTextWithCustomHighlights(footerNote, highlights)}
-            </div>
-          )}
-        </div>
+                {footerNote && (
+                  <div className="px-4 py-2 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-500 leading-normal font-sans">
+                    {renderApiTextWithCustomHighlights(footerNote, highlights)}
+                  </div>
+                )}
+              </div>
+            );
+          }
 
-        {afterNutrition && (
-          <div className="whitespace-pre-wrap leading-relaxed font-mono">
-            {renderApiTextWithCustomHighlights(afterNutrition, highlights)}
-          </div>
-        )}
+          // 2. 주된 기능성 / 기능정보 섹션 감지 -> 고가독성 카드 렌더링
+          if (/^■\s*(?:주된\s*기능성|기능정보|기능성\s*정보|기능성)\s*[:：]?/i.test(trimmedChunk)) {
+            const headerMatch = trimmedChunk.match(/^■\s*(?:주된\s*기능성|기능정보|기능성\s*정보|기능성)\s*[:：]?\s*/i);
+            const content = headerMatch ? trimmedChunk.slice(headerMatch[0].length).trim() : trimmedChunk;
+            const groups = parseFunctionalClaimsToStructuredGroups(content);
+
+            if (groups.length > 0) {
+              const hasHeaders = groups.some((g) => g.header);
+              const totalItems = groups.reduce((acc, g) => acc + g.items.length, 0);
+
+              return (
+                <div key={cIdx} className="border border-slate-300 rounded-xl overflow-hidden bg-white shadow-xs">
+                  <div className="px-4 py-2.5 bg-slate-100 border-b border-slate-200 flex items-center justify-between gap-2">
+                    <span className="font-extrabold text-slate-900 text-xs sm:text-[13px] flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                      {headerMatch ? headerMatch[0].replace(/[:：]\s*$/, '').trim() : '■ 주된 기능성'}
+                    </span>
+                    <span className="text-[11px] font-semibold text-slate-500">
+                      {totalItems}개 기능성 항목 (원문 100% 보존)
+                    </span>
+                  </div>
+                  <div className="p-4 bg-slate-50/50">
+                    {hasHeaders ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {groups.map((group) => (
+                          <div
+                            key={group.id}
+                            className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs space-y-2"
+                          >
+                            <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold bg-sky-50 text-sky-900 border border-sky-200">
+                                {group.header}
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-medium">
+                                {group.items.length}개
+                              </span>
+                            </div>
+                            <ul className="space-y-1.5">
+                              {group.items.map((item) => (
+                                <li
+                                  key={item.id}
+                                  className="flex items-start gap-2 text-xs text-slate-700 leading-relaxed font-medium"
+                                >
+                                  {item.bulletPrefix ? (
+                                    <span className="text-[10px] font-bold text-sky-700 bg-sky-50 px-1 py-0.2 rounded shrink-0">
+                                      {item.bulletPrefix}
+                                    </span>
+                                  ) : (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-sky-500 mt-1.5 shrink-0" />
+                                  )}
+                                  <span className="break-keep">
+                                    {renderApiTextWithCustomHighlights(item.text, highlights)}
+                                  </span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <ul className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-2xs space-y-2">
+                        {groups.flatMap((g) => g.items).map((item) => (
+                          <li
+                            key={item.id}
+                            className="flex items-start gap-2 text-xs text-slate-700 leading-relaxed font-medium"
+                          >
+                            {item.bulletPrefix ? (
+                              <span className="text-[10px] font-bold text-sky-700 bg-sky-50 px-1 py-0.2 rounded shrink-0">
+                                {item.bulletPrefix}
+                              </span>
+                            ) : (
+                              <span className="w-1.5 h-1.5 rounded-full bg-sky-500 mt-1.5 shrink-0" />
+                            )}
+                            <span className="break-keep">
+                              {renderApiTextWithCustomHighlights(item.text, highlights)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              );
+            }
+          }
+
+          // 3. 기타 일반 섹션 (원재료명, 기준 및 규격, 섭취방법, 주의사항 등)
+          return (
+            <div key={cIdx} className="whitespace-pre-wrap leading-relaxed font-mono">
+              {renderApiTextWithCustomHighlights(trimmedChunk, highlights)}
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -3185,77 +3259,194 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         </div>
           </div>
 
-          {/* 건강기능식품, 수입제품, 일반식품/기타가공품: 기능성 (직접 수정 지원) */}
+          {/* 건강기능식품, 수입제품, 일반식품/기타가공품: 기능성 (직접 수정 및 고가독성 구조화 뷰 지원) */}
           {product.classification !== 'OTC_DRUG' && (
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-extrabold text-slate-500">기능성</h3>
-                {!isEditingClaims && (
-                  <button
-                    type="button"
-                    onClick={handleStartEditClaims}
-                    className="text-[11px] font-semibold text-sky-600 hover:text-sky-700 hover:underline flex items-center gap-1 cursor-pointer"
-                    title="기능성 및 영양 정보 직접 수정 (줄바꿈 가능)"
-                  >
-                    <Edit3 className="w-3 h-3" />
-                    <span>수정</span>
-                  </button>
-                )}
-              </div>
+            <div className="space-y-2">
+              {(() => {
+                const claimsDisplay =
+                  product.functionalFoodDetail?.functionalClaimsText ||
+                  (product.functionalFoodDetail?.functionalClaimsKorean &&
+                    product.functionalFoodDetail.functionalClaimsKorean.join('\n')) ||
+                  '';
+                const structuredGroups = claimsDisplay ? parseFunctionalClaimsToStructuredGroups(claimsDisplay) : [];
+                const totalItemsCount = structuredGroups.reduce((acc, g) => acc + g.items.length, 0);
+                const nutrientGroupsCount = structuredGroups.filter((g) => g.header).length;
+                const hasNutrientHeaders = nutrientGroupsCount > 0;
 
-              {isEditingClaims ? (
-                <div className="space-y-2 bg-[#f8fafc] border border-sky-300 rounded-xl p-3">
-                  <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
-                    <span>엔터(Enter) 키로 줄바꿈하여 기능성 정보를 입력하세요.</span>
-                    <span className="text-amber-600 font-bold">줄바꿈 지원</span>
-                  </div>
-                  <textarea
-                    value={editClaimsValue}
-                    onChange={(e) => setEditClaimsValue(e.target.value)}
-                    rows={12}
-                    placeholder={`예)\n결합조직 형성과 기능유지에 필요\n철의 흡수에 필요\n항산화 작용을 하여 유해산소로부터 세포를 보호하는데 필요`}
-                    className="w-full text-xs font-medium text-slate-800 bg-white border border-slate-300 rounded-lg p-3 leading-relaxed focus:outline-none focus:ring-2 focus:ring-sky-500 whitespace-pre-wrap font-sans min-h-[280px] resize-y"
-                  />
-                  <div className="flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingClaims(false)}
-                      className="px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 rounded-md transition-colors cursor-pointer"
-                    >
-                      취소
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSaveClaims}
-                      className="px-3 py-1 text-xs font-bold text-white bg-sky-600 hover:bg-sky-700 rounded-md shadow-2xs transition-colors cursor-pointer"
-                    >
-                      저장
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-4">
-                  {(() => {
-                    const claimsDisplay =
-                      product.functionalFoodDetail?.functionalClaimsText ||
-                      (product.functionalFoodDetail?.functionalClaimsKorean &&
-                        product.functionalFoodDetail.functionalClaimsKorean.join('\n')) ||
-                      '';
-                    if (claimsDisplay) {
-                      return (
-                        <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap font-sans font-medium">
+                return (
+                  <>
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-xs font-extrabold text-slate-500">기능성</h3>
+                        {Boolean(claimsDisplay) && !isEditingClaims && (
+                          <span className="text-[10px] font-bold text-sky-700 bg-sky-50 border border-sky-200/80 px-2 py-0.5 rounded-full inline-flex items-center gap-1 shadow-2xs">
+                            <Sparkles className="w-2.5 h-2.5 text-sky-600" />
+                            <span>
+                              {hasNutrientHeaders
+                                ? `영양·기능성분 ${nutrientGroupsCount}종 (${totalItemsCount}개 기능성)`
+                                : `기능성 ${totalItemsCount}개 항목`}
+                            </span>
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        {!isEditingClaims && Boolean(claimsDisplay) && (
+                          <button
+                            type="button"
+                            onClick={() => setClaimsViewMode((prev) => (prev === 'RAW' ? 'FORMATTED' : 'RAW'))}
+                            className="text-[11px] font-semibold text-slate-600 hover:text-sky-700 bg-white hover:bg-sky-50 border border-slate-200 hover:border-sky-300 px-2.5 py-1 rounded-lg transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                            title={claimsViewMode === 'RAW' ? '가독성 높은 정리 카드 보기로 전환' : 'API 원문 텍스트 그대로 보기'}
+                          >
+                            {claimsViewMode === 'RAW' ? (
+                              <>
+                                <LayoutGrid className="w-3 h-3 text-sky-600" />
+                                <span>정리 카드 보기</span>
+                              </>
+                            ) : (
+                              <>
+                                <FileText className="w-3 h-3 text-slate-500" />
+                                <span>원문 보기</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+
+                        {!isEditingClaims && (
+                          <button
+                            type="button"
+                            onClick={handleStartEditClaims}
+                            className="text-[11px] font-semibold text-sky-600 hover:text-sky-700 hover:underline flex items-center gap-1 cursor-pointer"
+                            title="기능성 및 영양 정보 직접 수정 (줄바꿈 가능)"
+                          >
+                            <Edit3 className="w-3 h-3" />
+                            <span>수정</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {isEditingClaims ? (
+                      <div className="space-y-2 bg-[#f8fafc] border border-sky-300 rounded-xl p-3">
+                        <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
+                          <span>엔터(Enter) 키로 줄바꿈하여 기능성 정보를 입력하세요.</span>
+                          <span className="text-amber-600 font-bold">줄바꿈 지원</span>
+                        </div>
+                        <textarea
+                          value={editClaimsValue}
+                          onChange={(e) => setEditClaimsValue(e.target.value)}
+                          rows={12}
+                          placeholder={`예)\n결합조직 형성과 기능유지에 필요\n철의 흡수에 필요\n항산화 작용을 하여 유해산소로부터 세포를 보호하는데 필요`}
+                          className="w-full text-xs font-medium text-slate-800 bg-white border border-slate-300 rounded-lg p-3 leading-relaxed focus:outline-none focus:ring-2 focus:ring-sky-500 whitespace-pre-wrap font-sans min-h-[280px] resize-y"
+                        />
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setIsEditingClaims(false)}
+                            className="px-2.5 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 rounded-md transition-colors cursor-pointer"
+                          >
+                            취소
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSaveClaims}
+                            className="px-3 py-1 text-xs font-bold text-white bg-sky-600 hover:bg-sky-700 rounded-md shadow-2xs transition-colors cursor-pointer"
+                          >
+                            저장
+                          </button>
+                        </div>
+                      </div>
+                    ) : !claimsDisplay ? (
+                      <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-4">
+                        <p className="text-xs text-slate-400">
+                          등록된 기능성 정보가 없습니다. (우측 '수정'으로 등록 가능)
+                        </p>
+                      </div>
+                    ) : claimsViewMode === 'RAW' ? (
+                      <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-4">
+                        <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap font-mono font-medium select-text">
                           {claimsDisplay}
                         </p>
-                      );
-                    }
-                    return (
-                      <p className="text-xs text-slate-400">
-                        등록된 기능성 정보가 없습니다. (우측 '수정'으로 등록 가능)
-                      </p>
-                    );
-                  })()}
-                </div>
-              )}
+                      </div>
+                    ) : (
+                      <div className="bg-slate-50/70 border border-slate-200/90 rounded-2xl p-3 sm:p-4 shadow-2xs">
+                        {hasNutrientHeaders ? (
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {structuredGroups.map((group) => (
+                              <div
+                                key={group.id}
+                                className="bg-white border border-slate-200/80 rounded-xl p-3.5 shadow-2xs hover:border-sky-300 transition-all flex flex-col justify-between"
+                              >
+                                <div>
+                                  {/* 카드 상단: 영양소/원료명 뱃지 및 항목 수 */}
+                                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-black bg-sky-50 text-sky-900 border border-sky-200 shadow-2xs">
+                                      <Sparkles className="w-3 h-3 text-sky-600 shrink-0" />
+                                      <span>{group.header || '기능성'}</span>
+                                    </span>
+                                    <span className="text-[11px] font-semibold text-slate-400">
+                                      {group.items.length}개 항목
+                                    </span>
+                                  </div>
+
+                                  {/* 기능성 항목 리스트 (내용 원형 100% 보존) */}
+                                  <ul className="pt-2.5 space-y-2">
+                                    {group.items.map((item) => (
+                                      <li
+                                        key={item.id}
+                                        className="flex items-start gap-2 text-xs text-slate-700 leading-relaxed font-medium"
+                                      >
+                                        {item.bulletPrefix ? (
+                                          <span className="text-[11px] font-bold text-sky-700 bg-sky-50 px-1 py-0.2 rounded shrink-0">
+                                            {item.bulletPrefix}
+                                          </span>
+                                        ) : (
+                                          <span className="w-1.5 h-1.5 rounded-full bg-sky-500 mt-1.5 shrink-0" />
+                                        )}
+                                        <span className="select-text break-keep leading-relaxed">{item.text}</span>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          /* 영양소 헤더 구분이 없는 단일 기능성 목록인 경우 */
+                          <div className="bg-white border border-slate-200/80 rounded-xl p-4 shadow-2xs space-y-2.5">
+                            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                              <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
+                                <CheckCircle2 className="w-4 h-4 text-sky-600 shrink-0" />
+                                <span>식약처 인정 기능성 내용</span>
+                              </div>
+                              <span className="text-[11px] font-semibold text-slate-400">
+                                {totalItemsCount}개 항목
+                              </span>
+                            </div>
+                            <ul className="space-y-2 pt-1">
+                              {structuredGroups.flatMap((g) => g.items).map((item) => (
+                                <li
+                                  key={item.id}
+                                  className="flex items-start gap-2 text-xs text-slate-700 leading-relaxed font-medium"
+                                >
+                                  {item.bulletPrefix ? (
+                                    <span className="text-[11px] font-bold text-sky-700 bg-sky-50 px-1 py-0.2 rounded shrink-0">
+                                      {item.bulletPrefix}
+                                    </span>
+                                  ) : (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-sky-500 mt-1.5 shrink-0" />
+                                  )}
+                                  <span className="select-text break-keep leading-relaxed">{item.text}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           )}
 

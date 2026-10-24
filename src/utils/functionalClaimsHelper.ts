@@ -6,7 +6,7 @@ export interface ResolvedFunctionalClaim {
 }
 
 export const KNOWN_NUTRIENT_NAMES: string[] = [
-  '칼슘', '마그네슘', '아연', '구리', '동', '망간', '요오드', '아이오딘', '셀레늄', '셀렌', '크롬', '몰리브덴', '철', '칼륨',
+  '칼슘', '마그네슘', '아연', '구리', '동', '망간', '요오드', '아이오딘', '셀레늄', '셀렌', '크롬', '몰리브덴', '철', '칼륨', '나트륨', '인',
   '비타민A', '비타민 A', '베타카로틴',
   '비타민B1', '비타민 B1', '티아민',
   '비타민B2', '비타민 B2', '리보플라빈',
@@ -23,11 +23,17 @@ export const KNOWN_NUTRIENT_NAMES: string[] = [
   '프로바이오틱스', '유산균', '프락토올리고당', '신바이오틱스',
   'EPA 및 DHA', 'EPA/DHA', '오메가3', '오메가-3', 'EPA 및 DHA 함유 유지',
   '루테인', '지아잔틴', '루테인지아잔틴', '루테인·지아잔틴',
-  '밀크씨슬', '실리마린', '밀크씨슬추출물', '밀크씨슬 추출물', '홍삼', '인삼', '테아닌', 'L-테아닌',
+  '밀크씨슬', '실리마린', '밀크씨슬추출물', '밀크씨슬 추출물', '밀크시슬', '홍삼', '인삼', '테아닌', 'L-테아닌',
   '코엔자임Q10', '코엔자임 Q10', '코큐텐',
-  '쏘팔메토', '쏘팔메토열매추출물', '쏘팔메토 열매 추출물', '옥타코사놀', '가르시니아', '글루코사민', 'MSM', '엠에스엠',
+  '쏘팔메토', '쏘팔메토열매추출물', '쏘팔메토 열매 추출물', '옥타코사놀', '가르시니아', '가르시니아캄보지아', '글루코사민', 'MSM', '엠에스엠',
   '콜라겐', '히알루론산', '스피루리나', '클로렐라',
-  '포스파티딜세린', '은행잎추출물', '빌베리추출물', '녹차추출물', '바나바잎추출물', '홍경천추출물', '프로폴리스추출물'
+  '포스파티딜세린', '은행잎추출물', '빌베리추출물', '녹차추출물', '바나바잎추출물', '홍경천추출물', '프로폴리스추출물',
+  '차전자피', '난소화성말토덱스트린', '보스웰리아', '콘드로이친', '뮤코다당단백', '폴리코사놀', '사탕수수왁스알코올',
+  '감마리놀렌산', '달맞이꽃종자유', '보라지유', '알로에', '알로에전잎', '카테킨', '녹차카테킨',
+  '헤마토코쿠스', '아스타잔틴', '홍국', '모나콜린', '모나콜린K', '대두이소플라본', '이소플라본',
+  '포스파티딜콜린', '레시틴', '락토페린', '밀크세라마이드', '세라마이드', '글루타치온', '엘라스틴',
+  '아르기닌', 'L-아르기닌', '타우린', '마카', '구아검가수분해물', '귀리식이섬유', '키토산', '키토올리고당',
+  '징코', '은행잎', '커큐민', '강황', '아쉬와간다'
 ];
 
 export function normalizeNutrientName(name: string): string {
@@ -38,7 +44,7 @@ export function normalizeNutrientName(name: string): string {
 }
 
 export function isNutrientHeader(line: string): string | null {
-  const clean = line.replace(/^[①-⑩0-9\.\-\s]+/, '').replace(/제품$/, '').trim();
+  const clean = line.replace(/^[①-⑩⑴-⒇0-9\.\-\•\·\*\s]+/, '').replace(/제품$/, '').trim();
   if (!clean) return null;
 
   // Bracket style: [칼슘], 【마그네슘】, <아연>
@@ -54,12 +60,24 @@ export function isNutrientHeader(line: string): string | null {
   }
 
   // functional predicate endings cannot be nutrient headers
-  if (/(?:필요|도움|관여|유지|형성|감소|촉진|억제|증식|보호|대사|개선|있음|작용|발생|생성|이용)$/.test(clean)) {
+  if (/(?:필요|도움|관여|유지|형성|감소|촉진|억제|증식|보호|대사|개선|있음|작용|발생|생성|이용|원활|증진)$/.test(clean)) {
     return null;
   }
 
+  const cleanNormalized = normalizeNutrientName(clean);
+  const cleanNoSpaces = clean.replace(/\s+/g, '').toLowerCase();
+
+  // Direct match against known nutrient dictionary
+  const directMatch = KNOWN_NUTRIENT_NAMES.find((kn) => {
+    const knNoSpaces = kn.replace(/\s+/g, '').toLowerCase();
+    return knNoSpaces === cleanNoSpaces;
+  });
+  if (directMatch) {
+    return cleanNormalized;
+  }
+
   // Tokenize by separators: e.g. "셀레늄.구리.망간", "칼슘, 마그네슘"
-  const tokens = clean.split(/[\s,·\.\/\+및]+/).map((t) => t.trim()).filter(Boolean);
+  const tokens = clean.split(/[,·\.\/\+및]+/).map((t) => t.trim()).filter(Boolean);
   if (tokens.length === 0) return null;
 
   const allTokensNutrient = tokens.every((tok) => {
@@ -74,7 +92,7 @@ export function isNutrientHeader(line: string): string | null {
     });
   });
 
-  if (allTokensNutrient && clean.length <= 30) {
+  if (allTokensNutrient && clean.length <= 40) {
     return tokens.map(normalizeNutrientName).join(' · ');
   }
 
@@ -97,7 +115,7 @@ export function splitDescriptionPoints(desc: string): string[] {
   const results: string[] = [];
   for (const chunk of chunks) {
     // 필요/도움/있음/개선/증진/억제/원활/줌/관여 뒤의 쉼표에서 분리 (단어 내부의 '탄수화물,지방' 등은 보존)
-    const subParts = chunk.split(/(?<=(?:있음|필요|도움|개선|증진|억제|원활|줌|관여))\s*[,，]\s*/g);
+    const subParts = chunk.split(/(?<=(?:있음|필요|도움|개선|증진|억제|원활|줌|관여|보호|유지|형성|생성|감소))\s*[,，]\s*/g);
     for (const sp of subParts) {
       const clean = sp.replace(/^[0-9\.\-\s]+/, '').trim();
       if (clean && !/^\s*[\-·•]\s*$/.test(clean)) {
@@ -107,6 +125,208 @@ export function splitDescriptionPoints(desc: string): string[] {
   }
 
   return results;
+}
+
+export interface FormattedClaimItem {
+  id: string;
+  bulletPrefix?: string;
+  text: string;
+}
+
+export interface FormattedClaimGroup {
+  id: string;
+  header?: string;
+  items: FormattedClaimItem[];
+}
+
+/**
+ * 국내 및 수입 건강기능식품 API 전문 기능성 문구를 가독성 높은 구조화 그룹으로 파싱
+ * - 중요: API 원문의 단어 및 문장 내용을 임의 변경/누락/축약하지 않고 100% 보존
+ */
+export function parseFunctionalClaimsToStructuredGroups(rawText: string): FormattedClaimGroup[] {
+  if (!rawText || !rawText.trim()) return [];
+
+  // 섹션 시작 접두어(예: ■ 주된 기능성:, ■ 기능정보:, [기능정보]) 정리
+  const cleanedText = rawText
+    .replace(/^\s*(?:■\s*)?(?:주된\s*기능성|기능정보|기능성\s*정보|기능성|영양\s*·?\s*기능\s*정보)\s*[:：]?\s*(?:\r?\n|$)/i, '')
+    .trim();
+
+  if (!cleanedText) return [];
+
+  const rawLines = cleanedText.split(/\r?\n/).map((l) => l.trim());
+  const groups: FormattedClaimGroup[] = [];
+  let currentGroup: FormattedClaimGroup | null = null;
+  let itemCounter = 0;
+
+  const pushItemToCurrent = (text: string, bulletPrefix?: string) => {
+    const cleanText = text.trim();
+    if (!cleanText) return;
+    if (!currentGroup) {
+      currentGroup = {
+        id: `claim_grp_${Date.now()}_${groups.length}`,
+        header: undefined,
+        items: []
+      };
+      groups.push(currentGroup);
+    }
+    itemCounter++;
+    currentGroup.items.push({
+      id: `claim_item_${itemCounter}`,
+      bulletPrefix,
+      text: cleanText
+    });
+  };
+
+  const processContent = (content: string) => {
+    const trimmed = content.trim();
+    if (!trimmed) return;
+
+    // A. 원숫자 불릿 ①, ②, ③
+    if (/[①-⑩]/.test(trimmed)) {
+      const parts = trimmed.split(/(?=[①-⑩])/g).map((s) => s.trim()).filter(Boolean);
+      for (const part of parts) {
+        const prefixMatch = part.match(/^([①-⑩])\s*(.*)$/);
+        if (prefixMatch) {
+          pushItemToCurrent(prefixMatch[2].trim(), prefixMatch[1]);
+        } else {
+          pushItemToCurrent(part);
+        }
+      }
+      return;
+    }
+
+    // B. 숫자 번호 매김 1., 2. 또는 1), 2)
+    const numPrefixMatch = trimmed.match(/^([0-9]{1,2}[\.\)])\s*(.+)$/);
+    if (numPrefixMatch) {
+      const rest = numPrefixMatch[2].trim();
+      const subParts = rest.split(/(?<=(?:있음|필요|도움|개선|증진|억제|원활|줌|관여|보호|유지|형성|생성|감소))\s*[,，]\s*/g);
+      if (subParts.length > 1) {
+        for (let idx = 0; idx < subParts.length; idx++) {
+          const sp = subParts[idx].trim();
+          if (sp) {
+            pushItemToCurrent(sp, idx === 0 ? numPrefixMatch[1] : undefined);
+          }
+        }
+      } else {
+        pushItemToCurrent(rest, numPrefixMatch[1]);
+      }
+      return;
+    }
+
+    // C. 기호 불릿 •, -, ·, *
+    const bulletMatch = trimmed.match(/^([•\-\·\*])\s*(.+)$/);
+    if (bulletMatch) {
+      const rest = bulletMatch[2].trim();
+      const subParts = rest.split(/(?<=(?:있음|필요|도움|개선|증진|억제|원활|줌|관여|보호|유지|형성|생성|감소))\s*[,，]\s*/g);
+      if (subParts.length > 1) {
+        for (const sp of subParts) {
+          const cleanSp = sp.trim();
+          if (cleanSp) pushItemToCurrent(cleanSp);
+        }
+      } else {
+        pushItemToCurrent(rest);
+      }
+      return;
+    }
+
+    // D. 종결형 동사(필요/도움/유지/감소/생성 등) 뒤 쉼표 분리 (문맥 내 '지방, 탄수화물' 등은 안전 보존)
+    const subParts = trimmed.split(/(?<=(?:있음|필요|도움|개선|증진|억제|원활|줌|관여|보호|유지|형성|생성|감소))\s*[,，]\s*/g);
+    if (subParts.length > 1) {
+      for (const sp of subParts) {
+        const cleanSp = sp.trim();
+        if (cleanSp) pushItemToCurrent(cleanSp);
+      }
+      return;
+    }
+
+    // E. 일반 단일 기능성 문장
+    pushItemToCurrent(trimmed);
+  };
+
+  for (let i = 0; i < rawLines.length; i++) {
+    const line = rawLines[i];
+    if (!line) continue;
+
+    // '■ 기능정보:', '■ 주된 기능성:' 단독 라인 건너뛰기
+    if (/^(?:■\s*)?(?:주된\s*기능성|기능정보|기능성\s*정보|영양\s*·?\s*기능\s*정보)\s*[:：]?\s*$/i.test(line)) {
+      continue;
+    }
+
+    // 패턴 1: 대괄호 단독 헤더 (예: '[칼슘]', '【마그네슘】')
+    const standaloneBracket = line.match(/^[\[【<](.+?)[\]】>]$/);
+    if (standaloneBracket) {
+      const headerName = normalizeNutrientName(standaloneBracket[1]);
+      currentGroup = {
+        id: `claim_grp_${headerName}_${groups.length}`,
+        header: headerName,
+        items: []
+      };
+      groups.push(currentGroup);
+      continue;
+    }
+
+    // 패턴 2: 단독 영양소/원료명 라인 (예: '칼슘', '마그네슘', '비타민D')
+    const standaloneNutrient = isNutrientHeader(line);
+    if (standaloneNutrient) {
+      currentGroup = {
+        id: `claim_grp_${standaloneNutrient}_${groups.length}`,
+        header: standaloneNutrient,
+        items: []
+      };
+      groups.push(currentGroup);
+      continue;
+    }
+
+    // 패턴 3: 대괄호 인라인 헤더 + 내용 (예: '[비타민C] 결합조직 형성과...')
+    const inlineBracket = line.match(/^\[([^\]]+)\]\s*(.+)$/);
+    if (inlineBracket) {
+      const headerName = normalizeNutrientName(inlineBracket[1]);
+      currentGroup = {
+        id: `claim_grp_${headerName}_${groups.length}`,
+        header: headerName,
+        items: []
+      };
+      groups.push(currentGroup);
+      processContent(inlineBracket[2]);
+      continue;
+    }
+
+    // 패턴 4: 콜론 인라인 헤더 + 내용 (예: '칼슘 : 뼈와 치아 형성에 필요' 또는 '1. 칼슘 : ...')
+    const colonMatch = line.match(/^([0-9\.\)\-\•\·\*\s]*)([가-힣A-Za-z0-9\s·\.,\+및\/\-]+?)[:：]\s*(.+)$/);
+    if (colonMatch) {
+      const candidateHeader = colonMatch[2].trim();
+      const verified = isNutrientHeader(candidateHeader);
+      if (verified) {
+        currentGroup = {
+          id: `claim_grp_${verified}_${groups.length}`,
+          header: verified,
+          items: []
+        };
+        groups.push(currentGroup);
+        processContent(colonMatch[3]);
+        continue;
+      }
+    }
+
+    // 패턴 5: 일반 기능성 문장
+    processContent(line);
+  }
+
+  // 항목이 있는 유효 그룹만 반환
+  const validGroups = groups.filter((g) => g.items.length > 0);
+
+  // 원문이 존재하는데 그룹화에서 누락되지 않도록 Fallback 보장
+  if (validGroups.length === 0 && rawText.trim()) {
+    return [
+      {
+        id: `claim_grp_fallback_${Date.now()}`,
+        header: undefined,
+        items: [{ id: 'claim_item_fallback', text: rawText.trim() }]
+      }
+    ];
+  }
+
+  return validGroups;
 }
 
 export const KFDA_CLAIM_RULES: { match: RegExp; nutrient: string }[] = [

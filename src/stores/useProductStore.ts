@@ -1015,6 +1015,145 @@ function migrateAndEnsureKpic(products: ProductItem[]): ProductItem[] {
       }
     }
 
+    // 혈행건강 써큐밸런스케어(20200012016198) 식약처 C003 기준규격 8종 성분 및 기능성 자동 동기화
+    if (prod.productName.includes('써큐밸런스') || prod.functionalFoodDetail?.reportNo === '20200012016198') {
+      const hasCircuIngredients = prod.ingredients.length >= 8 && prod.ingredients.some(i => (i.koreanName && i.koreanName.includes('플라보놀')));
+      if (!hasCircuIngredients) {
+        hasChanges = true;
+        const circuIngredients: ProductIngredientEntry[] = [
+          {
+            ingredientId: 'ing_circu_flavonol_36mg',
+            englishInn: 'Flavonol Glycosides',
+            koreanName: '플라보놀배당체',
+            functionalCategory: '은행잎추출물',
+            chemicalFormName: '은행잎추출물분말',
+            rawAmount: 36,
+            unit: 'mg',
+            ingredientInfoText: '36mg',
+            formattedSpecification: '플라보놀배당체 36mg',
+            clinicalSummary: '• 식약처 인정 기능성: 기억력 개선·혈행 개선에 도움을 줄 수 있음',
+            isMainActive: true
+          },
+          {
+            ingredientId: 'ing_circu_corosolic_1_3mg',
+            englishInn: 'Corosolic Acid',
+            koreanName: '코로솔산',
+            functionalCategory: '바나바잎추출물',
+            chemicalFormName: '바나바잎추출물분말',
+            rawAmount: 1.3,
+            unit: 'mg',
+            ingredientInfoText: '1.3mg',
+            formattedSpecification: '코로솔산 1.3mg',
+            clinicalSummary: '• 식약처 인정 기능성: 식후 혈당상승 억제에 도움을 줄 수 있음',
+            isMainActive: true
+          },
+          {
+            ingredientId: 'ing_circu_catechin_300mg',
+            englishInn: 'Catechin',
+            koreanName: '카테킨',
+            functionalCategory: '녹차추출물',
+            chemicalFormName: '녹차추출물분말',
+            rawAmount: 300,
+            unit: 'mg',
+            ingredientInfoText: '300mg',
+            formattedSpecification: '카테킨 300mg',
+            clinicalSummary: '• 식약처 인정 기능성: 항산화·체지방 감소·혈중 콜레스테롤 개선에 도움을 줄 수 있음',
+            isMainActive: true
+          },
+          {
+            ingredientId: 'ing_circu_coq10_100mg',
+            englishInn: 'Coenzyme Q10',
+            koreanName: '코엔자임Q10',
+            functionalCategory: '코엔자임Q10',
+            chemicalFormName: '코엔자임Q10',
+            rawAmount: 100,
+            unit: 'mg',
+            ingredientInfoText: '100mg',
+            formattedSpecification: '코엔자임Q10 100mg',
+            clinicalSummary: '• 식약처 인정 기능성: 항산화·높은 혈압 감소에 도움을 줄 수 있음',
+            isMainActive: true
+          },
+          {
+            ingredientId: 'ing_circu_monacolin_8mg',
+            englishInn: 'Monacolin K',
+            koreanName: '총 모나콜린 K',
+            functionalCategory: '홍국',
+            chemicalFormName: '홍국분말',
+            rawAmount: 8,
+            unit: 'mg',
+            ingredientInfoText: '8mg',
+            formattedSpecification: '총 모나콜린 K 8mg',
+            clinicalSummary: '• 식약처 인정 기능성: 혈중 콜레스테롤 개선에 도움을 줄 수 있음',
+            isMainActive: true
+          },
+          {
+            ingredientId: 'ing_circu_vitb6_1_5mg',
+            englishInn: 'Pyridoxine Hydrochloride',
+            koreanName: '비타민 B6',
+            functionalCategory: '비타민B6',
+            chemicalFormName: '피리독신염산염',
+            rawAmount: 1.5,
+            unit: 'mg',
+            ingredientInfoText: '1.5mg',
+            formattedSpecification: '비타민 B6 1.5mg',
+            clinicalSummary: '• 식약처 인정 기능성: 단백질 및 아미노산 이용에 필요, 혈액의 호모시스테인 수준을 정상으로 유지하는데 필요',
+            isMainActive: true
+          },
+          {
+            ingredientId: 'ing_circu_zinc_8_5mg',
+            englishInn: 'Zinc',
+            koreanName: '아연',
+            functionalCategory: '아연',
+            chemicalFormName: '산화아연',
+            rawAmount: 8.5,
+            unit: 'mg',
+            ingredientInfoText: '8.5mg',
+            formattedSpecification: '아연 8.5mg',
+            clinicalSummary: '• 식약처 인정 기능성: 정상적인 면역기능에 필요, 정상적인 세포분열에 필요',
+            isMainActive: true
+          },
+          {
+            ingredientId: 'ing_circu_pantothenic_5mg',
+            englishInn: 'Calcium Pantothenate',
+            koreanName: '판토텐산',
+            functionalCategory: '판토텐산',
+            chemicalFormName: '판토텐산칼슘',
+            rawAmount: 5,
+            unit: 'mg',
+            ingredientInfoText: '5mg',
+            formattedSpecification: '판토텐산 5mg',
+            clinicalSummary: '• 식약처 인정 기능성: 지방, 탄수화물, 단백질 대사와 에너지 생성에 필요',
+            isMainActive: true
+          }
+        ];
+
+        const circuClaims = [
+          '[은행잎추출물] 기억력 개선･혈행 개선에 도움을 줄 수 있음',
+          '[바나바잎추출물] 식후 혈당상승 억제에 도움을 줄 수 있음',
+          '[녹차추출물] 항산화･체지방 감소･혈중 콜레스테롤 개선에 도움을 줄 수 있음',
+          '[코엔자임Q10] 항산화･높은 혈압 감소에 도움을 줄 수 있음',
+          '[홍국] 혈중 콜레스테롤 개선에 도움을 줄 수 있음',
+          '[비타민 B6] 단백질 및 아미노산 이용에 필요, 혈액의 호모시스테인 수준을 정상으로 유지하는데 필요',
+          '[아연] 정상적인 면역기능에 필요, 정상적인 세포분열에 필요',
+          '[판토텐산] 지방, 탄수화물, 단백질 대사와 에너지 생성에 필요'
+        ];
+
+        updatedIngredients = circuIngredients;
+        prod = {
+          ...prod,
+          ingredients: circuIngredients,
+          ingredientBasis: 'PER_DAILY',
+          functionalFoodDetail: {
+            reportNo: '20200012016198',
+            safetyPrecautionsKorean: prod.functionalFoodDetail?.safetyPrecautionsKorean || [],
+            ...(prod.functionalFoodDetail || {}),
+            functionalClaimsKorean: circuClaims,
+            suggestedUseKorean: prod.functionalFoodDetail?.suggestedUseKorean || '1일 1회, 1회 2정을 물과 함께 섭취하십시오.'
+          }
+        };
+      }
+    }
+
     if (hasChanges) {
       const updated = {
         ...prod,

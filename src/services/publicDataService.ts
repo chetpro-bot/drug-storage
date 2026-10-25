@@ -1631,7 +1631,15 @@ export function parseFunctionalFoodRecordToIngredients(
     { specKeyword: /테아닌/i, rawKeyword: /테아닌/i },
     { specKeyword: /진세노사이드|홍삼/i, rawKeyword: /홍삼/i },
     { specKeyword: /코로솔산|바나바/i, rawKeyword: /바나바/i },
-    { specKeyword: /로르산|쏘팔메토/i, rawKeyword: /쏘팔메토/i }
+    { specKeyword: /로르산|쏘팔메토/i, rawKeyword: /쏘팔메토/i },
+    { specKeyword: /플라보놀|은행잎/i, rawKeyword: /은행잎/i },
+    { specKeyword: /코엔자임q10|코큐텐/i, rawKeyword: /코엔자임q10|코엔자임\s*q10/i },
+    { specKeyword: /카테킨|녹차/i, rawKeyword: /녹차/i },
+    { specKeyword: /모나콜린|홍국/i, rawKeyword: /홍국/i },
+    { specKeyword: /포스파티딜세린/i, rawKeyword: /포스파티딜세린|대두/i },
+    { specKeyword: /hca|가르시니아/i, rawKeyword: /가르시니아/i },
+    { specKeyword: /아스타잔틴|헤마토코쿠스/i, rawKeyword: /헤마토코쿠스/i },
+    { specKeyword: /로사빈|홍경천/i, rawKeyword: /홍경천/i }
   ];
 
   const usedIndivIndices = new Set<number>();
@@ -1720,7 +1728,11 @@ export function parseFunctionalFoodRecordToIngredients(
     { pattern: /코엔자임q10|코큐텐/i, name: '코엔자임Q10', claim: '항산화·높은 혈압 감소에 도움을 줄 수 있음' },
     { pattern: /홍삼/i, name: '홍삼', claim: '면역력 증진·피로개선·혈소판 응집억제를 통한 혈액흐름·기억력 개선·항산화에 도움을 줄 수 있음' },
     { pattern: /바나바/i, name: '바나바잎추출물', claim: '식후 혈당상승 억제에 도움을 줄 수 있음' },
-    { pattern: /쏘팔메토/i, name: '쏘팔메토열매추출물', claim: '성인 남성의 전립선 건강 유지에 도움을 줄 수 있음' }
+    { pattern: /쏘팔메토/i, name: '쏘팔메토열매추출물', claim: '성인 남성의 전립선 건강 유지에 도움을 줄 수 있음' },
+    { pattern: /플라보놀|은행잎/i, name: '은행잎추출물', claim: '기억력 개선·혈행 개선에 도움을 줄 수 있음' },
+    { pattern: /카테킨|녹차/i, name: '녹차추출물(카테킨)', claim: '항산화·체지방 감소·혈중 콜레스테롤 개선에 도움을 줄 수 있음' },
+    { pattern: /모나콜린|홍국/i, name: '홍국(모나콜린K)', claim: '혈중 콜레스테롤 개선에 도움을 줄 수 있음' },
+    { pattern: /포스파티딜세린/i, name: '포스파티딜세린', claim: '노화로 인해 저하된 인지력 개선에 도움을 줄 수 있음' }
   ];
 
   // 각 성분에 해당 기능성 문구 자동 부여 및 프로바이오틱스 보정

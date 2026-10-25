@@ -12,7 +12,8 @@ import {
   fetchFoodSafetyI1250RawByReportNo,
   parseImportedKoreanLabel,
   parseImportedNutritionFacts,
-  formatImportedLabelText
+  formatImportedLabelText,
+  parseFunctionalFoodRecordToIngredients
 } from '../services/publicDataService';
 import { AttachedDocumentsModal } from './AttachedDocumentsModal';
 import { ReferenceAttachmentsModal } from './ReferenceAttachmentsModal';
@@ -55,7 +56,9 @@ import {
   StickyNote,
   Check,
   Save,
-  Highlighter
+  Highlighter,
+  FileCode,
+  ShieldCheck
 } from 'lucide-react';
 import { parseFunctionalClaimsToStructuredGroups } from '../utils/functionalClaimsHelper';
 
@@ -854,6 +857,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [pureApiText, setPureApiText] = useState<string | null>(null);
   // API 전문 보기 팝업 모달 상태
   const [isApiFullModalOpen, setIsApiFullModalOpen] = useState(false);
+  // API 전문 보기 변환 모드 ('RAW' = 변환 전 원문 그대로, 'STRUCTURED' = 변환 후 스마트 구조화)
+  const [apiModalViewMode, setApiModalViewMode] = useState<'RAW' | 'STRUCTURED'>('STRUCTURED');
   // 형광펜 선택 상태 (마우스 드래그)
   const [highlightSelection, setHighlightSelection] = useState<{
     text: string;
@@ -1104,6 +1109,56 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     return { servingInfo, footerNote, rows };
   };
 
+  // 기준 및 규격(STDR_STND) 텍스트를 영양·기능성분 표시량 표와 안전·품질 규격 목록으로 스마트 구조화 분리
+  const parseStandardSpecificationSection = (sectionText: string) => {
+    const lines = sectionText.split(/[\r\n]+/).map((l) => l.trim()).filter(Boolean);
+    const specRows: { name: string; amountStr: string; rangeStr: string }[] = [];
+    const safetyRows: { name: string; limit: string }[] = [];
+    const notes: string[] = [];
+
+    for (const line of lines) {
+      const cleaned = line.replace(/^(?:\([0-9]+\)|[0-9]+[\.\)]|[①-⑳]|[-·•])\s*/, '').trim();
+      if (!cleaned) continue;
+
+      const colonIdx = cleaned.indexOf(':');
+      if (colonIdx === -1) {
+        notes.push(cleaned);
+        continue;
+      }
+
+      const leftPart = cleaned.slice(0, colonIdx).trim();
+      const rightPart = cleaned.slice(colonIdx + 1).trim();
+
+      if (/^성상$/i.test(leftPart)) {
+        notes.push(`성상: ${rightPart}`);
+        continue;
+      }
+
+      // 표시량이 명시된 기능성분 규격 매칭 (예: "표시량(36mg/1800mg)의 80~120%", "표시량 (1.3mg / 1800mg)의 80~120%")
+      const pyosiMatch = rightPart.match(
+        /표시량\s*[\(\{｛\[]?\s*([0-9,]+(?:\.[0-9]+)?)\s*(mgNE|NE|mg|ug|㎍|μg|µg|IU|g|CFU|억\s*CFU|억)?(?:[^\)]*?\)\s*(?:의\s*)?([0-9]+~[0-9]+%|[0-9]+%~[0-9]+%))?/i
+      );
+
+      if (cleaned.includes('표시량') && pyosiMatch) {
+        const amountVal = pyosiMatch[1];
+        const unit = (pyosiMatch[2] || 'mg').trim();
+        const range = pyosiMatch[3] ? pyosiMatch[3].trim() : '80~120%';
+        specRows.push({
+          name: leftPart.replace(/\([^)]*\)/g, '').trim(),
+          amountStr: `${amountVal} ${unit}`,
+          rangeStr: range
+        });
+      } else {
+        safetyRows.push({
+          name: leftPart,
+          limit: rightPart
+        });
+      }
+    }
+
+    return { specRows, safetyRows, generalNote: notes.join('\n') };
+  };
+
   // API 전문 보기 모달 본문 렌더러 (영양정보를 고가독성 표로 스마트 전환, 기능성을 고가독성 카드로 구조화 렌더링)
   const renderApiModalContent = (fullText: string, highlights: string[]) => {
     if (!fullText) return null;
@@ -1192,7 +1247,86 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             );
           }
 
-          // 2. 주된 기능성 / 기능정보 섹션 감지 -> 고가독성 카드 렌더링
+          // 2. 기준 및 규격 섹션 감지 -> 기능성분 표시량 표 + 품질안전 규격 분리 스마트 렌더링
+          if (/^■\s*(?:기준\s*및\s*규격|기준규격)\s*[:：]?/i.test(trimmedChunk)) {
+            const headerMatch = trimmedChunk.match(/^■\s*(?:기준\s*및\s*규격|기준규격)\s*[:：]?\s*/i);
+            const content = headerMatch ? trimmedChunk.slice(headerMatch[0].length).trim() : trimmedChunk;
+            const { specRows, safetyRows, generalNote } = parseStandardSpecificationSection(content);
+
+            if (specRows.length > 0) {
+              return (
+                <div key={cIdx} className="space-y-3 font-sans">
+                  {/* 기능성분 표시량 표 */}
+                  <div className="border border-sky-300 rounded-xl overflow-hidden bg-white shadow-xs">
+                    <div className="px-4 py-2.5 bg-sky-50 border-b border-sky-200 flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-extrabold text-sky-950 text-xs sm:text-[13px] flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+                        ■ 영양 및 기능성분 (기준규격 1일 표시량)
+                      </span>
+                      <span className="text-[11px] font-bold text-sky-700 bg-white px-2 py-0.5 rounded border border-sky-200 shadow-2xs">
+                        식약처 품목신고 규격 {specRows.length}종
+                      </span>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-slate-50 text-slate-700 font-bold border-b border-slate-200">
+                            <th className="px-4 py-2">영양·기능성분명</th>
+                            <th className="px-4 py-2 text-right">1일 규격 표시량</th>
+                            <th className="px-4 py-2 text-right">인정 기준 범위</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 font-mono">
+                          {specRows.map((row, rIdx) => (
+                            <tr key={rIdx} className="hover:bg-slate-50/70 transition-colors">
+                              <td className="px-4 py-2 font-bold text-slate-800 font-sans">
+                                {renderApiTextWithCustomHighlights(row.name, highlights)}
+                              </td>
+                              <td className="px-4 py-2 text-right font-black text-sky-700">
+                                {renderApiTextWithCustomHighlights(row.amountStr, highlights)}
+                              </td>
+                              <td className="px-4 py-2 text-right text-slate-500 font-medium">
+                                {renderApiTextWithCustomHighlights(row.rangeStr || '-', highlights)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* 안전 및 유해물질 품질 규격 기준 */}
+                  {safetyRows.length > 0 && (
+                    <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50/60 shadow-2xs">
+                      <div className="px-4 py-2 bg-slate-100/90 border-b border-slate-200 flex items-center justify-between">
+                        <span className="font-bold text-slate-700 text-xs flex items-center gap-1.5">
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          ■ 안전 및 품질 관리 규격 기준 ({safetyRows.length}개 항목 적합)
+                        </span>
+                      </div>
+                      <div className="p-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                        {safetyRows.map((sItem, sIdx) => (
+                          <div key={sIdx} className="flex items-center justify-between p-2 rounded-lg bg-white border border-slate-200/80 shadow-2xs">
+                            <span className="text-slate-700 font-medium text-[11px] truncate max-w-[60%]">{renderApiTextWithCustomHighlights(sItem.name, highlights)}</span>
+                            <span className="text-slate-600 font-mono text-[11px] font-bold">{renderApiTextWithCustomHighlights(sItem.limit, highlights)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {generalNote && (
+                    <div className="px-3.5 py-2 bg-white rounded-lg border border-slate-200 text-xs text-slate-600 leading-relaxed font-sans">
+                      {renderApiTextWithCustomHighlights(generalNote, highlights)}
+                    </div>
+                  )}
+                </div>
+              );
+            }
+          }
+
+          // 3. 주된 기능성 / 기능정보 섹션 감지 -> 고가독성 카드 렌더링
           if (/^■\s*(?:주된\s*기능성|기능정보|기능성\s*정보|기능성)\s*[:：]?/i.test(trimmedChunk)) {
             const headerMatch = trimmedChunk.match(/^■\s*(?:주된\s*기능성|기능정보|기능성\s*정보|기능성)\s*[:：]?\s*/i);
             const content = headerMatch ? trimmedChunk.slice(headerMatch[0].length).trim() : trimmedChunk;
@@ -1896,7 +2030,15 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             ].join('\n');
             setPureApiText(fullApiFormatted);
 
+            const { parsedIngredients } = parseFunctionalFoodRecordToIngredients(rawC003);
+            const shouldSyncIngredients =
+              parsedIngredients &&
+              parsedIngredients.length > 0 &&
+              (product.ingredients.length < parsedIngredients.length ||
+                product.ingredients.some((ing) => ing.rawAmount === 0 || ing.rawAmount === 10));
+
             await updateProduct(product.id, {
+              ...(shouldSyncIngredients ? { ingredients: parsedIngredients, ingredientBasis: 'PER_DAILY' } : {}),
               functionalFoodDetail: {
                 reportNo: rawC003.PRDLST_REPORT_NO || reportNo,
                 suggestedUseKorean: product.functionalFoodDetail?.suggestedUseKorean || rawC003.NTK_MTHD || '',
@@ -2476,8 +2618,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     ? `https://www.health.kr/drug/${encodeURIComponent(resolvedKpaicCode)}`
     : `https://www.health.kr/searchResult?search_word=${encodeURIComponent(cleanSearchName)}&search_flag=all`;
 
-  // 일반의약품, 수입식품, 국내 건기식, 기타가공품용 순수 API 원문 텍스트
-  const apiFullText = (() => {
+  // 1. 변환 전: 식약처/공공데이터포털에서 내려온 원본 그대로 (가공/포맷팅 배제)
+  const rawApiText = (() => {
     if (product.classification === 'OTC_DRUG') {
       if (pureApiText && pureApiText.trim()) {
         return pureApiText.trim();
@@ -2486,55 +2628,45 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         ? '식약처 공공데이터포털(DrugPrdtPrmsnInfoService08) 원본 API 데이터를 불러오는 중입니다...'
         : '식약처 API 원본 데이터를 불러올 수 없습니다.';
     }
-    const koreanLabel =
-      product.functionalFoodDetail?.koreanLabelText ||
-      (product as any).koreanLabelText ||
-      '';
-    const rawMtrl =
-      product.functionalFoodDetail?.rawMaterialsText ||
-      product.functionalFoodDetail?.subIngredientsText ||
-      '';
+    const koreanLabel = (product.functionalFoodDetail?.koreanLabelText || (product as any).koreanLabelText || '').trim();
+    if (koreanLabel) {
+      return koreanLabel; // 수입 건기식/식품의 식약처 KORLABEL 원본 텍스트
+    }
+    if (pureApiText && pureApiText.trim()) {
+      return pureApiText.trim();
+    }
+    const rawMtrl = product.functionalFoodDetail?.rawMaterialsText || product.functionalFoodDetail?.subIngredientsText || '';
     const stdrStnd = product.functionalFoodDetail?.standardSpecificationKorean || '';
-    const precautions =
-      product.functionalFoodDetail?.safetyPrecautionsText ||
-      product.functionalFoodDetail?.safetyPrecautionsKorean?.join('\n') ||
-      '';
-
-    let fullText = (pureApiText || '').trim() || koreanLabel.trim();
-    if (fullText) {
-      return formatImportedLabelText(fullText);
+    const precautions = product.functionalFoodDetail?.safetyPrecautionsText || (product.functionalFoodDetail?.safetyPrecautionsKorean || []).join('\n');
+    const sections: string[] = [];
+    if (regulatoryCode) sections.push(`■ 품목제조보고번호: ${regulatoryCode}`);
+    sections.push(`■ 제품명: ${product.productName}`);
+    if (product.manufacturer) sections.push(`■ 제조업소: ${product.manufacturer}`);
+    if (product.functionalFoodDetail?.appearanceKorean) sections.push(`■ 성상: ${product.functionalFoodDetail.appearanceKorean}`);
+    if (rawMtrl) sections.push(`\n■ 원재료명:\n${rawMtrl}`);
+    if (stdrStnd) sections.push(`\n■ 기준 및 규격:\n${stdrStnd}`);
+    if (product.functionalFoodDetail?.functionalClaimsText || (product.functionalFoodDetail?.functionalClaimsKorean || []).length > 0) {
+      sections.push(`\n■ 주된 기능성:\n${product.functionalFoodDetail?.functionalClaimsText || (product.functionalFoodDetail?.functionalClaimsKorean || []).join('\n')}`);
     }
-
-    if (!fullText) {
-      if (product.classification === 'GENERAL_FOOD') {
-        const sections: string[] = [];
-        if (regulatoryCode) sections.push(`■ 품목제조보고번호: ${regulatoryCode}`);
-        sections.push(`■ 제품명: ${product.productName}`);
-        if (product.manufacturer) sections.push(`■ 제조업소: ${product.manufacturer}`);
-        if (product.packagingUnit) sections.push(`■ 식품유형/소비기한: ${product.packagingUnit}`);
-        if (product.functionalFoodDetail?.appearanceKorean) {
-          sections.push(`■ 성상: ${product.functionalFoodDetail.appearanceKorean}`);
-        }
-        if (product.functionalFoodDetail?.suggestedUseKorean) {
-          sections.push(`■ 섭취방법: ${product.functionalFoodDetail.suggestedUseKorean}`);
-        }
-        fullText = sections.join('\n');
-      } else {
-        const sections: string[] = [];
-        if (regulatoryCode) sections.push(`■ 품목제조보고번호: ${regulatoryCode}`);
-        sections.push(`■ 제품명: ${product.productName}`);
-        if (product.manufacturer) sections.push(`■ 제조업소: ${product.manufacturer}`);
-        if (product.functionalFoodDetail?.appearanceKorean) {
-          sections.push(`■ 성상: ${product.functionalFoodDetail.appearanceKorean}`);
-        }
-        if (rawMtrl) sections.push(`\n■ 원재료명:\n${rawMtrl}`);
-        if (stdrStnd) sections.push(`\n■ 기준 및 규격:\n${stdrStnd}`);
-        if (precautions) sections.push(`\n■ 섭취 시 주의사항:\n${precautions}`);
-        fullText = sections.join('\n');
-      }
-    }
-    return fullText.trim();
+    if (product.functionalFoodDetail?.suggestedUseKorean) sections.push(`\n■ 섭취방법:\n${product.functionalFoodDetail.suggestedUseKorean}`);
+    if (precautions) sections.push(`\n■ 섭취 시 주의사항:\n${precautions}`);
+    return sections.join('\n').trim();
   })();
+
+  // 2. 변환 후: 영양정보 표/기능성 카드 등으로 가독성 높게 스마트 구조화된 전문
+  const structuredApiText = (() => {
+    if (product.classification === 'OTC_DRUG') {
+      return rawApiText;
+    }
+    const koreanLabel = (product.functionalFoodDetail?.koreanLabelText || (product as any).koreanLabelText || '').trim();
+    if (koreanLabel) {
+      return formatImportedLabelText(koreanLabel);
+    }
+    return formatImportedLabelText(rawApiText);
+  })();
+
+  // 현재 모달 보기 모드(변환 전 vs 변환 후)에 따른 표시 전문
+  const apiFullText = apiModalViewMode === 'RAW' ? rawApiText : structuredApiText;
 
   return (
     <div
@@ -3668,18 +3800,37 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   </a>
                 )}
 
-                {/* 3. 국내 건기식, 수입제품, 기타식품 전용: API 전문 보기 버튼 */}
+                {/* 3. 국내 건기식, 수입제품, 기타식품 전용: API 전문 버튼 2개 (변환 전 원문 / 변환 후 구조화) */}
                 {product.classification !== 'OTC_DRUG' && Boolean(apiFullText) && (
-                  <button
-                    type="button"
-                    onClick={() => setIsApiFullModalOpen(true)}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-sky-700 bg-white hover:bg-sky-50 border border-slate-200 hover:border-sky-300 transition-colors shadow-2xs cursor-pointer"
-                    title="가공하지 않은 식약처/식품안전나라 API 원문 보기"
-                  >
-                    <FileText className="w-3.5 h-3.5 text-sky-600" />
-                    <span>API 전문 보기</span>
-                    <ExternalLink className="w-3 h-3 text-slate-400" />
-                  </button>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {/* 변환 전: API 원문 보기 */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setApiModalViewMode('RAW');
+                        setIsApiFullModalOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-300 hover:border-slate-400 transition-colors shadow-2xs cursor-pointer"
+                      title="식약처/식품안전나라 변환 전 순수 API 원문 그대로 보기"
+                    >
+                      <FileCode className="w-3.5 h-3.5 text-slate-500" />
+                      <span>API 원문 보기</span>
+                    </button>
+
+                    {/* 변환 후: API 구조화 보기 */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setApiModalViewMode('STRUCTURED');
+                        setIsApiFullModalOpen(true);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-sky-700 hover:text-sky-800 bg-sky-50 hover:bg-sky-100 border border-sky-300 hover:border-sky-400 transition-colors shadow-2xs cursor-pointer"
+                      title="영양·기능성분 표 및 기능성 카드로 가독성 높게 변환된 구조화 전문 보기"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-sky-600" />
+                      <span>API 구조화 보기</span>
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -3773,17 +3924,52 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     </p>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsApiFullModalOpen(false);
-                    setHighlightSelection(null);
-                  }}
-                  className="w-8 h-8 rounded-full bg-white hover:bg-slate-200 flex items-center justify-center text-slate-500 border border-slate-200 transition-colors cursor-pointer shrink-0"
-                  title="닫기 (ESC)"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+
+                <div className="flex items-center gap-2">
+                  {/* 변환 전(원문) vs 변환 후(구조화) 모드 전환 탭 */}
+                  {product.classification !== 'OTC_DRUG' && (
+                    <div className="flex items-center bg-slate-200/80 p-0.5 rounded-lg border border-slate-300 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setApiModalViewMode('RAW')}
+                        className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-all cursor-pointer flex items-center gap-1 ${
+                          apiModalViewMode === 'RAW'
+                            ? 'bg-white text-slate-900 shadow-2xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                        title="식약처 원문 가공 없이 그대로 보기"
+                      >
+                        <FileCode className="w-3 h-3 text-slate-500" />
+                        <span>변환 전 (원문 그대로)</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setApiModalViewMode('STRUCTURED')}
+                        className={`px-2.5 py-1 text-[11px] font-bold rounded-md transition-all cursor-pointer flex items-center gap-1 ${
+                          apiModalViewMode === 'STRUCTURED'
+                            ? 'bg-sky-600 text-white shadow-2xs'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                        title="영양정보 표와 기능성 카드로 가독성 높게 변환된 구조화 뷰"
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        <span>변환 후 (스마트 구조화)</span>
+                      </button>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsApiFullModalOpen(false);
+                      setHighlightSelection(null);
+                    }}
+                    className="w-8 h-8 rounded-full bg-white hover:bg-slate-200 flex items-center justify-center text-slate-500 border border-slate-200 transition-colors cursor-pointer shrink-0"
+                    title="닫기 (ESC)"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               {/* 전문 본문 (스크롤) */}
@@ -3791,7 +3977,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 onMouseUp={handleMouseUpInApiModal}
                 className="p-5 overflow-y-auto max-h-[68vh] bg-[#f8fafc] text-xs sm:text-[13px] text-slate-800 leading-relaxed font-mono select-text border-b border-slate-200 relative"
               >
-                {renderApiModalContent(apiFullText, product.apiHighlights || [])}
+                {apiModalViewMode === 'RAW' ? (
+                  <div className="whitespace-pre-wrap leading-relaxed font-mono text-slate-800 bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+                    {renderApiTextWithCustomHighlights(rawApiText, product.apiHighlights || [])}
+                  </div>
+                ) : (
+                  renderApiModalContent(structuredApiText, product.apiHighlights || [])
+                )}
               </div>
 
               {/* 드래그 선택 시 뜨는 형광펜 칠하기 툴팁 */}

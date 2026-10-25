@@ -141,6 +141,66 @@
       "totqyCont": "1캡슐(507mg) 중"
     }
   ],
+  "200902537": [
+    {
+      "ingrName": "밀크시슬열매건조엑스",
+      "ingrTotqy": "350.00",
+      "ingrUnitName": "밀리그램",
+      "ingrStdName": "생규",
+      "ingrInfo": "실리마린으로서 196mg",
+      "totqyCont": "1캡슐(1140 밀리그램) 중-"
+    }
+  ],
+  "201006075": [
+    {
+      "ingrName": "약용효모",
+      "ingrTotqy": "100",
+      "ingrUnitName": "밀리그램",
+      "ingrStdName": "별규",
+      "ingrInfo": "",
+      "totqyCont": "1캡슐(395mg) 중"
+    },
+    {
+      "ingrName": "케라틴",
+      "ingrTotqy": "20",
+      "ingrUnitName": "밀리그램",
+      "ingrStdName": "별규",
+      "ingrInfo": "",
+      "totqyCont": "1캡슐(395mg) 중"
+    },
+    {
+      "ingrName": "티아민질산염",
+      "ingrTotqy": "60",
+      "ingrUnitName": "밀리그램",
+      "ingrStdName": "EP",
+      "ingrInfo": "",
+      "totqyCont": "1캡슐(395mg) 중"
+    },
+    {
+      "ingrName": "판토텐산칼슘",
+      "ingrTotqy": "60",
+      "ingrUnitName": "밀리그램",
+      "ingrStdName": "USP",
+      "ingrInfo": "",
+      "totqyCont": "1캡슐(395mg) 중"
+    },
+    {
+      "ingrName": "L-시스틴",
+      "ingrTotqy": "20",
+      "ingrUnitName": "밀리그램",
+      "ingrStdName": "EP",
+      "ingrInfo": "",
+      "totqyCont": "1캡슐(395mg) 중"
+    },
+    {
+      "ingrName": "파라아미노벤조산",
+      "ingrTotqy": "20",
+      "ingrUnitName": "밀리그램",
+      "ingrStdName": "USP",
+      "ingrInfo": "",
+      "totqyCont": "1캡슐(395mg) 중"
+    }
+  ],
   "201205043": [
     {
       "ingrName": "유비데카레논",

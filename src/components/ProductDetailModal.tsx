@@ -251,7 +251,7 @@ const MFDS_NOTIFIED_FUNCTIONALITY_DICTIONARY: {
     functionality: '전립선 건강의 유지에 도움을 줄 수 있음.'
   },
   {
-    matchKeys: ['ginkgo', '은행잎'],
+    matchKeys: ['ginkgo', '은행잎', '플라보놀', 'flavonol', '징코'],
     koreanTitle: '은행잎추출물',
     functionality: '기억력 개선·혈행 개선에 도움을 줄 수 있음.'
   },
@@ -2006,39 +2006,61 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       const extractedClaims =
         parsedLabel.indicationsSummary.length > 0 &&
         !parsedLabel.indicationsSummary[0].includes('공식 인정 기능성')
-          ? parsedLabel.indicationsSummary
+          ? parsedLabel.indicationsSummary.filter(
+              (c) =>
+                !c.startsWith('1일 섭취량') &&
+                !c.includes('영양성분기준치') &&
+                !c.includes('함량 %') &&
+                !c.startsWith('열량') &&
+                !c.startsWith('탄수화물')
+            )
           : [];
+
+      // 만약 추출된 기능성이 없다면 파싱된 배합 성분(마그네슘, 아연, 비타민D, 플라보놀배당체 등) 기반 식약처 고시 기능성 자동 생성
+      const effectiveClaims =
+        extractedClaims.length > 0
+          ? extractedClaims
+          : buildHealthFunctionalFoodClaims({ ...product, ingredients: parsedNutrition.length > 0 ? parsedNutrition : product.ingredients });
 
       const rawPrecautions = parsedLabel.safetyPrecautionsText || '';
       const extractedPrecautions = rawPrecautions
         ? rawPrecautions.split(/\r?\n+/).map((s) => s.trim()).filter(Boolean)
         : [];
 
-      // parsedNutrition에 있는 핵심 지표성분(실리마린, 셀레늄, 프로바이오틱스 등)이 현재 product.ingredients에 반영되지 않았거나 수치/약효분류가 다른 경우
+      // parsedNutrition에 있는 핵심 지표성분(플라보놀배당체, 실리마린, 셀레늄, 프로바이오틱스 등)이 현재 product.ingredients에 반영되지 않았거나 수치/약효분류가 다른 경우
       const isMissingNutritionFacts =
         parsedNutrition.length > 0 &&
-        parsedNutrition.some((pn) => {
-          const matched = product.ingredients.find(
-            (pi) =>
-              pi.englishInn.toLowerCase() === pn.englishInn.toLowerCase() ||
-              pi.koreanName === pn.koreanName
-          );
-          return (
-            !matched ||
-            matched.rawAmount !== pn.rawAmount ||
-            matched.unit !== pn.unit ||
-            matched.functionalCategory !== pn.functionalCategory ||
-            matched.ingredientInfoText !== pn.ingredientInfoText
-          );
-        });
+        (product.ingredients.length < parsedNutrition.length ||
+          parsedNutrition.some((pn) => {
+            const matched = product.ingredients.find(
+              (pi) =>
+                pi.englishInn.toLowerCase() === pn.englishInn.toLowerCase() ||
+                pi.koreanName === pn.koreanName
+            );
+            return (
+              !matched ||
+              matched.rawAmount !== pn.rawAmount ||
+              matched.unit !== pn.unit ||
+              matched.functionalCategory !== pn.functionalCategory ||
+              matched.ingredientInfoText !== pn.ingredientInfoText
+            );
+          }));
 
       const currentClaims = product.functionalFoodDetail?.functionalClaimsKorean || [];
+      const hasGarbageInCurrentClaims = currentClaims.some(
+        (c) =>
+          c.startsWith('1일 섭취량') ||
+          c.includes('함량 %') ||
+          c.includes('영양성분기준치') ||
+          c.startsWith('열량')
+      );
       const isMissingClaims =
         !product.isCustomFunctionality &&
-        extractedClaims.length > 0 &&
+        effectiveClaims.length > 0 &&
         (currentClaims.length === 0 ||
           currentClaims[0].includes('공식 인정 기능성') ||
-          currentClaims.join(';') !== extractedClaims.join(';'));
+          hasGarbageInCurrentClaims ||
+          currentClaims.join(';') !== effectiveClaims.join(';'));
 
       const currentPrecautions = product.functionalFoodDetail?.safetyPrecautionsKorean || [];
       const isMissingPrecautions =
@@ -2099,8 +2121,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
             rawMaterialsText: rawMtrl || product.functionalFoodDetail?.rawMaterialsText || '',
             functionalClaimsKorean: product.isCustomFunctionality
               ? (product.functionalFoodDetail?.functionalClaimsKorean || [])
-              : (extractedClaims.length > 0
-                  ? extractedClaims
+              : (effectiveClaims.length > 0
+                  ? effectiveClaims
                   : (product.functionalFoodDetail?.functionalClaimsKorean || [])),
             functionalClaimsText: product.isCustomFunctionality
               ? product.functionalFoodDetail?.functionalClaimsText

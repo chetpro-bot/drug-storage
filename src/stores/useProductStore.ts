@@ -155,7 +155,7 @@ const OLD_NUTRITION_CATEGORIES = new Set([
 function migrateAndEnsureKpic(products: ProductItem[]): ProductItem[] {
   return products.map((prod) => {
     let hasChanges = false;
-    const updatedIngredients = prod.ingredients.map((ing) => {
+    let updatedIngredients = prod.ingredients.map((ing) => {
       // 1. 이전 영양 분류 체계이거나 미지정인 경우 KPIC 마스터 DB에서 공식 약효분류로 자동 갱신
       let currentCat = ing.functionalCategory;
       if (OLD_NUTRITION_CATEGORIES.has(currentCat) || !currentCat) {
@@ -959,6 +959,58 @@ function migrateAndEnsureKpic(products: ProductItem[]): ProductItem[] {
                 suggestedUseKorean: '1일 2회, 1회 2정(총 4정)을 물과 함께 섭취하십시오.'
               }
             : undefined
+        };
+      }
+    }
+
+    // 징코Q 젠시아 등 수입 건기식 성분 5종(마그네슘, 아연, 비타민D, 비타민B12, 플라보놀배당체 36mg) 및 기능성 자동 동기화
+    if (prod.productName.includes('징코Q') || prod.productName.includes('징코큐') || prod.productName.includes('젠시아')) {
+      const hasFlavonol = prod.ingredients.some(i => (i.koreanName && i.koreanName.includes('플라보놀')) || (i.englishInn || '').toLowerCase().includes('flavonol'));
+      const currentClaims = prod.functionalFoodDetail?.functionalClaimsKorean || [];
+      const hasGarbageClaims = currentClaims.some(c => c.startsWith('1일 섭취량') || c.includes('함량 %') || c.includes('영양성분기준치') || c.startsWith('열량'));
+
+      if (!hasFlavonol || hasGarbageClaims) {
+        hasChanges = true;
+        let syncedIngredients = [...updatedIngredients];
+        if (!hasFlavonol && !syncedIngredients.some(i => (i.koreanName && i.koreanName.includes('플라보놀')) || (i.englishInn || '').toLowerCase().includes('flavonol'))) {
+          syncedIngredients.push({
+            ingredientId: 'ing_gingko_flavonol_36mg',
+            englishInn: 'Flavonol Glycosides',
+            koreanName: '플라보놀배당체',
+            functionalCategory: '은행잎추출물',
+            chemicalFormName: '은행잎추출물',
+            rawAmount: 36,
+            unit: 'mg',
+            ingredientInfoText: '36mg',
+            formattedSpecification: '플라보놀배당체 36mg',
+            clinicalSummary: '• 식약처 인정 기능성: 기억력 개선·혈행 개선에 도움을 줄 수 있음',
+            isMainActive: true
+          });
+        }
+        const cleanedClaims = [
+          '[은행잎추출물] 기억력 개선·혈행 개선에 도움을 줄 수 있음',
+          '[비타민D] 칼슘과 인이 흡수되고 이용하는데 필요, 뼈의 형성과 유지에 필요, 골다공증발생 위험 감소에 도움을 줌',
+          '[비타민B12] 정상적인 엽산 대사에 필요',
+          '[마그네슘] 에너지 이용에 필요, 신경과 근육 기능 유지에 필요',
+          '[아연] 정상적인 면역기능에 필요, 정상적인 세포 분열에 필요'
+        ];
+
+        updatedIngredients = syncedIngredients;
+        prod = {
+          ...prod,
+          ingredients: syncedIngredients,
+          ingredientBasis: 'PER_DAILY',
+          functionalFoodDetail: prod.functionalFoodDetail
+            ? {
+                ...prod.functionalFoodDetail,
+                functionalClaimsKorean: cleanedClaims
+              }
+            : {
+                reportNo: '수입_20260227',
+                functionalClaimsKorean: cleanedClaims,
+                suggestedUseKorean: '1일 1회, 1회 1정을 식후 물과 함께 섭취하십시오.',
+                safetyPrecautionsKorean: []
+              }
         };
       }
     }

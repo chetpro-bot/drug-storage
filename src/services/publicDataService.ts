@@ -2444,17 +2444,95 @@ export function parseImportedNutritionFacts(
       functionalCategory: '정장제',
       saltSearchKeys: ['프로바이오틱스', '유산균', '비피도박테리움', '락토바실러스'],
       defaultUnit: 'CFU'
+    },
+    {
+      matchKeys: ['플라보놀배당체', '플라보놀 배당체', '은행잎추출물', '총플라보놀배당체', '총 플라보놀 배당체', '플라보놀', 'flavonol', 'ginkgo'],
+      koreanName: '플라보놀배당체',
+      englishInn: 'Flavonol Glycosides',
+      functionalCategory: '은행잎추출물',
+      saltSearchKeys: ['은행잎추출물분말', '은행잎추출물', '은행잎'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['포스파티딜세린', 'ps', 'phosphatidylserine'],
+      koreanName: '포스파티딜세린',
+      englishInn: 'Phosphatidylserine',
+      functionalCategory: '뇌 건강',
+      saltSearchKeys: ['대두레시틴', '포스파티딜세린', '포스파티딜세린혼합제제'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['코로솔산', '바나바잎추출물', '바나바', 'corosolic'],
+      koreanName: '코로솔산',
+      englishInn: 'Corosolic Acid',
+      functionalCategory: '혈당 조절',
+      saltSearchKeys: ['바나바잎추출물분말', '바나바잎추출물', '바나바'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['카테킨', '녹차추출물', '에피갈로카테킨갈레이트', 'egcg', 'catechin'],
+      koreanName: '카테킨',
+      englishInn: 'Catechin',
+      functionalCategory: '항산화',
+      saltSearchKeys: ['녹차추출물분말', '녹차추출물', '녹차'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['총 hca', 'hca', '가르시니아', '가르시니아캄보지아추출물', 'garcinia'],
+      koreanName: '총(-)-HCA',
+      englishInn: 'Total (-)-HCA',
+      functionalCategory: '체지방 감소',
+      saltSearchKeys: ['가르시니아캄보지아추출물', '가르시니아캄보지아', '가르시니아'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['로사빈', '홍경천추출물', '홍경천', 'rosavin'],
+      koreanName: '로사빈',
+      englishInn: 'Rosavin',
+      functionalCategory: '피로 개선',
+      saltSearchKeys: ['홍경천추출물분말', '홍경천추출물', '홍경천'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['아스타잔틴', '헤마토코쿠스추출물', '헤마토코쿠스', 'astaxanthin'],
+      koreanName: '아스타잔틴',
+      englishInn: 'Astaxanthin',
+      functionalCategory: '눈 건강',
+      saltSearchKeys: ['헤마토코쿠스추출물', '헤마토코쿠스'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['모나콜린k', '모나콜린 k', '홍국', 'monacolin'],
+      koreanName: '총 모나콜린 K',
+      englishInn: 'Monacolin K',
+      functionalCategory: '혈중 콜레스테롤 개선',
+      saltSearchKeys: ['홍국분말', '홍국'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['대두이소플라본', '이소플라본', 'isoflavone'],
+      koreanName: '대두이소플라본',
+      englishInn: 'Soy Isoflavones',
+      functionalCategory: '뼈 건강',
+      saltSearchKeys: ['대두이소플라본', '이소플라본'],
+      defaultUnit: 'mg'
+    },
+    {
+      matchKeys: ['프로안토시아니딘', '피크노제놀', '프랑스해안송껍질추출물', 'proanthocyanidin'],
+      koreanName: '총 프로안토시아니딘',
+      englishInn: 'Proanthocyanidins',
+      functionalCategory: '항산화',
+      saltSearchKeys: ['프랑스해안송껍질추출물', '소나무껍질추출물'],
+      defaultUnit: 'mg'
     }
   ];
 
   const results: ProductIngredientEntry[] = [];
   const lines = targetText.split(/\r?\n+/).map((l) => l.trim()).filter(Boolean);
   const seenNutrients = new Set<string>();
-  let inFunctionalSpecSection = false;
 
   for (const line of lines) {
     if (/기능성분\s*또는\s*지표성분|지표성분/i.test(line)) {
-      inFunctionalSpecSection = true;
       continue;
     }
 
@@ -2464,7 +2542,10 @@ export function parseImportedNutritionFacts(
     if (!match) continue;
 
     const rowName = match[1].trim();
-    if (['열량', '탄수화물', '단백질', '지방', '나트륨', '당류', '콜레스테롤', '포화지방', '트랜스지방'].includes(rowName)) {
+    const isStandardMacro = /^(?:열량|에너지|탄수화물|단백질|지방|나트륨|당류|총당류|콜레스테롤|포화지방|트랜스지방|식이섬유)$/i.test(
+      rowName.replace(/\s+/g, '')
+    );
+    if (isStandardMacro) {
       continue;
     }
 
@@ -2473,17 +2554,14 @@ export function parseImportedNutritionFacts(
     );
 
     const effectiveMeta =
-      matchedMeta ||
-      (inFunctionalSpecSection
-        ? {
-            matchKeys: [rowName],
-            koreanName: rowName,
-            englishInn: rowName,
-            functionalCategory: '기타 기능성',
-            saltSearchKeys: [rowName],
-            defaultUnit: match[3].toLowerCase().includes('ug') || match[3].toLowerCase().includes('µg') || match[3].toLowerCase().includes('mcg') ? 'ug' : 'mg'
-          }
-        : null);
+      matchedMeta || {
+        matchKeys: [rowName],
+        koreanName: rowName,
+        englishInn: rowName,
+        functionalCategory: rowName.includes('플라보놀') ? '은행잎추출물' : '기타 기능성분',
+        saltSearchKeys: [rowName],
+        defaultUnit: match[3].toLowerCase().includes('ug') || match[3].toLowerCase().includes('µg') || match[3].toLowerCase().includes('mcg') ? 'ug' : 'mg'
+      };
 
     if (!effectiveMeta || seenNutrients.has(effectiveMeta.koreanName)) continue;
     seenNutrients.add(effectiveMeta.koreanName);
@@ -2521,6 +2599,11 @@ export function parseImportedNutritionFacts(
     let chemicalForm = effectiveMeta.koreanName;
     if (isProbioticItem) {
       chemicalForm = '프로바이오틱스 복합 균주';
+    } else if (effectiveMeta.koreanName === '플라보놀배당체' || effectiveMeta.matchKeys.some(k => k.includes('플라보놀'))) {
+      // 은행잎추출물에서 플라보놀배당체가 유래하므로 원재료에서 은행잎추출물 매칭
+      if (rawMaterialsText && /은행잎/i.test(rawMaterialsText)) {
+        chemicalForm = '은행잎추출물';
+      }
     } else if (rawMaterialsText) {
       const parts = rawMaterialsText.split(/[,，\+]+/).map((p) => p.trim());
       for (const saltKey of effectiveMeta.saltSearchKeys) {
@@ -2530,6 +2613,11 @@ export function parseImportedNutritionFacts(
           break;
         }
       }
+    }
+
+    let clinicalNote = `• ${effectiveMeta.koreanName} 기능성 영양성분`;
+    if (effectiveMeta.koreanName === '플라보놀배당체' || effectiveMeta.functionalCategory === '은행잎추출물') {
+      clinicalNote = '• 식약처 인정 기능성: 기억력 개선·혈행 개선에 도움을 줄 수 있음';
     }
 
     results.push({
@@ -2544,10 +2632,12 @@ export function parseImportedNutritionFacts(
       elementalUnit: undefined,
       ingredientInfoText: infoText,
       formattedSpecification: `${effectiveMeta.koreanName} ${infoText}${match[5] ? ` (${match[5]}%)` : ''}`,
-      clinicalSummary: `• ${effectiveMeta.koreanName} 기능성 영양성분`,
+      clinicalSummary: clinicalNote,
       isMainActive: true
     });
   }
+
+  return results;
 
   return results;
 }
@@ -2681,9 +2771,24 @@ export function formatImportedLabelText(rawText?: string): string {
       if (val) functionInfo.push(val);
       continue;
     }
-    if (/^(?:영양정보|영양·기능정보|영양성분|영양\s*성분)\s*[:：]/i.test(line)) {
+    if (/^영양\s*·\s*기능정보\s*[:：]/i.test(line)) {
+      const val = line.replace(/^영양\s*·\s*기능정보\s*[:：]\s*/i, '');
+      if (val) {
+        if (val.startsWith('[') || val.includes('필요') || val.includes('도움') || val.includes('개선')) {
+          currentSection = 'FUNCTION';
+          functionInfo.push(val);
+        } else {
+          currentSection = 'NUTRITION';
+          nutritionInfo.push(val);
+        }
+      } else {
+        currentSection = 'FUNCTION';
+      }
+      continue;
+    }
+    if (/^(?:영양정보|영양성분|영양\s*성분)\s*[:：]/i.test(line)) {
       currentSection = 'NUTRITION';
-      const val = line.replace(/^(?:영양정보|영양·기능정보|영양성분|영양\s*성분)\s*[:：]\s*/i, '');
+      const val = line.replace(/^(?:영양정보|영양성분|영양\s*성분)\s*[:：]\s*/i, '');
       if (val) nutritionInfo.push(val);
       continue;
     }
@@ -2761,7 +2866,19 @@ export function formatImportedLabelText(rawText?: string): string {
     } else if (currentSection === 'STORAGE') {
       storageInfo.push(line);
     } else if (currentSection === 'FUNCTION') {
-      functionInfo.push(line);
+      if (
+        line.startsWith('1일 섭취량') ||
+        line.includes('영양성분기준치') ||
+        line.includes('영양성분명') ||
+        line.startsWith('열량') ||
+        line.startsWith('탄수화물') ||
+        /^[-─=━]{3,}$/.test(line)
+      ) {
+        currentSection = 'NUTRITION';
+        nutritionInfo.push(line);
+      } else {
+        functionInfo.push(line);
+      }
     } else if (currentSection === 'NUTRITION') {
       nutritionInfo.push(line);
     } else {
@@ -3023,25 +3140,85 @@ export function parseImportedKoreanLabel(korlabel?: string): {
     safetyPrecautionsText = precMatch[1].trim();
   }
 
-  // 7. 기능정보
-  let indicationsSummary: string[] = [];
-  const claimMatch = korlabel.match(/(?:기능\s*정보|기능성\s*정보|영양\s*·?\s*기능\s*정보|주된\s*기능성|기능성)\s*[:：]?\s*([\s\S]*?)(?:영양\s*(?:성분|정보)|기능\s*성분|건강기능식품이력추적|이력추적|보관방법|보관상\s*주의사항|원산지|제조사|$)/i);
-  if (claimMatch) {
-    indicationsSummary = claimMatch[1]
-      .split('\n')
-      .map(s => s.trim())
-      .filter(Boolean);
-  }
-  if (indicationsSummary.length === 0) {
-    indicationsSummary = ['수입 건강기능식품 공식 인정 기능성'];
-  }
-
   // 8. 부원료
   const rawMatch = korlabel.match(/원료\s*및\s*함량\s*[:：]\s*([^\n\r]+)/i);
   const subIngredientsText = rawMatch ? rawMatch[1].trim() : undefined;
 
   // 9. 영양정보 / 기능성분 또는 지표성분 표 파싱
   const parsedNutritionIngredients = parseImportedNutritionFacts(korlabel, subIngredientsText);
+
+  // 7. 기능정보
+  let indicationsSummary: string[] = [];
+  const claimMatch = korlabel.match(/(?:기능\s*정보|기능성\s*정보|영양\s*·?\s*기능\s*정보|주된\s*기능성|기능성)\s*[:：]?\s*([\s\S]*?)(?:영양\s*(?:성분|정보)|기능\s*성분|건강기능식품이력추적|이력추적|보관방법|보관상\s*주의사항|원산지|제조사|$)/i);
+  if (claimMatch) {
+    const rawLines = claimMatch[1].split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    const validLines: string[] = [];
+    for (const line of rawLines) {
+      if (
+        line.startsWith('1일 섭취량') ||
+        line.includes('영양성분기준치') ||
+        line.includes('영양성분명') ||
+        line.startsWith('열량') ||
+        line.startsWith('탄수화물') ||
+        /^[-─=━]{3,}$/.test(line)
+      ) {
+        break; // 영양정보 표가 시작되면 기능성 정보 종료
+      }
+      validLines.push(line);
+    }
+    indicationsSummary = validLines;
+  }
+
+  // 만약 KORLABEL 원문에 기능성 정보가 없거나 비어있는 경우, 파싱된 성분(마그네슘, 아연, 비타민 등)의 식약처 고시 기능성으로 자동 보완
+  if (indicationsSummary.length === 0 || (indicationsSummary.length === 1 && indicationsSummary[0].includes('공식 인정 기능성'))) {
+    if (parsedNutritionIngredients.length > 0) {
+      const autoClaims: string[] = [];
+      const MFDS_NOTIFIED_MAP: { pattern: RegExp; title: string; claim: string }[] = [
+        { pattern: /은행잎|플라보놀/i, title: '은행잎추출물', claim: '기억력 개선·혈행 개선에 도움을 줄 수 있음' },
+        { pattern: /비타민\s*d|콜레칼시페롤/i, title: '비타민D', claim: '칼슘과 인이 흡수되고 이용되는데 필요, 뼈의 형성과 유지에 필요, 골다공증발생 위험 감소에 도움을 줌' },
+        { pattern: /비타민\s*b12|코발라민/i, title: '비타민B12', claim: '정상적인 엽산 대사에 필요' },
+        { pattern: /마그네슘/i, title: '마그네슘', claim: '에너지 이용에 필요, 신경과 근육 기능 유지에 필요' },
+        { pattern: /아연/i, title: '아연', claim: '정상적인 면역기능에 필요, 정상적인 세포 분열에 필요' },
+        { pattern: /칼슘/i, title: '칼슘', claim: '뼈와 치아 형성에 필요, 신경과 근육 기능 유지에 필요, 정상적인 혈액응고에 필요, 골다공증발생 위험 감소에 도움을 줌' },
+        { pattern: /비타민\s*c|아스코르브산/i, title: '비타민C', claim: '결합조직 형성과 기능유지에 필요, 철의 흡수에 필요, 항산화 작용을 하여 유해산소로부터 세포를 보호하는데 필요' },
+        { pattern: /비타민\s*b1|티아민/i, title: '비타민B1', claim: '탄수화물과 에너지 대사에 필요' },
+        { pattern: /비타민\s*b2|리보플라빈/i, title: '비타민B2', claim: '체내 에너지 생성에 필요' },
+        { pattern: /비타민\s*b6|피리독신/i, title: '비타민B6', claim: '단백질 및 아미노산 이용에 필요, 혈액의 호모시스테인 수준을 정상으로 유지하는데 필요' },
+        { pattern: /나이아신/i, title: '나이아신', claim: '체내 에너지 생성에 필요' },
+        { pattern: /판토텐산/i, title: '판토텐산', claim: '지방, 탄수화물, 단백질 대사와 에너지 생성에 필요' },
+        { pattern: /엽산/i, title: '엽산', claim: '세포와 혈액생성에 필요, 태아 신경관의 정상 발달에 필요' },
+        { pattern: /비오틴/i, title: '비오틴', claim: '지방, 탄수화물, 단백질 대사와 에너지 생성에 필요' },
+        { pattern: /셀레늄|셀렌/i, title: '셀레늄', claim: '유해산소로부터 세포를 보호하는데 필요' },
+        { pattern: /철/i, title: '철', claim: '체내 산소운반과 혈액생성에 필요, 에너지 생성에 필요' },
+        { pattern: /구리/i, title: '구리', claim: '철의 운반과 이용에 필요, 유해산소로부터 세포를 보호하는데 필요' },
+        { pattern: /망간/i, title: '망간', claim: '뼈 형성에 필요, 에너지 이용에 필요, 유해산소로부터 세포를 보호하는데 필요' },
+        { pattern: /요오드/i, title: '요오드', claim: '갑상선 호르몬의 합성에 필요, 에너지 생성에 필요, 신경발달에 필요' },
+        { pattern: /크롬/i, title: '크롬', claim: '체내 탄수화물, 지방, 단백질 대사에 관여' },
+        { pattern: /프로바이오틱스|유산균/i, title: '프로바이오틱스', claim: '유익균 증식 및 유해균 억제·배변활동 원활·장 건강에 도움을 줄 수 있음' },
+        { pattern: /실리마린|밀크씨슬/i, title: '밀크씨슬(실리마린)', claim: '간 건강에 도움을 줄 수 있음' },
+        { pattern: /루테인/i, title: '루테인', claim: '노화로 인해 감소될 수 있는 황반색소밀도를 유지하여 눈 건강에 도움을 줌' },
+        { pattern: /epa|dha|오메가/i, title: 'EPA 및 DHA', claim: '혈중 중성지질 개선·혈행 개선에 도움을 줄 수 있음' }
+      ];
+
+      const seenTitles = new Set<string>();
+      parsedNutritionIngredients.forEach(ing => {
+        const text = `${ing.koreanName} ${ing.englishInn} ${ing.functionalCategory} ${ing.chemicalFormName}`;
+        const found = MFDS_NOTIFIED_MAP.find(m => m.pattern.test(text));
+        if (found && !seenTitles.has(found.title)) {
+          seenTitles.add(found.title);
+          autoClaims.push(`[${found.title}] ${found.claim}`);
+        }
+      });
+
+      if (autoClaims.length > 0) {
+        indicationsSummary = autoClaims;
+      }
+    }
+  }
+
+  if (indicationsSummary.length === 0) {
+    indicationsSummary = ['수입 건강기능식품 공식 인정 기능성'];
+  }
 
   return {
     dosageInstruction,

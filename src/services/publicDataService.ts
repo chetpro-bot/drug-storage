@@ -1227,7 +1227,7 @@ const FOOD_SAFETY_BASE_URL = 'https://openapi.foodsafetykorea.go.kr/api';
 /**
  * 식약처 XML 문서(EE_DOC_DATA, UD_DOC_DATA, NB_DOC_DATA)에서 ARTICLE 제목과 PARAGRAPH 줄바꿈을 보존하며 전문 추출
  */
-function cleanXmlDocText(xmlStr?: string | null): string {
+export function cleanXmlDocText(xmlStr?: string | null): string {
   if (!xmlStr) return '';
   return xmlStr
     // ARTICLE title="..." 속성 추출 (의미 있는 소제목 보존)

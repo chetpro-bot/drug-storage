@@ -13,7 +13,8 @@ import {
   parseImportedKoreanLabel,
   parseImportedNutritionFacts,
   formatImportedLabelText,
-  parseFunctionalFoodRecordToIngredients
+  parseFunctionalFoodRecordToIngredients,
+  cleanXmlDocText
 } from '../services/publicDataService';
 import { AttachedDocumentsModal } from './AttachedDocumentsModal';
 import { ReferenceAttachmentsModal } from './ReferenceAttachmentsModal';
@@ -58,7 +59,8 @@ import {
   Save,
   Highlighter,
   FileCode,
-  ShieldCheck
+  ShieldCheck,
+  Copy
 } from 'lucide-react';
 import { parseFunctionalClaimsToStructuredGroups } from '../utils/functionalClaimsHelper';
 
@@ -866,6 +868,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   } | null>(null);
   // 주의사항 전문보기 탭 (실물 라벨 vs 식약처 API)
   const [precautionsModalTab, setPrecautionsModalTab] = useState<'LABEL' | 'API'>('LABEL');
+  // 식약처 공식 원문 사용상의 주의사항/섭취 시 주의사항 (인위적 수정 없는 원본 전문)
+  const [officialPrecautionsText, setOfficialPrecautionsText] = useState<string>('');
+  const [isCopiedPrecautions, setIsCopiedPrecautions] = useState(false);
   // 제품 뒷면 사진 OCR 업로드 상태
   const [isUploadingBackPhoto, setIsUploadingBackPhoto] = useState(false);
   const [backPhotoStatusMessage, setBackPhotoStatusMessage] = useState('');
@@ -952,6 +957,41 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   // 일반의약품 효능·효과 직접 수정 모드 및 입력값 상태 (줄바꿈 지원)
   const [isEditingOtcIndications, setIsEditingOtcIndications] = useState(false);
   const [editOtcIndicationsValue, setEditOtcIndicationsValue] = useState('');
+
+  // 제품 변경 또는 모달 개폐 시 모든 직접 수정(Edit) 모드 상태 초기화 (다른 제품의 편집 텍스트 유출 및 덮어쓰기 완전 방지)
+  useEffect(() => {
+    setIsEditingCustomPrecautions(false);
+    setEditCustomPrecautionsValue('');
+    setIsEditingDosage(false);
+    setEditDosageValue('');
+    setIsEditingClaims(false);
+    setEditClaimsValue('');
+    setIsEditingOtcIndications(false);
+    setEditOtcIndicationsValue('');
+    setIsEditingLabelPrecautions(false);
+    setEditLabelPrecautionsValue('');
+    setIsPrecautionsFullModalOpen(false);
+    setIsApiFullModalOpen(false);
+    setClaimsViewMode('FORMATTED');
+    setIsCopiedPrecautions(false);
+  }, [product?.id, isOpen]);
+
+  // 제품 초기 로드 시 기존 DB에 저장된 식약처/신고 원문 주의사항을 officialPrecautionsText의 기본값으로 세팅
+  useEffect(() => {
+    if (!product) {
+      setOfficialPrecautionsText('');
+      return;
+    }
+    if (product.classification === 'OTC_DRUG') {
+      const otcLines = product.otcDetail?.precautionsSummaryKorean || [];
+      setOfficialPrecautionsText(otcLines.join('\n'));
+    } else {
+      const hffText =
+        product.functionalFoodDetail?.safetyPrecautionsText ||
+        (product.functionalFoodDetail?.safetyPrecautionsKorean || []).join('\n');
+      setOfficialPrecautionsText(hffText);
+    }
+  }, [product?.id]);
 
   // API 전문보기 모달 텍스트 마우스 드래그 선택 감지
   const handleMouseUpInApiModal = () => {
@@ -1505,12 +1545,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const handleStartEditCustomPrecautions = () => {
     if (!product) return;
     const currentText =
-      product.functionalFoodDetail?.safetyPrecautionsText ||
-      (product.functionalFoodDetail?.safetyPrecautionsKorean &&
-        product.functionalFoodDetail.safetyPrecautionsKorean.join('\n')) ||
-      product.otcDetail?.precautionsFullText ||
-      (product.otcDetail?.precautionsSummaryKorean &&
-        product.otcDetail.precautionsSummaryKorean.join('\n')) ||
+      (product.classification === 'OTC_DRUG'
+        ? product.otcDetail?.precautionsFullText ||
+          (product.otcDetail?.precautionsSummaryKorean &&
+            product.otcDetail.precautionsSummaryKorean.join('\n'))
+        : product.functionalFoodDetail?.safetyPrecautionsText ||
+          (product.functionalFoodDetail?.safetyPrecautionsKorean &&
+            product.functionalFoodDetail.safetyPrecautionsKorean.join('\n'))) ||
       precautionsFullText ||
       '';
     setEditCustomPrecautionsValue(currentText);
@@ -1852,6 +1893,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               fetchNedrugRawRows(itemSeq)
             ]);
             if (isMounted && (rawMfds || (nedrugRows && nedrugRows.length > 0))) {
+              if (rawMfds?.NB_DOC_DATA) {
+                const cleaned = cleanXmlDocText(rawMfds.NB_DOC_DATA);
+                if (cleaned) setOfficialPrecautionsText(cleaned);
+              }
               const FIELD_KOR_LABELS: Record<string, string> = {
                 ITEM_SEQ: '품목기준코드',
                 ITEM_NAME: '제품명',
@@ -2005,6 +2050,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           }
 
           if (rawC003 && isMounted) {
+            if (rawC003.IFTKN_ATNT_MATR_CN) {
+              setOfficialPrecautionsText(rawC003.IFTKN_ATNT_MATR_CN);
+            }
             const fullApiFormatted = [
               `■ 품목제조보고번호: ${rawC003.PRDLST_REPORT_NO || reportNo}`,
               `■ 제품명: ${rawC003.PRDLST_NM || product.productName}`,
@@ -2165,6 +2213,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           : buildHealthFunctionalFoodClaims({ ...product, ingredients: parsedNutrition.length > 0 ? parsedNutrition : product.ingredients });
 
       const rawPrecautions = parsedLabel.safetyPrecautionsText || '';
+      if (rawPrecautions && isMounted) {
+        setOfficialPrecautionsText(rawPrecautions);
+      }
       const extractedPrecautions = rawPrecautions
         ? rawPrecautions.split(/\r?\n+/).map((s) => s.trim()).filter(Boolean)
         : [];
@@ -3619,15 +3670,31 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <h3 className="text-xs font-extrabold text-slate-600">섭취 시 주의사항</h3>
                 </div>
                 {!isEditingCustomPrecautions && (
-                  <button
-                    type="button"
-                    onClick={handleStartEditCustomPrecautions}
-                    className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 hover:underline flex items-center gap-1 cursor-pointer"
-                    title="섭취 시 주의사항 직접 수정 (줄바꿈 가능)"
-                  >
-                    <Edit3 className="w-3 h-3" />
-                    <span>수정</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPrecautionsModalTab(
+                          product.functionalFoodDetail?.labelPrecautionsText ? 'LABEL' : 'API'
+                        );
+                        setIsPrecautionsFullModalOpen(true);
+                      }}
+                      className="text-[11px] font-semibold text-slate-600 hover:text-rose-700 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 px-2.5 py-1 rounded-lg transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                      title="식약처/라벨 신고 원문 섭취 시 주의사항 전문 보기"
+                    >
+                      <FileText className="w-3 h-3 text-slate-500" />
+                      <span>원문 보기</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleStartEditCustomPrecautions}
+                      className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 hover:underline flex items-center gap-1 cursor-pointer"
+                      title="섭취 시 주의사항 직접 수정 (줄바꿈 가능)"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                      <span>수정</span>
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -3726,15 +3793,29 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </div>
                 <div className="flex items-center gap-2">
                   {!isEditingCustomPrecautions && (
-                    <button
-                      type="button"
-                      onClick={handleStartEditCustomPrecautions}
-                      className="text-xs font-semibold text-rose-600 hover:text-rose-700 hover:underline flex items-center gap-1 cursor-pointer"
-                      title="주의사항 직접 수정"
-                    >
-                      <Edit3 className="w-3 h-3" />
-                      <span>수정</span>
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPrecautionsModalTab('API');
+                          setIsPrecautionsFullModalOpen(true);
+                        }}
+                        className="text-[11px] font-semibold text-slate-600 hover:text-rose-700 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-300 px-2.5 py-1 rounded-lg transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                        title="식약처 허가 원문 사용상의 주의사항 전문 보기"
+                      >
+                        <FileText className="w-3 h-3 text-slate-500" />
+                        <span>원문 보기</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleStartEditCustomPrecautions}
+                        className="text-xs font-semibold text-rose-600 hover:text-rose-700 hover:underline flex items-center gap-1 cursor-pointer"
+                        title="주의사항 직접 수정"
+                      >
+                        <Edit3 className="w-3 h-3" />
+                        <span>수정</span>
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -4105,7 +4186,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                         : '섭취 시 주의사항 전문'}
                     </span>
                   </h4>
-                  {product.classification === 'HEALTH_FUNCTIONAL_FOOD' && (
+                  {product.classification !== 'OTC_DRUG' && (
                     <div className="flex bg-slate-200/80 p-0.5 rounded-lg text-xs font-bold">
                       <button
                         type="button"
@@ -4144,6 +4225,33 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <button
                     type="button"
                     onClick={() => {
+                      const textToCopy =
+                        product.classification !== 'OTC_DRUG' && precautionsModalTab === 'LABEL'
+                          ? (product.functionalFoodDetail?.labelPrecautionsText || '')
+                          : (officialPrecautionsText || precautionsFullText || '');
+                      if (!textToCopy) return;
+                      navigator.clipboard.writeText(textToCopy);
+                      setIsCopiedPrecautions(true);
+                      setTimeout(() => setIsCopiedPrecautions(false), 2000);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg transition-colors cursor-pointer shadow-2xs"
+                    title="주의사항 텍스트 클립보드에 복사"
+                  >
+                    {isCopiedPrecautions ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="text-emerald-700 font-bold">복사완료</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5 text-slate-500" />
+                        <span>원문 복사</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
                       setIsPrecautionsFullModalOpen(false);
                       setIsEditingLabelPrecautions(false);
                     }}
@@ -4155,7 +4263,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </div>
 
               <div className="p-6 overflow-y-auto max-h-[75vh] bg-white select-text">
-                {product.classification === 'HEALTH_FUNCTIONAL_FOOD' && precautionsModalTab === 'LABEL' ? (
+                {product.classification !== 'OTC_DRUG' && precautionsModalTab === 'LABEL' ? (
                   isEditingLabelPrecautions ? (
                     /* 1. 직접 수정 / 편집 모드 */
                     <div className="space-y-4">
@@ -4359,13 +4467,18 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <div>
                     <div className="mb-3 flex items-center justify-between pb-2 border-b border-slate-100">
                       <span className="text-xs font-bold text-slate-500">
-                        식약처 공공 API (식품안전나라/의약품안전나라) 공식 등록 주의사항 전문입니다.
+                        {product.classification === 'OTC_DRUG'
+                          ? '식약처 의약품안전나라(nedrug) 공식 허가 사용상의 주의사항 원문입니다.'
+                          : '식약처 공공 API (식품안전나라 C003/I1250) 공식 등록 주의사항 전문입니다.'}
                       </span>
                       <span className="text-[10px] font-bold text-amber-900 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full">
                         형광펜: 복약 요약 항목
                       </span>
                     </div>
-                    {renderFormattedApiText(precautionsFullText, precautionHighlightKeywords)}
+                    {renderFormattedApiText(
+                      officialPrecautionsText || precautionsFullText,
+                      precautionHighlightKeywords
+                    )}
                   </div>
                 )}
               </div>

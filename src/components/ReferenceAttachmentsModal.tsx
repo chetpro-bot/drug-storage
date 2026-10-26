@@ -2,6 +2,10 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ProductItem, ReferenceAttachment } from '../types/product';
 import { useProductStore } from '../stores/useProductStore';
 import {
+  uploadReferenceFileToStorage,
+  deleteReferenceFileFromStorage
+} from '../services/storageService';
+import {
   X,
   Paperclip,
   Upload,
@@ -116,10 +120,9 @@ export const ReferenceAttachmentsModal: React.FC<ReferenceAttachmentsModalProps>
   };
 
   /**
-   * 첨부 이미지 고해상도 최적화 압축 함수
-   * - 포스터/설명서의 작은 글씨 가독성을 위해 최대 해상도를 2048px로 넉넉하게 유지
-   * - JPEG 0.83 압축을 적용하여 3~10MB 대용량 파일도 150~280KB로 1/15 이상 획기적으로 경량화
-   * - Firestore 1MB 제한 및 로컬스토리지 5MB 제한을 완벽하게 통과하여 영구 보존
+   * 첨부 이미지 고해상도 최적화 압축 함수 (Storage 미연동 시 Fallback용)
+   * - 포스터/설명서의 작은 글씨 가독성을 위해 긴 변 한도를 3200px로 대폭 확장
+   * - 세로로 긴 약품 포스터도 가로 해상도가 뭉개지지 않고 선명하게 유지
    */
   const compressImageForAttachment = async (file: File): Promise<{ dataUrl: string; size: number }> => {
     return new Promise((resolve, reject) => {
@@ -129,7 +132,7 @@ export const ReferenceAttachmentsModal: React.FC<ReferenceAttachmentsModalProps>
         const img = new Image();
         img.onload = () => {
           let { width, height } = img;
-          const maxDim = 2048; // 작은 글씨 보존을 위한 고해상도 한도
+          const maxDim = 3200; // 긴 상세페이지 포스터도 글자가 선명하도록 3200px 지원
           if (width > maxDim || height > maxDim) {
             if (width > height) {
               height = Math.round((height * maxDim) / width);
@@ -148,7 +151,7 @@ export const ReferenceAttachmentsModal: React.FC<ReferenceAttachmentsModalProps>
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, width, height);
             ctx.drawImage(img, 0, 0, width, height);
-            const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.83);
+            const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
             const approximateSize = Math.round((compressedDataUrl.length * 3) / 4);
             resolve({ dataUrl: compressedDataUrl, size: approximateSize });
           } else {
@@ -172,7 +175,7 @@ export const ReferenceAttachmentsModal: React.FC<ReferenceAttachmentsModalProps>
     return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
   };
 
-  // 파일 업로드 처리 (이미지 최적화 압축 및 PDF 지원)
+  // 파일 업로드 처리 (Firebase Storage 원본 고속 업로드 & Base64 Fallback)
   const handleAddFiles = async (files: FileList | File[]) => {
     const fileArray = Array.from(files).filter(
       (f) =>
@@ -189,38 +192,53 @@ export const ReferenceAttachmentsModal: React.FC<ReferenceAttachmentsModalProps>
     setIsUploading(true);
     try {
       const newDocs: ReferenceAttachment[] = [];
-      const MAX_PDF_SIZE = 750 * 1024; // 750KB (Firestore 1MB 한도 방어)
+      const MAX_FILE_SIZE = 35 * 1024 * 1024; // 35MB
 
       for (const file of fileArray) {
-        const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+        if (file.size > MAX_FILE_SIZE) {
+          alert(`파일 '${file.name}'의 크기(${formatFileSize(file.size)})가 너무 큽니다. (최대 35MB 지원)`);
+          continue;
+        }
 
-        if (isPdf) {
-          if (file.size > MAX_PDF_SIZE) {
-            alert(
-              `PDF 파일 '${file.name}'의 크기(${formatFileSize(file.size)})가 너무 큽니다.\n데이터베이스 저장 안정성을 위해 750KB 이하의 PDF만 첨부하실 수 있습니다.`
-            );
-            continue;
-          }
-          const dataUrl = await readFileAsDataUrl(file);
+        const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+        const fileId = `ref_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+
+        // 1단계: Firebase Storage에 원본 그대로 고속 업로드 (압축 손실 0%, 원본 화질 100% 보존)
+        const storageResult = await uploadReferenceFileToStorage(product.id, file, fileId);
+
+        if (storageResult) {
           newDocs.push({
-            id: `ref_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+            id: fileId,
             fileName: file.name,
             fileSize: file.size,
-            fileType: 'application/pdf',
+            fileType: isPdf ? 'application/pdf' : file.type || 'image/jpeg',
             uploadedAt: new Date().toISOString(),
-            dataUrl
+            dataUrl: storageResult.downloadUrl,
+            storagePath: storageResult.storagePath
           });
         } else {
-          // 이미지 파일: 2048px 고해상도 + 스마트 경량화 압축 (3~5MB -> 150~250KB)
-          const { dataUrl, size } = await compressImageForAttachment(file);
-          newDocs.push({
-            id: `ref_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-            fileName: file.name,
-            fileSize: size,
-            fileType: 'image/jpeg',
-            uploadedAt: new Date().toISOString(),
-            dataUrl
-          });
+          // 2단계 (Fallback): Storage 미설정 또는 네트워크 오류 시 로컬 Base64 보존
+          if (isPdf) {
+            const dataUrl = await readFileAsDataUrl(file);
+            newDocs.push({
+              id: fileId,
+              fileName: file.name,
+              fileSize: file.size,
+              fileType: 'application/pdf',
+              uploadedAt: new Date().toISOString(),
+              dataUrl
+            });
+          } else {
+            const { dataUrl, size } = await compressImageForAttachment(file);
+            newDocs.push({
+              id: fileId,
+              fileName: file.name,
+              fileSize: size,
+              fileType: 'image/jpeg',
+              uploadedAt: new Date().toISOString(),
+              dataUrl
+            });
+          }
         }
       }
 
@@ -241,17 +259,23 @@ export const ReferenceAttachmentsModal: React.FC<ReferenceAttachmentsModalProps>
     }
   };
 
-  // 파일 삭제 처리
+  // 파일 삭제 처리 (Storage 원본 파일 동시 삭제)
   const handleDeleteItem = async (e: React.MouseEvent, docId: string) => {
     e.stopPropagation();
     if (!window.confirm('이 첨부 자료를 삭제하시겠습니까?')) return;
 
     const latest = useProductStore.getState().products.find((p) => p.id === product.id) || product;
     const currentList = latest.referenceAttachments || [];
+    const docToDelete = currentList.find((d) => d.id === docId);
     const updated = currentList.filter((d) => d.id !== docId);
 
     if (viewingItem?.id === docId) {
       setViewingItem(null);
+    }
+
+    // Storage 원본 파일도 함께 백그라운드 삭제
+    if (docToDelete?.storagePath) {
+      deleteReferenceFileFromStorage(docToDelete.storagePath).catch(() => {});
     }
 
     await updateProduct(product.id, { referenceAttachments: updated });
@@ -319,28 +343,53 @@ export const ReferenceAttachmentsModal: React.FC<ReferenceAttachmentsModalProps>
     setIsPanning(false);
   };
 
-  // 새 창에서 파일 열기 (Base64 -> Blob URL 변환하여 안전하게 새 탭 열기)
+  // 새 창에서 파일 열기 (Storage HTTPS URL 또는 Base64)
   const handleOpenInNewTab = (item: ReferenceAttachment) => {
+    if (item.dataUrl.startsWith('http://') || item.dataUrl.startsWith('https://')) {
+      window.open(item.dataUrl, '_blank');
+      return;
+    }
     try {
-      const byteCharacters = atob(item.dataUrl.split(',')[1]);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      const parts = item.dataUrl.split(',');
+      if (parts.length > 1) {
+        const byteCharacters = atob(parts[1]);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const mime = item.fileType || (item.fileName.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
+        const blob = new Blob([byteArray], { type: mime });
+        const blobUrl = URL.createObjectURL(blob);
+        window.open(blobUrl, '_blank');
+        return;
       }
-      const byteArray = new Uint8Array(byteNumbers);
-      const mime = item.fileType || (item.fileName.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'image/jpeg');
-      const blob = new Blob([byteArray], { type: mime });
-      const blobUrl = URL.createObjectURL(blob);
-      window.open(blobUrl, '_blank');
     } catch (e) {
       console.warn('새 창 열기 실패, 직접 dataUrl 시도:', e);
-      window.open(item.dataUrl, '_blank');
     }
+    window.open(item.dataUrl, '_blank');
   };
 
-  // 파일 다운로드
-  const handleDownload = (e: React.MouseEvent, item: ReferenceAttachment) => {
+  // 파일 다운로드 (Storage HTTPS URL 또는 Base64)
+  const handleDownload = async (e: React.MouseEvent, item: ReferenceAttachment) => {
     e.stopPropagation();
+    if (item.dataUrl.startsWith('http://') || item.dataUrl.startsWith('https://')) {
+      try {
+        const res = await fetch(item.dataUrl);
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = item.fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+        return;
+      } catch (err) {
+        console.warn('Storage 파일 fetch 실패, 직접 다운로드 fallback:', err);
+      }
+    }
     const link = document.createElement('a');
     link.href = item.dataUrl;
     link.download = item.fileName;
@@ -353,7 +402,8 @@ export const ReferenceAttachmentsModal: React.FC<ReferenceAttachmentsModalProps>
     return (
       item.fileType === 'application/pdf' ||
       item.fileName.toLowerCase().endsWith('.pdf') ||
-      item.dataUrl.startsWith('data:application/pdf')
+      item.dataUrl.startsWith('data:application/pdf') ||
+      item.dataUrl.toLowerCase().includes('.pdf')
     );
   };
 

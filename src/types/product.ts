@@ -45,7 +45,8 @@ export interface ReferenceAttachment {
   fileSize?: number;
   fileType?: string;                    // MIME 타입 (예: 'image/jpeg', 'application/pdf')
   uploadedAt: string;
-  dataUrl: string;                      // Base64 데이터 URL
+  dataUrl: string;                      // Firebase Storage 다운로드 URL 또는 Base64 데이터 URL
+  storagePath?: string;                 // Firebase Storage 파일 경로 (삭제 시 사용)
 }
 
 export interface AttachedDocument {

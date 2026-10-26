@@ -1,8 +1,9 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, Firestore } from 'firebase/firestore';
+import { getStorage, FirebaseStorage } from 'firebase/storage';
 
 /**
- * Firebase 환경 구성 (Cloud Firestore 연동)
+ * Firebase 환경 구성 (Cloud Firestore 및 Cloud Storage 연동)
  * - 환경 변수(VITE_FIREBASE_...)가 있으면 이를 사용하고,
  *   미설정 시 약국 데모 프로젝트 설정으로 안전하게 초기화합니다.
  */
@@ -20,6 +21,9 @@ const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 
 // Cloud Firestore 인스턴스
 export const db: Firestore = getFirestore(app);
+
+// Cloud Storage 인스턴스
+export const storage: FirebaseStorage = getStorage(app);
 
 // 실제 프로젝트 설정 연결 여부 확인
 export const isLiveFirebaseConfigured = (): boolean => {

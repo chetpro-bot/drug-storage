@@ -86,18 +86,24 @@ export function parseDrugArticleHierarchy(text?: string | null): ParsedLine[] {
     };
   });
 
-  // 1. 문서 전체에서 1., [1], I. 등 명시적 Level 1 숫자 헤더가 존재하는지 검사
-  const hasExplicitLevel1Number = lineItems.some(item =>
+  // 1. 문서 전체의 기호 체계를 분석하여 최상위 번호/기호 패밀리(Root Family) 결정
+  const hasDotNum = lineItems.some(item =>
     /^\d+[\.\/]\s+/.test(item.trimmed) ||
     /^\[\s*\d+\s*\]/.test(item.trimmed) ||
     /^[ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩIVXLCDM]+[\.\s]\s*/.test(item.trimmed)
   );
-
-  // 2. 문서에 도형 기호(○, ●, ■ 등)가 존재하는지 검사
+  const hasHalfParenNum = lineItems.some(item => /^\d+\)\s+/.test(item.trimmed));
+  const hasParenNum = lineItems.some(item => /^\(\s*\d+\s*\)\s+/.test(item.trimmed));
+  const hasCircleNum = lineItems.some(item => /^[①-⑳]\s+/.test(item.trimmed));
   const hasShapeBullets = lineItems.some(item => /^[○●■◆▲▶◇□]/.test(item.trimmed));
 
-  // 3. 문서에 별표(*) 또는 참고표(※)가 존재하는지 검사
-  const hasAsteriskBullets = lineItems.some(item => /^[\*※]/.test(item.trimmed));
+  let rootFamily = 'NONE';
+  if (hasDotNum) rootFamily = 'DOT_NUM';
+  else if (hasHalfParenNum) rootFamily = 'HALF_PAREN_NUM';
+  else if (hasParenNum) rootFamily = 'PAREN_NUM';
+  else if (hasCircleNum) rootFamily = 'CIRCLE_NUM';
+  else if (hasShapeBullets) rootFamily = 'SHAPE';
+  else rootFamily = 'DASH';
 
   let l1Counter = 0;
   let l2Counter = 0;
@@ -116,7 +122,7 @@ export function parseDrugArticleHierarchy(text?: string | null): ParsedLine[] {
 
     const trimmed = item.trimmed;
 
-    // --- CASE 1: 명시적 숫자 헤더 (1., [1]) ---
+    // --- CASE 1: 1. 또는 [1] (DOT_NUM) ---
     let m = trimmed.match(/^(\d+)[\.\/]\s+(.*)$/) || trimmed.match(/^\[\s*(\d+)\s*\]\s*(.*)$/);
     if (m) {
       const n = parseInt(m[1], 10);
@@ -142,7 +148,31 @@ export function parseDrugArticleHierarchy(text?: string | null): ParsedLine[] {
       continue;
     }
 
-    // --- CASE 2: 도형 기호(○, ●, ■ 등) 최상위 Level 1 헤더 ---
+    // --- CASE 2: 1) 반괄호 숫자 (HALF_PAREN_NUM) ---
+    m = trimmed.match(/^(\d+)\)\s*(.*)$/);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (rootFamily === 'HALF_PAREN_NUM') {
+        // 문서에 1. 이 없고 1) 이 최상위인 경우 -> 1단계(1., 2.)로 승격!
+        l1Counter = n;
+        l2Counter = 0;
+        l3Counter = 0;
+        currentLevel = 1;
+        levelFamily = { 1: 'HALF_PAREN_NUM', 2: '', 3: '' };
+        result.push({ level: 1, inheritedLevel: 1, bulletText: `${n}. `, content: m[2] });
+      } else {
+        // 상위 1. 아래의 2단계
+        l2Counter = n;
+        l3Counter = 0;
+        currentLevel = 2;
+        levelFamily[2] = 'HALF_PAREN_NUM';
+        levelFamily[3] = '';
+        result.push({ level: 2, inheritedLevel: 2, bulletText: `${n}) `, content: m[2] });
+      }
+      continue;
+    }
+
+    // --- CASE 3: 도형 기호(○, ●, ■ 등) 최상위 Level 1 헤더 ---
     m = trimmed.match(/^([○●■◆▲▶◇□])\s*(.*)$/);
     if (m) {
       l1Counter++;
@@ -154,8 +184,8 @@ export function parseDrugArticleHierarchy(text?: string | null): ParsedLine[] {
       continue;
     }
 
-    // --- CASE 3: 문서에 1. 이 없을 때 하위 목록(*, · 등)을 거느리는 대분류 문장(Level 1) 판별 ---
-    if (!hasExplicitLevel1Number && (hasShapeBullets || hasAsteriskBullets)) {
+    // --- CASE 4: 문서에 명시적 1. 이 없을 때 하위 목록(*, · 등)을 거느리는 대분류 문장(Level 1) 판별 ---
+    if (rootFamily === 'SHAPE' || rootFamily === 'DASH') {
       if (
         /^[-–—―]?\s*(이\s*약에\s*함유된.*다음과\s*같다.*)$/.test(trimmed) ||
         (/^[-–—―]?\s*(다음\s*증상의\s*완화.*[:：]?)$/.test(trimmed) &&
@@ -173,20 +203,73 @@ export function parseDrugArticleHierarchy(text?: string | null): ParsedLine[] {
       }
     }
 
-    // --- Level 2: 1) 반괄호 숫자 ---
-    m = trimmed.match(/^(\d+)\)\s*(.*)$/);
+    // --- CASE 5: (1) 괄호 숫자 (PAREN_NUM) ---
+    m = trimmed.match(/^\(\s*(\d+)\s*\)\s*(.*)$/);
     if (m) {
       const n = parseInt(m[1], 10);
-      l2Counter = n;
-      l3Counter = 0;
-      currentLevel = 2;
-      levelFamily[2] = 'HALF_PAREN_NUM';
-      levelFamily[3] = '';
-      result.push({ level: 2, inheritedLevel: 2, bulletText: `${n}) `, content: m[2] });
+      if (rootFamily === 'PAREN_NUM') {
+        // 문서에 1. 도 1) 도 없고 (1) 이 최상위인 경우 -> 1단계 승격
+        l1Counter = n;
+        l2Counter = 0;
+        l3Counter = 0;
+        currentLevel = 1;
+        levelFamily = { 1: 'PAREN_NUM', 2: '', 3: '' };
+        result.push({ level: 1, inheritedLevel: 1, bulletText: `${n}. `, content: m[2] });
+      } else if (levelFamily[2] === 'PAREN_NUM') {
+        // 이미 2단계가 PAREN_NUM으로 활성화되어 있으면 동일 2단계(2), 3)) 유지!
+        l2Counter = n;
+        currentLevel = 2;
+        result.push({ level: 2, inheritedLevel: 2, bulletText: `${n}) `, content: m[2] });
+      } else if (levelFamily[2] && levelFamily[2] !== 'PAREN_NUM') {
+        // 2단계에 이미 다른 패밀리(1) 등)가 존재함 -> 하위 3단계 (a., b.)
+        l3Counter = n;
+        currentLevel = 3;
+        levelFamily[3] = 'PAREN_NUM';
+        result.push({ level: 3, inheritedLevel: 3, bulletText: `${numToAlpha(n)}. `, content: m[2] });
+      } else {
+        // 2단계 비어있음 -> 2단계(1), 2)) 등록
+        l2Counter = n;
+        l3Counter = 0;
+        currentLevel = 2;
+        levelFamily[2] = 'PAREN_NUM';
+        levelFamily[3] = '';
+        result.push({ level: 2, inheritedLevel: 2, bulletText: `${n}) `, content: m[2] });
+      }
       continue;
     }
 
-    // --- Level 2: 별표(*) 또는 참고표(※) -> Level 2 (1), 2)) ---
+    // --- CASE 6: ①, ② 원문자 (CIRCLE_NUM) ---
+    m = trimmed.match(/^([①-⑳])\s*(.*)$/);
+    if (m) {
+      const n = circleToNum(m[1]);
+      if (rootFamily === 'CIRCLE_NUM') {
+        l1Counter = n;
+        l2Counter = 0;
+        l3Counter = 0;
+        currentLevel = 1;
+        levelFamily = { 1: 'CIRCLE_NUM', 2: '', 3: '' };
+        result.push({ level: 1, inheritedLevel: 1, bulletText: `${n}. `, content: m[2] });
+      } else if (levelFamily[2] === 'CIRCLE_NUM') {
+        l2Counter = n;
+        currentLevel = 2;
+        result.push({ level: 2, inheritedLevel: 2, bulletText: `${n}) `, content: m[2] });
+      } else if (levelFamily[2] && levelFamily[2] !== 'CIRCLE_NUM') {
+        l3Counter = n;
+        currentLevel = 3;
+        levelFamily[3] = 'CIRCLE_NUM';
+        result.push({ level: 3, inheritedLevel: 3, bulletText: `${numToAlpha(n)}. `, content: m[2] });
+      } else {
+        l2Counter = n;
+        l3Counter = 0;
+        currentLevel = 2;
+        levelFamily[2] = 'CIRCLE_NUM';
+        levelFamily[3] = '';
+        result.push({ level: 2, inheritedLevel: 2, bulletText: `${n}) `, content: m[2] });
+      }
+      continue;
+    }
+
+    // --- CASE 7: 별표(*) 또는 참고표(※) -> Level 2 (1), 2)) ---
     m = trimmed.match(/^([\*※])\s*(.*)$/);
     if (m) {
       l2Counter++;
@@ -198,52 +281,18 @@ export function parseDrugArticleHierarchy(text?: string | null): ParsedLine[] {
       continue;
     }
 
-    // --- PAREN_NUM: (1), (2) ---
-    m = trimmed.match(/^\(\s*(\d+)\s*\)\s*(.*)$/);
-    if (m) {
-      const n = parseInt(m[1], 10);
-      if (currentLevel >= 2) {
-        l3Counter = n;
-        currentLevel = 3;
-        levelFamily[3] = 'PAREN_NUM';
-        result.push({ level: 3, inheritedLevel: 3, bulletText: `${numToAlpha(n)}. `, content: m[2] });
-      } else {
-        l2Counter = n;
-        l3Counter = 0;
-        currentLevel = 2;
-        levelFamily[2] = 'PAREN_NUM';
-        result.push({ level: 2, inheritedLevel: 2, bulletText: `${n}) `, content: m[2] });
-      }
-      continue;
-    }
-
-    // --- CIRCLE_NUM: ①, ② ---
-    m = trimmed.match(/^([①-⑳])\s*(.*)$/);
-    if (m) {
-      const n = circleToNum(m[1]);
-      if (currentLevel >= 2) {
-        l3Counter = n;
-        currentLevel = 3;
-        levelFamily[3] = 'CIRCLE_NUM';
-        result.push({ level: 3, inheritedLevel: 3, bulletText: `${numToAlpha(n)}. `, content: m[2] });
-      } else {
-        l2Counter = n;
-        l3Counter = 0;
-        currentLevel = 2;
-        levelFamily[2] = 'CIRCLE_NUM';
-        result.push({ level: 2, inheritedLevel: 2, bulletText: `${n}) `, content: m[2] });
-      }
-      continue;
-    }
-
-    // --- HANGUL: 가., 나. / 가), 나) / (가), (나) ---
+    // --- CASE 8: 가., 나. / 가), 나) / (가), (나) 한글 ---
     m =
       trimmed.match(/^([가-하])\.\s*(.*)$/) ||
       trimmed.match(/^([가-하])\)\s*(.*)$/) ||
       trimmed.match(/^\(([가-하])\)\s*(.*)$/);
     if (m) {
       const n = hangulSyllableToNum(m[1]);
-      if (currentLevel >= 2) {
+      if (levelFamily[2] === 'HANGUL') {
+        l2Counter = n;
+        currentLevel = 2;
+        result.push({ level: 2, inheritedLevel: 2, bulletText: `${n}) `, content: m[2] });
+      } else if (levelFamily[2] && levelFamily[2] !== 'HANGUL') {
         l3Counter = n;
         currentLevel = 3;
         levelFamily[3] = 'HANGUL';
@@ -253,12 +302,13 @@ export function parseDrugArticleHierarchy(text?: string | null): ParsedLine[] {
         l3Counter = 0;
         currentLevel = 2;
         levelFamily[2] = 'HANGUL';
+        levelFamily[3] = '';
         result.push({ level: 2, inheritedLevel: 2, bulletText: `${n}) `, content: m[2] });
       }
       continue;
     }
 
-    // --- ALPHA: a., b. / a), b) / (a), (b) -> Level 3 ---
+    // --- CASE 9: a., b. / a), b) / (a), (b) 영문 -> Level 3 ---
     m = trimmed.match(/^([a-zA-Z])[\.\)]\s*(.*)$/) || trimmed.match(/^\(([a-zA-Z])\)\s*(.*)$/);
     if (m) {
       const ch = m[1].toLowerCase();
@@ -268,32 +318,29 @@ export function parseDrugArticleHierarchy(text?: string | null): ParsedLine[] {
       continue;
     }
 
-    // --- DASH / HYPHEN: - ---
+    // --- CASE 10: - (하이픈 / 대시) ---
     m = trimmed.match(/^([-–—―~])\s*(.*)$/);
     if (m) {
       const content = m[2];
-      // 1) 문서에 1. 번호가 없고 도형(○) 아래에 나열된 - 목록 -> Level 2 (1), 2), 3))
-      if (!hasExplicitLevel1Number && hasShapeBullets && currentLevel <= 2) {
+      if (rootFamily === 'SHAPE' && currentLevel <= 2) {
         l2Counter++;
         l3Counter = 0;
         currentLevel = 2;
         result.push({ level: 2, inheritedLevel: 2, bulletText: `${l2Counter}) `, content });
-      } else if (!hasExplicitLevel1Number && !hasShapeBullets) {
-        // 2) 문서에 1. 도 없고 도형(○)도 없는 순수 - 목록 -> 1단계(1., 2., 3.)로 부여!
+      } else if (rootFamily === 'DASH') {
         l1Counter++;
         l2Counter = 0;
         l3Counter = 0;
         currentLevel = 1;
         result.push({ level: 1, inheritedLevel: 1, bulletText: `${l1Counter}. `, content });
       } else {
-        // 3) 상위 번호가 이미 존재하는 상태에서 세부 하이픈 항목 -> Level 4 (- )
         currentLevel = 4;
         result.push({ level: 4, inheritedLevel: 4, bulletText: '- ', content });
       }
       continue;
     }
 
-    // --- 가운뎃점 / 도트: ·, ㆍ, •, ∙ ---
+    // --- CASE 11: · (가운뎃점 / 도트) ---
     m = trimmed.match(/^([·•∙ㆍ])\s*(.*)$/);
     if (m) {
       const content = m[2];

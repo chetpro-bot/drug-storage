@@ -49,6 +49,20 @@ export interface ReferenceAttachment {
   storagePath?: string;                 // Firebase Storage 파일 경로 (삭제 시 사용)
 }
 
+/**
+ * 제품 포장 규격 및 규격별 판매가/복용기간 옵션
+ * - 예: 낱병(1병), 1박스(30병), 2박스 세트(60병), 1통(360정)
+ */
+export interface ProductPackageOption {
+  id: string;                           // 규격 고유 식별자 (예: 'pkg_1234')
+  name: string;                         // 규격 명칭 (예: '낱병', '1박스', '2박스 세트', '소박스', '1통')
+  totalQuantity: number;                // 총 수량 (알수, 병수, 포수 - 예: 1, 30, 60, 360)
+  unit?: string;                        // 단위 (정, 병, 캡슐, 포 등, 미지정 시 servingUnitKorean)
+  priceKrw: number;                     // 약국 판매가 (KRW)
+  isDefault?: boolean;                  // 대표 규격 여부 (카탈로그 메인에 노출)
+  customDurationDays?: number;          // 수기 지정 복용 일수 (자동 계산값 대신 고정 시)
+}
+
 export interface AttachedDocument {
   id: string;
   fileName: string;
@@ -144,7 +158,8 @@ export interface ProductItem {
   // 약국 관리 속성
   imageUrl?: string;                    // 제품 대표 사진 (Base64 데이터 URL 또는 외부 이미지 URL)
   storageLocation?: string;             // 약국 내 진열/보관 위치 (예: "상담석 우측 2단", "영양제 매대 A-1")
-  priceRetailKrw?: number;              // 약국 소비자 판매가 (KRW)
+  priceRetailKrw?: number;              // 약국 소비자 판매가 (KRW, 단일/기본 대표가)
+  packageOptions?: ProductPackageOption[]; // 다중 포장 규격별 수량/판매가/복용기간 옵션 (예: 낱병, 30병, 60병 세트 등)
   inventoryCount?: number;              // 현재 재고 수량
   tags: string[];                       // 효능 및 검색 태그 (예: ["피로", "간", "신경통", "고함량B군"])
   pharmacistNotes?: string;             // 약사 상담 노하우 및 복약지도 메모 (언제든 수정 가능한 메모장)

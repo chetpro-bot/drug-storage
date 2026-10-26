@@ -20,6 +20,12 @@ import {
 } from '../services/publicDataService';
 import { AttachedDocumentsModal } from './AttachedDocumentsModal';
 import { ReferenceAttachmentsModal } from './ReferenceAttachmentsModal';
+import { PackagePricingSection } from './PackagePricingSection';
+import {
+  getDailyDose,
+  calculateDuration,
+  getDefaultPackageOption
+} from '../utils/packageCalculator';
 import { PrecautionsTextEditor, renderFormattedPrecautionsText } from './PrecautionsTextEditor';
 import {
   resolveIngredientDisplayInfo,
@@ -860,6 +866,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     useProductStore((state) => state.products.find((p) => p.id === product?.id)?.referenceAttachments) ||
     product?.referenceAttachments ||
     [];
+
+  const defaultPkg = product ? getDefaultPackageOption(product) : null;
+  const headerDailyDose = product ? getDailyDose(product) : 1;
+  const headerDuration = defaultPkg
+    ? calculateDuration(defaultPkg.totalQuantity, headerDailyDose, defaultPkg.customDurationDays)
+    : null;
+
   const [isDocsModalOpen, setIsDocsModalOpen] = useState(false);
   const [isFetchingFullApiText, setIsFetchingFullApiText] = useState(false);
   const [isIndicationsFullModalOpen, setIsIndicationsFullModalOpen] = useState(false);
@@ -3036,8 +3049,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <span className="text-xs text-slate-500">({product.packagingUnit})</span>
                 )}
                 {product.priceRetailKrw ? (
-                  <span className="text-xs font-extrabold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full">
-                    {product.priceRetailKrw.toLocaleString()} 원
+                  <span className="text-xs font-extrabold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 shadow-2xs">
+                    <span>{product.priceRetailKrw.toLocaleString()} 원</span>
+                    {headerDuration && headerDuration.shortText !== '-' && (
+                      <span className="text-[10px] font-bold text-amber-800 bg-amber-100/90 px-1.5 py-0.2 rounded">
+                        {headerDuration.shortText}
+                      </span>
+                    )}
                   </span>
                 ) : null}
                 {product.storageLocation && (
@@ -3149,6 +3167,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               </div>
             )}
           </div>
+
+          {/* SECTION: 포장 규격 및 판매가 / 복용 기간 복약상담표 */}
+          <PackagePricingSection product={product} />
 
           {/* SECTION 2: 성분 / 함량 (약효분류 | 성분 함량 | 상한섭취량 3열 정렬) */}
           <div className="space-y-2">

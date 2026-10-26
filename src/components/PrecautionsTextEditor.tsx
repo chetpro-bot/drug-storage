@@ -369,67 +369,7 @@ export const PrecautionsTextEditor: React.FC<PrecautionsTextEditorProps> = ({
 
   return (
     <div className="space-y-2 bg-[#f8fafc] border border-rose-300 rounded-xl p-3 relative">
-      {/* 상단 액션 툴바 */}
-      <div className="flex items-center justify-between flex-wrap gap-2 pb-2 border-b border-slate-200">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {/* 형광펜 버튼 */}
-          <button
-            type="button"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              handleToggleHighlight();
-            }}
-            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-md transition-colors cursor-pointer shadow-2xs"
-            title="마우스로 선택한 텍스트에 형광펜 칠하기 (클릭 시 토글)"
-          >
-            <Highlighter className="w-3.5 h-3.5 text-amber-700" />
-            <span>형광펜 칠하기</span>
-          </button>
-
-          {/* 들여쓰기 버튼 */}
-          <button
-            type="button"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              handleIndent(false);
-            }}
-            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-md transition-colors cursor-pointer shadow-2xs"
-            title="선택한 줄 전체 오른쪽으로 들여쓰기 (Tab 키로도 가능)"
-          >
-            <Indent className="w-3.5 h-3.5 text-indigo-600" />
-            <span>들여쓰기</span>
-          </button>
-
-          {/* 내어쓰기 버튼 */}
-          <button
-            type="button"
-            onMouseDown={(e) => {
-              e.preventDefault();
-              handleIndent(true);
-            }}
-            className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-md transition-colors cursor-pointer shadow-2xs"
-            title="선택한 줄 전체 왼쪽으로 내어쓰기 (Shift+Tab 키로도 가능)"
-          >
-            <Outdent className="w-3.5 h-3.5 text-slate-600" />
-            <span>내어쓰기</span>
-          </button>
-
-          {/* 형광펜 지우기 버튼 */}
-          {(value.includes('==') || value.includes('<mark>')) && (
-            <button
-              type="button"
-              onClick={handleClearAllHighlights}
-              className="inline-flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200 rounded-md transition-colors cursor-pointer"
-              title="칠해진 형광펜 일괄 제거"
-            >
-              <Eraser className="w-3 h-3 text-rose-500" />
-              <span>형광펜 지우기</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* 본문 텍스트 영역 */}
+      {/* 본문 텍스트 영역 (마우스 드래그 선택 시 형광펜/들여쓰기 팝업 메뉴 자동 노출) */}
       <textarea
         ref={textareaRef}
         value={value}
@@ -440,7 +380,7 @@ export const PrecautionsTextEditor: React.FC<PrecautionsTextEditorProps> = ({
         onTouchEnd={updateSelectionState}
         onKeyDown={handleKeyDown}
         rows={12}
-        placeholder={placeholder || '주의사항 내용을 입력하세요.'}
+        placeholder={placeholder || '주의사항 내용을 입력하세요. (마우스로 텍스트를 드래그하면 형광펜/들여쓰기 메뉴가 나타납니다)'}
         className="precautions-textarea w-full text-xs font-medium text-slate-800 bg-white border border-slate-300 rounded-lg p-3 leading-relaxed focus:outline-none focus:ring-2 focus:ring-rose-500 whitespace-pre-wrap font-sans min-h-[260px] resize-y"
       />
 
@@ -500,22 +440,37 @@ export const PrecautionsTextEditor: React.FC<PrecautionsTextEditorProps> = ({
       )}
 
       {/* 저장 / 취소 버튼 */}
-      <div className="flex justify-end gap-2 pt-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200/70 rounded-md transition-colors cursor-pointer"
-        >
-          취소
-        </button>
-        <button
-          type="button"
-          onClick={onSave}
-          className={`px-3.5 py-1.5 text-xs font-bold rounded-md shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5 ${saveColorClasses}`}
-        >
-          <Check className="w-3.5 h-3.5" />
-          <span>저장</span>
-        </button>
+      <div className="flex items-center justify-between gap-2 pt-2">
+        <div>
+          {(value.includes('==') || value.includes('<mark>')) && (
+            <button
+              type="button"
+              onClick={handleClearAllHighlights}
+              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200 rounded-md transition-colors cursor-pointer"
+              title="칠해진 형광펜 모두 지우기"
+            >
+              <Eraser className="w-3.5 h-3.5 text-rose-500" />
+              <span>형광펜 전체 지우기</span>
+            </button>
+          )}
+        </div>
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200/70 rounded-md transition-colors cursor-pointer"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={onSave}
+            className={`px-3.5 py-1.5 text-xs font-bold rounded-md shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5 ${saveColorClasses}`}
+          >
+            <Check className="w-3.5 h-3.5" />
+            <span>저장</span>
+          </button>
+        </div>
       </div>
     </div>
   );

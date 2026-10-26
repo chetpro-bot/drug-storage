@@ -3048,9 +3048,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 {product.packagingUnit && (
                   <span className="text-xs text-slate-500">({product.packagingUnit})</span>
                 )}
-                {product.priceRetailKrw ? (
+                {(defaultPkg?.priceKrw || product.priceRetailKrw) ? (
                   <span className="text-xs font-extrabold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5 shadow-2xs">
-                    <span>{product.priceRetailKrw.toLocaleString()} 원</span>
+                    <span>{(defaultPkg?.priceKrw || product.priceRetailKrw || 0).toLocaleString()} 원</span>
                     {headerDuration && headerDuration.shortText !== '-' && (
                       <span className="text-[10px] font-bold text-amber-800 bg-amber-100/90 px-1.5 py-0.2 rounded">
                         {headerDuration.shortText}

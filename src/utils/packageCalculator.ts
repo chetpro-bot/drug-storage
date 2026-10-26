@@ -83,9 +83,9 @@ export function parseQuantityFromPackagingUnit(
 
 /**
  * 총 수량과 1일 복용량을 바탕으로 복용 가능 기간 계산
- * - 예: 360정 / 1일 6정 = 60일 -> "2개월분 (60일)"
- * - 예: 30병 / 1일 2병 = 15일 -> "15일분"
- * - 예: 1병 / 1일 2병 = 0.5일 -> "반나절분 (0.5일)"
+ * - 30일, 60일 등 30의 배수로 떨어지면 'N개월분' (예: 1개월분, 2개월분)
+ * - 1미만(0.5일 등)은 '0.5일'
+ * - 그 외(15일, 45일 등)는 'N일분'
  */
 export function calculateDuration(
   totalQuantity: number,
@@ -97,15 +97,24 @@ export function calculateDuration(
   fullText: string;
   isFractional: boolean;
 } {
+  const formatDaysToText = (d: number): string => {
+    if (d <= 0) return '-';
+    if (d < 1) return `${d}일`; // 예: 반나절 -> 0.5일
+    // 30일 배수로 딱 떨어지는 경우 'N개월분'
+    if (d % 30 === 0) {
+      return `${Math.round(d / 30)}개월분`;
+    }
+    // 그 외(15일, 45일 등)는 일수로만 표기
+    return `${d}일분`;
+  };
+
   if (customDays !== undefined && customDays > 0) {
-    const days = customDays;
-    const months = parseFloat((days / 30).toFixed(1));
-    const isExactMonth = days % 30 === 0;
+    const text = formatDaysToText(customDays);
     return {
-      days,
-      shortText: days < 30 ? `${days}일분` : isExactMonth ? `${Math.round(months)}개월분` : `약 ${months}개월분`,
-      fullText: days < 30 ? `${days}일분` : isExactMonth ? `${Math.round(months)}개월분 (${days}일)` : `약 ${months}개월분 (${days}일)`,
-      isFractional: false
+      days: customDays,
+      shortText: text,
+      fullText: text,
+      isFractional: customDays < 1
     };
   }
 
@@ -117,31 +126,22 @@ export function calculateDuration(
 
   if (rawDays < 1) {
     const displayDays = parseFloat(rawDays.toFixed(1));
+    const text = `${displayDays}일`;
     return {
       days: displayDays,
-      shortText: '반나절분',
-      fullText: `반나절분 (${displayDays}일)`,
+      shortText: text,
+      fullText: text,
       isFractional: true
     };
   }
 
   const days = Math.round(rawDays);
-  if (days < 30) {
-    return {
-      days,
-      shortText: `${days}일분`,
-      fullText: `${days}일분`,
-      isFractional: false
-    };
-  }
-
-  const months = parseFloat((days / 30).toFixed(1));
-  const isExactMonth = days % 30 === 0;
+  const text = formatDaysToText(days);
 
   return {
     days,
-    shortText: isExactMonth ? `${Math.round(months)}개월분` : `약 ${months}개월분`,
-    fullText: isExactMonth ? `${Math.round(months)}개월분 (${days}일)` : `약 ${months}개월분 (${days}일)`,
+    shortText: text,
+    fullText: text,
     isFractional: false
   };
 }

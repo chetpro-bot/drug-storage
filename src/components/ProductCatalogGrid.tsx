@@ -10,7 +10,6 @@ import {
 import {
   getDailyDose,
   calculateDuration,
-  resolveProductPackageOptions,
   getDefaultPackageOption
 } from '../utils/packageCalculator';
 import {
@@ -398,7 +397,6 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
               const matchedEfficacyTags = getMatchedEfficacyTagsForProduct(product);
               const isEditingLoc = editingLocationId === product.id;
               const isEditingPrice = editingPriceId === product.id;
-              const packageOptions = resolveProductPackageOptions(product);
               const defaultOpt = getDefaultPackageOption(product);
               const dailyDose = getDailyDose(product);
               const duration = calculateDuration(defaultOpt.totalQuantity, dailyDose, defaultOpt.customDurationDays);
@@ -555,55 +553,35 @@ export const ProductCatalogGrid: React.FC<ProductCatalogGridProps> = ({
                           </button>
                         </div>
                       ) : (
-                        <div className="space-y-1.5">
-                          <div className="flex items-baseline justify-between gap-1">
-                            <span
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingPriceId(product.id);
-                                setPriceDraft(String(defaultOpt.priceKrw || product.priceRetailKrw || ''));
-                              }}
-                              className="text-sm font-black text-blue-700 hover:text-sky-600 transition-colors"
-                              title="클릭하여 가격 빠른 수정"
-                            >
-                              {defaultOpt.priceKrw > 0
-                                ? `${defaultOpt.priceKrw.toLocaleString()} 원`
-                                : product.priceRetailKrw
-                                ? `${product.priceRetailKrw.toLocaleString()} 원`
-                                : '가격 미입력'}
+                        <div className="flex items-center justify-between gap-1">
+                          {/* 1. 가격 */}
+                          <span
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingPriceId(product.id);
+                              setPriceDraft(String(defaultOpt.priceKrw || product.priceRetailKrw || ''));
+                            }}
+                            className="text-sm font-black text-blue-700 hover:text-sky-600 transition-colors cursor-pointer"
+                            title="클릭하여 가격 빠른 수정"
+                          >
+                            {defaultOpt.priceKrw > 0
+                              ? `${defaultOpt.priceKrw.toLocaleString()} 원`
+                              : product.priceRetailKrw
+                              ? `${product.priceRetailKrw.toLocaleString()} 원`
+                              : '가격 미입력'}
+                          </span>
+
+                          {/* 2. 대표 단위 & 3. 복용일수 */}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-[11px] font-semibold text-slate-500 truncate max-w-[95px]">
+                              {defaultOpt.name || product.packagingUnit}
                             </span>
-
-                            <div className="flex items-center gap-1 shrink-0">
-                              {duration.shortText !== '-' && (
-                                <span className="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200/80 px-1.5 py-0.2 rounded">
-                                  {duration.shortText}
-                                </span>
-                              )}
-                              <span className="text-[11px] text-slate-400 truncate max-w-[95px]">
-                                {defaultOpt.name || product.packagingUnit}
+                            {duration.shortText !== '-' && (
+                              <span className="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200/90 px-1.5 py-0.5 rounded-md">
+                                {duration.shortText}
                               </span>
-                            </div>
+                            )}
                           </div>
-
-                          {/* 다중 포장 규격 칩 (낱병, 소박스, 대박스 등 2개 이상일 때 노출) */}
-                          {packageOptions.length > 1 && (
-                            <div className="flex items-center gap-1 overflow-x-auto py-0.5 no-scrollbar">
-                              {packageOptions.map((opt) => (
-                                <span
-                                  key={opt.id}
-                                  className={`text-[9.5px] px-1.5 py-0.5 rounded border whitespace-nowrap transition-colors ${
-                                    opt.isDefault
-                                      ? 'bg-sky-50 text-sky-800 border-sky-300 font-extrabold'
-                                      : 'bg-slate-50 text-slate-600 border-slate-200 font-medium'
-                                  }`}
-                                  title={`${opt.name}: ${opt.priceKrw.toLocaleString()}원`}
-                                >
-                                  {opt.name || `${opt.totalQuantity}${opt.unit || '정'}`}{' '}
-                                  {opt.priceKrw > 0 ? `${Math.round(opt.priceKrw / 1000)}천` : ''}
-                                </span>
-                              ))}
-                            </div>
-                          )}
                         </div>
                       )}
                     </div>

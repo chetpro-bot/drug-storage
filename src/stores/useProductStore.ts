@@ -1310,16 +1310,27 @@ export const useProductStore = create<ProductState>((set, get) => {
 
         const mergedMap = new Map<string, ProductItem>();
 
-        // Firestore 데이터 적용 (첨부파일은 로컬 캐시 우선 보존)
+        // Firestore 데이터 적용 (첨부파일 및 참고자료는 로컬 캐시 우선 보존)
         validFromFirestore.forEach((p) => {
           const localP = currentProducts.find((lp) => lp.id === p.id);
-          if (
+          const hasLocalAttachments =
             localP &&
             localP.attachments &&
             localP.attachments.length > 0 &&
-            (!p.attachments || p.attachments.length < localP.attachments.length)
-          ) {
-            mergedMap.set(p.id, { ...p, attachments: localP.attachments });
+            (!p.attachments || p.attachments.length < localP.attachments.length);
+
+          const hasLocalRefAttachments =
+            localP &&
+            localP.referenceAttachments &&
+            localP.referenceAttachments.length > 0 &&
+            (!p.referenceAttachments || p.referenceAttachments.length < localP.referenceAttachments.length);
+
+          if (hasLocalAttachments || hasLocalRefAttachments) {
+            mergedMap.set(p.id, {
+              ...p,
+              attachments: hasLocalAttachments ? localP!.attachments : p.attachments,
+              referenceAttachments: hasLocalRefAttachments ? localP!.referenceAttachments : p.referenceAttachments
+            });
           } else {
             mergedMap.set(p.id, p);
           }
@@ -1377,15 +1388,27 @@ export const useProductStore = create<ProductState>((set, get) => {
         validFromFirestore.forEach((p) => unmarkDeletedId(p.id));
 
         const mergedMap = new Map<string, ProductItem>();
+        // Firestore 데이터 적용 (첨부파일 및 참고자료는 로컬 캐시 우선 보존)
         validFromFirestore.forEach((p) => {
           const localP = currentProducts.find((lp) => lp.id === p.id);
-          if (
+          const hasLocalAttachments =
             localP &&
             localP.attachments &&
             localP.attachments.length > 0 &&
-            (!p.attachments || p.attachments.length < localP.attachments.length)
-          ) {
-            mergedMap.set(p.id, { ...p, attachments: localP.attachments });
+            (!p.attachments || p.attachments.length < localP.attachments.length);
+
+          const hasLocalRefAttachments =
+            localP &&
+            localP.referenceAttachments &&
+            localP.referenceAttachments.length > 0 &&
+            (!p.referenceAttachments || p.referenceAttachments.length < localP.referenceAttachments.length);
+
+          if (hasLocalAttachments || hasLocalRefAttachments) {
+            mergedMap.set(p.id, {
+              ...p,
+              attachments: hasLocalAttachments ? localP!.attachments : p.attachments,
+              referenceAttachments: hasLocalRefAttachments ? localP!.referenceAttachments : p.referenceAttachments
+            });
           } else {
             mergedMap.set(p.id, p);
           }

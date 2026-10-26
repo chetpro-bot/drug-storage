@@ -51,7 +51,6 @@ import {
   Paperclip,
   MapPin,
   AlertCircle,
-  AlertTriangle,
   FileText,
   RefreshCw,
   Camera,
@@ -3224,41 +3223,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 }))
               );
 
-              const currentExceededSummaries = currentUlSummaries.filter((s) =>
-                ulViewMode === 'CHILD' ? s.isChildUlExceeded : s.isAdultUlExceeded
-              );
-
-              // 1정/1병 보기 상태에서도 '하루 섭취량' 기준 UL 초과 성분이 있는지 사전 계산
-              const dailyFactor = storedBasis === 'PER_UNIT' ? totalDailyDose || 1 : 1;
-              const dailyUlSummaries =
-                displayBasis === 'PER_DAILY'
-                  ? currentUlSummaries
-                  : evaluateCombinedNutrientUl(
-                      sortedIngredients.map((ing) => {
-                        const scaledDaily: ProductIngredientEntry =
-                          dailyFactor === 1
-                            ? ing
-                            : {
-                                ...ing,
-                                rawAmount: parseFloat((ing.rawAmount * dailyFactor).toFixed(2)),
-                                elementalAmount:
-                                  ing.elementalAmount !== undefined
-                                    ? parseFloat((ing.elementalAmount * dailyFactor).toFixed(2))
-                                    : undefined,
-                                ingredientInfoText: scaleIngredientInfoText(ing.ingredientInfoText, dailyFactor)
-                              };
-                        return {
-                          ing: scaledDaily,
-                          productName: product.productName,
-                          isImported: isImportedProduct
-                        };
-                      })
-                    );
-
-              const dailyExceededSummaries = dailyUlSummaries.filter((s) =>
-                ulViewMode === 'CHILD' ? s.isChildUlExceeded : s.isAdultUlExceeded
-              );
-
               const ulSummaryByStandardKey = new Map(
                 currentUlSummaries.map((s) => [s.standardKey, s])
               );
@@ -3319,113 +3283,16 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       <button
                         type="button"
                         onClick={() => setDisplayBasis('PER_DAILY')}
-                        className={`px-2.5 py-1 rounded-md transition-all cursor-pointer inline-flex items-center gap-1 ${
+                        className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
                           displayBasis === 'PER_DAILY'
-                            ? dailyExceededSummaries.length > 0
-                              ? 'bg-rose-600 text-white shadow-2xs font-extrabold'
-                              : 'bg-white text-sky-700 shadow-2xs font-extrabold'
-                            : dailyExceededSummaries.length > 0
-                            ? 'text-rose-600 hover:text-rose-700 font-extrabold'
+                            ? 'bg-white text-sky-700 shadow-2xs font-extrabold'
                             : 'text-slate-500 hover:text-slate-800'
                         }`}
-                        title={
-                          dailyExceededSummaries.length > 0
-                            ? `하루 섭취량 기준 상한섭취량(UL) 초과 성분 ${dailyExceededSummaries.length}종 있음`
-                            : undefined
-                        }
                       >
-                        <span>하루 섭취량</span>
-                        {dailyExceededSummaries.length > 0 && (
-                          <span
-                            className={`inline-flex items-center justify-center px-1 py-0.2 rounded text-[9px] font-black leading-none ${
-                              displayBasis === 'PER_DAILY'
-                                ? 'bg-white/25 text-white'
-                                : 'bg-rose-100 text-rose-700 border border-rose-300'
-                            }`}
-                          >
-                            UL초과
-                          </span>
-                        )}
+                        하루 섭취량
                       </button>
                     </div>
                   </div>
-
-                  {/* 상한섭취량(UL) 초과 주의 배너 */}
-                  {currentExceededSummaries.length > 0 ? (
-                    <div className="bg-rose-50/90 border border-rose-200 rounded-xl p-3 space-y-2 shadow-2xs">
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div className="flex items-center gap-1.5 text-rose-800 font-extrabold text-xs">
-                          <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
-                          <span>
-                            상한섭취량(UL) 초과 성분 {currentExceededSummaries.length}종 주의 (
-                            {displayBasis === 'PER_DAILY' ? '하루 섭취량' : `1${unitName}`} ·{' '}
-                            {ulViewMode === 'CHILD' ? '소아' : '성인'} 기준)
-                          </span>
-                        </div>
-                        <span className="text-[10px] font-bold text-rose-700 bg-white/80 border border-rose-200 px-2 py-0.5 rounded-full">
-                          타 영양제·처방약 중복 복용 주의
-                        </span>
-                      </div>
-                      <div className="space-y-1">
-                        {currentExceededSummaries.map((summary) => (
-                          <div
-                            key={summary.standardKey}
-                            className="flex items-center justify-between gap-2 flex-wrap bg-white/90 border border-rose-200/80 rounded-lg px-2.5 py-1.5 text-xs"
-                          >
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span
-                                className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded border leading-tight ${getDarkCategoryBadgeStyle(
-                                  summary.categoryTag
-                                )}`}
-                              >
-                                {summary.categoryTag}
-                              </span>
-                              <span className="font-bold text-slate-800">
-                                {summary.contributors
-                                  .map((c) => `${c.englishName} ${c.displayAmountText}`)
-                                  .join(' + ')}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-[11px] font-semibold text-slate-500">
-                                {ulViewMode === 'CHILD'
-                                  ? `소아 상한 ${summary.childUlText || summary.ulText}`
-                                  : `성인 상한 ${summary.ulText}`}
-                              </span>
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-600 text-white text-[10px] font-extrabold">
-                                {ulViewMode === 'CHILD'
-                                  ? summary.childUlExceedLabel || '소아 상한 초과'
-                                  : `상한 대비 ${summary.adultUlPercent}% (초과)`}
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    displayBasis === 'PER_UNIT' &&
-                    dailyExceededSummaries.length > 0 && (
-                      <div className="bg-amber-50/80 border border-amber-200 rounded-xl px-3 py-2 flex items-center justify-between gap-2 flex-wrap">
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
-                          <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                          <span>
-                            1{unitName} 기준은 상한 이내이나, <strong>하루 섭취량({totalDailyDose}{unitName})</strong> 복용 시{' '}
-                            <span className="text-rose-600 font-extrabold">
-                              {dailyExceededSummaries.map((s) => s.categoryTag).join(', ')}
-                            </span>{' '}
-                            성분이 상한섭취량을 초과합니다.
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setDisplayBasis('PER_DAILY')}
-                          className="text-[11px] font-extrabold text-rose-700 hover:text-rose-800 bg-white hover:bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shrink-0 shadow-2xs"
-                        >
-                          하루 섭취량으로 확인 →
-                        </button>
-                      </div>
-                    )
-                  )}
 
                   {isEditingIngredientsRaw && (
                     <div className="space-y-2.5 bg-sky-50/50 border border-sky-300 rounded-xl p-3.5 shadow-xs">
@@ -3554,29 +3421,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                             const isRowExceeded =
                               ulViewMode === 'CHILD' ? isItemChildExceeded : isItemAdultExceeded;
 
-                            const exceedBadgeNode = isRowExceeded ? (
-                              <span
-                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-rose-100 text-rose-700 border border-rose-300 shadow-2xs whitespace-nowrap"
-                                title={
-                                  item.info.ulNote ||
-                                  '2025 한국인 영양소 섭취기준(KDRIs) 상한섭취량(UL)을 초과하는 함량입니다.'
-                                }
-                              >
-                                <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
-                                <span>
-                                  {ulViewMode === 'CHILD'
-                                    ? item.info.childUlExceedLabel ||
-                                      groupSummary?.childUlExceedLabel ||
-                                      '소아 상한 초과'
-                                    : `상한 초과${
-                                        (groupSummary?.adultUlPercent ?? item.info.adultUlPercent)
-                                          ? ` (${groupSummary?.adultUlPercent ?? item.info.adultUlPercent}%)`
-                                          : ''
-                                      }`}
-                                </span>
-                              </span>
-                            ) : null;
-
                             return (
                               <tr
                                 key={item.ing.ingredientId || idx}
@@ -3653,8 +3497,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
                                       return (
                                         <div className="space-y-1.5">
-                                          <div className="flex items-center flex-wrap gap-x-2 gap-y-1">
-                                            <span className="font-semibold text-slate-900 tracking-tight">
+                                          <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
+                                            <span
+                                              className={`tracking-tight ${
+                                                isRowExceeded
+                                                  ? 'font-extrabold text-rose-600'
+                                                  : 'font-semibold text-slate-900'
+                                              }`}
+                                            >
                                               {item.info.englishName || item.ing.englishInn}
                                             </span>
                                             <span
@@ -3681,7 +3531,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                                 ({item.info.convertedText})
                                               </span>
                                             )}
-                                            {exceedBadgeNode}
                                           </div>
 
                                           {isProbiotic && probioticStrains.length > 0 && (
@@ -3761,8 +3610,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                             : null);
 
                                         return (
-                                          <div className="flex items-center flex-wrap gap-x-2 gap-y-1">
-                                            <span className="font-semibold text-slate-900 tracking-tight">
+                                          <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
+                                            <span
+                                              className={`tracking-tight ${
+                                                isRowExceeded
+                                                  ? 'font-extrabold text-rose-600'
+                                                  : 'font-semibold text-slate-900'
+                                              }`}
+                                            >
                                               {nutrientTitle}
                                             </span>
                                             <span
@@ -3779,7 +3634,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                                 ({saltsText})
                                               </span>
                                             )}
-                                            {exceedBadgeNode}
                                           </div>
                                         );
                                       }
@@ -3875,8 +3729,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                       const fallbackTitle = nutrientCategory || item.info.englishName;
 
                                       return (
-                                        <div className="flex items-center flex-wrap gap-x-2 gap-y-1">
-                                          <span className="font-semibold text-slate-900 tracking-tight">
+                                        <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
+                                          <span
+                                            className={`tracking-tight ${
+                                              isRowExceeded
+                                                ? 'font-extrabold text-rose-600'
+                                                : 'font-semibold text-slate-900'
+                                            }`}
+                                          >
                                             {fallbackTitle}
                                           </span>
                                           <span
@@ -3899,7 +3759,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                               ({item.info.convertedText})
                                             </span>
                                           )}
-                                          {exceedBadgeNode}
                                         </div>
                                       );
                                     })()}
@@ -3927,11 +3786,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                           >
                                             {item.info.childUlText}
                                           </span>
-                                          {isRowExceeded && (
-                                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded bg-rose-600 text-white text-[9px] font-extrabold leading-tight">
-                                              초과 주의
-                                            </span>
-                                          )}
                                           {item.info.ulText && (
                                             <span className="text-[10px] text-slate-400 font-normal whitespace-nowrap">
                                               (성인 {item.info.ulText})
@@ -3958,23 +3812,16 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                                         <span className="text-slate-300">-</span>
                                       )
                                     ) : item.info.ulText ? (
-                                      <div className="flex flex-col items-center gap-0.5">
-                                        <span
-                                          title={item.info.ulNote || '2025 한국인 영양소 섭취기준(KDRIs) 성인 1일 상한섭취량(UL)'}
-                                          className={`text-xs tracking-tight whitespace-nowrap ${
-                                            isRowExceeded
-                                              ? 'font-extrabold text-rose-600'
-                                              : 'font-semibold text-slate-600'
-                                          }`}
-                                        >
-                                          {item.info.ulText}
-                                        </span>
-                                        {isRowExceeded && (
-                                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded bg-rose-600 text-white text-[9px] font-extrabold leading-tight">
-                                            상한 초과
-                                          </span>
-                                        )}
-                                      </div>
+                                      <span
+                                        title={item.info.ulNote || '2025 한국인 영양소 섭취기준(KDRIs) 성인 1일 상한섭취량(UL)'}
+                                        className={`text-xs tracking-tight whitespace-nowrap ${
+                                          isRowExceeded
+                                            ? 'font-extrabold text-rose-600'
+                                            : 'font-semibold text-slate-600'
+                                        }`}
+                                      >
+                                        {item.info.ulText}
+                                      </span>
                                     ) : (
                                       <span className="text-slate-300">-</span>
                                     )}

@@ -43,14 +43,7 @@ fs.writeFileSync(
 console.log(`✅ [Release] public/version.json 갱신 완료: v${newVersion}`);
 
 
-// 4. 의약품안전나라(nedrug) 원문 동기화 및 프로덕션 빌드 실행
-console.log(`\n🔄 [Sync] 의약품안전나라(nedrug) 원문 환산성분량 동기화 중...`);
-try {
-  execSync('node scripts/sync_nedrug_firestore.js', { stdio: 'inherit', cwd: rootDir });
-} catch (syncErr) {
-  console.warn(`⚠️ [Sync] nedrug 동기화 건너뜀:`, syncErr.message);
-}
-
+// 4. 프로덕션 빌드 실행
 console.log(`\n🔨 [Build] 프로덕션 빌드 진행 중...`);
 execSync('npm run build', { stdio: 'inherit', cwd: rootDir });
 

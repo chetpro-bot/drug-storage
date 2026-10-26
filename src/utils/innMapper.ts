@@ -1512,6 +1512,86 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
     elementalTargetLabel: '아스코르브산으로서',
     elementalUnit: 'mg',
     clinicalSummary: '• 결합조직 형성과 기능유지에 필요, 철의 흡수 및 항산화 작용'
+  },
+  '코바마미드': {
+    englishInn: 'Cobamamide',
+    functionalCategory: '비타민B12',
+    chemicalFormName: '활성 조효소형 비타민 B12 (아데노실코발라민)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_B12',
+    clinicalSummary: '• 미토콘드리아 내 직접 작용하는 활성 조효소형 비타민 B12, 세포 에너지 대사 및 신경 재생'
+  },
+  '폴리네이트칼슘': {
+    englishInn: 'Calcium folinate',
+    functionalCategory: '비타민B9(엽산)',
+    chemicalFormName: '폴리네이트칼슘 (활성형 엽산 유도체)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_B9',
+    clinicalSummary: '• 환원형 활성 엽산(폴린산 칼슘염), 핵산 합성 및 조혈 작용 촉진'
+  },
+  '폴리네이트칼슘수화물': {
+    englishInn: 'Calcium folinate hydrate',
+    functionalCategory: '비타민B9(엽산)',
+    chemicalFormName: '폴리네이트칼슘수화물 (활성형 엽산 유도체)',
+    defaultUnit: 'mg',
+    standardKey: 'VITAMIN_B9',
+    clinicalSummary: '• 환원형 활성 엽산(폴린산 칼슘염), 핵산 합성 및 조혈 작용 촉진'
+  },
+  'L-포스포트레오닌': {
+    englishInn: 'L-Phosphothreonine',
+    functionalCategory: '필수 아미노산제제',
+    chemicalFormName: '인산화 필수 아미노산 (L-포스포트레오닌)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 신경조직 인지질 및 단백질 합성 대사 지원, 육체·정신 피로 회복'
+  },
+  '포스포트레오닌': {
+    englishInn: 'L-Phosphothreonine',
+    functionalCategory: '필수 아미노산제제',
+    chemicalFormName: '인산화 필수 아미노산 (L-포스포트레오닌)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 신경조직 인지질 및 단백질 합성 대사 지원, 육체·정신 피로 회복'
+  },
+  'L-포스포세린': {
+    englishInn: 'L-Phosphoserine',
+    functionalCategory: '비필수 아미노산제제',
+    chemicalFormName: '인산화 아미노산 (L-포스포세린)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 뇌·신경 세포막 인지질(포스파티딜세린) 생합성 전구체, 집중력 및 신경 피로 개선'
+  },
+  '포스포세린': {
+    englishInn: 'L-Phosphoserine',
+    functionalCategory: '비필수 아미노산제제',
+    chemicalFormName: '인산화 아미노산 (L-포스포세린)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 뇌·신경 세포막 인지질(포스파티딜세린) 생합성 전구체, 집중력 및 신경 피로 개선'
+  },
+  'L-글루타민': {
+    englishInn: 'L-Glutamine',
+    functionalCategory: '비필수 아미노산제제',
+    chemicalFormName: 'L-글루타민 (아미노산)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 뇌 에너지 대사 지원, 암모니아 해독 및 장·면역 세포 영양 공급'
+  },
+  '글루타민': {
+    englishInn: 'L-Glutamine',
+    functionalCategory: '비필수 아미노산제제',
+    chemicalFormName: 'L-글루타민 (아미노산)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 뇌 에너지 대사 지원, 암모니아 해독 및 장·면역 세포 영양 공급'
+  },
+  'L-아르기닌염산염': {
+    englishInn: 'L-Arginine hydrochloride',
+    functionalCategory: '간보호제',
+    chemicalFormName: 'L-아르기닌 염산염 (아미노산)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 요소회로(Urea cycle) 암모니아 해독 촉진, 산화질소(NO) 생성 및 간 기능 보조'
+  },
+  '아르기닌염산염': {
+    englishInn: 'L-Arginine hydrochloride',
+    functionalCategory: '간보호제',
+    chemicalFormName: 'L-아르기닌 염산염 (아미노산)',
+    defaultUnit: 'mg',
+    clinicalSummary: '• 요소회로(Urea cycle) 암모니아 해독 촉진, 산화질소(NO) 생성 및 간 기능 보조'
   }
 };
 
@@ -1527,6 +1607,10 @@ export const INN_DICTIONARY: Record<string, InnMappingMeta> = {
 export function formatKpaicSpecification(rawItem: string): string {
   if (!rawItem) return '';
   let str = rawItem.trim();
+
+  // 0. [약효분류] 접두어가 있으면 제거 후 정규화, L -포스포트레오닌 등 광학이성질체 하이픈 공백 정규화
+  str = str.replace(/^\[[^\]]+\]\s*/, '');
+  str = str.replace(/\b([LD]|DL)\s*[-－]\s*([가-힣A-Za-z])/gi, '$1-$2');
 
   // 1. 특수 문자 치환 (γ- -> Gamma )
   str = str.replace(/γ\s*[-－]?\s*oryzanol/gi, 'Gamma Oryzanol');
@@ -1639,7 +1723,11 @@ export function formatKpaicSpecification(rawItem: string): string {
   let mainEngName = '';
   if (korWithEngParenMatch && korWithEngParenMatch[2].trim()) {
     mainEngName = korWithEngParenMatch[2].trim().replace(/^γ-Oryzanol$/i, 'Gamma Oryzanol');
-  } else if (engPrefixMatch && engPrefixMatch[1].trim()) {
+  } else if (
+    engPrefixMatch &&
+    engPrefixMatch[1].trim() &&
+    !/^(?:[LD]|DL)-?$/i.test(engPrefixMatch[1].trim())
+  ) {
     mainEngName = engPrefixMatch[1].trim();
   } else {
     // 영문이 없고 한글만 있는 경우 사전을 통해 영문 INN 매핑 (긴 키 우선 매칭)
@@ -1647,8 +1735,8 @@ export function formatKpaicSpecification(rawItem: string): string {
     const sortedKeys = Object.keys(INN_DICTIONARY).sort((a, b) => b.length - a.length);
     for (const k of sortedKeys) {
       if (str.includes(k)) {
-        // 단순 원소명('마그네슘', '칼슘' 등)이 부분 포함되더라도 str이 더 긴 복합염('피돌산마그네슘', '말산마그네슘' 등)이면 덮어쓰지 않고 원문 유지
-        const GENERIC_MINERALS = ['마그네슘', '칼슘', '아연', '철', '구리', '망간', '셀레늄'];
+        // 단순 원소명('마그네슘', '칼슘' 등)이 부분 포함되더라도 str이 더 긴 복합염('피돌산마그네슘', '폴리네이트칼슘' 등)이면 덮어쓰지 않고 원문 유지
+        const GENERIC_MINERALS = ['마그네슘', '칼슘', '아연', '철', '구리', '망간', '셀레늄', '크롬', '요오드', '칼륨', '몰리브덴'];
         if (GENERIC_MINERALS.includes(k) && str.length > k.length + 1) {
           continue;
         }
@@ -1902,7 +1990,21 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
   // 예: "벤포티아민 (Benfotiamine) 100mg", "벤포티아민 100mg", "산화아연(KP) 30mg", "프로바이오틱스 100억 CFU"
   const regex = /^([가-힣A-Za-z0-9γ\s\(\)·\-\'\_\%\/\.]+?)\s*[:：]?\s*([0-9\.,]+)\s*(억\s*CFU|CFU|억|mg|ug|㎍|μg|µg|IU|g|밀리그램|마이크로그램|아이\.유)?$/i;
 
-  rawItems.forEach((item, index) => {
+  rawItems.forEach((rawLine, index) => {
+    let item = rawLine.trim();
+    if (!item) return;
+
+    // 0. 사용자가 원문 수정 시 직접 지정한 [약효분류] 접두어 추출 (예: "[엽산] 폴리네이트칼슘 1.27mg", "[비타민B12] 코바마미드 1mg")
+    let explicitCategory: string | undefined = undefined;
+    const catPrefixMatch = item.match(/^\[([^\]]+)\]\s*(.+)$/);
+    if (catPrefixMatch) {
+      explicitCategory = catPrefixMatch[1].trim();
+      item = catPrefixMatch[2].trim();
+    }
+
+    // "L -포스포트레오닌", "DL -메티오닌" 등 이성질체 접두어와 하이픈 사이의 공백 정규화
+    item = item.replace(/\b([LD]|DL)\s*[-－]\s*([가-힣A-Za-z])/gi, '$1-$2');
+
     // 주의사항, 경고문, 보관방법, 당알코올 설사 안내 등 비성분 문장 유입 원천 배제
     if (
       /(?:과량\s*섭취|설사를\s*일으킬|당알코올|주의사항|보관방법|유통기한|소비기한|직사광선|질병의\s*예방|부정\s*불량식품|개봉\s*후|이상사례|특이체질|알레르기|포장재질|기준치에\s*대한\s*비율|열량에\s*따라)/i.test(
@@ -1998,15 +2100,23 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
     // 약학정보원 포맷 감지:
     // Case A: "벤포티아민 (Benfotiamine)" (한글명 + 괄호 영문명)
     // Case B: "Benfotiamine 벤포티아민" (영문명 + 한글명)
+    // ※ 주의: "L -포스포트레오닌" 등 이성질체 접두어(L, D, DL)는 영문 INN이 아니라 한글 성분명의 일부임!
+    nameRaw = nameRaw.replace(/\b([LD]|DL)\s*[-－]\s*([가-힣A-Za-z])/gi, '$1-$2');
     let detectedInn = '';
-    const korParenEngMatch = nameRaw.match(/^([가-힣0-9γ\s·\-\%\.]+?)\s*\(([A-Za-zγ][A-Za-z0-9\s\-\'\,\%\.\/·]+)\)$/);
+    const korParenEngMatch = nameRaw.match(/^([A-Za-z0-9가-힣γ\s·\-\%\.]+?)\s*\(([A-Za-zγ][A-Za-z0-9\s\-\'\,\%\.\/·]+)\)$/);
     const engKorMatch = nameRaw.match(/^([A-Za-z0-9γ\s\-\'\,\%\.]+)\s+([가-힣0-9\s\(\)·\-\%\.]+)$/);
-    if (korParenEngMatch) {
+    if (korParenEngMatch && /[가-힣]/.test(korParenEngMatch[1])) {
       nameRaw = korParenEngMatch[1].trim();
       detectedInn = korParenEngMatch[2].trim();
     } else if (engKorMatch) {
-      detectedInn = engKorMatch[1].trim();
-      nameRaw = engKorMatch[2].trim();
+      const candidateEng = engKorMatch[1].trim();
+      const candidateKor = engKorMatch[2].trim();
+      if (/^(?:[LD]|DL)-?$/i.test(candidateEng)) {
+        nameRaw = `${candidateEng.replace(/-$/, '')}-${candidateKor.replace(/^-/, '')}`;
+      } else {
+        detectedInn = candidateEng;
+        nameRaw = candidateKor;
+      }
     }
 
     // 사전에서 매핑되는 영문 INN 찾기 (1순위: 완전 일치, 2순위: 영문 INN 완전 일치, 3순위: 입력 문자열이 사전 키를 포함하는 가장 긴 키 매칭)
@@ -2018,6 +2128,7 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
     const normNameRaw = nameRaw.replace(/\s+/g, '').toLowerCase();
     const normDetectedInn = detectedInn.replace(/\s+/g, '').toLowerCase();
     const sortedDictKeys = Object.keys(combinedDict).sort((a, b) => b.length - a.length);
+    const GENERIC_MINERAL_KEYS = new Set(['마그네슘', '칼슘', '아연', '철', '구리', '망간', '셀레늄', '크롬', '요오드', '칼륨', '몰리브덴']);
 
     // 1단계: 한글 키 완전 일치 (공백 무시)
     for (const dictKey of sortedDictKeys) {
@@ -2031,11 +2142,16 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
     // 2단계: 영문 INN 완전 일치 (공백 무시)
     if (!matchedKey && (normDetectedInn || normNameRaw)) {
       const targetEng = normDetectedInn || normNameRaw;
-      for (const dictKey of sortedDictKeys) {
-        const metaEng = combinedDict[dictKey].englishInn.replace(/\s+/g, '').toLowerCase();
-        if (targetEng === metaEng) {
-          matchedKey = dictKey;
-          break;
+      const aliasKey = ENG_ALIAS_TO_DICT_KEY[targetEng];
+      if (aliasKey && combinedDict[aliasKey]) {
+        matchedKey = aliasKey;
+      } else {
+        for (const dictKey of sortedDictKeys) {
+          const metaEng = combinedDict[dictKey].englishInn.replace(/\s+/g, '').toLowerCase();
+          if (targetEng === metaEng) {
+            matchedKey = dictKey;
+            break;
+          }
         }
       }
     }
@@ -2046,6 +2162,13 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
       for (const dictKey of sortedDictKeys) {
         const normDictKey = dictKey.replace(/\s+/g, '').toLowerCase();
         if (normDictKey.length < 2) continue;
+        // 단순 원소명('칼슘', '마그네슘' 등)이 '폴리네이트칼슘', '도베실산칼슘' 같은 비미네랄 유기약물염에 오매칭되는 것 방지
+        if (GENERIC_MINERAL_KEYS.has(dictKey) && normNameRaw !== normDictKey) {
+          const isTrueMineralSalt = /(?:글루콘산|구연산|시트르산|젖산|락트산|탄산|산화|수산화|황산|염화|푸마르산|피돌산|글리세로인산|아스파르트산|비스글리시네이트|킬레이트|해조|산호|유청|어골|제일철|제이철|건조효모|고시형|혼합제제)/.test(
+            normNameRaw
+          );
+          if (!isTrueMineralSalt) continue;
+        }
         if (
           (normNameRaw && normNameRaw.includes(normDictKey)) ||
           (normDetectedInn && normDetectedInn.includes(normDictKey))
@@ -2092,7 +2215,6 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
       const meta = combinedDict[matchedKey];
 
       // 단순 기본 원소('마그네슘', '칼슘' 등) 키가 부분일치로 잡혔으나 입력된 원문에 구체적인 염 형태나 detectedInn이 존재하는 경우:
-      const GENERIC_MINERAL_KEYS = new Set(['마그네슘', '칼슘', '아연', '철', '구리', '망간', '셀레늄', '크롬']);
       const isGenericMineral = GENERIC_MINERAL_KEYS.has(matchedKey);
       const isCompoundSalt = isGenericMineral && (normNameRaw !== matchedKey.toLowerCase() || Boolean(detectedInn));
 
@@ -2101,38 +2223,14 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
         ? (meta.chemicalFormName && meta.chemicalFormName !== matchedKey ? meta.chemicalFormName : `유기염 (${nameRaw})`)
         : meta.chemicalFormName;
 
-      // 공공 API 원문 또는 허가 기준 환산성분량 매핑 (식약처 기준)
-      let finalElemental: number | undefined = elementalAmount;
-      let finalElementalUnit: string | undefined = elementalUnit;
-      let finalElementalLabel: string | undefined = elementalLabel;
-      let finalIngredientInfoText: string | undefined = ingredientInfoText;
-
-      if (finalElemental === undefined && !finalIngredientInfoText) {
-        const inferred =
-          inferDrugIngredientConversion(nameRaw, amount, unit) ||
-          inferDrugIngredientConversion(finalInn, amount, unit);
-        if (inferred) {
-          const m = inferred.match(/^(?:(.*?)(?:\(으\)|으)?로서\s*|(.*?)\s+)?([0-9\.,]+)\s*([a-zA-Z가-힣㎍μµ\.]+)?$/);
-          if (m) {
-            let label = (m[1] || m[2] || '').replace(/(?:\(으\)|으로서|로서|으)$/, '').trim();
-            const num = parseFloat((m[3] || '').replace(/,/g, ''));
-            let u = (m[4] || 'mg').trim();
-            if (/ug|㎍|μg|µg|마이크로그램/i.test(u)) u = 'ug';
-            else if (/iu|아이\.유/i.test(u)) u = 'IU';
-            else if (/mg|밀리그램/i.test(u)) u = 'mg';
-            else if (/g|그램/i.test(u)) u = 'g';
-
-            finalElemental = num;
-            finalElementalLabel = label || meta.elementalTargetLabel;
-            finalElementalUnit = u;
-            const dispUnit = u === 'ug' ? 'µg' : u;
-            const dispNum = (u === 'IU' && num >= 1000) ? num.toLocaleString('en-US') : num.toString();
-            finalIngredientInfoText = label ? `${label} ${dispNum}${dispUnit}` : `${dispNum}${dispUnit}`;
-          }
-        }
-      }
+      // 공공 API 원문 그대로의 환산성분량만 매핑 (빈칸인 경우 임의로 계산하여 채우지 않음)
+      const finalElemental: number | undefined = elementalAmount;
+      const finalElementalUnit: string | undefined = elementalUnit;
+      const finalElementalLabel: string | undefined = elementalLabel;
+      const finalIngredientInfoText: string | undefined = ingredientInfoText;
 
       const resolvedCategory =
+        explicitCategory ||
         learnedDict[matchedKey]?.functionalCategory ||
         (meta.functionalCategory && meta.functionalCategory !== '기타' ? meta.functionalCategory : undefined) ||
         kpicCategory ||
@@ -2146,7 +2244,7 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
         ingredientId: `ing_auto_${Date.now()}_${index}`,
         englishInn: finalInn,
         koreanName: nameRaw,
-        functionalCategory: resolvedCategory,
+        functionalCategory: resolvedCategory as EfficacyCategory,
         chemicalFormName: finalFormName,
         rawAmount: amount,
         unit: (unit || meta.defaultUnit) as 'mg' | 'ug' | 'IU' | 'g',
@@ -2165,9 +2263,10 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
       });
     } else {
       // 미등록 성분: 한글 단어 영문 매핑 재검색 시도 후 기본 영문 INN 추정
-      let fallbackInn = detectedInn || nameRaw;
+      let fallbackInn = detectedInn || KOR_TO_ENG_DISPLAY_MAP[nameRaw] || nameRaw;
       if (/^[가-힣]/.test(fallbackInn)) {
         for (const k of sortedDictKeys) {
+          if (GENERIC_MINERAL_KEYS.has(k) && fallbackInn !== k) continue;
           if (fallbackInn.includes(k)) {
             fallbackInn = INN_DICTIONARY[k]?.englishInn || fallbackInn;
             break;
@@ -2179,7 +2278,7 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
         ingredientId: `ing_auto_${Date.now()}_${index}`,
         englishInn: detectedInn || fallbackInn,
         koreanName: nameRaw,
-        functionalCategory: kpicCategory || '기타',
+        functionalCategory: (explicitCategory || kpicCategory || '기타') as EfficacyCategory,
         chemicalFormName: `${nameRaw} (미등록 신규 성분)`,
         rawAmount: amount,
         unit,
@@ -2190,7 +2289,7 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
         isMainActive: index === 0 || (unit === 'mg' && amount >= 30),
         clinicalSummary: `• ${nameRaw} 활성 성분 영양 및 생리 활성 지원`,
         noteKorean: undefined,
-        formattedSpecification: `${detectedInn || nameRaw} ${amount}${unit}${elementalAmount ? ` (${elementalAmount}${unit})` : ''}`
+        formattedSpecification: `${detectedInn || fallbackInn} ${amount}${unit}${elementalAmount ? ` (${elementalAmount}${unit})` : ''}`
       });
     }
   });
@@ -2338,7 +2437,18 @@ const KOR_TO_ENG_DISPLAY_MAP: Record<string, string> = {
   '홍삼': 'Korean Red Ginseng extract',
   '오메가3': 'Omega-3 (EPA & DHA)',
   '테아닌': 'L-Theanine',
-  '바나바잎추출물': 'Banaba leaf extract (Corosolic acid)'
+  '바나바잎추출물': 'Banaba leaf extract (Corosolic acid)',
+  '코바마미드': 'Cobamamide',
+  '폴리네이트칼슘': 'Calcium folinate',
+  '폴리네이트칼슘수화물': 'Calcium folinate hydrate',
+  'L-포스포트레오닌': 'L-Phosphothreonine',
+  '포스포트레오닌': 'L-Phosphothreonine',
+  'L-포스포세린': 'L-Phosphoserine',
+  '포스포세린': 'L-Phosphoserine',
+  'L-글루타민': 'L-Glutamine',
+  '글루타민': 'L-Glutamine',
+  'L-아르기닌염산염': 'L-Arginine hydrochloride',
+  '아르기닌염산염': 'L-Arginine hydrochloride'
 };
 
 const ENG_ALIAS_TO_DICT_KEY: Record<string, string> = {
@@ -2429,7 +2539,22 @@ const ENG_ALIAS_TO_DICT_KEY: Record<string, string> = {
   seleniumpowder: '셀레늄가루',
   ubidecarenone: '유비데카레논',
   taurine: '타우린',
-  'l-arginine': 'L-아르기닌'
+  'l-arginine': 'L-아르기닌',
+  cobamamide: '코바마미드',
+  calciumfolinate: '폴리네이트칼슘',
+  calciumfolinatehydrate: '폴리네이트칼슘수화물',
+  'l-phosphothreonine': 'L-포스포트레오닌',
+  lphosphothreonine: 'L-포스포트레오닌',
+  phosphothreonine: 'L-포스포트레오닌',
+  'l-phosphoserine': 'L-포스포세린',
+  lphosphoserine: 'L-포스포세린',
+  phosphoserine: 'L-포스포세린',
+  'l-glutamine': 'L-글루타민',
+  lglutamine: 'L-글루타민',
+  glutamine: 'L-글루타민',
+  'l-argininehydrochloride': 'L-아르기닌염산염',
+  largininehydrochloride: 'L-아르기닌염산염',
+  argininehydrochloride: 'L-아르기닌염산염'
 };
 
 /**
@@ -2565,6 +2690,13 @@ export function resolveIngredientDisplayInfo(
   isImported: boolean = false
 ): ResolvedIngredientDisplayInfo {
   let rawInn = (ing.englishInn || '').trim();
+  let korName = (ing.koreanName || '').trim();
+
+  // 과거 파싱 버그로 "L -포스포트레오닌"이 englishInn="L", koreanName="-포스포트레오닌"으로 분리 저장된 경우 실시간 복원
+  if (/^(?:[LD]|DL)$/i.test(rawInn) && korName.startsWith('-')) {
+    korName = `${rawInn.toUpperCase()}${korName}`;
+    rawInn = KOR_TO_ENG_DISPLAY_MAP[korName] || korName;
+  }
 
   // 기존 DB 저장본 중 올대원맥스정의 리보플라빈 90mg이 과거 부분매칭 버그로 Riboflavin 5'-phosphate sodium으로 저장된 경우 자동 보정
   if (
@@ -2577,8 +2709,8 @@ export function resolveIngredientDisplayInfo(
 
   // 1. 순수 영문 성분명 정제
   let englishName = KOR_TO_ENG_DISPLAY_MAP[rawInn] || '';
-  if (!englishName && ing.koreanName && KOR_TO_ENG_DISPLAY_MAP[ing.koreanName]) {
-    englishName = KOR_TO_ENG_DISPLAY_MAP[ing.koreanName];
+  if (!englishName && korName && KOR_TO_ENG_DISPLAY_MAP[korName]) {
+    englishName = KOR_TO_ENG_DISPLAY_MAP[korName];
   }
   if (!englishName) {
     if (/^[A-Za-z0-9\s\-,.'()%]+$/.test(rawInn)) {
@@ -2605,7 +2737,7 @@ export function resolveIngredientDisplayInfo(
   const learnedDict = getLearnedDict();
   const combinedDict: Record<string, InnMappingMeta> = { ...INN_DICTIONARY, ...learnedDict };
   const normEng = englishName.toLowerCase().replace(/\s+/g, '');
-  const normKor = (ing.koreanName || rawInn).replace(/\s+/g, '').toLowerCase();
+  const normKor = (korName || rawInn).replace(/\s+/g, '').toLowerCase();
 
   let meta: InnMappingMeta | undefined = undefined;
   const aliasDictKey = ENG_ALIAS_TO_DICT_KEY[normEng];
@@ -2624,11 +2756,16 @@ export function resolveIngredientDisplayInfo(
     }
   }
 
+  // 과거 부분일치 버그로 폴리네이트칼슘이 칼슘(Ca)으로 잘못 저장된 데이터 자동 보정
+  const isLegacyFolinateMisclassified =
+    (normKor.includes('폴리네이트') || normEng.includes('folinate')) &&
+    (ing.functionalCategory === '칼슘(Ca)' || ing.functionalCategory === '칼슘');
+
   // 3. 약효분류 태그 결정 (비타민B9(엽산) -> 엽산, 미네랄 원소기호 제거 등 표준화)
   let rawCategory =
-    ing.functionalCategory && ing.functionalCategory !== '기타'
+    !isLegacyFolinateMisclassified && ing.functionalCategory && ing.functionalCategory !== '기타'
       ? ing.functionalCategory
-      : meta?.functionalCategory || resolveKpicCategory(englishName) || resolveKpicCategory(rawInn) || '기타';
+      : meta?.functionalCategory || resolveKpicCategory(englishName) || resolveKpicCategory(korName) || resolveKpicCategory(rawInn) || '기타';
 
   let categoryTag = normalizeCategory(rawCategory);
   if (
@@ -2680,41 +2817,6 @@ export function resolveIngredientDisplayInfo(
       (ing.elementalAmount !== ing.rawAmount || (ing.elementalUnit && ing.elementalUnit !== ing.unit))
     ) {
       convertedAmount = ing.elementalAmount;
-    } else if (!isImported) {
-      // 국내 일반의약품인데 API 원문이나 기존 데이터에서 환산성분량이 누락되었던 경우:
-      // 식약처 공식 허가 기준 환산성분량을 복원하여 유효성분량 표기 (수입제품만 환산량 기재 면제)
-      const inferred =
-        inferDrugIngredientConversion(ing.koreanName || '', ing.rawAmount, ing.unit) ||
-        inferDrugIngredientConversion(englishName || rawInn, ing.rawAmount, ing.unit);
-
-      if (inferred) {
-        const m = inferred.match(/^(?:(.*?)(?:\(으\)|으)?로서\s*|(.*?)\s+)?([0-9\.,]+)\s*([a-zA-Z가-힣㎍μµ\.]+)?$/);
-        if (m) {
-          convertedLabel = (m[1] || m[2] || '').replace(/(?:\(으\)|으로서|로서|으)$/, '').trim();
-          convertedAmount = parseFloat((m[3] || '').replace(/,/g, ''));
-          let u = (m[4] || 'mg').trim();
-          if (/ug|㎍|μg|µg|마이크로그램/i.test(u)) u = 'ug';
-          else if (/iu|아이\.유/i.test(u)) u = 'IU';
-          else if (/mg|밀리그램/i.test(u)) u = 'mg';
-          else if (/g|그램/i.test(u)) u = 'g';
-          convertedUnit = u;
-        }
-      } else if (
-        meta?.elementalRatio &&
-        meta.elementalRatio > 0 &&
-        (meta.elementalRatio !== 1 || (meta.elementalUnit && meta.elementalUnit !== ing.unit))
-      ) {
-        let calc = ing.rawAmount * meta.elementalRatio;
-        if (meta.elementalUnit === 'IU') {
-          convertedAmount = Math.round(calc);
-        } else if (calc >= 10) {
-          convertedAmount = parseFloat(calc.toFixed(1));
-        } else {
-          convertedAmount = parseFloat(calc.toFixed(2));
-        }
-        if (meta.elementalUnit) convertedUnit = meta.elementalUnit;
-        if (meta.elementalTargetLabel) convertedLabel = meta.elementalTargetLabel;
-      }
     }
   }
 
@@ -2815,7 +2917,9 @@ export function resolveIngredientDisplayInfo(
   }
 
   // 5. 2025 한국인 영양소 섭취기준(KDRIs) 성인 상한섭취량(UL) 매칭
-  let standardKey: NutrientStandardKey | undefined = ing.standardKey || meta?.standardKey;
+  let standardKey: NutrientStandardKey | undefined = isLegacyFolinateMisclassified
+    ? meta?.standardKey
+    : ing.standardKey || meta?.standardKey;
   if (!standardKey) {
     if (categoryTag === '비타민A' && !normEng.includes('betacarotene') && !normEng.includes('beta-carotene')) {
       standardKey = 'VITAMIN_A';

@@ -25,9 +25,10 @@
 ### 1.3 데이터 수집 및 저장 아키텍처 원칙 (4대 원칙)
 공식 API가 아닌 `nedrug.mfds.go.kr` 웹페이지를 읽어오는 방식을 안전하고 지속 가능하게 유지하기 위해 다음 4가지 원칙을 준수한다.
 
-1. **원문 그대로 사용 (임의 조작 금지)**
-   - `nedrug` 상세페이지(`var aasda`)에서 데이터를 정상적으로 가져왔을 때는, 식약처 원문의 `ingrInfo`(성분정보)를 **수정하거나 임의로 계산하지 않고 있는 그대로** 표시한다.
-   - 코드의 자체 환산 로직(`inferDrugIngredientConversion`)은 `nedrug` 조회까지 완전히 실패해 공공데이터포털의 빈 `MATERIAL_NAME`만 남았을 때를 대비한 최후의 보조(Fallback) 수단으로만 남겨둔다.
+1. **공식 API 우선 호출 + 누락된 항목만 `nedrug` 원문으로 보완 (환산성분량 빈칸은 누락에서 제외 & 임의 조작 금지)**
+   - 공공데이터포털 공식 API(`getDrugPrdtPrmsnDtlInq08`)를 최우선으로 호출한다.
+   - **환산성분량(`성분정보`)이 빈칸인 것은 누락이 아니라 원래 빈칸인 경우가 대부분이므로**, 환산성분량이 비어 있다는 이유로 `nedrug`를 호출하거나 자체 계산(`inferDrugIngredientConversion`)으로 임의로 채우지 않고 **공식 API 원문 그대로** 사용한다.
+   - `nedrug` 원문 보완은 공식 API에서 **효능·효과(`EE_DOC_DATA`), 용법·용량(`UD_DOC_DATA`), 사용상의 주의사항(`NB_DOC_DATA`), 또는 원료약품(`MATERIAL_NAME`) 필드 자체가 `null`/빈값으로 누락된 경우**(예: 큐업액 `200301506`)에만 수행한다.
 2. **최초 1회 수집 후 DB/캐시 영구 저장 (Fetch-Once & Persist)**
    - 품목 상세를 열 때마다 매번 식약처 웹페이지를 실시간 스크래핑하지 않는다.
    - 의약품을 검색/등록할 때 1회 수집한 원료약품 및 분량(`rawIngredientsText`)을 **Firestore(`products` 컬렉션) 및 브라우저 로컬 캐시(`localStorage`: `pharmassist_nedrug_rows_cache_v1`)**에 저장하여 재사용한다.

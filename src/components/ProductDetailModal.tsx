@@ -6,6 +6,8 @@ import {
   fetchMfdsDrugDetail,
   fetchMfdsDrugRawByItemSeq,
   fetchNedrugRawRows,
+  fetchNedrugDocTexts,
+  formatMaterialNameToRawIngredients,
   searchPublicDrugDatabase,
   convertMasterItemToFetchResult,
   fetchFoodSafetyC003RawByReportNo,
@@ -23,7 +25,9 @@ import {
   resolveIngredientDisplayInfo,
   sortProductIngredients,
   cleanChemicalFormName,
-  scaleIngredientInfoText
+  scaleIngredientInfoText,
+  parseRawIngredientString,
+  isRegisteredIngredient
 } from '../utils/innMapper';
 import { getDarkCategoryBadgeStyle } from '../utils/categoryColors';
 import { recognizeUniversalDocument, fileToDataUrl, isMeaningfulKoreanText } from '../services/labelOcrService';
@@ -871,6 +875,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   // 식약처 공식 원문 사용상의 주의사항/섭취 시 주의사항 (인위적 수정 없는 원본 전문)
   const [officialPrecautionsText, setOfficialPrecautionsText] = useState<string>('');
   const [isCopiedPrecautions, setIsCopiedPrecautions] = useState(false);
+  // 식약처 공식 원문 효능·효과 (일반의약품 전용)
+  const [officialIndicationsText, setOfficialIndicationsText] = useState<string>('');
+  const [isCopiedIndications, setIsCopiedIndications] = useState(false);
   // 제품 뒷면 사진 OCR 업로드 상태
   const [isUploadingBackPhoto, setIsUploadingBackPhoto] = useState(false);
   const [backPhotoStatusMessage, setBackPhotoStatusMessage] = useState('');
@@ -958,6 +965,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [isEditingOtcIndications, setIsEditingOtcIndications] = useState(false);
   const [editOtcIndicationsValue, setEditOtcIndicationsValue] = useState('');
 
+  // 성분 / 함량 원문 보기 팝업 및 원문 직접 수정 상태
+  const [isIngredientsRawModalOpen, setIsIngredientsRawModalOpen] = useState(false);
+  const [isEditingIngredientsRaw, setIsEditingIngredientsRaw] = useState(false);
+  const [editIngredientsRawValue, setEditIngredientsRawValue] = useState('');
+  const [officialIngredientsApiText, setOfficialIngredientsApiText] = useState('');
+  const [officialParseableIngredientsText, setOfficialParseableIngredientsText] = useState('');
+  const [isCopiedIngredientsRaw, setIsCopiedIngredientsRaw] = useState(false);
+
   // 제품 변경 또는 모달 개폐 시 모든 직접 수정(Edit) 모드 상태 초기화 (다른 제품의 편집 텍스트 유출 및 덮어쓰기 완전 방지)
   useEffect(() => {
     setIsEditingCustomPrecautions(false);
@@ -971,25 +986,37 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     setIsEditingLabelPrecautions(false);
     setEditLabelPrecautionsValue('');
     setIsPrecautionsFullModalOpen(false);
+    setIsIndicationsFullModalOpen(false);
     setIsApiFullModalOpen(false);
     setClaimsViewMode('FORMATTED');
     setIsCopiedPrecautions(false);
+    setIsCopiedIndications(false);
+    setIsIngredientsRawModalOpen(false);
+    setIsEditingIngredientsRaw(false);
+    setEditIngredientsRawValue('');
+    setOfficialIngredientsApiText('');
+    setOfficialParseableIngredientsText('');
+    setIsCopiedIngredientsRaw(false);
   }, [product?.id, isOpen]);
 
-  // 제품 초기 로드 시 기존 DB에 저장된 식약처/신고 원문 주의사항을 officialPrecautionsText의 기본값으로 세팅
+  // 제품 초기 로드 시 기존 DB에 저장된 식약처/신고 원문 주의사항 및 효능·효과를 기본값으로 세팅
   useEffect(() => {
     if (!product) {
       setOfficialPrecautionsText('');
+      setOfficialIndicationsText('');
       return;
     }
     if (product.classification === 'OTC_DRUG') {
       const otcLines = product.otcDetail?.precautionsSummaryKorean || [];
       setOfficialPrecautionsText(otcLines.join('\n'));
+      const otcIndLines = product.otcDetail?.indicationsKorean || [];
+      setOfficialIndicationsText(otcIndLines.join('\n'));
     } else {
       const hffText =
         product.functionalFoodDetail?.safetyPrecautionsText ||
         (product.functionalFoodDetail?.safetyPrecautionsKorean || []).join('\n');
       setOfficialPrecautionsText(hffText);
+      setOfficialIndicationsText('');
     }
   }, [product?.id]);
 
@@ -1642,6 +1669,75 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     }
   };
 
+  // 현재 제품의 성분/함량 목록을 변환 가능한 표준 원문 텍스트로 생성
+  const getDefaultIngredientsRawText = (): string => {
+    if (!product) return '';
+    if (product.rawIngredientsText && product.rawIngredientsText.trim()) {
+      return product.rawIngredientsText.trim();
+    }
+    return product.ingredients
+      .map((ing) => {
+        let rawInn = (ing.englishInn || '').trim();
+        let kor = (ing.koreanName || '').trim();
+        if (/^(?:[LD]|DL)$/i.test(rawInn) && kor.startsWith('-')) {
+          kor = `${rawInn.toUpperCase()}${kor}`;
+          rawInn = '';
+        }
+        kor = kor.replace(/\b([LD]|DL)\s*[-－]\s*([가-힣A-Za-z])/gi, '$1-$2');
+        const hasRegisteredKor = kor && isRegisteredIngredient(kor);
+        const namePart =
+          kor && rawInn && !hasRegisteredKor && kor.toLowerCase() !== rawInn.toLowerCase() && !/^[가-힣]+$/.test(rawInn)
+            ? `${kor} (${rawInn})`
+            : kor || rawInn;
+        const unitStr = ing.unit === 'ug' ? 'ug' : ing.unit;
+        let infoPart = '';
+        if (ing.ingredientInfoText && ing.ingredientInfoText.trim()) {
+          const info = ing.ingredientInfoText.trim();
+          if (info.includes('로서') || info.includes(',')) {
+            infoPart = ` (${info})`;
+          } else {
+            const m = info.match(/^([가-힣A-Za-z0-9\s]+?)\s+([0-9\.,]+.*)$/);
+            if (m) {
+              infoPart = ` (${m[1].trim()}으로서 ${m[2].trim()})`;
+            } else {
+              infoPart = ` (${info})`;
+            }
+          }
+        }
+        return `${namePart} ${ing.rawAmount}${unitStr}${infoPart}`;
+      })
+      .join('\n');
+  };
+
+  // 성분 / 함량 원문 직접 수정 시작
+  const handleStartEditIngredientsRaw = () => {
+    if (!product) return;
+    setEditIngredientsRawValue(getDefaultIngredientsRawText());
+    setIsEditingIngredientsRaw(true);
+    setIsIngredientsRawModalOpen(false);
+  };
+
+  // 성분 / 함량 원문 수정 저장 -> 즉시 재파싱하여 성분/함량 표 업데이트
+  const handleSaveIngredientsRaw = async () => {
+    if (!product) return;
+    const rawVal = editIngredientsRawValue.trim();
+    const parsedList = parseRawIngredientString(rawVal);
+    if (parsedList.length === 0) {
+      alert('유효한 성분/함량 항목이 인식되지 않았습니다.\n예: 푸르설티아민염산염 27.28mg (푸르설티아민으로서 25mg)');
+      return;
+    }
+    setIsEditingIngredientsRaw(false);
+    try {
+      await updateProduct(product.id, {
+        ingredients: parsedList,
+        rawIngredientsText: rawVal,
+        isCustomIngredients: true
+      });
+    } catch (err) {
+      console.error('성분/함량 원문 수정 저장 오류:', err);
+    }
+  };
+
 
 
   // 건기식 표준 주의사항 템플릿
@@ -1868,9 +1964,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
         const isPlaceholderPrecautions =
           currentPrecautions.length === 0 ||
           (currentPrecautions.length <= 2 &&
-            currentPrecautions.some((p) => p.includes('복용 전 설명서 참조')));
+            currentPrecautions.some(
+              (p) => p.includes('복용 전 설명서 참조') || p.includes('첨부문서 참조')
+            ));
         const isShortIndications =
           currentIndications.length === 0 ||
+          currentIndications.some((p) => p.includes('첨부문서 참조')) ||
           (currentIndications.length === 1 && currentIndications[0].length < 45);
 
         setIsFetchingFullApiText(true);
@@ -1887,16 +1986,26 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           }
 
           if (itemSeq) {
-            // 1. 가공하지 않은 식약처 API(getDrugPrdtPrmsnDtlInq08) 원본 전문 + 의약품안전나라(nedrug) 원료약품 원문 조회
-            const [rawMfds, nedrugRows] = await Promise.all([
-              fetchMfdsDrugRawByItemSeq(itemSeq),
-              fetchNedrugRawRows(itemSeq)
+            // 1. 공공데이터포털 공식 API(getDrugPrdtPrmsnDtlInq08) 최우선 호출
+            const rawMfds = await fetchMfdsDrugRawByItemSeq(itemSeq);
+
+            // 공식 API에서 효능·효과(EE_DOC_DATA), 용법·용량(UD_DOC_DATA), 주의사항(NB_DOC_DATA)이 누락(null)된 경우에만 nedrug 원문 조회
+            const isMissingOfficialDocs =
+              !rawMfds || !rawMfds.EE_DOC_DATA || !rawMfds.UD_DOC_DATA || !rawMfds.NB_DOC_DATA;
+            // 공식 API에서 원료약품(MATERIAL_NAME) 자체가 아예 누락된 경우에만 nedrug 원료 행 조회 (환산성분량이 빈칸인 것은 누락이 아니므로 호출하지 않음)
+            const isMissingOfficialMaterial = !rawMfds || !rawMfds.MATERIAL_NAME;
+
+            const [nedrugRows, nedrugDocs] = await Promise.all([
+              isMissingOfficialMaterial ? fetchNedrugRawRows(itemSeq) : Promise.resolve(null),
+              isMissingOfficialDocs ? fetchNedrugDocTexts(itemSeq) : Promise.resolve(null)
             ]);
-            if (isMounted && (rawMfds || (nedrugRows && nedrugRows.length > 0))) {
-              if (rawMfds?.NB_DOC_DATA) {
-                const cleaned = cleanXmlDocText(rawMfds.NB_DOC_DATA);
-                if (cleaned) setOfficialPrecautionsText(cleaned);
-              }
+
+            if (isMounted && (rawMfds || (nedrugRows && nedrugRows.length > 0) || nedrugDocs)) {
+              const cleanedNb = cleanXmlDocText(rawMfds?.NB_DOC_DATA) || nedrugDocs?.nbDocText || '';
+              if (cleanedNb) setOfficialPrecautionsText(cleanedNb);
+
+              const cleanedEe = cleanXmlDocText(rawMfds?.EE_DOC_DATA) || nedrugDocs?.eeDocText || '';
+              if (cleanedEe) setOfficialIndicationsText(cleanedEe);
               const FIELD_KOR_LABELS: Record<string, string> = {
                 ITEM_SEQ: '품목기준코드',
                 ITEM_NAME: '제품명',
@@ -1933,15 +2042,31 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 }
               }
 
-              // 의약품안전나라(nedrug) 원료약품 및 분량 원문 (var aasda)
+              const otcIngrRawBlocks: string[] = [];
+              const parseableNedrugLines: string[] = [];
               if (nedrugRows && nedrugRows.length > 0) {
                 const nedrugLines = nedrugRows.map(
                   (r, i) =>
                     `${i + 1}. 총량 : ${r.totqyCont || ''} | 성분명 : ${r.ingrName || ''} | 분량 : ${r.ingrTotqy || ''} | 단위 : ${r.ingrUnitName || ''} | 규격 : ${r.ingrStdName || ''} | 성분정보 : ${r.ingrInfo || ''}`
                 );
                 sections.push(
-                  `[NEDRUG_AASDA (의약품안전나라 원료약품 및 분량 원문 — 환산성분량 포함)]\n${nedrugLines.join('\n')}`
+                  `[NEDRUG_AASDA (의약품안전나라 원료약품 및 분량 원문)]\n${nedrugLines.join('\n')}`
                 );
+                otcIngrRawBlocks.push(
+                  `■ [의약품안전나라(nedrug) 원료약품 및 분량 원문]\n${nedrugLines.join('\n')}`
+                );
+                for (const r of nedrugRows) {
+                  let kName = (r.ingrName || '').trim().replace(/\b([LD]|DL)\s*[-－]\s*([가-힣A-Za-z])/gi, '$1-$2');
+                  if (!kName) continue;
+                  const amt = (r.ingrTotqy || '').trim();
+                  let u = (r.ingrUnitName || 'mg').trim();
+                  if (u === '밀리그램' || u === '밀리그람') u = 'mg';
+                  else if (u === '마이크로그램' || u === '마이크로그람' || u === '㎍') u = 'ug';
+                  else if (u === '그램' || u === '그람') u = 'g';
+                  else if (u === '아이.유' || u === '아이유') u = 'IU';
+                  const info = (r.ingrInfo || '').trim();
+                  parseableNedrugLines.push(`${kName} ${amt}${u}${info ? ` (${info})` : ''}`);
+                }
               }
 
               // 공공데이터포털 API의 성분 관련 4대 필드 (MATERIAL_NAME, MAIN_ITEM_INGR, MAIN_INGR_ENG, INGR_NAME) 상단 배치
@@ -1953,6 +2078,15 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     // MATERIAL_NAME은 세미콜론(;) 단위로 줄바꿈만 추가하여 원문 그대로 가독성 확보
                     const displayVal = k === 'MATERIAL_NAME' ? rawVal.split(';').join(';\n') : rawVal;
                     sections.push(`[${k} (${FIELD_KOR_LABELS[k] || k})]\n${displayVal}`);
+                    if (k === 'MATERIAL_NAME' && rawVal.trim()) {
+                      otcIngrRawBlocks.push(
+                        `■ [공공데이터포털 허가정보 API 원료약품 및 분량 (MATERIAL_NAME)]\n${displayVal}`
+                      );
+                    } else if ((k === 'MAIN_ITEM_INGR' || k === 'MAIN_INGR_ENG') && rawVal.trim()) {
+                      otcIngrRawBlocks.push(
+                        `■ [${FIELD_KOR_LABELS[k] || k} (${k})]\n${rawVal}`
+                      );
+                    }
                   }
                 }
 
@@ -1966,26 +2100,68 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               }
 
               setPureApiText(sections.join('\n\n'));
+              if (otcIngrRawBlocks.length > 0) {
+                setOfficialIngredientsApiText(otcIngrRawBlocks.join('\n\n'));
+              }
+
+              const parseableOfficialText =
+                (rawMfds?.MATERIAL_NAME
+                  ? formatMaterialNameToRawIngredients(rawMfds.MATERIAL_NAME, rawMfds.MAIN_INGR_ENG, false)
+                  : '') || parseableNedrugLines.join('\n');
+
+              if (parseableOfficialText) {
+                setOfficialParseableIngredientsText(parseableOfficialText);
+
+                // 사용자가 직접 수정한 적이 없고 기존 DB에 "L -포스포트레오닌" -> "L" 절단 버그나 "폴리네이트칼슘" -> "칼슘(Ca)" 오분류가 있는 경우 자동 보정
+                const hasBrokenOtcIng =
+                  !product.isCustomIngredients &&
+                  product.ingredients.some(
+                    (ing) =>
+                      /^(?:[LD]|DL)$/i.test((ing.englishInn || '').trim()) ||
+                      ((ing.koreanName || '').includes('폴리네이트') &&
+                        (ing.functionalCategory === '칼슘(Ca)' || ing.functionalCategory === '칼슘'))
+                  );
+                if (hasBrokenOtcIng) {
+                  const reparsed = parseRawIngredientString(parseableOfficialText);
+                  if (reparsed.length > 0) {
+                    await updateProduct(product.id, {
+                      ingredients: reparsed,
+                      rawIngredientsText: parseableOfficialText
+                    });
+                  }
+                }
+              }
             }
 
             // 2. 요약본이 비어있는 경우에만 상세 정보 자동 보완
-            if (isPlaceholderPrecautions || isShortIndications) {
+            const currentDosage = product.otcDetail?.dosageAndAdministrationKorean || '';
+            const isPlaceholderDosage = !currentDosage || currentDosage.includes('첨부문서 참조');
+            if (isPlaceholderPrecautions || isShortIndications || isPlaceholderDosage) {
               const detail = await fetchMfdsDrugDetail(itemSeq);
               if (isMounted && detail) {
                 const newIndications =
+                  !product.isCustomIndications &&
                   detail.indicationsSummary.length > 0 &&
                   !detail.indicationsSummary[0].includes('첨부문서 참조')
                     ? detail.indicationsSummary
                     : currentIndications;
                 const newPrecautions =
+                  !product.isCustomPrecautions &&
                   detail.precautionsSummary.length > 0 &&
                   !detail.precautionsSummary[0].includes('첨부문서 참조')
                     ? detail.precautionsSummary
                     : currentPrecautions;
+                const newDosage =
+                  !product.isCustomDosage &&
+                  detail.dosageInstruction &&
+                  !detail.dosageInstruction.includes('첨부문서 참조')
+                    ? detail.dosageInstruction
+                    : currentDosage;
 
                 if (
-                  newPrecautions !== currentPrecautions ||
-                  newIndications !== currentIndications
+                  newPrecautions.join('\n') !== currentPrecautions.join('\n') ||
+                  newIndications.join('\n') !== currentIndications.join('\n') ||
+                  newDosage !== currentDosage
                 ) {
                   await updateProduct(product.id, {
                     otcDetail: {
@@ -1993,10 +2169,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                       itemSeq,
                       permitDate: product.otcDetail?.permitDate || new Date().toISOString().slice(0, 10),
                       indicationsKorean: newIndications,
-                      dosageAndAdministrationKorean:
-                        detail.dosageInstruction && !detail.dosageInstruction.includes('첨부문서 참조')
-                          ? detail.dosageInstruction
-                          : product.otcDetail?.dosageAndAdministrationKorean || '',
+                      dosageAndAdministrationKorean: newDosage,
                       storageMethodKorean:
                         detail.storageMethod ||
                         product.otcDetail?.storageMethodKorean ||
@@ -2077,9 +2250,18 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               rawC003.IFTKN_ATNT_MATR_CN || '정보 없음'
             ].join('\n');
             setPureApiText(fullApiFormatted);
+            const c003IngText = [
+              '■ 기능성 원료 (원재료명):',
+              rawC003.RAWMTRL_NM || '정보 없음',
+              '',
+              '■ 기준 및 규격 (함량 기준):',
+              rawC003.STDR_STND || '정보 없음'
+            ].join('\n');
+            setOfficialIngredientsApiText(c003IngText);
 
             const { parsedIngredients } = parseFunctionalFoodRecordToIngredients(rawC003);
             const shouldSyncIngredients =
+              !product.isCustomIngredients &&
               parsedIngredients &&
               parsedIngredients.length > 0 &&
               (product.ingredients.length < parsedIngredients.length ||
@@ -2293,7 +2475,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
       if (needsFix) {
         updateProduct(product.id, {
-          ingredients: parsedNutrition.length > 0 ? parsedNutrition : product.ingredients,
+          ...(product.isCustomIngredients ? {} : { ingredients: parsedNutrition.length > 0 ? parsedNutrition : product.ingredients }),
           dailyServings: targetDailyServings,
           amountPerServing: targetAmountPerServing,
           servingUnitKorean: targetUnit,
@@ -2330,7 +2512,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
     // 올대원맥스정 등 기존 저장 데이터에 Riboflavin 90mg이 과거 버그로 Riboflavin 5'-phosphate sodium으로 저장되어 있거나
     // 엽산 분류가 '엽산'으로 남아있는 경우 DB에서도 즉시 보정
-    if (product.productName.includes('올대원맥스')) {
+    if (product.productName.includes('올대원맥스') && !product.isCustomIngredients) {
       const hasLegacyRiboBug = product.ingredients.some(
         (ing) => ing.rawAmount === 90 && (ing.englishInn || '').includes("5'-phosphate")
       );
@@ -2363,7 +2545,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       return false;
     });
 
-    if (needsDualIngredientFix) {
+    if (needsDualIngredientFix && !product.isCustomIngredients) {
       const fixedIngredients = product.ingredients.map((ing) => {
         const inn = (ing.englishInn || '').toLowerCase();
         const kor = (ing.koreanName || '').toLowerCase();
@@ -2450,7 +2632,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     }
 
     // 건강기능식품 함량 보정: 과거 1일 표시량이 1회분으로 나누어져 저장된 데이터가 있는 경우 1일 표시량으로 100% 복구하고 ingredientBasis를 PER_DAILY로 동기화
-    if (product.classification === 'HEALTH_FUNCTIONAL_FOOD') {
+    if (product.classification === 'HEALTH_FUNCTIONAL_FOOD' && !product.isCustomIngredients) {
       const totalDose = (product.dailyServings || 1) * (product.amountPerServing || 1);
       if (totalDose > 1) {
         let needsFix = false;
@@ -2966,7 +3148,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
           {/* SECTION 2: 성분 / 함량 (약효분류 | 성분 함량 | 상한섭취량 3열 정렬) */}
           <div className="space-y-2">
             <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-xs font-extrabold text-slate-700">
                   성분 / 함량
                 </h3>
@@ -2975,6 +3157,28 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     <Baby className="w-3 h-3 text-amber-600" />
                     어린이 제품
                   </span>
+                )}
+                {!isEditingIngredientsRaw && (
+                  <div className="flex items-center gap-1.5 ml-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsIngredientsRawModalOpen(true)}
+                      className="text-[11px] font-semibold text-slate-600 hover:text-sky-700 bg-white hover:bg-sky-50 border border-slate-200 hover:border-sky-300 px-2 py-0.5 rounded-md transition-colors inline-flex items-center gap-1 cursor-pointer shadow-2xs"
+                      title="식약처/공공데이터 성분·함량 원문 보기"
+                    >
+                      <FileText className="w-3 h-3 text-slate-500" />
+                      <span>원문 보기</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleStartEditIngredientsRaw}
+                      className="text-[11px] font-semibold text-sky-600 hover:text-sky-700 bg-sky-50/70 hover:bg-sky-100 border border-sky-200 px-2 py-0.5 rounded-md transition-colors inline-flex items-center gap-1 cursor-pointer shadow-2xs"
+                      title="성분/함량 원문 직접 수정 (수정 시 표 자동 재변환)"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                      <span>수정</span>
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -3043,6 +3247,60 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </div>
               </div>
             </div>
+
+            {isEditingIngredientsRaw && (
+              <div className="space-y-2.5 bg-sky-50/50 border border-sky-300 rounded-xl p-3.5 shadow-xs">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-extrabold text-sky-900 flex items-center gap-1.5">
+                      <Edit3 className="w-3.5 h-3.5 text-sky-600" />
+                      <span>성분 / 함량 원문 수정 (저장 시 표 자동 변환)</span>
+                    </span>
+                    <p className="text-[11px] text-slate-600">
+                      한 줄에 하나씩 <code className="bg-white px-1 py-0.5 rounded border border-slate-200 text-slate-800">성분명 함량단위 (환산성분량)</code> 형식으로 입력하세요. 앞에 <code className="bg-white px-1 py-0.5 rounded border border-slate-200 text-slate-800">[약효분류]</code>를 적으면 분류도 직접 지정됩니다.
+                    </p>
+                  </div>
+                  {officialParseableIngredientsText && (
+                    <button
+                      type="button"
+                      onClick={() => setEditIngredientsRawValue(officialParseableIngredientsText)}
+                      className="text-[11px] font-bold text-slate-700 hover:text-sky-700 bg-white hover:bg-sky-50 border border-slate-300 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shadow-2xs"
+                      title="식약처/공공데이터 공식 원문으로 입력창 채우기"
+                    >
+                      공식 API 원문 불러오기
+                    </button>
+                  )}
+                </div>
+                <textarea
+                  value={editIngredientsRawValue}
+                  onChange={(e) => setEditIngredientsRawValue(e.target.value)}
+                  rows={Math.min(12, Math.max(5, editIngredientsRawValue.split('\n').length + 1))}
+                  placeholder={`예시:\n코바마미드 1mg\n폴리네이트칼슘 1.27mg\nL-포스포트레오닌 20mg\n푸르설티아민염산염 27.28mg (푸르설티아민으로서 25mg)`}
+                  className="w-full text-xs font-mono font-medium text-slate-800 bg-white border border-slate-300 rounded-lg p-3 leading-relaxed focus:outline-none focus:ring-2 focus:ring-sky-500 whitespace-pre-wrap"
+                />
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-slate-500">
+                    * 원문을 수정하고 저장하면 약효분류 · 영문 성분명 · 함량 · 상한섭취량(UL)이 즉시 새로 변환됩니다.
+                  </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingIngredientsRaw(false)}
+                      className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
+                    >
+                      취소
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveIngredientsRaw}
+                      className="px-3.5 py-1.5 text-xs font-extrabold text-white bg-sky-600 hover:bg-sky-700 rounded-lg shadow-2xs transition-colors cursor-pointer"
+                    >
+                      저장 및 변환 적용
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
               {(() => {
@@ -3729,15 +3987,26 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </div>
                 <div className="flex items-center gap-2">
                   {!isEditingOtcIndications && (
-                    <button
-                      type="button"
-                      onClick={handleStartEditOtcIndications}
-                      className="text-xs font-semibold text-sky-600 hover:text-sky-700 hover:underline flex items-center gap-1 cursor-pointer"
-                      title="효능·효과 직접 수정"
-                    >
-                      <Edit3 className="w-3 h-3" />
-                      <span>수정</span>
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setIsIndicationsFullModalOpen(true)}
+                        className="text-[11px] font-semibold text-slate-600 hover:text-sky-700 bg-white hover:bg-sky-50 border border-slate-200 hover:border-sky-300 px-2.5 py-1 rounded-lg transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                        title="식약처 허가 원문 효능·효과 전문 보기"
+                      >
+                        <FileText className="w-3 h-3 text-slate-500" />
+                        <span>원문 보기</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleStartEditOtcIndications}
+                        className="text-xs font-semibold text-sky-600 hover:text-sky-700 hover:underline flex items-center gap-1 cursor-pointer"
+                        title="효능·효과 직접 수정"
+                      >
+                        <Edit3 className="w-3 h-3" />
+                        <span>수정</span>
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -4481,6 +4750,228 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     )}
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 일반의약품 효능·효과 원문 보기 팝업 모달 */}
+        {isIndicationsFullModalOpen && (
+          <div
+            onClick={() => setIsIndicationsFullModalOpen(false)}
+            className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col border border-slate-200 overflow-hidden"
+            >
+              {/* 모달 상단 헤더 */}
+              <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="text-sm font-extrabold text-slate-900 truncate flex items-center gap-2">
+                      <span>효능·효과 원문 보기</span>
+                      {product.isCustomIndications && (
+                        <span className="text-[10px] font-bold text-sky-700 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-full">
+                          사용자 수정 적용됨
+                        </span>
+                      )}
+                    </h4>
+                    <p className="text-[11px] text-slate-500 truncate">
+                      {product.productName} {regulatoryCode ? `(${regulatoryCode})` : ''}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsIndicationsFullModalOpen(false);
+                      handleStartEditOtcIndications();
+                    }}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white transition-colors cursor-pointer shadow-2xs"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>효능·효과 수정</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const textToCopy = officialIndicationsText || otcIndicationsFullText || '';
+                      navigator.clipboard.writeText(textToCopy);
+                      setIsCopiedIndications(true);
+                      setTimeout(() => setIsCopiedIndications(false), 2000);
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 transition-colors cursor-pointer"
+                  >
+                    {isCopiedIndications ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="text-emerald-700">복사됨</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5 text-slate-500" />
+                        <span>원문 복사</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsIndicationsFullModalOpen(false)}
+                    className="w-8 h-8 rounded-full hover:bg-slate-200/70 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* 모달 본문 */}
+              <div className="p-5 overflow-y-auto flex-1">
+                <div className="mb-3 flex items-center justify-between pb-2 border-b border-slate-100">
+                  <span className="text-xs font-bold text-slate-500">
+                    식약처 의약품안전나라(nedrug) 공식 허가 효능·효과 원문입니다.
+                  </span>
+                  {isFetchingFullApiText && (
+                    <span className="text-[11px] font-bold text-sky-600 flex items-center gap-1">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <span>공식 원문 불러오는 중...</span>
+                    </span>
+                  )}
+                </div>
+                <pre className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs font-sans font-medium text-slate-800 whitespace-pre-wrap leading-relaxed select-text">
+                  {officialIndicationsText || otcIndicationsFullText || '등록된 효능·효과 원문이 없습니다.'}
+                </pre>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 성분 / 함량 원문 보기 팝업 모달 */}
+        {isIngredientsRawModalOpen && (
+          <div
+            onClick={() => setIsIngredientsRawModalOpen(false)}
+            className="fixed inset-0 z-60 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col border border-slate-200 overflow-hidden"
+            >
+              {/* 모달 상단 헤더 */}
+              <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50 shrink-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-7 h-7 rounded-lg bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="text-sm font-extrabold text-slate-900 truncate flex items-center gap-2">
+                      <span>성분 / 함량 원문 보기</span>
+                      {product.isCustomIngredients && (
+                        <span className="text-[10px] font-bold text-sky-700 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-full">
+                          사용자 수정 적용됨
+                        </span>
+                      )}
+                    </h4>
+                    <p className="text-[11px] text-slate-500 truncate">
+                      {product.productName} {regulatoryCode ? `(${regulatoryCode})` : ''}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleStartEditIngredientsRaw}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-sky-600 hover:bg-sky-700 text-white transition-colors cursor-pointer shadow-2xs"
+                  >
+                    <Edit3 className="w-3.5 h-3.5" />
+                    <span>원문 수정하기</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(getDefaultIngredientsRawText());
+                      setIsCopiedIngredientsRaw(true);
+                      setTimeout(() => setIsCopiedIngredientsRaw(false), 2000);
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 transition-colors cursor-pointer"
+                  >
+                    {isCopiedIngredientsRaw ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="text-emerald-700">복사됨</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5 text-slate-500" />
+                        <span>원문 복사</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsIngredientsRawModalOpen(false)}
+                    className="w-8 h-8 rounded-full hover:bg-slate-200/70 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* 모달 본문 */}
+              <div className="p-5 overflow-y-auto flex-1 space-y-4">
+                {/* 1. 현재 변환에 사용 중인 원문 텍스트 */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-extrabold text-slate-800 flex items-center gap-1.5">
+                      <span>1. 현재 표 변환 기준 원문</span>
+                      <span className="text-[11px] font-medium text-slate-500">
+                        (이 원문을 수정하면 성분/함량 표가 즉시 다시 변환됩니다)
+                      </span>
+                    </span>
+                  </div>
+                  <pre className="bg-sky-50/40 border border-sky-200/80 rounded-xl p-4 text-xs font-mono text-slate-800 whitespace-pre-wrap leading-relaxed">
+                    {getDefaultIngredientsRawText() || '등록된 성분/함량 원문이 없습니다.'}
+                  </pre>
+                </div>
+
+                {/* 2. 식약처 / 공공데이터 API 공식 원문 */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-extrabold text-slate-800">
+                      2. 식약처 / 공공데이터 API 공식 원료약품 및 분량 원문
+                    </span>
+                    {isFetchingFullApiText && (
+                      <span className="text-[11px] font-bold text-sky-600 flex items-center gap-1">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span>공식 원문 불러오는 중...</span>
+                      </span>
+                    )}
+                  </div>
+                  <pre className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs font-mono text-slate-700 whitespace-pre-wrap leading-relaxed">
+                    {officialIngredientsApiText ||
+                      (product.classification === 'HEALTH_FUNCTIONAL_FOOD' || product.classification === 'GENERAL_FOOD'
+                        ? [
+                            product.functionalFoodDetail?.rawMaterialsText
+                              ? `■ 원재료명:\n${product.functionalFoodDetail.rawMaterialsText}`
+                              : '',
+                            product.functionalFoodDetail?.standardSpecificationKorean
+                              ? `■ 기준 및 규격:\n${product.functionalFoodDetail.standardSpecificationKorean}`
+                              : '',
+                            product.functionalFoodDetail?.koreanLabelText
+                              ? `■ 한글표시사항 / 영양정보:\n${product.functionalFoodDetail.koreanLabelText}`
+                              : ''
+                          ]
+                            .filter(Boolean)
+                            .join('\n\n')
+                        : '') ||
+                      '공식 API 원문 정보가 없거나 조회 중입니다.'}
+                  </pre>
+                </div>
               </div>
             </div>
           </div>

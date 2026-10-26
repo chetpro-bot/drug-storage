@@ -1,6 +1,6 @@
 import { ProductClassification, DosageForm } from '../types/classification';
 import { ProductIngredientEntry } from '../types/ingredient';
-import { parseRawIngredientString, INN_DICTIONARY, inferDrugIngredientConversion } from '../utils/innMapper';
+import { parseRawIngredientString, INN_DICTIONARY } from '../utils/innMapper';
 
 export type PublicDataSourceOrigin =
   | '약학정보원(KPAIC) DB'
@@ -1276,14 +1276,12 @@ function inferDosageForm(chartText: string = '', prodName: string = '', shapeCod
 
 /**
  * 식약처 품목 상세 정보(MATERIAL_NAME)를 파싱하여 rawIngredientsText 생성
- * 국내 일반의약품의 경우, 공공데이터포털 API의 MATERIAL_NAME에서 '성분정보'가 공란으로 제공되더라도
- * 식약처 의약품 표준 허가 기준에 따른 환산성분량(유효성분량/순성분량)을 자동으로 보강합니다.
- * (단, 수입제품은 환산성분량 기재가 법적으로 면제되므로 원료량 단독 유지)
+ * - 공식 API 원문 그대로 사용하며, '성분정보'(환산성분량)가 빈칸인 경우 임의로 계산하거나 채우지 않고 빈칸 그대로 유지합니다.
  */
-function formatMaterialNameToRawIngredients(
+export function formatMaterialNameToRawIngredients(
   materialName?: string,
   mainIngrEng?: string,
-  isImported: boolean = false
+  _isImported: boolean = false
 ): string {
   if (!materialName) {
     if (mainIngrEng) {
@@ -1304,27 +1302,22 @@ function formatMaterialNameToRawIngredients(
       }
     });
 
-    const ingrName = fields['성분명'] || '';
+    const ingrName = (fields['성분명'] || '')
+      .trim()
+      .replace(/\b([LD]|DL)\s*[-－]\s*([가-힣A-Za-z])/gi, '$1-$2');
     const amount = fields['분량'] || '';
     let unit = fields['단위'] || '';
-    if (unit === '밀리그램') unit = 'mg';
-    else if (unit === '마이크로그램') unit = 'ug';
-    else if (unit === '아이.유') unit = 'IU';
+    if (unit === '밀리그램' || unit === '밀리그람') unit = 'mg';
+    else if (unit === '마이크로그램' || unit === '마이크로그람' || unit === '㎍') unit = 'ug';
+    else if (unit === '그램' || unit === '그람') unit = 'g';
+    else if (unit === '아이.유' || unit === '아이유') unit = 'IU';
 
     const info = fields['성분정보'] || '';
-    let cleanInfo = info
+    const cleanInfo = info
       .replace(/밀리그램/g, 'mg')
       .replace(/마이크로그램/g, 'ug')
       .replace(/아이\.유/g, 'IU')
       .trim();
-
-    // 식약처 공공 API에서 성분정보가 비어있고 국내 의약품인 경우 식약처 공식 허가 기준 환산성분량 자동 복원
-    if (!cleanInfo && !isImported && amount) {
-      const inferred = inferDrugIngredientConversion(ingrName, parseFloat(amount), unit);
-      if (inferred) {
-        cleanInfo = inferred;
-      }
-    }
 
     if (ingrName) {
       let line = amount ? `${ingrName} ${amount}${unit}` : ingrName;
@@ -3588,7 +3581,19 @@ function resolveKpaicEnglishIngredientName(korName: string, mainIngrEng?: string
     '콜레칼시페롤과립': 'Cholecalciferol Granules',
     '아스코르브산97%과립': 'Ascorbic Acid Granules 97%',
     '시아노코발라민1000배산': 'Cyanocobalamin 1000x Powder',
-    '푸마르산철': 'Ferrous Fumarate'
+    '푸마르산철': 'Ferrous Fumarate',
+    '코바마미드': 'Cobamamide',
+    '폴리네이트칼슘': 'Calcium Folinate',
+    '폴리네이트칼슘수화물': 'Calcium Folinate Hydrate',
+    'L-포스포트레오닌': 'L-Phosphothreonine',
+    '포스포트레오닌': 'L-Phosphothreonine',
+    'L-포스포세린': 'L-Phosphoserine',
+    '포스포세린': 'L-Phosphoserine',
+    'L-글루타민': 'L-Glutamine',
+    '글루타민': 'L-Glutamine',
+    'L-아르기닌염산염': 'L-Arginine Hydrochloride',
+    '아르기닌염산염': 'L-Arginine Hydrochloride',
+    'L-아르기닌': 'L-Arginine'
   };
 
   if (kpaicStandardMap[cleanKor]) {
@@ -3626,9 +3631,12 @@ function resolveKpaicEnglishIngredientName(korName: string, mainIngrEng?: string
   }
 
   // 사전에서 매칭 후 Title Case 변환
+  const GENERIC_MINERAL_KEYS = new Set(['마그네슘', '칼슘', '아연', '철', '구리', '망간', '셀레늄', '크롬', '요오드', '칼륨', '몰리브덴']);
   const sortedKeys = Object.keys(INN_DICTIONARY).sort((a, b) => b.length - a.length);
   for (const k of sortedKeys) {
-    if (cleanKor.includes(k.replace(/\s+/g, ''))) {
+    const cleanDictKey = k.replace(/\s+/g, '');
+    if (GENERIC_MINERAL_KEYS.has(k) && cleanKor !== cleanDictKey) continue;
+    if (cleanKor.includes(cleanDictKey)) {
       const inn = INN_DICTIONARY[k].englishInn;
       // 식약처 MAIN_INGR_ENG 목록에 일치하는 대소문자 표기가 있으면 우선 활용
       if (mainIngrEng) {
@@ -3712,8 +3720,97 @@ export interface NedrugRawRow {
   totqyCont?: string | null;
 }
 
+export interface NedrugDocTexts {
+  eeDocText?: string;
+  udDocText?: string;
+  nbDocText?: string;
+}
+
 const NEDRUG_CACHE_STORAGE_KEY = 'pharmassist_nedrug_rows_cache_v1';
+const NEDRUG_DOCS_CACHE_STORAGE_KEY = 'pharmassist_nedrug_docs_cache_v1';
 const nedrugMemoryCache = new Map<string, NedrugRawRow[]>();
+const nedrugDocsMemoryCache = new Map<string, NedrugDocTexts>();
+
+function loadCachedNedrugDocs(itemSeq: string): NedrugDocTexts | null {
+  if (nedrugDocsMemoryCache.has(itemSeq)) {
+    return nedrugDocsMemoryCache.get(itemSeq)!;
+  }
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(NEDRUG_DOCS_CACHE_STORAGE_KEY);
+    if (!raw) return null;
+    const map = JSON.parse(raw) as Record<string, NedrugDocTexts>;
+    const entry = map[itemSeq];
+    if (entry && (entry.eeDocText || entry.udDocText || entry.nbDocText)) {
+      nedrugDocsMemoryCache.set(itemSeq, entry);
+      return entry;
+    }
+  } catch {
+    // ignore storage parse error
+  }
+  return null;
+}
+
+function saveCachedNedrugDocs(itemSeq: string, docs: NedrugDocTexts): void {
+  if (!docs || (!docs.eeDocText && !docs.udDocText && !docs.nbDocText)) return;
+  nedrugDocsMemoryCache.set(itemSeq, docs);
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') return;
+  try {
+    const raw = localStorage.getItem(NEDRUG_DOCS_CACHE_STORAGE_KEY);
+    const map: Record<string, NedrugDocTexts> = raw ? JSON.parse(raw) : {};
+    map[itemSeq] = docs;
+    localStorage.setItem(NEDRUG_DOCS_CACHE_STORAGE_KEY, JSON.stringify(map));
+  } catch {
+    // ignore quota error
+  }
+}
+
+function extractNedrugDocBlockFromHtml(html: string, docId: string): string {
+  const startIdx = html.search(new RegExp(`id=['"]${docId}['">]`));
+  if (startIdx === -1) return '';
+  const tagStart = html.lastIndexOf('<div', startIdx);
+  if (tagStart === -1) return '';
+  let depth = 0;
+  let i = tagStart;
+  const len = html.length;
+  while (i < len) {
+    const nextOpen = html.indexOf('<div', i);
+    const nextClose = html.indexOf('</div', i);
+    if (nextClose === -1) break;
+    if (nextOpen !== -1 && nextOpen < nextClose) {
+      depth++;
+      i = nextOpen + 4;
+    } else {
+      depth--;
+      i = nextClose + 6;
+      if (depth <= 0) {
+        const rawBlock = html.slice(tagStart, i);
+        return rawBlock
+          .replace(/<\/p>|<\/div>|<\/tr>|<\/li>|<br\s*\/?>/gi, '\n')
+          .replace(/<[^>]+>/g, ' ')
+          .replace(/&nbsp;/gi, ' ')
+          .replace(/&amp;/gi, '&')
+          .replace(/&lt;/gi, '<')
+          .replace(/&gt;/gi, '>')
+          .replace(/&quot;/gi, '"')
+          .replace(/&#x[0-9a-fA-F]+;/g, ' ')
+          .split(/\r?\n/)
+          .map((l) => l.replace(/[ \t]+/g, ' ').trim())
+          .filter(Boolean)
+          .join('\n');
+      }
+    }
+  }
+  return '';
+}
+
+function extractNedrugDocsFromHtml(html: string): NedrugDocTexts {
+  return {
+    eeDocText: extractNedrugDocBlockFromHtml(html, '_ee_doc'),
+    udDocText: extractNedrugDocBlockFromHtml(html, '_ud_doc'),
+    nbDocText: extractNedrugDocBlockFromHtml(html, '_nb_doc')
+  };
+}
 
 function loadCachedNedrugRows(itemSeq: string): NedrugRawRow[] | null {
   if (nedrugMemoryCache.has(itemSeq)) {
@@ -3808,7 +3905,9 @@ export async function fetchNedrugRawRows(itemSeq: string): Promise<NedrugRawRow[
   if (typeof window === 'undefined') {
     const r = await fetch(directUrl);
     if (r.ok) {
-      const rows = extractNedrugRowsFromHtml(await r.text());
+      const htmlText = await r.text();
+      saveCachedNedrugDocs(cleanSeq, extractNedrugDocsFromHtml(htmlText));
+      const rows = extractNedrugRowsFromHtml(htmlText);
       if (rows.length > 0) {
         saveCachedNedrugRows(cleanSeq, rows);
         return rows;
@@ -3822,6 +3921,7 @@ export async function fetchNedrugRawRows(itemSeq: string): Promise<NedrugRawRow[
     const proxyRes = await fetch(`/api/nedrug/pbp/CCBBB01/getItemDetailCache?cacheSeq=${encodeURIComponent(cleanSeq)}aupdateTs2025-01-01b`);
     if (proxyRes.ok) {
       const txt = await proxyRes.text();
+      saveCachedNedrugDocs(cleanSeq, extractNedrugDocsFromHtml(txt));
       if (txt.includes('var aasda =')) {
         const rows = extractNedrugRowsFromHtml(txt);
         if (rows.length > 0) {
@@ -3847,12 +3947,20 @@ export async function fetchNedrugRawRows(itemSeq: string): Promise<NedrugRawRow[
         const contentType = res.headers.get('content-type') || '';
         if (contentType.includes('application/json')) {
           const data = await res.json();
+          if (data?.eeDocText || data?.udDocText || data?.nbDocText) {
+            saveCachedNedrugDocs(cleanSeq, {
+              eeDocText: data.eeDocText || '',
+              udDocText: data.udDocText || '',
+              nbDocText: data.nbDocText || ''
+            });
+          }
           if (Array.isArray(data?.rows) && data.rows.length > 0) {
             saveCachedNedrugRows(cleanSeq, data.rows);
             return data.rows as NedrugRawRow[];
           }
         } else {
           const txt = await res.text();
+          saveCachedNedrugDocs(cleanSeq, extractNedrugDocsFromHtml(txt));
           if (txt.includes('var aasda =')) {
             const rows = extractNedrugRowsFromHtml(txt);
             if (rows.length > 0) {
@@ -3877,6 +3985,7 @@ export async function fetchNedrugRawRows(itemSeq: string): Promise<NedrugRawRow[
       const r = await fetch(pUrl);
       if (r.ok) {
         const txt = await r.text();
+        saveCachedNedrugDocs(cleanSeq, extractNedrugDocsFromHtml(txt));
         if (txt.includes('var aasda =')) {
           const rows = extractNedrugRowsFromHtml(txt);
           if (rows.length > 0) {
@@ -3890,6 +3999,109 @@ export async function fetchNedrugRawRows(itemSeq: string): Promise<NedrugRawRow[
     }
   }
   return null;
+}
+
+/**
+ * 의약품안전나라(nedrug.mfds.go.kr) 품목 상세 페이지 내 효능·효과(#_ee_doc), 용법·용량(#_ud_doc), 사용상의 주의사항(#_nb_doc) 원문 반환
+ * (공공데이터포털 API의 EE_DOC_DATA, UD_DOC_DATA, NB_DOC_DATA가 null로 내려오는 품목을 위한 공식 원문 보완)
+ */
+export async function fetchNedrugDocTexts(itemSeq: string): Promise<NedrugDocTexts | null> {
+  const cleanSeq = (itemSeq || '').trim();
+  if (!cleanSeq) return null;
+
+  const cached = loadCachedNedrugDocs(cleanSeq);
+  if (cached && (cached.eeDocText || cached.udDocText || cached.nbDocText)) {
+    return cached;
+  }
+
+  const directUrl = `https://nedrug.mfds.go.kr/pbp/CCBBB01/getItemDetailCache?cacheSeq=${encodeURIComponent(cleanSeq)}aupdateTs2025-01-01b`;
+
+  if (typeof window === 'undefined') {
+    try {
+      const r = await fetch(directUrl);
+      if (r.ok) {
+        const docs = extractNedrugDocsFromHtml(await r.text());
+        saveCachedNedrugDocs(cleanSeq, docs);
+        return docs;
+      }
+    } catch {
+      // ignore
+    }
+    return null;
+  }
+
+  // 1. 로컬 Vite 프록시 (/api/nedrug)
+  try {
+    const proxyRes = await fetch(`/api/nedrug/pbp/CCBBB01/getItemDetailCache?cacheSeq=${encodeURIComponent(cleanSeq)}aupdateTs2025-01-01b`);
+    if (proxyRes.ok) {
+      const txt = await proxyRes.text();
+      const docs = extractNedrugDocsFromHtml(txt);
+      if (docs.eeDocText || docs.udDocText || docs.nbDocText) {
+        saveCachedNedrugDocs(cleanSeq, docs);
+        return docs;
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  // 2. Cloud Function 프록시
+  const serverProxyUrls = [
+    `/api/nedrug-proxy?itemSeq=${encodeURIComponent(cleanSeq)}`,
+    `https://asia-northeast3-drug-storage-175fe.cloudfunctions.net/nedrugItemDetailProxy?itemSeq=${encodeURIComponent(cleanSeq)}`
+  ];
+  for (const sUrl of serverProxyUrls) {
+    try {
+      const res = await fetch(sUrl);
+      if (res.ok) {
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const data = await res.json();
+          if (data?.eeDocText || data?.udDocText || data?.nbDocText) {
+            const docs: NedrugDocTexts = {
+              eeDocText: data.eeDocText || '',
+              udDocText: data.udDocText || '',
+              nbDocText: data.nbDocText || ''
+            };
+            saveCachedNedrugDocs(cleanSeq, docs);
+            return docs;
+          }
+        } else {
+          const txt = await res.text();
+          const docs = extractNedrugDocsFromHtml(txt);
+          if (docs.eeDocText || docs.udDocText || docs.nbDocText) {
+            saveCachedNedrugDocs(cleanSeq, docs);
+            return docs;
+          }
+        }
+      }
+    } catch {
+      // try next
+    }
+  }
+
+  // 3. 공개 CORS 프록시 백업
+  const corsProxies = [
+    `https://corsproxy.io/?${encodeURIComponent(directUrl)}`,
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`
+  ];
+  for (const pUrl of corsProxies) {
+    try {
+      const r = await fetch(pUrl);
+      if (r.ok) {
+        const txt = await r.text();
+        const docs = extractNedrugDocsFromHtml(txt);
+        if (docs.eeDocText || docs.udDocText || docs.nbDocText) {
+          saveCachedNedrugDocs(cleanSeq, docs);
+          return docs;
+        }
+      }
+    } catch {
+      // try next
+    }
+  }
+
+  return loadCachedNedrugDocs(cleanSeq);
 }
 
 /**
@@ -3912,7 +4124,8 @@ export async function fetchNedrugIngredientsText(
       let korName: string = (obj.ingrName || '').trim();
       if (!korName) continue;
 
-      // 약학정보원 표기 통일 (감마-오리자놀 -> γ-오리자놀, 토코페롤아세테이트 2배산 -> 토코페롤아세테이트2배산)
+      // 약학정보원 표기 통일 (감마-오리자놀 -> γ-오리자놀, 토코페롤아세테이트 2배산 -> 토코페롤아세테이트2배산, L -포스포트레오닌 -> L-포스포트레오닌)
+      korName = korName.replace(/\b([LD]|DL)\s*[-－]\s*([가-힣A-Za-z])/gi, '$1-$2');
       if (korName === '감마-오리자놀') korName = 'γ-오리자놀';
       else if (korName === '토코페롤아세테이트 2배산') korName = '토코페롤아세테이트2배산';
 
@@ -3958,13 +4171,32 @@ export async function fetchMfdsDrugDetail(itemSeq: string): Promise<{
     const item = data?.body?.items?.[0];
     if (!item) return null;
 
-    const dosageInstruction = cleanXmlDocText(item.UD_DOC_DATA) || '용법용량 첨부문서 참조';
-    const cleanEffects = cleanXmlDocText(item.EE_DOC_DATA);
+    // 1순위: 공공데이터포털 공식 API(MATERIAL_NAME) 원문 그대로 사용 (환산성분량이 빈칸이어도 nedrug를 호출하거나 임의로 채우지 않음)
+    // 단, 공식 API에서 MATERIAL_NAME 자체가 누락된 경우에만 의약품안전나라(nedrug) 원문으로 보완
+    let rawIngredientsText = formatMaterialNameToRawIngredients(item.MATERIAL_NAME, item.MAIN_INGR_ENG, false);
+    if (!rawIngredientsText) {
+      rawIngredientsText = (await fetchNedrugIngredientsText(itemSeq, item.MAIN_INGR_ENG)) || '';
+    }
+
+    let cleanDosage = cleanXmlDocText(item.UD_DOC_DATA);
+    let cleanEffects = cleanXmlDocText(item.EE_DOC_DATA);
+    let cleanPrecautions = cleanXmlDocText(item.NB_DOC_DATA);
+
+    // 공공데이터포털 API에서 EE_DOC_DATA, UD_DOC_DATA, NB_DOC_DATA가 null로 내려오는 품목(예: 큐업액 200301506)은 의약품안전나라(nedrug) 원문으로 자동 보완
+    if (!cleanDosage || !cleanEffects || !cleanPrecautions) {
+      const nedrugDocs = await fetchNedrugDocTexts(itemSeq);
+      if (nedrugDocs) {
+        if (!cleanDosage && nedrugDocs.udDocText) cleanDosage = nedrugDocs.udDocText;
+        if (!cleanEffects && nedrugDocs.eeDocText) cleanEffects = nedrugDocs.eeDocText;
+        if (!cleanPrecautions && nedrugDocs.nbDocText) cleanPrecautions = nedrugDocs.nbDocText;
+      }
+    }
+
+    const dosageInstruction = cleanDosage || '용법용량 첨부문서 참조';
     const indicationsSummary = cleanEffects
       ? cleanEffects.split(/\r?\n/).map(s => s.trim()).filter(s => s.length > 0)
       : ['효능·효과 첨부문서 참조'];
 
-    const cleanPrecautions = cleanXmlDocText(item.NB_DOC_DATA);
     const precautionsSummary = cleanPrecautions
       ? cleanPrecautions.split(/\r?\n/).map(s => s.trim()).filter(s => s.length > 0)
       : ['사용상의 주의사항 첨부문서 참조'];
@@ -3972,11 +4204,6 @@ export async function fetchMfdsDrugDetail(itemSeq: string): Promise<{
     const storageMethod = (item.STORAGE_METHOD || '기밀용기, 실온(1~30℃) 보관').replace(/\s+/g, ' ').trim();
     const packagingUnit = item.PACK_UNIT ? item.PACK_UNIT.split(/[\n,]/)[0].trim() : '120정';
     const dosageForm = inferDosageForm(item.CHART, item.ITEM_NAME);
-
-    // 의약품안전나라(nedrug.mfds.go.kr) 원문 허가증 테이블에서 유효성분 환산량(ingrInfo) 포함 데이터 최우선 수집
-    const nedrugIngredientsText = await fetchNedrugIngredientsText(itemSeq, item.MAIN_INGR_ENG);
-    const rawIngredientsText =
-      nedrugIngredientsText || formatMaterialNameToRawIngredients(item.MATERIAL_NAME, item.MAIN_INGR_ENG, false);
 
     return {
       rawIngredientsText,

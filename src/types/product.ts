@@ -121,6 +121,7 @@ export interface ProductItem {
 
   // 성분 리스트 (모든 유효성분은 영문 INN 기준 매핑)
   ingredients: ProductIngredientEntry[];
+  rawIngredientsText?: string;          // 성분/함량 변환 기준 원문 텍스트 (원문 보기 및 직접 수정용)
 
   // 첨부 참고 자료 (약학정보원 캡처, 라벨 사진, 제약사 브로슈어 등)
   attachments?: AttachedDocument[];
@@ -133,6 +134,7 @@ export interface ProductItem {
   isCustomPrecautions?: boolean;
   isCustomDosage?: boolean;
   isCustomIndications?: boolean;
+  isCustomIngredients?: boolean;
 
   // 분류별 규제 세부 정보
   otcDetail?: OtcDrugRegulatoryDetail;

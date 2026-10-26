@@ -122,7 +122,50 @@ export const nedrugItemDetailProxy = onRequest(
       }
     }
 
-    if (rows.length === 0) {
+    const extractNedrugDocBlock = (docId: string): string => {
+      const startIdx = html.search(new RegExp(`id=['"]${docId}['">]`));
+      if (startIdx === -1) return "";
+      const tagStart = html.lastIndexOf("<div", startIdx);
+      if (tagStart === -1) return "";
+      let depth = 0;
+      let i = tagStart;
+      const len = html.length;
+      while (i < len) {
+        const nextOpen = html.indexOf("<div", i);
+        const nextClose = html.indexOf("</div", i);
+        if (nextClose === -1) break;
+        if (nextOpen !== -1 && nextOpen < nextClose) {
+          depth++;
+          i = nextOpen + 4;
+        } else {
+          depth--;
+          i = nextClose + 6;
+          if (depth <= 0) {
+            const rawBlock = html.slice(tagStart, i);
+            return rawBlock
+              .replace(/<\/p>|<\/div>|<\/tr>|<\/li>|<br\s*\/?>/gi, "\n")
+              .replace(/<[^>]+>/g, " ")
+              .replace(/&nbsp;/gi, " ")
+              .replace(/&amp;/gi, "&")
+              .replace(/&lt;/gi, "<")
+              .replace(/&gt;/gi, ">")
+              .replace(/&quot;/gi, '"')
+              .replace(/&#x[0-9a-fA-F]+;/g, " ")
+              .split(/\r?\n/)
+              .map((l) => l.replace(/[ \t]+/g, " ").trim())
+              .filter(Boolean)
+              .join("\n");
+          }
+        }
+      }
+      return "";
+    };
+
+    const eeDocText = extractNedrugDocBlock("_ee_doc");
+    const udDocText = extractNedrugDocBlock("_ud_doc");
+    const nbDocText = extractNedrugDocBlock("_nb_doc");
+
+    if (rows.length === 0 && !eeDocText && !nbDocText) {
       // 페이지 구조 변경 감지용
       logger.warn("의약품안전나라 원료약품 행을 찾지 못함 (페이지 구조 변경 가능성)", { itemSeq });
       res.status(404).json({ error: "원료약품 데이터를 찾지 못했습니다.", itemSeq });
@@ -130,7 +173,7 @@ export const nedrugItemDetailProxy = onRequest(
     }
 
     res.set("Cache-Control", "public, max-age=86400");
-    res.status(200).json({ itemSeq, rows });
+    res.status(200).json({ itemSeq, rows, eeDocText, udDocText, nbDocText });
   } catch (error: any) {
     logger.error("의약품안전나라 프록시 오류:", error);
     res.status(500).json({ error: error.message || "의약품안전나라 상세 수집 중 오류가 발생했습니다." });

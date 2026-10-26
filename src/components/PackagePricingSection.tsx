@@ -147,14 +147,13 @@ export const PackagePricingSection: React.FC<PackagePricingSectionProps> = ({ pr
       {!isEditing ? (
         /* 열람 모드 (표 및 카드 형태) */
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full text-xs border-collapse">
             <thead>
               <tr className="border-b border-slate-200/80 text-slate-500 font-bold text-[11px]">
-                <th className="py-1.5 px-2">규격명</th>
-                <th className="py-1.5 px-2">총 수량</th>
-                <th className="py-1.5 px-2 text-center">복용 가능 기간</th>
-                <th className="py-1.5 px-2 text-right">판매가</th>
-                <th className="py-1.5 px-2 text-right">1일 환산 비용</th>
+                <th className="py-1.5 px-3 text-center">규격명</th>
+                <th className="py-1.5 px-3 text-center">복용 가능 기간</th>
+                <th className="py-1.5 px-3 text-center">판매가</th>
+                <th className="py-1.5 px-3 text-center">1일 환산 비용</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -169,8 +168,8 @@ export const PackagePricingSection: React.FC<PackagePricingSectionProps> = ({ pr
                       opt.isDefault ? 'bg-sky-50/40 font-semibold' : ''
                     }`}
                   >
-                    <td className="py-2 px-2 text-slate-800">
-                      <div className="flex items-center gap-1.5">
+                    <td className="py-2.5 px-3 text-center text-slate-800">
+                      <div className="inline-flex items-center justify-center gap-1.5">
                         {opt.isDefault && (
                           <span className="text-[10px] font-extrabold text-sky-700 bg-sky-100 px-1.5 py-0.2 rounded shrink-0">
                             대표
@@ -179,19 +178,15 @@ export const PackagePricingSection: React.FC<PackagePricingSectionProps> = ({ pr
                         <span>{opt.name || `${opt.totalQuantity}${opt.unit || product.servingUnitKorean || '정'}`}</span>
                       </div>
                     </td>
-                    <td className="py-2 px-2 text-slate-600 font-mono text-[11px]">
-                      {opt.totalQuantity.toLocaleString()}
-                      {opt.unit || product.servingUnitKorean || '정'}
-                    </td>
-                    <td className="py-2 px-2 text-center">
+                    <td className="py-2.5 px-3 text-center">
                       <span className="inline-block text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200/80 px-2 py-0.5 rounded-full">
                         {duration.fullText}
                       </span>
                     </td>
-                    <td className="py-2 px-2 text-right font-black text-blue-700 text-xs">
+                    <td className="py-2.5 px-3 text-center font-black text-blue-700 text-xs">
                       {opt.priceKrw > 0 ? `${opt.priceKrw.toLocaleString()} 원` : '가격 미지정'}
                     </td>
-                    <td className="py-2 px-2 text-right text-[11px] text-slate-500 font-medium">
+                    <td className="py-2.5 px-3 text-center text-[11px] text-slate-500 font-medium">
                       {dailyCost > 0 ? (
                         <span className="text-emerald-700 font-bold">
                           1일 약 {dailyCost.toLocaleString()}원
@@ -241,9 +236,21 @@ export const PackagePricingSection: React.FC<PackagePricingSectionProps> = ({ pr
                       value={opt.name}
                       onChange={(e) => {
                         const val = e.target.value;
-                        setDraftOptions(draftOptions.map((o) => (o.id === opt.id ? { ...o, name: val } : o)));
+                        const numMatch = val.match(/^(\d+)/);
+                        const autoQty = numMatch ? parseInt(numMatch[1], 10) : undefined;
+                        setDraftOptions(
+                          draftOptions.map((o) =>
+                            o.id === opt.id
+                              ? {
+                                  ...o,
+                                  name: val,
+                                  ...(autoQty && autoQty > 0 ? { totalQuantity: autoQty } : {})
+                                }
+                              : o
+                          )
+                        );
                       }}
-                      placeholder="예: 낱병, 1박스, 2박스 세트"
+                      placeholder="예: 낱병, 100정, 1박스"
                       className="w-full text-xs font-bold text-slate-800 border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-sky-500"
                     />
                   </div>

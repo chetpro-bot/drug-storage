@@ -51,7 +51,7 @@ export function renderFormattedPrecautionsText(text?: string | null) {
         if (leadingWhitespaceMatch) {
           const whitespace = leadingWhitespaceMatch[1];
           for (const ch of whitespace) {
-            spaceCount += ch === '\t' ? 4 : 1;
+            spaceCount += ch === '\t' ? 2 : 1;
           }
           contentLine = line.slice(whitespace.length);
         }
@@ -63,17 +63,17 @@ export function renderFormattedPrecautionsText(text?: string | null) {
           paddingLeftPx = spaceCount > 0 ? spaceCount * 6 : 0;
           currentInheritedIndentPx = 0;
         } else if (isSubItem) {
-          // 하위 항목 ((1), (2) 등): 명시적 공백이 있으면 그에 맞추고, 없어도 기본 들여쓰기 16px 부여
+          // 하위 항목 ((1), (2) 등): 2칸 공백 기준 12px 기본 들여쓰기 부여
           if (spaceCount > 0) {
-            paddingLeftPx = Math.max(spaceCount * 8, 16);
+            paddingLeftPx = Math.max(spaceCount * 6, 12);
           } else {
-            paddingLeftPx = 16;
+            paddingLeftPx = 12;
           }
           currentInheritedIndentPx = paddingLeftPx; // 이어진 다음 줄들이 이어받도록 보존
         } else {
           // 기호 없이 줄바꿈되어 이어진 텍스트 (예: "로 어린이의 손에 닿지 않는곳에...", ": 원인을 알 수 없는...", "빈혈")
           if (spaceCount > 0) {
-            paddingLeftPx = Math.max(spaceCount * 8, 16);
+            paddingLeftPx = Math.max(spaceCount * 6, 12);
             currentInheritedIndentPx = paddingLeftPx;
           } else if (currentInheritedIndentPx > 0) {
             // 앞선 항목의 들여쓰기를 그대로 계승하여 완벽한 수직 라인 맞춤!
@@ -175,7 +175,7 @@ export const PrecautionsTextEditor: React.FC<PrecautionsTextEditorProps> = ({
     setFloatingToolbar(null);
   };
 
-  // 들여쓰기 (4칸 공백) / 내어쓰기 실행
+  // 들여쓰기 (2칸 공백) / 내어쓰기 실행
   const handleIndent = (isOutdent = false) => {
     const textarea = textareaRef.current;
     if (!textarea) return;
@@ -191,7 +191,7 @@ export const PrecautionsTextEditor: React.FC<PrecautionsTextEditorProps> = ({
     }
 
     const textVal = textarea.value;
-    const indentStr = '    '; // 4칸 스페이스
+    const indentStr = '  '; // 2칸 스페이스
 
     // 선택 영역이 걸쳐 있는 첫 번째 줄의 시작 인덱스
     const startOfFirstLine = textVal.lastIndexOf('\n', selectionStart - 1) + 1;
@@ -213,12 +213,12 @@ export const PrecautionsTextEditor: React.FC<PrecautionsTextEditorProps> = ({
     let deltaTotal = 0;
 
     if (!isOutdent) {
-      // 들여쓰기: 선택된 모든 라인 앞에 4칸 공백 추가
+      // 들여쓰기: 선택된 모든 라인 앞에 2칸 공백 추가
       newLines = lines.map((l) => indentStr + l);
       deltaStart = indentStr.length;
       deltaTotal = indentStr.length * lines.length;
     } else {
-      // 내어쓰기: 선택된 모든 라인 앞의 공백(최대 4칸) 제거
+      // 내어쓰기: 선택된 모든 라인 앞의 공백(최대 2칸) 제거
       newLines = lines.map((l, idx) => {
         let removed = 0;
         if (l.startsWith(indentStr)) {
@@ -418,7 +418,7 @@ export const PrecautionsTextEditor: React.FC<PrecautionsTextEditorProps> = ({
               handleIndent(false);
             }}
             className="flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold text-slate-200 hover:bg-slate-800 transition-colors cursor-pointer"
-            title="선택한 줄 전체 들여쓰기 (4칸)"
+            title="선택한 줄 전체 들여쓰기 (2칸)"
           >
             <Indent className="w-3.5 h-3.5 text-sky-400" />
             <span>들여쓰기</span>

@@ -27,7 +27,8 @@ import {
   cleanChemicalFormName,
   scaleIngredientInfoText,
   parseRawIngredientString,
-  isRegisteredIngredient
+  isRegisteredIngredient,
+  evaluateCombinedNutrientUl
 } from '../utils/innMapper';
 import { getDarkCategoryBadgeStyle } from '../utils/categoryColors';
 import { recognizeUniversalDocument, fileToDataUrl, isMeaningfulKoreanText } from '../services/labelOcrService';
@@ -50,6 +51,7 @@ import {
   Paperclip,
   MapPin,
   AlertCircle,
+  AlertTriangle,
   FileText,
   RefreshCw,
   Camera,
@@ -3147,7 +3149,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
 
           {/* SECTION 2: 성분 / 함량 (약효분류 | 성분 함량 | 상한섭취량 3열 정렬) */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-xs font-extrabold text-slate-700">
                   성분 / 함량
@@ -3158,590 +3160,836 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                     어린이 제품
                   </span>
                 )}
-                {!isEditingIngredientsRaw && (
-                  <div className="flex items-center gap-1.5 ml-1">
-                    <button
-                      type="button"
-                      onClick={() => setIsIngredientsRawModalOpen(true)}
-                      className="text-[11px] font-semibold text-slate-600 hover:text-sky-700 bg-white hover:bg-sky-50 border border-slate-200 hover:border-sky-300 px-2 py-0.5 rounded-md transition-colors inline-flex items-center gap-1 cursor-pointer shadow-2xs"
-                      title="식약처/공공데이터 성분·함량 원문 보기"
-                    >
-                      <FileText className="w-3 h-3 text-slate-500" />
-                      <span>원문 보기</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleStartEditIngredientsRaw}
-                      className="text-[11px] font-semibold text-sky-600 hover:text-sky-700 bg-sky-50/70 hover:bg-sky-100 border border-sky-200 px-2 py-0.5 rounded-md transition-colors inline-flex items-center gap-1 cursor-pointer shadow-2xs"
-                      title="성분/함량 원문 직접 수정 (수정 시 표 자동 재변환)"
-                    >
-                      <Edit3 className="w-3 h-3" />
-                      <span>수정</span>
-                    </button>
-                  </div>
-                )}
               </div>
 
-              <div className="flex items-center gap-2 flex-wrap">
-                {/* 소아 및 전생애주기 상한섭취량 기준표 모달 열기 버튼 */}
-                <button
-                  type="button"
-                  onClick={() => setIsChildUlModalOpen(true)}
-                  className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                  title="2025 KDRIs 연령별 소아 및 전 생애주기 상한섭취량(UL) 상세 기준표 보기"
-                >
-                  <Baby className="w-3.5 h-3.5 text-amber-600" />
-                  <span>상한섭취량(UL) 기준표</span>
-                </button>
-
-                {/* 성인 UL / 소아 UL 보기 토글 */}
-                <div className="inline-flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px] font-bold">
+              {!isEditingIngredientsRaw && (
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setUlViewMode('ADULT')}
-                    className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                      ulViewMode === 'ADULT'
-                        ? 'bg-white text-slate-800 shadow-2xs font-extrabold'
-                        : 'text-slate-500 hover:text-slate-800'
-                    }`}
+                    onClick={() => setIsIngredientsRawModalOpen(true)}
+                    className="text-[11px] font-semibold text-slate-600 hover:text-sky-700 bg-white hover:bg-sky-50 border border-slate-200 hover:border-sky-300 px-2.5 py-1 rounded-lg transition-colors inline-flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    title="식약처/공공데이터 성분·함량 원문 보기"
                   >
-                    성인 UL
+                    <FileText className="w-3 h-3 text-slate-500" />
+                    <span>원문 보기</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => setUlViewMode('CHILD')}
-                    className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                      ulViewMode === 'CHILD'
-                        ? 'bg-amber-500 text-white shadow-2xs font-extrabold'
-                        : 'text-slate-500 hover:text-slate-800'
-                    }`}
+                    onClick={handleStartEditIngredientsRaw}
+                    className="text-xs font-semibold text-sky-600 hover:text-sky-700 hover:underline flex items-center gap-1 cursor-pointer"
+                    title="성분/함량 원문 직접 수정 (수정 시 표 자동 재변환)"
                   >
-                    소아 UL
+                    <Edit3 className="w-3 h-3" />
+                    <span>수정</span>
                   </button>
                 </div>
-
-                {/* 1알/1포 vs 하루 섭취량 선택 토글 (오른쪽 끝 배치) */}
-                <div className="inline-flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px] font-bold">
-                  <button
-                    type="button"
-                    onClick={() => setDisplayBasis('PER_UNIT')}
-                    className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                      displayBasis === 'PER_UNIT'
-                        ? 'bg-white text-sky-700 shadow-2xs font-extrabold'
-                        : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    1{unitName}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDisplayBasis('PER_DAILY')}
-                    className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                      displayBasis === 'PER_DAILY'
-                        ? 'bg-white text-sky-700 shadow-2xs font-extrabold'
-                        : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    하루 섭취량
-                  </button>
-                </div>
-              </div>
+              )}
             </div>
 
-            {isEditingIngredientsRaw && (
-              <div className="space-y-2.5 bg-sky-50/50 border border-sky-300 rounded-xl p-3.5 shadow-xs">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="space-y-0.5">
-                    <span className="text-xs font-extrabold text-sky-900 flex items-center gap-1.5">
-                      <Edit3 className="w-3.5 h-3.5 text-sky-600" />
-                      <span>성분 / 함량 원문 수정 (저장 시 표 자동 변환)</span>
-                    </span>
-                    <p className="text-[11px] text-slate-600">
-                      한 줄에 하나씩 <code className="bg-white px-1 py-0.5 rounded border border-slate-200 text-slate-800">성분명 함량단위 (환산성분량)</code> 형식으로 입력하세요. 앞에 <code className="bg-white px-1 py-0.5 rounded border border-slate-200 text-slate-800">[약효분류]</code>를 적으면 분류도 직접 지정됩니다.
-                    </p>
-                  </div>
-                  {officialParseableIngredientsText && (
-                    <button
-                      type="button"
-                      onClick={() => setEditIngredientsRawValue(officialParseableIngredientsText)}
-                      className="text-[11px] font-bold text-slate-700 hover:text-sky-700 bg-white hover:bg-sky-50 border border-slate-300 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shadow-2xs"
-                      title="식약처/공공데이터 공식 원문으로 입력창 채우기"
-                    >
-                      공식 API 원문 불러오기
-                    </button>
-                  )}
-                </div>
-                <textarea
-                  value={editIngredientsRawValue}
-                  onChange={(e) => setEditIngredientsRawValue(e.target.value)}
-                  rows={Math.min(12, Math.max(5, editIngredientsRawValue.split('\n').length + 1))}
-                  placeholder={`예시:\n코바마미드 1mg\n폴리네이트칼슘 1.27mg\nL-포스포트레오닌 20mg\n푸르설티아민염산염 27.28mg (푸르설티아민으로서 25mg)`}
-                  className="w-full text-xs font-mono font-medium text-slate-800 bg-white border border-slate-300 rounded-lg p-3 leading-relaxed focus:outline-none focus:ring-2 focus:ring-sky-500 whitespace-pre-wrap"
-                />
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-[11px] text-slate-500">
-                    * 원문을 수정하고 저장하면 약효분류 · 영문 성분명 · 함량 · 상한섭취량(UL)이 즉시 새로 변환됩니다.
-                  </span>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setIsEditingIngredientsRaw(false)}
-                      className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
-                    >
-                      취소
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSaveIngredientsRaw}
-                      className="px-3.5 py-1.5 text-xs font-extrabold text-white bg-sky-600 hover:bg-sky-700 rounded-lg shadow-2xs transition-colors cursor-pointer"
-                    >
-                      저장 및 변환 적용
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
+            {(() => {
+              const isImportedProduct = isImported;
+              const isSeparatedFormat =
+                product.classification === 'OTC_DRUG' || product.classification === 'HEALTH_FUNCTIONAL_FOOD';
 
-            <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
-              {(() => {
-                const isImportedProduct = isImported;
+              // 현재 선택된 배율(1정/1병 vs 하루 섭취량) 기준 성분 표시 정보 및 상한섭취량(UL) 종합 계산
+              const itemsWithInfo = sortedIngredients.map((ing) => {
+                const scaledIng: ProductIngredientEntry =
+                  doseFactor === 1
+                    ? ing
+                    : {
+                        ...ing,
+                        rawAmount: parseFloat((ing.rawAmount * doseFactor).toFixed(2)),
+                        elementalAmount:
+                          ing.elementalAmount !== undefined
+                            ? parseFloat((ing.elementalAmount * doseFactor).toFixed(2))
+                            : undefined,
+                        ingredientInfoText: scaleIngredientInfoText(ing.ingredientInfoText, doseFactor)
+                      };
 
-                const isSeparatedFormat =
-                  product.classification === 'OTC_DRUG' || product.classification === 'HEALTH_FUNCTIONAL_FOOD';
+                const info = resolveIngredientDisplayInfo(scaledIng, product.productName, isImportedProduct);
 
-                return (
-                  <table className="w-full text-left border-collapse">
-                    <thead>
-                      <tr className="bg-slate-50 text-[11px] font-extrabold text-slate-600 border-b border-slate-200">
-                        <th className="w-[108px] sm:w-[116px] px-2 py-2 text-center border-r border-slate-200">
-                          약효분류
-                        </th>
-                        <th className="px-3 sm:px-4 py-2 text-center border-r border-slate-200">
-                          성분 함량
-                        </th>
-                        <th className="w-[160px] sm:w-[185px] px-2.5 py-2 text-center">
-                          {ulViewMode === 'CHILD' ? (
-                            <span className="text-amber-700">상한섭취량 (소아)</span>
-                          ) : (
-                            <span>상한섭취량 (성인)</span>
-                          )}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-xs text-slate-800">
-                      {(() => {
-                        // 성분 표시 정보 사전 계산 (선택된 기준에 따라 배율 적용)
-                        const itemsWithInfo = sortedIngredients.map((ing) => {
-                          const scaledIng: ProductIngredientEntry =
-                            doseFactor === 1
-                              ? ing
-                              : {
-                                  ...ing,
-                                  rawAmount: parseFloat((ing.rawAmount * doseFactor).toFixed(2)),
-                                  elementalAmount:
-                                    ing.elementalAmount !== undefined
-                                      ? parseFloat((ing.elementalAmount * doseFactor).toFixed(2))
-                                      : undefined,
-                                  ingredientInfoText: scaleIngredientInfoText(ing.ingredientInfoText, doseFactor)
-                                };
+                return {
+                  ing: scaledIng,
+                  info,
+                  badgeStyle: getDarkCategoryBadgeStyle(info.categoryTag)
+                };
+              });
 
-                          const info = resolveIngredientDisplayInfo(scaledIng, product.productName, isImportedProduct);
+              const currentUlSummaries = evaluateCombinedNutrientUl(
+                itemsWithInfo.map((it) => ({
+                  ing: it.ing,
+                  info: it.info,
+                  productName: product.productName,
+                  isImported: isImportedProduct
+                }))
+              );
 
-                          return {
-                            ing: scaledIng,
-                            info,
-                            badgeStyle: getDarkCategoryBadgeStyle(info.categoryTag)
-                          };
-                        });
+              const currentExceededSummaries = currentUlSummaries.filter((s) =>
+                ulViewMode === 'CHILD' ? s.isChildUlExceeded : s.isAdultUlExceeded
+              );
 
-                        // 상한섭취량 병합 기준 키 (동일 약효분류 내 동일 상한섭취량 병합)
-                        const getUlGroupKey = (entry: (typeof itemsWithInfo)[0]) => {
-                          if (ulViewMode === 'CHILD') {
-                            return `${entry.info.categoryTag}__${entry.info.childUlText || ''}__${entry.info.ulText || ''}`;
-                          }
-                          return `${entry.info.categoryTag}__${entry.info.ulText || ''}`;
+              // 1정/1병 보기 상태에서도 '하루 섭취량' 기준 UL 초과 성분이 있는지 사전 계산
+              const dailyFactor = storedBasis === 'PER_UNIT' ? totalDailyDose || 1 : 1;
+              const dailyUlSummaries =
+                displayBasis === 'PER_DAILY'
+                  ? currentUlSummaries
+                  : evaluateCombinedNutrientUl(
+                      sortedIngredients.map((ing) => {
+                        const scaledDaily: ProductIngredientEntry =
+                          dailyFactor === 1
+                            ? ing
+                            : {
+                                ...ing,
+                                rawAmount: parseFloat((ing.rawAmount * dailyFactor).toFixed(2)),
+                                elementalAmount:
+                                  ing.elementalAmount !== undefined
+                                    ? parseFloat((ing.elementalAmount * dailyFactor).toFixed(2))
+                                    : undefined,
+                                ingredientInfoText: scaleIngredientInfoText(ing.ingredientInfoText, dailyFactor)
+                              };
+                        return {
+                          ing: scaledDaily,
+                          productName: product.productName,
+                          isImported: isImportedProduct
                         };
+                      })
+                    );
 
-                        // 연속된 동일 약효분류 및 동일 상한섭취량 병합(rowSpan 계산)
-                        return itemsWithInfo.map((item, idx) => {
-                          const isFirstOfCategory =
-                            idx === 0 || itemsWithInfo[idx - 1].info.categoryTag !== item.info.categoryTag;
+              const dailyExceededSummaries = dailyUlSummaries.filter((s) =>
+                ulViewMode === 'CHILD' ? s.isChildUlExceeded : s.isAdultUlExceeded
+              );
 
-                          let rowSpan = 1;
-                          if (isFirstOfCategory) {
-                            for (let j = idx + 1; j < itemsWithInfo.length; j++) {
-                              if (itemsWithInfo[j].info.categoryTag === item.info.categoryTag) {
-                                rowSpan++;
-                              } else {
-                                break;
+              const ulSummaryByStandardKey = new Map(
+                currentUlSummaries.map((s) => [s.standardKey, s])
+              );
+
+              return (
+                <>
+                  <div className="flex items-center justify-end gap-2 flex-wrap">
+                    {/* 소아 및 전생애주기 상한섭취량 기준표 모달 열기 버튼 */}
+                    <button
+                      type="button"
+                      onClick={() => setIsChildUlModalOpen(true)}
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                      title="2025 KDRIs 연령별 소아 및 전 생애주기 상한섭취량(UL) 상세 기준표 보기"
+                    >
+                      <Baby className="w-3.5 h-3.5 text-amber-600" />
+                      <span>상한섭취량(UL) 기준표</span>
+                    </button>
+
+                    {/* 성인 UL / 소아 UL 보기 토글 */}
+                    <div className="inline-flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px] font-bold">
+                      <button
+                        type="button"
+                        onClick={() => setUlViewMode('ADULT')}
+                        className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                          ulViewMode === 'ADULT'
+                            ? 'bg-white text-slate-800 shadow-2xs font-extrabold'
+                            : 'text-slate-500 hover:text-slate-800'
+                        }`}
+                      >
+                        성인 UL
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setUlViewMode('CHILD')}
+                        className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                          ulViewMode === 'CHILD'
+                            ? 'bg-amber-500 text-white shadow-2xs font-extrabold'
+                            : 'text-slate-500 hover:text-slate-800'
+                        }`}
+                      >
+                        소아 UL
+                      </button>
+                    </div>
+
+                    {/* 1알/1포 vs 하루 섭취량 선택 토글 (오른쪽 끝 배치) */}
+                    <div className="inline-flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-[11px] font-bold">
+                      <button
+                        type="button"
+                        onClick={() => setDisplayBasis('PER_UNIT')}
+                        className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                          displayBasis === 'PER_UNIT'
+                            ? 'bg-white text-sky-700 shadow-2xs font-extrabold'
+                            : 'text-slate-500 hover:text-slate-800'
+                        }`}
+                      >
+                        1{unitName}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDisplayBasis('PER_DAILY')}
+                        className={`px-2.5 py-1 rounded-md transition-all cursor-pointer inline-flex items-center gap-1 ${
+                          displayBasis === 'PER_DAILY'
+                            ? dailyExceededSummaries.length > 0
+                              ? 'bg-rose-600 text-white shadow-2xs font-extrabold'
+                              : 'bg-white text-sky-700 shadow-2xs font-extrabold'
+                            : dailyExceededSummaries.length > 0
+                            ? 'text-rose-600 hover:text-rose-700 font-extrabold'
+                            : 'text-slate-500 hover:text-slate-800'
+                        }`}
+                        title={
+                          dailyExceededSummaries.length > 0
+                            ? `하루 섭취량 기준 상한섭취량(UL) 초과 성분 ${dailyExceededSummaries.length}종 있음`
+                            : undefined
+                        }
+                      >
+                        <span>하루 섭취량</span>
+                        {dailyExceededSummaries.length > 0 && (
+                          <span
+                            className={`inline-flex items-center justify-center px-1 py-0.2 rounded text-[9px] font-black leading-none ${
+                              displayBasis === 'PER_DAILY'
+                                ? 'bg-white/25 text-white'
+                                : 'bg-rose-100 text-rose-700 border border-rose-300'
+                            }`}
+                          >
+                            UL초과
+                          </span>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 상한섭취량(UL) 초과 주의 배너 */}
+                  {currentExceededSummaries.length > 0 ? (
+                    <div className="bg-rose-50/90 border border-rose-200 rounded-xl p-3 space-y-2 shadow-2xs">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5 text-rose-800 font-extrabold text-xs">
+                          <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                          <span>
+                            상한섭취량(UL) 초과 성분 {currentExceededSummaries.length}종 주의 (
+                            {displayBasis === 'PER_DAILY' ? '하루 섭취량' : `1${unitName}`} ·{' '}
+                            {ulViewMode === 'CHILD' ? '소아' : '성인'} 기준)
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-bold text-rose-700 bg-white/80 border border-rose-200 px-2 py-0.5 rounded-full">
+                          타 영양제·처방약 중복 복용 주의
+                        </span>
+                      </div>
+                      <div className="space-y-1">
+                        {currentExceededSummaries.map((summary) => (
+                          <div
+                            key={summary.standardKey}
+                            className="flex items-center justify-between gap-2 flex-wrap bg-white/90 border border-rose-200/80 rounded-lg px-2.5 py-1.5 text-xs"
+                          >
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span
+                                className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded border leading-tight ${getDarkCategoryBadgeStyle(
+                                  summary.categoryTag
+                                )}`}
+                              >
+                                {summary.categoryTag}
+                              </span>
+                              <span className="font-bold text-slate-800">
+                                {summary.contributors
+                                  .map((c) => `${c.englishName} ${c.displayAmountText}`)
+                                  .join(' + ')}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[11px] font-semibold text-slate-500">
+                                {ulViewMode === 'CHILD'
+                                  ? `소아 상한 ${summary.childUlText || summary.ulText}`
+                                  : `성인 상한 ${summary.ulText}`}
+                              </span>
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-600 text-white text-[10px] font-extrabold">
+                                {ulViewMode === 'CHILD'
+                                  ? summary.childUlExceedLabel || '소아 상한 초과'
+                                  : `상한 대비 ${summary.adultUlPercent}% (초과)`}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    displayBasis === 'PER_UNIT' &&
+                    dailyExceededSummaries.length > 0 && (
+                      <div className="bg-amber-50/80 border border-amber-200 rounded-xl px-3 py-2 flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
+                          <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          <span>
+                            1{unitName} 기준은 상한 이내이나, <strong>하루 섭취량({totalDailyDose}{unitName})</strong> 복용 시{' '}
+                            <span className="text-rose-600 font-extrabold">
+                              {dailyExceededSummaries.map((s) => s.categoryTag).join(', ')}
+                            </span>{' '}
+                            성분이 상한섭취량을 초과합니다.
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setDisplayBasis('PER_DAILY')}
+                          className="text-[11px] font-extrabold text-rose-700 hover:text-rose-800 bg-white hover:bg-rose-50 border border-rose-200 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shrink-0 shadow-2xs"
+                        >
+                          하루 섭취량으로 확인 →
+                        </button>
+                      </div>
+                    )
+                  )}
+
+                  {isEditingIngredientsRaw && (
+                    <div className="space-y-2.5 bg-sky-50/50 border border-sky-300 rounded-xl p-3.5 shadow-xs">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="space-y-0.5">
+                          <span className="text-xs font-extrabold text-sky-900 flex items-center gap-1.5">
+                            <Edit3 className="w-3.5 h-3.5 text-sky-600" />
+                            <span>성분 / 함량 원문 수정 (저장 시 표 자동 변환)</span>
+                          </span>
+                          <p className="text-[11px] text-slate-600">
+                            한 줄에 하나씩 <code className="bg-white px-1 py-0.5 rounded border border-slate-200 text-slate-800">성분명 함량단위 (환산성분량)</code> 형식으로 입력하세요. 앞에 <code className="bg-white px-1 py-0.5 rounded border border-slate-200 text-slate-800">[약효분류]</code>를 적으면 분류도 직접 지정됩니다.
+                          </p>
+                        </div>
+                        {officialParseableIngredientsText && (
+                          <button
+                            type="button"
+                            onClick={() => setEditIngredientsRawValue(officialParseableIngredientsText)}
+                            className="text-[11px] font-bold text-slate-700 hover:text-sky-700 bg-white hover:bg-sky-50 border border-slate-300 px-2.5 py-1 rounded-lg transition-colors cursor-pointer shadow-2xs"
+                            title="식약처/공공데이터 공식 원문으로 입력창 채우기"
+                          >
+                            공식 API 원문 불러오기
+                          </button>
+                        )}
+                      </div>
+                      <textarea
+                        value={editIngredientsRawValue}
+                        onChange={(e) => setEditIngredientsRawValue(e.target.value)}
+                        rows={Math.min(12, Math.max(5, editIngredientsRawValue.split('\n').length + 1))}
+                        placeholder={`예시:\n코바마미드 1mg\n폴리네이트칼슘 1.27mg\nL-포스포트레오닌 20mg\n푸르설티아민염산염 27.28mg (푸르설티아민으로서 25mg)`}
+                        className="w-full text-xs font-mono font-medium text-slate-800 bg-white border border-slate-300 rounded-lg p-3 leading-relaxed focus:outline-none focus:ring-2 focus:ring-sky-500 whitespace-pre-wrap"
+                      />
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] text-slate-500">
+                          * 원문을 수정하고 저장하면 약효분류 · 영문 성분명 · 함량 · 상한섭취량(UL)이 즉시 새로 변환됩니다.
+                        </span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setIsEditingIngredientsRaw(false)}
+                            className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200/60 rounded-lg transition-colors cursor-pointer"
+                          >
+                            취소
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSaveIngredientsRaw}
+                            className="px-3.5 py-1.5 text-xs font-extrabold text-white bg-sky-600 hover:bg-sky-700 rounded-lg shadow-2xs transition-colors cursor-pointer"
+                          >
+                            저장 및 변환 적용
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 text-[11px] font-extrabold text-slate-600 border-b border-slate-200">
+                          <th className="w-[108px] sm:w-[116px] px-2 py-2 text-center border-r border-slate-200">
+                            약효분류
+                          </th>
+                          <th className="px-3 sm:px-4 py-2 text-center border-r border-slate-200">
+                            성분 함량
+                          </th>
+                          <th className="w-[160px] sm:w-[185px] px-2.5 py-2 text-center">
+                            {ulViewMode === 'CHILD' ? (
+                              <span className="text-amber-700">상한섭취량 (소아)</span>
+                            ) : (
+                              <span>상한섭취량 (성인)</span>
+                            )}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-xs text-slate-800">
+                        {(() => {
+                          // 상한섭취량 병합 기준 키 (동일 약효분류 내 동일 상한섭취량 병합)
+                          const getUlGroupKey = (entry: (typeof itemsWithInfo)[0]) => {
+                            if (ulViewMode === 'CHILD') {
+                              return `${entry.info.categoryTag}__${entry.info.childUlText || ''}__${entry.info.ulText || ''}`;
+                            }
+                            return `${entry.info.categoryTag}__${entry.info.ulText || ''}`;
+                          };
+
+                          // 연속된 동일 약효분류 및 동일 상한섭취량 병합(rowSpan 계산)
+                          return itemsWithInfo.map((item, idx) => {
+                            const isFirstOfCategory =
+                              idx === 0 || itemsWithInfo[idx - 1].info.categoryTag !== item.info.categoryTag;
+
+                            let rowSpan = 1;
+                            if (isFirstOfCategory) {
+                              for (let j = idx + 1; j < itemsWithInfo.length; j++) {
+                                if (itemsWithInfo[j].info.categoryTag === item.info.categoryTag) {
+                                  rowSpan++;
+                                } else {
+                                  break;
+                                }
                               }
                             }
-                          }
 
-                          const currentUlKey = getUlGroupKey(item);
-                          const isFirstOfUl =
-                            idx === 0 || getUlGroupKey(itemsWithInfo[idx - 1]) !== currentUlKey;
+                            const currentUlKey = getUlGroupKey(item);
+                            const isFirstOfUl =
+                              idx === 0 || getUlGroupKey(itemsWithInfo[idx - 1]) !== currentUlKey;
 
-                          let ulRowSpan = 1;
-                          if (isFirstOfUl) {
-                            for (let j = idx + 1; j < itemsWithInfo.length; j++) {
-                              if (getUlGroupKey(itemsWithInfo[j]) === currentUlKey) {
-                                ulRowSpan++;
-                              } else {
-                                break;
+                            let ulRowSpan = 1;
+                            if (isFirstOfUl) {
+                              for (let j = idx + 1; j < itemsWithInfo.length; j++) {
+                                if (getUlGroupKey(itemsWithInfo[j]) === currentUlKey) {
+                                  ulRowSpan++;
+                                } else {
+                                  break;
+                                }
                               }
                             }
-                          }
 
-                          return (
-                            <tr
-                              key={item.ing.ingredientId || idx}
-                              className="hover:bg-sky-50/30 transition-colors"
-                            >
-                              {/* 1열: 약효분류 (동일 분류일 경우 셀 병합) */}
-                              {isFirstOfCategory && (
-                                <td
-                                  rowSpan={rowSpan}
-                                  className="px-2 py-2.5 text-center align-middle border-r border-slate-200 bg-slate-50/40"
-                                >
-                                  <span
-                                    className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded border leading-tight whitespace-nowrap ${item.badgeStyle}`}
+                            const groupSummary = item.info.standardKey
+                              ? ulSummaryByStandardKey.get(item.info.standardKey)
+                              : undefined;
+
+                            const isItemAdultExceeded = Boolean(
+                              item.info.isAdultUlExceeded || groupSummary?.isAdultUlExceeded
+                            );
+                            const isItemChildExceeded = Boolean(
+                              item.info.isChildUlExceeded || groupSummary?.isChildUlExceeded
+                            );
+                            const isRowExceeded =
+                              ulViewMode === 'CHILD' ? isItemChildExceeded : isItemAdultExceeded;
+
+                            const exceedBadgeNode = isRowExceeded ? (
+                              <span
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-rose-100 text-rose-700 border border-rose-300 shadow-2xs whitespace-nowrap"
+                                title={
+                                  item.info.ulNote ||
+                                  '2025 한국인 영양소 섭취기준(KDRIs) 상한섭취량(UL)을 초과하는 함량입니다.'
+                                }
+                              >
+                                <AlertTriangle className="w-3 h-3 text-rose-600 shrink-0" />
+                                <span>
+                                  {ulViewMode === 'CHILD'
+                                    ? item.info.childUlExceedLabel ||
+                                      groupSummary?.childUlExceedLabel ||
+                                      '소아 상한 초과'
+                                    : `상한 초과${
+                                        (groupSummary?.adultUlPercent ?? item.info.adultUlPercent)
+                                          ? ` (${groupSummary?.adultUlPercent ?? item.info.adultUlPercent}%)`
+                                          : ''
+                                      }`}
+                                </span>
+                              </span>
+                            ) : null;
+
+                            return (
+                              <tr
+                                key={item.ing.ingredientId || idx}
+                                className={
+                                  isRowExceeded
+                                    ? 'bg-rose-50/45 hover:bg-rose-50/80 transition-colors'
+                                    : 'hover:bg-sky-50/30 transition-colors'
+                                }
+                              >
+                                {/* 1열: 약효분류 (동일 분류일 경우 셀 병합) */}
+                                {isFirstOfCategory && (
+                                  <td
+                                    rowSpan={rowSpan}
+                                    className={`px-2 py-2.5 text-center align-middle border-r border-slate-200 ${
+                                      isRowExceeded ? 'bg-rose-50/60' : 'bg-slate-50/40'
+                                    }`}
                                   >
-                                    {item.info.categoryTag}
-                                  </span>
-                                </td>
-                              )}
+                                    <span
+                                      className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded border leading-tight whitespace-nowrap ${item.badgeStyle}`}
+                                    >
+                                      {item.info.categoryTag}
+                                    </span>
+                                  </td>
+                                )}
 
-                              {/* 의약품 및 건강기능식품: 실제 영문성분명 + 함량 및 별도 분리된 원료형태 열 */}
-                              {isSeparatedFormat ? (
-                                /* 2열: 성분 함량 (실제 영문 성분명 + 함량 및 API 고시 환산 정보) */
-                                <td className="px-4 py-2.5 border-r border-slate-200 align-middle">
-                                  {(() => {
-                                    const isProbiotic = isProbioticIngredient(
-                                      item.ing.englishInn,
-                                      item.info.categoryTag,
-                                      item.ing.functionalCategory,
-                                      item.ing.unit
-                                    );
+                                {/* 의약품 및 건강기능식품: 실제 영문성분명 + 함량 및 별도 분리된 원료형태 열 */}
+                                {isSeparatedFormat ? (
+                                  /* 2열: 성분 함량 (실제 영문 성분명 + 함량 및 API 고시 환산 정보) */
+                                  <td className="px-4 py-2.5 border-r border-slate-200 align-middle">
+                                    {(() => {
+                                      const isProbiotic = isProbioticIngredient(
+                                        item.ing.englishInn,
+                                        item.info.categoryTag,
+                                        item.ing.functionalCategory,
+                                        item.ing.unit
+                                      );
 
-                                    const specText =
-                                      product.functionalFoodDetail?.standardSpecificationKorean ||
-                                      (product as any).standardSpecificationText ||
-                                      '';
-                                    const rawMtrlText =
-                                      product.functionalFoodDetail?.rawMaterialsText ||
-                                      product.functionalFoodDetail?.subIngredientsText ||
-                                      (product as any).rawMaterialsText ||
-                                      (product as any).subIngredientsText ||
-                                      (product as any).rawIngredientsText ||
-                                      product.functionalFoodDetail?.koreanLabelText ||
-                                      (product as any).koreanLabelText ||
-                                      '';
+                                      const specText =
+                                        product.functionalFoodDetail?.standardSpecificationKorean ||
+                                        (product as any).standardSpecificationText ||
+                                        '';
+                                      const rawMtrlText =
+                                        product.functionalFoodDetail?.rawMaterialsText ||
+                                        product.functionalFoodDetail?.subIngredientsText ||
+                                        (product as any).rawMaterialsText ||
+                                        (product as any).subIngredientsText ||
+                                        (product as any).rawIngredientsText ||
+                                        product.functionalFoodDetail?.koreanLabelText ||
+                                        (product as any).koreanLabelText ||
+                                        '';
 
-                                    const probioticCountFromSpec = isProbiotic ? extractProbioticCount(specText) : null;
-                                    const probioticStrains = isProbiotic ? extractProbioticStrains(rawMtrlText) : [];
+                                      const probioticCountFromSpec = isProbiotic ? extractProbioticCount(specText) : null;
+                                      const probioticStrains = isProbiotic ? extractProbioticStrains(rawMtrlText) : [];
 
-                                    let baseCountText =
-                                      probioticCountFromSpec ||
-                                      item.ing.formattedSpecification?.match(/([0-9,]+(?:\.[0-9]+)?\s*억\s*CFU)/i)?.[1] ||
-                                      item.ing.noteKorean?.match(/([0-9,]+(?:\.[0-9]+)?\s*억\s*CFU)/i)?.[1] ||
-                                      item.ing.ingredientInfoText?.match(/([0-9,]+(?:\.[0-9]+)?\s*억\s*CFU)/i)?.[1];
+                                      let baseCountText =
+                                        probioticCountFromSpec ||
+                                        item.ing.formattedSpecification?.match(/([0-9,]+(?:\.[0-9]+)?\s*억\s*CFU)/i)?.[1] ||
+                                        item.ing.noteKorean?.match(/([0-9,]+(?:\.[0-9]+)?\s*억\s*CFU)/i)?.[1] ||
+                                        item.ing.ingredientInfoText?.match(/([0-9,]+(?:\.[0-9]+)?\s*억\s*CFU)/i)?.[1];
 
-                                    if (!baseCountText && isProbiotic) {
-                                      if (item.ing.rawAmount >= 100000000) {
-                                        baseCountText = `${(item.ing.rawAmount / 100000000).toLocaleString()}억 CFU`;
-                                      } else if (item.ing.rawAmount >= 10 && item.ing.rawAmount <= 1000) {
-                                        baseCountText = `${item.ing.rawAmount}억 CFU`;
-                                      } else if (item.ing.unit === 'CFU') {
-                                        baseCountText = `${item.ing.rawAmount.toLocaleString()} CFU`;
+                                      if (!baseCountText && isProbiotic) {
+                                        if (item.ing.rawAmount >= 100000000) {
+                                          baseCountText = `${(item.ing.rawAmount / 100000000).toLocaleString()}억 CFU`;
+                                        } else if (item.ing.rawAmount >= 10 && item.ing.rawAmount <= 1000) {
+                                          baseCountText = `${item.ing.rawAmount}억 CFU`;
+                                        } else if (item.ing.unit === 'CFU') {
+                                          baseCountText = `${item.ing.rawAmount.toLocaleString()} CFU`;
+                                        }
                                       }
-                                    }
 
-                                    const probioticCountDisplay = baseCountText
-                                      ? scaleProbioticCount(baseCountText, doseFactor)
-                                      : null;
+                                      const probioticCountDisplay = baseCountText
+                                        ? scaleProbioticCount(baseCountText, doseFactor)
+                                        : null;
 
-                                    return (
-                                      <div className="space-y-1.5">
-                                        <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
+                                      return (
+                                        <div className="space-y-1.5">
+                                          <div className="flex items-center flex-wrap gap-x-2 gap-y-1">
+                                            <span className="font-semibold text-slate-900 tracking-tight">
+                                              {item.info.englishName || item.ing.englishInn}
+                                            </span>
+                                            <span
+                                              className={`tracking-tight ${
+                                                isRowExceeded
+                                                  ? 'font-extrabold text-rose-600'
+                                                  : 'font-bold text-slate-900'
+                                              }`}
+                                            >
+                                              {isProbiotic && probioticCountDisplay
+                                                ? probioticCountDisplay
+                                                : (isImportedProduct && item.ing.ingredientInfoText
+                                                    ? item.ing.ingredientInfoText
+                                                    : `${item.ing.rawAmount.toLocaleString()}${item.ing.unit === 'ug' ? 'µg' : item.ing.unit}`)}
+                                            </span>
+                                            {item.info.convertedText && !isProbiotic && !isImportedProduct && (
+                                              <span
+                                                className={`text-[11px] ${
+                                                  isRowExceeded
+                                                    ? 'font-bold text-rose-600'
+                                                    : 'font-medium text-emerald-600'
+                                                }`}
+                                              >
+                                                ({item.info.convertedText})
+                                              </span>
+                                            )}
+                                            {exceedBadgeNode}
+                                          </div>
+
+                                          {isProbiotic && probioticStrains.length > 0 && (
+                                            <div className="mt-2 pt-2 border-t border-slate-100">
+                                              <div className="text-[11px] font-bold text-slate-600 mb-1.5 flex items-center gap-1.5">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-sky-500 inline-block"></span>
+                                                <span>함유 균주 ({probioticStrains.length}종)</span>
+                                              </div>
+                                              <ul className="space-y-1 pl-0.5">
+                                                {probioticStrains.map((strain, sIdx) => (
+                                                  <li
+                                                    key={sIdx}
+                                                    className="flex items-center gap-1.5 text-xs text-slate-700 font-medium leading-tight flex-wrap"
+                                                  >
+                                                    <span className="w-1 h-1 rounded-full bg-slate-400 shrink-0" />
+                                                    <span className="font-sans italic font-semibold text-slate-800 tracking-tight">{strain.name}</span>
+                                                    {strain.isStandard && (
+                                                      <span className="text-[10px] font-semibold text-sky-700 bg-sky-50 border border-sky-200/80 px-1.5 py-0.2 rounded leading-none shrink-0 not-italic">
+                                                        고시형
+                                                      </span>
+                                                    )}
+                                                    {strain.regulatoryType === '개별인정형' && (
+                                                      <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded leading-none shrink-0 not-italic">
+                                                        개별인정형
+                                                      </span>
+                                                    )}
+                                                  </li>
+                                                ))}
+                                              </ul>
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })()}
+                                  </td>
+                                ) : (
+                                  /* 일반식품(기타가공품 등): 기존 표시 설정 유지 */
+                                  <td className="px-4 py-2.5 border-r border-slate-200 align-middle">
+                                    {(() => {
+                                      const nutrientCategory =
+                                        item.info.categoryTag && item.info.categoryTag !== '기타'
+                                          ? item.info.categoryTag
+                                          : item.ing.functionalCategory && item.ing.functionalCategory !== '기타'
+                                          ? item.ing.functionalCategory
+                                          : null;
+
+                                      let explicitSalt =
+                                        item.ing.chemicalFormName && item.ing.chemicalFormName !== '-'
+                                          ? cleanChemicalFormName(item.ing.chemicalFormName, item.info.categoryTag, item.info.englishName)
+                                          : null;
+
+                                      // 비타민K의 경우 기존 데이터에 원료염이 누락되었더라도 K2(메나퀴논-7) 자동 보정
+                                      if (!explicitSalt && (nutrientCategory === '비타민K' || /vitamin\s*k/i.test(item.info.englishName))) {
+                                        explicitSalt = '비타민 K2(메나퀴논-7)';
+                                      }
+
+                                      const displayUnit = item.ing.unit === 'ug' ? 'µg' : item.ing.unit;
+
+                                      // 원료염이 명시되어 있거나, 성분명 자체가 원료염(예: 글루콘산 마그네슘, 젖산 칼슘 등)인 경우 포맷 적용
+                                      const hasSaltDetail =
+                                        Boolean(explicitSalt) ||
+                                        item.info.englishName.includes(',') ||
+                                        Boolean(
+                                          nutrientCategory &&
+                                            item.info.englishName !== nutrientCategory &&
+                                            /(?:글루콘산|젖산|황산|탄산|구연산|산화|염화|해조|푸마르산|락트산|메나퀴|메나큐)/.test(
+                                              item.info.englishName
+                                            )
+                                        );
+
+                                      if (hasSaltDetail) {
+                                        const nutrientTitle = nutrientCategory || item.info.englishName;
+                                        const saltsText =
+                                          explicitSalt ||
+                                          (item.info.englishName.includes(',') || item.info.englishName !== nutrientTitle
+                                            ? item.info.englishName
+                                            : null);
+
+                                        return (
+                                          <div className="flex items-center flex-wrap gap-x-2 gap-y-1">
+                                            <span className="font-semibold text-slate-900 tracking-tight">
+                                              {nutrientTitle}
+                                            </span>
+                                            <span
+                                              className={`tracking-tight ${
+                                                isRowExceeded
+                                                  ? 'font-extrabold text-rose-600'
+                                                  : 'font-bold text-slate-900'
+                                              }`}
+                                            >
+                                              {item.ing.rawAmount.toLocaleString()}{displayUnit}
+                                            </span>
+                                            {saltsText && (
+                                              <span className="font-normal text-slate-600 text-[11px] tracking-tight">
+                                                ({saltsText})
+                                              </span>
+                                            )}
+                                            {exceedBadgeNode}
+                                          </div>
+                                        );
+                                      }
+
+                                      const isProbiotic = isProbioticIngredient(
+                                        item.ing.englishInn,
+                                        item.info.categoryTag,
+                                        item.ing.functionalCategory,
+                                        item.ing.unit
+                                      );
+
+                                      if (isProbiotic) {
+                                        const specText =
+                                          product.functionalFoodDetail?.standardSpecificationKorean ||
+                                          (product as any).standardSpecificationText ||
+                                          '';
+                                        const rawMtrlText =
+                                          product.functionalFoodDetail?.rawMaterialsText ||
+                                          product.functionalFoodDetail?.subIngredientsText ||
+                                          (product as any).rawMaterialsText ||
+                                          (product as any).subIngredientsText ||
+                                          (product as any).rawIngredientsText ||
+                                          product.functionalFoodDetail?.koreanLabelText ||
+                                          (product as any).koreanLabelText ||
+                                          '';
+
+                                        const probioticCountFromSpec = extractProbioticCount(specText);
+                                        const probioticStrains = extractProbioticStrains(rawMtrlText);
+
+                                        let baseCountText =
+                                          probioticCountFromSpec ||
+                                          item.ing.formattedSpecification?.match(/([0-9,]+(?:\.[0-9]+)?\s*억\s*CFU)/i)?.[1] ||
+                                          item.ing.noteKorean?.match(/([0-9,]+(?:\.[0-9]+)?\s*억\s*CFU)/i)?.[1] ||
+                                          item.ing.ingredientInfoText?.match(/([0-9,]+(?:\.[0-9]+)?\s*억\s*CFU)/i)?.[1];
+
+                                        if (!baseCountText) {
+                                          if (item.ing.rawAmount >= 100000000) {
+                                            baseCountText = `${(item.ing.rawAmount / 100000000).toLocaleString()}억 CFU`;
+                                          } else if (item.ing.rawAmount >= 10 && item.ing.rawAmount <= 1000) {
+                                            baseCountText = `${item.ing.rawAmount}억 CFU`;
+                                          } else if (item.ing.unit === 'CFU') {
+                                            baseCountText = `${item.ing.rawAmount.toLocaleString()} CFU`;
+                                          }
+                                        }
+
+                                        const probioticCountDisplay = baseCountText
+                                          ? scaleProbioticCount(baseCountText, doseFactor)
+                                          : null;
+
+                                        return (
+                                          <div className="space-y-1.5">
+                                            <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
+                                              <span className="font-semibold text-slate-900 tracking-tight">
+                                                {item.info.englishName || item.ing.englishInn}
+                                              </span>
+                                              <span className="font-bold text-slate-900 tracking-tight">
+                                                {probioticCountDisplay || `${item.ing.rawAmount.toLocaleString()}${displayUnit}`}
+                                              </span>
+                                            </div>
+                                            {probioticStrains.length > 0 && (
+                                              <div className="mt-2 pt-2 border-t border-slate-100">
+                                                <div className="text-[11px] font-bold text-slate-600 mb-1.5 flex items-center gap-1.5">
+                                                  <span className="w-1.5 h-1.5 rounded-full bg-sky-500 inline-block"></span>
+                                                  <span>함유 균주 ({probioticStrains.length}종)</span>
+                                                </div>
+                                                <ul className="space-y-1 pl-0.5">
+                                                  {probioticStrains.map((strain, sIdx) => (
+                                                    <li
+                                                      key={sIdx}
+                                                      className="flex items-center gap-1.5 text-xs text-slate-700 font-medium leading-tight flex-wrap"
+                                                    >
+                                                      <span className="w-1 h-1 rounded-full bg-slate-400 shrink-0" />
+                                                      <span className="font-sans italic font-semibold text-slate-800 tracking-tight">{strain.name}</span>
+                                                      {strain.isStandard && (
+                                                        <span className="text-[10px] font-semibold text-sky-700 bg-sky-50 border border-sky-200/80 px-1.5 py-0.2 rounded leading-none shrink-0 not-italic">
+                                                          고시형
+                                                        </span>
+                                                      )}
+                                                      {strain.regulatoryType === '개별인정형' && (
+                                                        <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded leading-none shrink-0 not-italic">
+                                                          개별인정형
+                                                        </span>
+                                                      )}
+                                                    </li>
+                                                  ))}
+                                                </ul>
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      }
+
+                                      const fallbackTitle = nutrientCategory || item.info.englishName;
+
+                                      return (
+                                        <div className="flex items-center flex-wrap gap-x-2 gap-y-1">
                                           <span className="font-semibold text-slate-900 tracking-tight">
-                                            {item.info.englishName || item.ing.englishInn}
+                                            {fallbackTitle}
                                           </span>
-                                          <span className="font-bold text-slate-900 tracking-tight">
-                                            {isProbiotic && probioticCountDisplay
-                                              ? probioticCountDisplay
-                                              : (isImportedProduct && item.ing.ingredientInfoText
-                                                  ? item.ing.ingredientInfoText
-                                                  : `${item.ing.rawAmount.toLocaleString()}${item.ing.unit === 'ug' ? 'µg' : item.ing.unit}`)}
+                                          <span
+                                            className={`tracking-tight ${
+                                              isRowExceeded
+                                                ? 'font-extrabold text-rose-600'
+                                                : 'font-bold text-slate-900'
+                                            }`}
+                                          >
+                                            {item.ing.rawAmount.toLocaleString()}{displayUnit}
                                           </span>
-                                          {item.info.convertedText && !isProbiotic && !isImportedProduct && (
-                                            <span className="font-medium text-emerald-600 text-[11px]">
+                                          {item.info.convertedText && !isImportedProduct && (
+                                            <span
+                                              className={`text-[11px] ${
+                                                isRowExceeded
+                                                  ? 'font-bold text-rose-600'
+                                                  : 'font-medium text-emerald-600'
+                                              }`}
+                                            >
                                               ({item.info.convertedText})
                                             </span>
                                           )}
+                                          {exceedBadgeNode}
                                         </div>
+                                      );
+                                    })()}
+                                  </td>
+                                )}
 
-                                        {isProbiotic && probioticStrains.length > 0 && (
-                                          <div className="mt-2 pt-2 border-t border-slate-100">
-                                            <div className="text-[11px] font-bold text-slate-600 mb-1.5 flex items-center gap-1.5">
-                                              <span className="w-1.5 h-1.5 rounded-full bg-sky-500 inline-block"></span>
-                                              <span>함유 균주 ({probioticStrains.length}종)</span>
-                                            </div>
-                                            <ul className="space-y-1 pl-0.5">
-                                              {probioticStrains.map((strain, sIdx) => (
-                                                <li
-                                                  key={sIdx}
-                                                  className="flex items-center gap-1.5 text-xs text-slate-700 font-medium leading-tight flex-wrap"
-                                                >
-                                                  <span className="w-1 h-1 rounded-full bg-slate-400 shrink-0" />
-                                                  <span className="font-sans italic font-semibold text-slate-800 tracking-tight">{strain.name}</span>
-                                                  {strain.isStandard && (
-                                                    <span className="text-[10px] font-semibold text-sky-700 bg-sky-50 border border-sky-200/80 px-1.5 py-0.2 rounded leading-none shrink-0 not-italic">
-                                                      고시형
-                                                    </span>
-                                                  )}
-                                                  {strain.regulatoryType === '개별인정형' && (
-                                                    <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded leading-none shrink-0 not-italic">
-                                                      개별인정형
-                                                    </span>
-                                                  )}
-                                                </li>
-                                              ))}
-                                            </ul>
-                                          </div>
+                                {/* 3열: 상한섭취량 (소아/성인 모드 대응, 동일 약효분류 및 상한섭취량일 경우 셀 병합) */}
+                                {isFirstOfUl && (
+                                  <td
+                                    rowSpan={ulRowSpan}
+                                    className={`px-2.5 sm:px-3 py-2.5 text-center align-middle ${
+                                      isRowExceeded ? 'bg-rose-50/70' : ''
+                                    }`}
+                                  >
+                                    {ulViewMode === 'CHILD' ? (
+                                      item.info.childUlText ? (
+                                        <div className="flex flex-col items-center gap-0.5">
+                                          <span
+                                            title={item.info.childUlNote || '2025 KDRIs 소아 상한섭취량(UL)'}
+                                            className={`text-xs tracking-tight cursor-help whitespace-nowrap ${
+                                              isRowExceeded
+                                                ? 'font-extrabold text-rose-600'
+                                                : 'font-bold text-amber-700'
+                                            }`}
+                                          >
+                                            {item.info.childUlText}
+                                          </span>
+                                          {isRowExceeded && (
+                                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded bg-rose-600 text-white text-[9px] font-extrabold leading-tight">
+                                              초과 주의
+                                            </span>
+                                          )}
+                                          {item.info.ulText && (
+                                            <span className="text-[10px] text-slate-400 font-normal whitespace-nowrap">
+                                              (성인 {item.info.ulText})
+                                            </span>
+                                          )}
+                                        </div>
+                                      ) : item.info.ulText ? (
+                                        <div className="flex flex-col items-center gap-0.5">
+                                          <span
+                                            title={item.info.ulNote || '2025 한국인 영양소 섭취기준(KDRIs) 성인 1일 상한섭취량(UL)'}
+                                            className={`text-xs tracking-tight whitespace-nowrap ${
+                                              isRowExceeded
+                                                ? 'font-extrabold text-rose-600'
+                                                : 'font-semibold text-slate-600'
+                                            }`}
+                                          >
+                                            {item.info.ulText}
+                                          </span>
+                                          <span className="text-[10px] text-slate-400 font-normal whitespace-nowrap">
+                                            (성인 기준)
+                                          </span>
+                                        </div>
+                                      ) : (
+                                        <span className="text-slate-300">-</span>
+                                      )
+                                    ) : item.info.ulText ? (
+                                      <div className="flex flex-col items-center gap-0.5">
+                                        <span
+                                          title={item.info.ulNote || '2025 한국인 영양소 섭취기준(KDRIs) 성인 1일 상한섭취량(UL)'}
+                                          className={`text-xs tracking-tight whitespace-nowrap ${
+                                            isRowExceeded
+                                              ? 'font-extrabold text-rose-600'
+                                              : 'font-semibold text-slate-600'
+                                          }`}
+                                        >
+                                          {item.info.ulText}
+                                        </span>
+                                        {isRowExceeded && (
+                                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded bg-rose-600 text-white text-[9px] font-extrabold leading-tight">
+                                            상한 초과
+                                          </span>
                                         )}
                                       </div>
-                                    );
-                                  })()}
-                                </td>
-                              ) : (
-                                /* 일반식품(기타가공품 등): 기존 표시 설정 유지 */
-                                <td className="px-4 py-2.5 border-r border-slate-200 align-middle">
-                              {(() => {
-                                const nutrientCategory =
-                                  item.info.categoryTag && item.info.categoryTag !== '기타'
-                                    ? item.info.categoryTag
-                                    : item.ing.functionalCategory && item.ing.functionalCategory !== '기타'
-                                    ? item.ing.functionalCategory
-                                    : null;
-
-                                let explicitSalt =
-                                  item.ing.chemicalFormName && item.ing.chemicalFormName !== '-'
-                                    ? cleanChemicalFormName(item.ing.chemicalFormName, item.info.categoryTag, item.info.englishName)
-                                    : null;
-
-                                // 비타민K의 경우 기존 데이터에 원료염이 누락되었더라도 K2(메나퀴논-7) 자동 보정
-                                if (!explicitSalt && (nutrientCategory === '비타민K' || /vitamin\s*k/i.test(item.info.englishName))) {
-                                  explicitSalt = '비타민 K2(메나퀴논-7)';
-                                }
-
-                                const displayUnit = item.ing.unit === 'ug' ? 'µg' : item.ing.unit;
-
-                                // 원료염이 명시되어 있거나, 성분명 자체가 원료염(예: 글루콘산 마그네슘, 젖산 칼슘 등)인 경우 포맷 적용
-                                const hasSaltDetail =
-                                  Boolean(explicitSalt) ||
-                                  item.info.englishName.includes(',') ||
-                                  Boolean(
-                                    nutrientCategory &&
-                                      item.info.englishName !== nutrientCategory &&
-                                      /(?:글루콘산|젖산|황산|탄산|구연산|산화|염화|해조|푸마르산|락트산|메나퀴|메나큐)/.test(
-                                        item.info.englishName
-                                      )
-                                  );
-
-                                if (hasSaltDetail) {
-                                  const nutrientTitle = nutrientCategory || item.info.englishName;
-                                  const saltsText =
-                                    explicitSalt ||
-                                    (item.info.englishName.includes(',') || item.info.englishName !== nutrientTitle
-                                      ? item.info.englishName
-                                      : null);
-
-                                  return (
-                                    <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                                      <span className="font-semibold text-slate-900 tracking-tight">
-                                        {nutrientTitle}
-                                      </span>
-                                      <span className="font-bold text-slate-900 tracking-tight">
-                                        {item.ing.rawAmount.toLocaleString()}{displayUnit}
-                                      </span>
-                                      {saltsText && (
-                                        <span className="font-normal text-slate-600 text-[11px] tracking-tight">
-                                          ({saltsText})
-                                        </span>
-                                      )}
-                                    </div>
-                                  );
-                                }
-
-                                const isProbiotic = isProbioticIngredient(
-                                  item.ing.englishInn,
-                                  item.info.categoryTag,
-                                  item.ing.functionalCategory,
-                                  item.ing.unit
-                                );
-
-                                if (isProbiotic) {
-                                  const specText =
-                                    product.functionalFoodDetail?.standardSpecificationKorean ||
-                                    (product as any).standardSpecificationText ||
-                                    '';
-                                  const rawMtrlText =
-                                    product.functionalFoodDetail?.rawMaterialsText ||
-                                    product.functionalFoodDetail?.subIngredientsText ||
-                                    (product as any).rawMaterialsText ||
-                                    (product as any).subIngredientsText ||
-                                    (product as any).rawIngredientsText ||
-                                    product.functionalFoodDetail?.koreanLabelText ||
-                                    (product as any).koreanLabelText ||
-                                    '';
-
-                                  const probioticCountFromSpec = extractProbioticCount(specText);
-                                  const probioticStrains = extractProbioticStrains(rawMtrlText);
-
-                                  let baseCountText =
-                                    probioticCountFromSpec ||
-                                    item.ing.formattedSpecification?.match(/([0-9,]+(?:\.[0-9]+)?\s*억\s*CFU)/i)?.[1] ||
-                                    item.ing.noteKorean?.match(/([0-9,]+(?:\.[0-9]+)?\s*억\s*CFU)/i)?.[1] ||
-                                    item.ing.ingredientInfoText?.match(/([0-9,]+(?:\.[0-9]+)?\s*억\s*CFU)/i)?.[1];
-
-                                  if (!baseCountText) {
-                                    if (item.ing.rawAmount >= 100000000) {
-                                      baseCountText = `${(item.ing.rawAmount / 100000000).toLocaleString()}억 CFU`;
-                                    } else if (item.ing.rawAmount >= 10 && item.ing.rawAmount <= 1000) {
-                                      baseCountText = `${item.ing.rawAmount}억 CFU`;
-                                    } else if (item.ing.unit === 'CFU') {
-                                      baseCountText = `${item.ing.rawAmount.toLocaleString()} CFU`;
-                                    }
-                                  }
-
-                                  const probioticCountDisplay = baseCountText
-                                    ? scaleProbioticCount(baseCountText, doseFactor)
-                                    : null;
-
-                                  return (
-                                    <div className="space-y-1.5">
-                                      <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                                        <span className="font-semibold text-slate-900 tracking-tight">
-                                          {item.info.englishName || item.ing.englishInn}
-                                        </span>
-                                        <span className="font-bold text-slate-900 tracking-tight">
-                                          {probioticCountDisplay || `${item.ing.rawAmount.toLocaleString()}${displayUnit}`}
-                                        </span>
-                                      </div>
-                                      {probioticStrains.length > 0 && (
-                                        <div className="mt-2 pt-2 border-t border-slate-100">
-                                          <div className="text-[11px] font-bold text-slate-600 mb-1.5 flex items-center gap-1.5">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-sky-500 inline-block"></span>
-                                            <span>함유 균주 ({probioticStrains.length}종)</span>
-                                          </div>
-                                          <ul className="space-y-1 pl-0.5">
-                                            {probioticStrains.map((strain, sIdx) => (
-                                              <li
-                                                key={sIdx}
-                                                className="flex items-center gap-1.5 text-xs text-slate-700 font-medium leading-tight flex-wrap"
-                                              >
-                                                <span className="w-1 h-1 rounded-full bg-slate-400 shrink-0" />
-                                                <span className="font-sans italic font-semibold text-slate-800 tracking-tight">{strain.name}</span>
-                                                {strain.isStandard && (
-                                                  <span className="text-[10px] font-semibold text-sky-700 bg-sky-50 border border-sky-200/80 px-1.5 py-0.2 rounded leading-none shrink-0 not-italic">
-                                                    고시형
-                                                  </span>
-                                                )}
-                                                {strain.regulatoryType === '개별인정형' && (
-                                                  <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded leading-none shrink-0 not-italic">
-                                                    개별인정형
-                                                  </span>
-                                                )}
-                                              </li>
-                                            ))}
-                                          </ul>
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
-                                }
-
-                                const fallbackTitle = nutrientCategory || item.info.englishName;
-
-                                return (
-                                  <div className="flex items-baseline flex-wrap gap-x-2 gap-y-0.5">
-                                    <span className="font-semibold text-slate-900 tracking-tight">
-                                      {fallbackTitle}
-                                    </span>
-                                    <span className="font-bold text-slate-900 tracking-tight">
-                                      {item.ing.rawAmount.toLocaleString()}{displayUnit}
-                                    </span>
-                                    {item.info.convertedText && !isImportedProduct && (
-                                      <span className="font-medium text-emerald-600 text-[11px]">
-                                        ({item.info.convertedText})
-                                      </span>
+                                    ) : (
+                                      <span className="text-slate-300">-</span>
                                     )}
-                                  </div>
-                                );
-                              })()}
-                            </td>
-                          )}
-
-                          {/* 3열: 상한섭취량 (소아/성인 모드 대응, 동일 약효분류 및 상한섭취량일 경우 셀 병합) */}
-                          {isFirstOfUl && (
-                            <td
-                              rowSpan={ulRowSpan}
-                              className="px-2.5 sm:px-3 py-2.5 text-center align-middle"
-                            >
-                              {ulViewMode === 'CHILD' ? (
-                                item.info.childUlText ? (
-                                  <div className="flex flex-col items-center">
-                                    <span
-                                      title={item.info.childUlNote || '2025 KDRIs 소아 상한섭취량(UL)'}
-                                      className="text-xs font-bold text-amber-700 tracking-tight cursor-help whitespace-nowrap"
-                                    >
-                                      {item.info.childUlText}
-                                    </span>
-                                    {item.info.ulText && (
-                                      <span className="text-[10px] text-slate-400 font-normal whitespace-nowrap">
-                                        (성인 {item.info.ulText})
-                                      </span>
-                                    )}
-                                  </div>
-                                ) : item.info.ulText ? (
-                                  <div className="flex flex-col items-center">
-                                    <span
-                                      title={item.info.ulNote || '2025 한국인 영양소 섭취기준(KDRIs) 성인 1일 상한섭취량(UL)'}
-                                      className="text-xs font-semibold text-rose-600 tracking-tight whitespace-nowrap"
-                                    >
-                                      {item.info.ulText}
-                                    </span>
-                                    <span className="text-[10px] text-slate-400 font-normal whitespace-nowrap">
-                                      (성인 기준)
-                                    </span>
-                                  </div>
-                                ) : (
-                                  <span className="text-slate-300">-</span>
-                                )
-                              ) : (
-                                item.info.ulText ? (
-                                  <span
-                                    title={item.info.ulNote || '2025 한국인 영양소 섭취기준(KDRIs) 성인 1일 상한섭취량(UL)'}
-                                    className="text-xs font-semibold text-rose-600 tracking-tight whitespace-nowrap"
-                                  >
-                                    {item.info.ulText}
-                                  </span>
-                                ) : (
-                                  <span className="text-slate-300">-</span>
-                                )
-                              )}
-                            </td>
-                          )}
-                        </tr>
-                      );
-                    });
-                  })()}
-                </tbody>
-              </table>
-            );
-          })()}
-        </div>
+                                  </td>
+                                )}
+                              </tr>
+                            );
+                          });
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              );
+            })()}
           </div>
 
           {/* 건강기능식품, 수입제품, 일반식품/기타가공품: 기능성 (직접 수정 및 고가독성 구조화 뷰 지원) */}

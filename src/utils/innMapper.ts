@@ -2122,7 +2122,7 @@ export function parseRawIngredientString(rawText: string): ProductIngredientEntr
     // 사전에서 매핑되는 영문 INN 찾기 (1순위: 완전 일치, 2순위: 영문 INN 완전 일치, 3순위: 입력 문자열이 사전 키를 포함하는 가장 긴 키 매칭)
     // ※ 주의: dictKey.includes(nameRaw) (역방향 포함)를 허용하면 '리보플라빈' 입력이 더 긴 키인 '리보플라빈포스페이트나트륨'으로 잘못 매칭되므로 금지!
     const learnedDict = getLearnedDict();
-    const combinedDict: Record<string, InnMappingMeta> = { ...INN_DICTIONARY, ...learnedDict };
+    const combinedDict: Record<string, InnMappingMeta> = { ...learnedDict, ...INN_DICTIONARY };
 
     let matchedKey: string | null = null;
     const normNameRaw = nameRaw.replace(/\s+/g, '').toLowerCase();
@@ -2311,11 +2311,26 @@ export interface ResolvedIngredientDisplayInfo {
   convertedUnit?: string;
   convertedLabel?: string;
   convertedText: string | null;
+  standardKey?: NutrientStandardKey;
   ulText: string | null;
   ulNote?: string;
+  /** 상한섭취량(UL) 비교 단위로 환산된 유효 성분량 */
+  amountInUlUnit?: number;
+  /** 성인 상한섭취량 수치 (amountInUlUnit과 동일 단위) */
+  adultUlAmount?: number;
+  /** 성인 상한섭취량 대비 백분율 (%, 예: 125 = 125%) */
+  adultUlPercent?: number;
+  /** 성인 상한섭취량 초과 여부 (amountInUlUnit > adultUlAmount) */
+  isAdultUlExceeded?: boolean;
   childUlText?: string | null;
   childUlNote?: string;
   childAgeRows?: { ageLabel: string; ulText: string; ulValue: number }[];
+  /** 소아(1~11세) 연령 구간 중 하나라도 상한섭취량을 초과하는지 여부 */
+  isChildUlExceeded?: boolean;
+  /** 소아(1~11세) 전 연령 구간의 상한섭취량을 모두 초과하는지 여부 */
+  isChildAllAgesUlExceeded?: boolean;
+  /** 소아 상한섭취량 초과 요약 문구 (예: '소아 전 연령 상한 초과', '1~8세 상한 초과') */
+  childUlExceedLabel?: string;
   chemicalFormFeature: ChemicalFormFeature;
   sortGroup: 1 | 2 | 3 | 4; // 1: 비타민, 2: 미네랄, 3: 콜린, 4: 기타 성분
   subOrder?: number; // 비타민 내 순서 (A=10, B1=21..B12=32, C=40, D=50, E=60, K=70)
@@ -2757,13 +2772,21 @@ export function resolveIngredientDisplayInfo(
   }
 
   // 과거 부분일치 버그로 폴리네이트칼슘이 칼슘(Ca)으로 잘못 저장된 데이터 자동 보정
+  const isFolinate =
+    normKor.includes('폴리네이트') ||
+    normEng.includes('folinate') ||
+    normKor.includes('폴린산') ||
+    normEng.includes('folinic') ||
+    normEng.includes('leucovorin');
   const isLegacyFolinateMisclassified =
-    (normKor.includes('폴리네이트') || normEng.includes('folinate')) &&
+    isFolinate &&
     (ing.functionalCategory === '칼슘(Ca)' || ing.functionalCategory === '칼슘');
 
   // 3. 약효분류 태그 결정 (비타민B9(엽산) -> 엽산, 미네랄 원소기호 제거 등 표준화)
   let rawCategory =
-    !isLegacyFolinateMisclassified && ing.functionalCategory && ing.functionalCategory !== '기타'
+    isFolinate
+      ? '엽산'
+      : !isLegacyFolinateMisclassified && ing.functionalCategory && ing.functionalCategory !== '기타'
       ? ing.functionalCategory
       : meta?.functionalCategory || resolveKpicCategory(englishName) || resolveKpicCategory(korName) || resolveKpicCategory(rawInn) || '기타';
 
@@ -2917,37 +2940,62 @@ export function resolveIngredientDisplayInfo(
   }
 
   // 5. 2025 한국인 영양소 섭취기준(KDRIs) 성인 상한섭취량(UL) 매칭
-  let standardKey: NutrientStandardKey | undefined = isLegacyFolinateMisclassified
-    ? meta?.standardKey
-    : ing.standardKey || meta?.standardKey;
-  if (!standardKey) {
-    if (categoryTag === '비타민A' && !normEng.includes('betacarotene') && !normEng.includes('beta-carotene')) {
-      standardKey = 'VITAMIN_A';
-    } else if (categoryTag === '비타민B3') standardKey = 'VITAMIN_B3';
-    else if (categoryTag === '비타민B6') standardKey = 'VITAMIN_B6';
-    else if (categoryTag === '엽산' || categoryTag === '비타민B9(엽산)') standardKey = 'VITAMIN_B9';
-    else if (categoryTag === '비타민C') standardKey = 'VITAMIN_C';
-    else if (categoryTag === '비타민D' || categoryTag === '비타민D3' || categoryTag === '비타민D2') {
-      standardKey = 'VITAMIN_D';
-    } else if (categoryTag === '비타민E') standardKey = 'VITAMIN_E';
-    else if (categoryTag === '칼슘' || categoryTag === '칼슘(Ca)') standardKey = 'CALCIUM';
-    else if (categoryTag === '마그네슘' || categoryTag === '마그네슘(Mg)') standardKey = 'MAGNESIUM';
-    else if (categoryTag === '아연' || categoryTag === '아연(Zn)') standardKey = 'ZINC';
-    else if (
-      categoryTag === '철' ||
-      categoryTag === '제1철' ||
-      categoryTag === '제2철' ||
-      categoryTag === '제1철 (Ferrous)' ||
-      categoryTag === '제2철 (Ferric)' ||
-      categoryTag === '철(Fe)'
-    ) {
-      standardKey = 'IRON';
-    } else if (categoryTag === '셀레늄' || categoryTag === '셀레늄(Se)') standardKey = 'SELENIUM';
-    else if (categoryTag === '구리' || categoryTag === '구리(Cu)' || categoryTag === '동(Cu)') standardKey = 'COPPER';
-    else if (categoryTag === '망간' || categoryTag === '망간(Mn)') standardKey = 'MANGANESE';
-    else if (categoryTag === '요오드' || categoryTag === '요오드(I)') standardKey = 'IODINE';
-    else if (categoryTag === '몰리브덴' || categoryTag === '몰리브덴(Mo)') standardKey = 'MOLYBDENUM';
-    else if (normEng.includes('choline')) standardKey = 'CHOLINE';
+  // 약효분류(categoryTag)가 확정된 경우 해당 분류의 상한섭취량 키를 최우선 적용하여
+  // 폴리네이트칼슘(엽산), 판토텐산칼슘(비타민B5) 등이 과거 오매칭된 'CALCIUM' 상한섭취량(2,500mg)으로 표시되는 문제 원천 차단
+  let categoryBasedStandardKey: NutrientStandardKey | undefined = undefined;
+  if (categoryTag === '비타민A' && !normEng.includes('betacarotene') && !normEng.includes('beta-carotene')) {
+    categoryBasedStandardKey = 'VITAMIN_A';
+  } else if (categoryTag === '비타민B3') categoryBasedStandardKey = 'VITAMIN_B3';
+  else if (categoryTag === '비타민B6') categoryBasedStandardKey = 'VITAMIN_B6';
+  else if (categoryTag === '엽산' || categoryTag === '비타민B9(엽산)' || isFolinate) categoryBasedStandardKey = 'VITAMIN_B9';
+  else if (categoryTag === '비타민C') categoryBasedStandardKey = 'VITAMIN_C';
+  else if (categoryTag === '비타민D' || categoryTag === '비타민D3' || categoryTag === '비타민D2') {
+    categoryBasedStandardKey = 'VITAMIN_D';
+  } else if (categoryTag === '비타민E') categoryBasedStandardKey = 'VITAMIN_E';
+  else if (categoryTag === '칼슘' || categoryTag === '칼슘(Ca)') categoryBasedStandardKey = 'CALCIUM';
+  else if (categoryTag === '마그네슘' || categoryTag === '마그네슘(Mg)') categoryBasedStandardKey = 'MAGNESIUM';
+  else if (categoryTag === '아연' || categoryTag === '아연(Zn)') categoryBasedStandardKey = 'ZINC';
+  else if (
+    categoryTag === '철' ||
+    categoryTag === '제1철' ||
+    categoryTag === '제2철' ||
+    categoryTag === '제1철 (Ferrous)' ||
+    categoryTag === '제2철 (Ferric)' ||
+    categoryTag === '철(Fe)'
+  ) {
+    categoryBasedStandardKey = 'IRON';
+  } else if (categoryTag === '셀레늄' || categoryTag === '셀레늄(Se)') categoryBasedStandardKey = 'SELENIUM';
+  else if (categoryTag === '구리' || categoryTag === '구리(Cu)' || categoryTag === '동(Cu)') categoryBasedStandardKey = 'COPPER';
+  else if (categoryTag === '망간' || categoryTag === '망간(Mn)') categoryBasedStandardKey = 'MANGANESE';
+  else if (categoryTag === '요오드' || categoryTag === '요오드(I)') categoryBasedStandardKey = 'IODINE';
+  else if (categoryTag === '몰리브덴' || categoryTag === '몰리브덴(Mo)') categoryBasedStandardKey = 'MOLYBDENUM';
+  else if (normEng.includes('choline')) categoryBasedStandardKey = 'CHOLINE';
+
+  const NON_UL_VITAMIN_CATEGORIES = new Set([
+    '비타민B1',
+    '비타민B2',
+    '비타민B5',
+    '비타민B12',
+    '비오틴',
+    '비타민K',
+    '아미노산',
+    '정장제',
+    '간장약',
+    '혈액순환',
+    '항산화'
+  ]);
+
+  let standardKey: NutrientStandardKey | undefined = categoryBasedStandardKey;
+  if (!standardKey && !NON_UL_VITAMIN_CATEGORIES.has(categoryTag)) {
+    const fallbackKey = meta?.standardKey || ing.standardKey;
+    // 약효분류가 칼슘이 아닌데 CALCIUM 키가 남아있는 경우 등 미네랄 염 오매칭 배제
+    if (fallbackKey === 'CALCIUM' && categoryTag !== '칼슘' && categoryTag !== '칼슘(Ca)') {
+      standardKey = undefined;
+    } else if (fallbackKey === 'MAGNESIUM' && categoryTag !== '마그네슘' && categoryTag !== '마그네슘(Mg)') {
+      standardKey = undefined;
+    } else {
+      standardKey = fallbackKey;
+    }
   }
 
   let ulText: string | null = null;
@@ -3210,6 +3258,111 @@ export function resolveIngredientDisplayInfo(
     }
   }
 
+  // 5-B. 상한섭취량(UL) 대비 실제 함량 비율 및 초과 여부 계산 (단일 제품 및 다중 영양제/처방약 합산 평가 공용)
+  let amountInUlUnit: number | undefined = undefined;
+  let adultUlAmount: number | undefined = undefined;
+  let adultUlPercent: number | undefined = undefined;
+  let isAdultUlExceeded: boolean = false;
+  let isChildUlExceeded: boolean = false;
+  let isChildAllAgesUlExceeded: boolean = false;
+  let childUlExceedLabel: string | undefined = undefined;
+
+  if (standardKey) {
+    const std = KDRI_2025_ADULT_STANDARDS.find((s) => s.nutrientKey === standardKey);
+    if (std?.ul !== undefined) {
+      const fullCheckStr = `${normEng} ${rawInn} ${ing.koreanName || ''} ${ing.chemicalFormName || ''}`.toLowerCase();
+      const isNicotinicAcid =
+        standardKey === 'VITAMIN_B3' &&
+        (normEng.includes('nicotinicacid') ||
+          (fullCheckStr.includes('니코틴산') && !fullCheckStr.includes('아미드'))) &&
+        !normEng.includes('nicotinamide') &&
+        !normEng.includes('niacinamide') &&
+        !fullCheckStr.includes('아미드');
+
+      adultUlAmount = isNicotinicAcid ? 35 : std.ul;
+
+      // 유효 비교 함량 및 단위 추출 (환산성분량이 있으면 환산성분량 우선, 없으면 원료 함량 사용)
+      let evalAmount = !isImported && convertedAmount !== undefined && convertedAmount > 0 ? convertedAmount : ing.rawAmount;
+      let evalUnit = (!isImported && convertedAmount !== undefined && convertedAmount > 0 ? convertedUnit : ing.unit) || 'mg';
+
+      if ((!evalAmount || evalAmount <= 0) && ing.ingredientInfoText) {
+        const infoNumMatch = ing.ingredientInfoText.match(/([0-9,]+(?:\.[0-9]+)?)\s*(mg|ug|㎍|μg|µg|IU|g|밀리그램|마이크로그램|아이\.유)/i);
+        if (infoNumMatch) {
+          evalAmount = parseFloat(infoNumMatch[1].replace(/,/g, ''));
+          evalUnit = infoNumMatch[2];
+        }
+      }
+
+      const normEvalUnit = evalUnit.trim().toLowerCase();
+      const isUgUnit = /^(?:ug|㎍|μg|µg|마이크로그램|mcg)$/i.test(normEvalUnit);
+      const isMgUnit = /^(?:mg|밀리그램)$/i.test(normEvalUnit);
+      const isGUnit = /^(?:g|그램)$/i.test(normEvalUnit);
+      const isIuUnit = /^(?:iu|아이\.?유)$/i.test(normEvalUnit);
+
+      if (evalAmount > 0) {
+        if (standardKey === 'VITAMIN_D') {
+          // VITAMIN_D 성인 UL = 4,000 IU (100 μg), 1 μg = 40 IU
+          if (isIuUnit) amountInUlUnit = evalAmount;
+          else if (isUgUnit) amountInUlUnit = evalAmount * 40;
+          else if (isMgUnit) amountInUlUnit = evalAmount * 40000;
+        } else if (standardKey === 'VITAMIN_A') {
+          // VITAMIN_A 성인 UL = 3,000 μg RAE (1 IU 레티놀 = 0.3 μg RAE)
+          if (isUgUnit) amountInUlUnit = evalAmount;
+          else if (isMgUnit) amountInUlUnit = evalAmount * 1000;
+          else if (isIuUnit) amountInUlUnit = evalAmount * 0.3;
+        } else if (standardKey === 'VITAMIN_E') {
+          // VITAMIN_E 성인 UL = 540 mg α-TE (800 IU)
+          if (isMgUnit) amountInUlUnit = evalAmount;
+          else if (isGUnit) amountInUlUnit = evalAmount * 1000;
+          else if (isUgUnit) amountInUlUnit = evalAmount / 1000;
+          else if (isIuUnit) amountInUlUnit = (evalAmount / 800) * 540;
+        } else if (std.unit === 'mg') {
+          if (isMgUnit) amountInUlUnit = evalAmount;
+          else if (isGUnit) amountInUlUnit = evalAmount * 1000;
+          else if (isUgUnit) amountInUlUnit = evalAmount / 1000;
+        } else if (std.unit === 'ug') {
+          if (isUgUnit) amountInUlUnit = evalAmount;
+          else if (isMgUnit) amountInUlUnit = evalAmount * 1000;
+          else if (isGUnit) amountInUlUnit = evalAmount * 1000000;
+        }
+      }
+
+      if (amountInUlUnit !== undefined && adultUlAmount !== undefined && adultUlAmount > 0) {
+        adultUlPercent = Math.round((amountInUlUnit / adultUlAmount) * 100);
+        isAdultUlExceeded = amountInUlUnit > adultUlAmount * 1.0001;
+
+        // 소아 연령별(1~11세 구간) 상한섭취량 초과 여부 평가
+        if (childAgeRows && childAgeRows.length > 0) {
+          // VITAMIN_D childAgeRows는 μg(30~100) 단위, COPPER childAgeRows는 mg(1~10) 단위로 기록되어 있음
+          const amountInChildRowUnit =
+            standardKey === 'VITAMIN_D'
+              ? amountInUlUnit / 40
+              : standardKey === 'COPPER'
+              ? amountInUlUnit / 1000
+              : amountInUlUnit;
+
+          const childRowsUnder12 = childAgeRows.filter(
+            (r) => !r.ageLabel.includes('12') && !r.ageLabel.includes('15') && !r.ageLabel.includes('성인')
+          );
+          const targetChildRows = childRowsUnder12.length > 0 ? childRowsUnder12 : childAgeRows;
+          const exceededChildRows = targetChildRows.filter((r) => amountInChildRowUnit > r.ulValue * 1.0001);
+
+          if (exceededChildRows.length > 0) {
+            isChildUlExceeded = true;
+            if (exceededChildRows.length === targetChildRows.length) {
+              isChildAllAgesUlExceeded = true;
+              childUlExceedLabel = isAdultUlExceeded ? '성인·소아 전 연령 상한 초과' : '소아(1~11세) 상한 초과';
+            } else {
+              const lastExceeded = exceededChildRows[exceededChildRows.length - 1];
+              const maxAgeBound = lastExceeded.ageLabel.split('~')[1] || lastExceeded.ageLabel;
+              childUlExceedLabel = `1~${maxAgeBound} 상한 초과`;
+            }
+          }
+        }
+      }
+    }
+  }
+
   // 6. 정렬 그룹 결정 (1: 비타민 -> 2: 미네랄 -> 3: 콜린 -> 4: 기타 성분)
   const VITAMIN_CATEGORIES = new Set([
     '비타민A',
@@ -3355,15 +3508,154 @@ export function resolveIngredientDisplayInfo(
     convertedUnit,
     convertedLabel,
     convertedText,
+    standardKey,
     ulText,
     ulNote,
+    amountInUlUnit,
+    adultUlAmount,
+    adultUlPercent,
+    isAdultUlExceeded,
     childUlText,
     childUlNote,
     childAgeRows,
+    isChildUlExceeded,
+    isChildAllAgesUlExceeded,
+    childUlExceedLabel,
     chemicalFormFeature,
     sortGroup,
     subOrder
   };
+}
+
+export interface CombinedNutrientUlSummary {
+  standardKey: NutrientStandardKey;
+  categoryTag: string;
+  totalAmountInUlUnit: number;
+  adultUlAmount: number;
+  adultUlPercent: number;
+  isAdultUlExceeded: boolean;
+  ulText: string;
+  ulNote?: string;
+  childUlText?: string | null;
+  isChildUlExceeded: boolean;
+  childUlExceedLabel?: string;
+  contributors: {
+    productName?: string;
+    englishName: string;
+    koreanName?: string;
+    amountInUlUnit: number;
+    displayAmountText: string;
+  }[];
+}
+
+/**
+ * 단일 또는 복수 제품(영양제 다중 복용, 처방약 + 영양제 병용 등)의 성분들을 영양소 기준키(standardKey)별로 합산하여
+ * 2025 KDRIs 상한섭취량(UL) 초과 여부를 종합 판정하는 범용 함수
+ */
+export function evaluateCombinedNutrientUl(
+  items: {
+    ing: ProductIngredientEntry;
+    info?: ResolvedIngredientDisplayInfo;
+    productName?: string;
+    isImported?: boolean;
+  }[]
+): CombinedNutrientUlSummary[] {
+  const map = new Map<NutrientStandardKey, CombinedNutrientUlSummary>();
+
+  for (const entry of items) {
+    const info =
+      entry.info ||
+      resolveIngredientDisplayInfo(entry.ing, entry.productName, entry.isImported);
+    if (
+      !info.standardKey ||
+      info.amountInUlUnit === undefined ||
+      info.adultUlAmount === undefined ||
+      !info.ulText
+    ) {
+      continue;
+    }
+
+    const displayUnit = entry.ing.unit === 'ug' ? 'µg' : entry.ing.unit;
+    const baseDisplay =
+      entry.isImported && entry.ing.ingredientInfoText
+        ? entry.ing.ingredientInfoText
+        : `${entry.ing.rawAmount.toLocaleString()}${displayUnit}${
+            info.convertedText && !entry.isImported ? ` (${info.convertedText})` : ''
+          }`;
+
+    const existing = map.get(info.standardKey);
+    if (!existing) {
+      map.set(info.standardKey, {
+        standardKey: info.standardKey,
+        categoryTag: info.categoryTag,
+        totalAmountInUlUnit: info.amountInUlUnit,
+        adultUlAmount: info.adultUlAmount,
+        adultUlPercent: info.adultUlPercent ?? Math.round((info.amountInUlUnit / info.adultUlAmount) * 100),
+        isAdultUlExceeded: Boolean(info.isAdultUlExceeded),
+        ulText: info.ulText,
+        ulNote: info.ulNote,
+        childUlText: info.childUlText,
+        isChildUlExceeded: Boolean(info.isChildUlExceeded),
+        childUlExceedLabel: info.childUlExceedLabel,
+        contributors: [
+          {
+            productName: entry.productName,
+            englishName: info.englishName,
+            koreanName: entry.ing.koreanName,
+            amountInUlUnit: info.amountInUlUnit,
+            displayAmountText: baseDisplay
+          }
+        ]
+      });
+    } else {
+      existing.totalAmountInUlUnit = parseFloat(
+        (existing.totalAmountInUlUnit + info.amountInUlUnit).toFixed(3)
+      );
+      existing.adultUlPercent = Math.round(
+        (existing.totalAmountInUlUnit / existing.adultUlAmount) * 100
+      );
+      existing.isAdultUlExceeded =
+        existing.totalAmountInUlUnit > existing.adultUlAmount * 1.0001;
+
+      if (info.childAgeRows && info.childAgeRows.length > 0) {
+        const amountInChildRowUnit =
+          info.standardKey === 'VITAMIN_D'
+            ? existing.totalAmountInUlUnit / 40
+            : info.standardKey === 'COPPER'
+            ? existing.totalAmountInUlUnit / 1000
+            : existing.totalAmountInUlUnit;
+        const childRowsUnder12 = info.childAgeRows.filter(
+          (r) => !r.ageLabel.includes('12') && !r.ageLabel.includes('15') && !r.ageLabel.includes('성인')
+        );
+        const targetChildRows = childRowsUnder12.length > 0 ? childRowsUnder12 : info.childAgeRows;
+        const exceededChildRows = targetChildRows.filter(
+          (r) => amountInChildRowUnit > r.ulValue * 1.0001
+        );
+        if (exceededChildRows.length > 0) {
+          existing.isChildUlExceeded = true;
+          if (exceededChildRows.length === targetChildRows.length) {
+            existing.childUlExceedLabel = existing.isAdultUlExceeded
+              ? '성인·소아 전 연령 상한 초과'
+              : '소아(1~11세) 상한 초과';
+          } else {
+            const lastExceeded = exceededChildRows[exceededChildRows.length - 1];
+            const maxAgeBound = lastExceeded.ageLabel.split('~')[1] || lastExceeded.ageLabel;
+            existing.childUlExceedLabel = `1~${maxAgeBound} 상한 초과`;
+          }
+        }
+      }
+
+      existing.contributors.push({
+        productName: entry.productName,
+        englishName: info.englishName,
+        koreanName: entry.ing.koreanName,
+        amountInUlUnit: info.amountInUlUnit,
+        displayAmountText: baseDisplay
+      });
+    }
+  }
+
+  return Array.from(map.values());
 }
 
 /**

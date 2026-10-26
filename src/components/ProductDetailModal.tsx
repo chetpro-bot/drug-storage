@@ -27,6 +27,7 @@ import {
   getDefaultPackageOption
 } from '../utils/packageCalculator';
 import { PrecautionsTextEditor, renderFormattedPrecautionsText } from './PrecautionsTextEditor';
+import { FormattedDrugArticleText } from './FormattedDrugArticleText';
 import {
   resolveIngredientDisplayInfo,
   sortProductIngredients,
@@ -38,10 +39,6 @@ import {
 } from '../utils/innMapper';
 import { getDarkCategoryBadgeStyle } from '../utils/categoryColors';
 import { recognizeUniversalDocument, fileToDataUrl, isMeaningfulKoreanText } from '../services/labelOcrService';
-import {
-  summarizePrecautions,
-  getPrecautionHighlightKeywords
-} from '../utils/precautionsHelper';
 import { isImportedProduct } from '../utils/productHelper';
 import {
   isProbioticIngredient,
@@ -892,10 +889,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
   const [precautionsModalTab, setPrecautionsModalTab] = useState<'LABEL' | 'API'>('LABEL');
   // 식약처 공식 원문 사용상의 주의사항/섭취 시 주의사항 (인위적 수정 없는 원본 전문)
   const [officialPrecautionsText, setOfficialPrecautionsText] = useState<string>('');
-  const [isCopiedPrecautions, setIsCopiedPrecautions] = useState(false);
   // 식약처 공식 원문 효능·효과 (일반의약품 전용)
   const [officialIndicationsText, setOfficialIndicationsText] = useState<string>('');
-  const [isCopiedIndications, setIsCopiedIndications] = useState(false);
   // 제품 뒷면 사진 OCR 업로드 상태
   const [isUploadingBackPhoto, setIsUploadingBackPhoto] = useState(false);
   const [backPhotoStatusMessage, setBackPhotoStatusMessage] = useState('');
@@ -1007,8 +1002,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
     setIsIndicationsFullModalOpen(false);
     setIsApiFullModalOpen(false);
     setClaimsViewMode('FORMATTED');
-    setIsCopiedPrecautions(false);
-    setIsCopiedIndications(false);
     setIsIngredientsRawModalOpen(false);
     setIsEditingIngredientsRaw(false);
     setEditIngredientsRawValue('');
@@ -2821,14 +2814,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
       ? product.otcDetail?.precautionsFullText || (product.otcDetail?.precautionsSummaryKorean || []).join('\n')
       : product.functionalFoodDetail?.safetyPrecautionsText || (product.functionalFoodDetail?.safetyPrecautionsKorean || []).join('\n')) ||
     precautionsList.join('\n');
-  const summarizedPrecautions = summarizePrecautions(
-    precautionsList,
-    product.functionalFoodDetail?.labelPrecautionsText
-  );
-
-  // 전문보기 팝업 내 형광펜 하이라이트용 키워드 추출 (연령금기 키워드 최우선 포함)
-  const precautionHighlightKeywords = getPrecautionHighlightKeywords(summarizedPrecautions);
-
 
   const indicationHighlightKeywords = [
     '육체피로',
@@ -4166,9 +4151,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                 </div>
               ) : (
                 <div className="bg-[#f8fafc] border border-slate-200 rounded-xl p-4">
-                  <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap font-sans font-medium">
-                    {otcIndicationsFullText || (otcIndicationsList.length > 0 ? otcIndicationsList.join('\n') : '등록된 효능·효과가 없습니다.')}
-                  </p>
+                  <FormattedDrugArticleText
+                    text={otcIndicationsFullText || (otcIndicationsList.length > 0 ? otcIndicationsList.join('\n') : '')}
+                    emptyMessage="등록된 효능·효과가 없습니다."
+                  />
                 </div>
               )}
             </div>
@@ -4225,7 +4211,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
               ) : (
                 <div className="bg-rose-50/30 border border-rose-200/70 rounded-xl p-4 space-y-3">
                   <div className="max-h-[380px] overflow-y-auto pr-1">
-                    {renderFormattedPrecautionsText(precautionsFullText)}
+                    <FormattedDrugArticleText
+                      text={precautionsFullText}
+                      emptyMessage="등록된 사용상의 주의사항이 없습니다."
+                    />
                   </div>
 
                   {product.otcDetail?.storageMethodKorean && (
@@ -4618,33 +4607,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   <button
                     type="button"
                     onClick={() => {
-                      const textToCopy =
-                        product.classification !== 'OTC_DRUG' && precautionsModalTab === 'LABEL'
-                          ? (product.functionalFoodDetail?.labelPrecautionsText || '')
-                          : (officialPrecautionsText || precautionsFullText || '');
-                      if (!textToCopy) return;
-                      navigator.clipboard.writeText(textToCopy);
-                      setIsCopiedPrecautions(true);
-                      setTimeout(() => setIsCopiedPrecautions(false), 2000);
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg transition-colors cursor-pointer shadow-2xs"
-                    title="주의사항 텍스트 클립보드에 복사"
-                  >
-                    {isCopiedPrecautions ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 text-emerald-600" />
-                        <span className="text-emerald-700 font-bold">복사완료</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5 text-slate-500" />
-                        <span>원문 복사</span>
-                      </>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
                       setIsPrecautionsFullModalOpen(false);
                       setIsEditingLabelPrecautions(false);
                     }}
@@ -4864,14 +4826,16 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                           ? '식약처 의약품안전나라(nedrug) 공식 허가 사용상의 주의사항 원문입니다.'
                           : '식약처 공공 API (식품안전나라 C003/I1250) 공식 등록 주의사항 전문입니다.'}
                       </span>
-                      <span className="text-[10px] font-bold text-amber-900 bg-amber-100 border border-amber-300 px-2 py-0.5 rounded-full">
-                        형광펜: 복약 요약 항목
-                      </span>
+                      {isFetchingFullApiText && (
+                        <span className="text-[11px] font-bold text-rose-600 flex items-center gap-1">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          <span>공식 원문 불러오는 중...</span>
+                        </span>
+                      )}
                     </div>
-                    {renderFormattedApiText(
-                      officialPrecautionsText || precautionsFullText,
-                      precautionHighlightKeywords
-                    )}
+                    <pre className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs font-sans font-medium text-slate-800 whitespace-pre-wrap leading-relaxed select-text">
+                      {officialPrecautionsText || precautionsFullText || '등록된 사용상의 주의사항 전문이 없습니다.'}
+                    </pre>
                   </div>
                 )}
               </div>
@@ -4921,28 +4885,6 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({
                   >
                     <Edit3 className="w-3.5 h-3.5" />
                     <span>효능·효과 수정</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const textToCopy = officialIndicationsText || otcIndicationsFullText || '';
-                      navigator.clipboard.writeText(textToCopy);
-                      setIsCopiedIndications(true);
-                      setTimeout(() => setIsCopiedIndications(false), 2000);
-                    }}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 transition-colors cursor-pointer"
-                  >
-                    {isCopiedIndications ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 text-emerald-600" />
-                        <span className="text-emerald-700">복사됨</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5 text-slate-500" />
-                        <span>원문 복사</span>
-                      </>
-                    )}
                   </button>
                   <button
                     type="button"

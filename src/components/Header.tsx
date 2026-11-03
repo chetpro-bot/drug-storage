@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { Pill, Settings, Cloud, CloudOff, RefreshCw } from 'lucide-react';
+import { Pill, Settings, Cloud, CloudOff, RefreshCw, HeartPulse, LayoutGrid } from 'lucide-react';
 import { APP_VERSION } from '../version';
 import { SettingsModal } from './SettingsModal';
 import { useProductStore } from '../stores/useProductStore';
+import { useMaternalStore } from '../features/maternal-safety/stores/useMaternalStore';
 
 export const Header: React.FC = () => {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const { isLiveSyncActive, isSyncing, syncNow } = useProductStore();
+  const { workspaceMode, setWorkspaceMode } = useMaternalStore();
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
 
   const handleManualSync = async () => {
@@ -25,8 +27,16 @@ export const Header: React.FC = () => {
     <header className="h-14 bg-white border-b border-slate-200/90 text-slate-900 px-6 flex items-center justify-between shrink-0 select-none shadow-2xs z-10">
       {/* 좌측: 로고 및 앱 타이틀 */}
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-sky-600 flex items-center justify-center text-white shadow-xs">
-          <Pill className="w-5 h-5" />
+        <div
+          className={`w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-xs transition-colors ${
+            workspaceMode === 'MATERNAL_SAFETY' ? 'bg-rose-600' : 'bg-sky-600'
+          }`}
+        >
+          {workspaceMode === 'MATERNAL_SAFETY' ? (
+            <HeartPulse className="w-5 h-5" />
+          ) : (
+            <Pill className="w-5 h-5" />
+          )}
         </div>
         <div className="flex items-baseline gap-2.5">
           <h1 className="text-base font-extrabold tracking-tight text-slate-900 flex items-center gap-1.5">
@@ -35,14 +45,49 @@ export const Header: React.FC = () => {
               v{APP_VERSION}
             </span>
           </h1>
-          <span className="text-xs font-bold px-2.5 py-0.5 rounded-md bg-sky-50 text-sky-700 border border-sky-200">
-            약국 영양제 & 일반의약품 상담 카탈로그
+          <span
+            className={`text-xs font-bold px-2.5 py-0.5 rounded-md border hidden md:inline-block ${
+              workspaceMode === 'MATERNAL_SAFETY'
+                ? 'bg-rose-50 text-rose-700 border-rose-200'
+                : 'bg-sky-50 text-sky-700 border-sky-200'
+            }`}
+          >
+            {workspaceMode === 'MATERNAL_SAFETY'
+              ? '약국용 임신·수유부 약물 안전성 대시보드'
+              : '약국 영양제 & 일반의약품 상담 카탈로그'}
           </span>
         </div>
       </div>
 
-      {/* 우측: 클라우드 동기화 상태(클릭 시 즉시 수동 동기화) 및 설정 버튼 */}
+      {/* 우측: 화면 전환 스위치(영양제 대시보드 ↔ 임신·수유부 안전성) + 클라우드 동기화 + 설정 버튼 */}
       <div className="flex items-center gap-2.5">
+        <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200/90 shadow-2xs">
+          <button
+            onClick={() => setWorkspaceMode('NUTRITION_CATALOG')}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+              workspaceMode === 'NUTRITION_CATALOG'
+                ? 'bg-sky-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+            title="기존 영양제 및 일반의약품 상담 카탈로그 화면으로 전환"
+          >
+            <LayoutGrid className="w-3.5 h-3.5" />
+            <span>영양제·OTC 대시보드</span>
+          </button>
+
+          <button
+            onClick={() => setWorkspaceMode('MATERNAL_SAFETY')}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+              workspaceMode === 'MATERNAL_SAFETY'
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-rose-700'
+            }`}
+            title="임신부 및 수유부 처방 적정성·약물 안전성 대시보드 화면으로 전환"
+          >
+            <HeartPulse className="w-3.5 h-3.5" />
+            <span>임신·수유부 안전성</span>
+          </button>
+        </div>
         <button
           onClick={handleManualSync}
           disabled={isSyncing}

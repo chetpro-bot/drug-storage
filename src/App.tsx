@@ -6,6 +6,8 @@ import { NewProductModal } from './components/NewProductModal';
 import { UpdateNotificationToast } from './components/UpdateNotificationToast';
 import { useProductStore } from './stores/useProductStore';
 import { ProductItem } from './types/product';
+import { useMaternalStore } from './features/maternal-safety/stores/useMaternalStore';
+import { MaternalSafetyDashboard } from './features/maternal-safety/components/MaternalSafetyDashboard';
 
 export const App: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -13,6 +15,7 @@ export const App: React.FC = () => {
   const [detailProductId, setDetailProductId] = useState<string | null>(null);
 
   const { products, initRealtimeSubscription } = useProductStore();
+  const { workspaceMode } = useMaternalStore();
 
   // 현재 상세 팝업에 표시할 최신 제품 데이터 조회
   const detailProduct = React.useMemo(
@@ -52,16 +55,20 @@ export const App: React.FC = () => {
 
   return (
     <div className="w-screen h-screen flex flex-col bg-[#f8fafc] text-slate-900 overflow-hidden select-none">
-      {/* 1. 글로벌 네비게이션 헤더 */}
+      {/* 1. 글로벌 네비게이션 헤더 (우상단 대시보드 전환 버튼 포함) */}
       <Header />
 
-      {/* 2. 풀 와이드 메인 카탈로그 뷰 (좌측 사이드바 제거로 넓은 화면 활용) */}
+      {/* 2. 모드에 따른 메인 뷰 렌더링 (영양제·OTC 대시보드 vs 임신·수유부 약물 안전성 대시보드) */}
       <main className="flex-1 flex flex-col bg-[#f8fafc] overflow-hidden">
-        <ProductCatalogGrid
-          onOpenNewProductModal={handleOpenNewProductModal}
-          onSelectProduct={(product) => setDetailProductId(product.id)}
-          onEditProduct={handleOpenEditProductModal}
-        />
+        {workspaceMode === 'MATERNAL_SAFETY' ? (
+          <MaternalSafetyDashboard />
+        ) : (
+          <ProductCatalogGrid
+            onOpenNewProductModal={handleOpenNewProductModal}
+            onSelectProduct={(product) => setDetailProductId(product.id)}
+            onEditProduct={handleOpenEditProductModal}
+          />
+        )}
       </main>
 
       {/* 3. 제품 카드 클릭 시 뜨는 상세 정보 팝업 모달 (복용 방법, 표시 함량, 기능성 3열 카드, 주의사항) */}

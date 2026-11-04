@@ -949,7 +949,7 @@ export const INGREDIENT_CROSSWALK_TABLE: CrosswalkEntry[] = [
   }
 ];
 
-function cleanIngrToken(raw: string): string {
+export function cleanIngrToken(raw: string): string {
   return raw
     .replace(/\[M[0-9]+\]/gi, '')
     .replace(/\([^)]*역가[^)]*\)/g, '')
@@ -1087,33 +1087,84 @@ export function matchDomesticIngredientToOverseasInn(params: {
     };
   }
 
-  // 1. 정확 일치 또는 등록된 염(Salt) 형태 일치 검사
-  for (const entry of INGREDIENT_CROSSWALK_TABLE) {
-    const isBaseExact =
-      korNorm === cleanIngrToken(entry.koreanBaseName) ||
-      engNorm === cleanIngrToken(entry.inn);
+  // 1. 한국어 원료성분명(korNorm) 기반 1순위 매칭 (국내 의약품 허가자료 기준)
+  if (korNorm) {
+    for (const entry of INGREDIENT_CROSSWALK_TABLE) {
+      const isBaseExact = korNorm === cleanIngrToken(entry.koreanBaseName);
+      const isSaltMatched = entry.koreanSynonyms.some((s) => cleanIngrToken(s) === korNorm);
 
-    const isSaltMatched =
-      entry.koreanSynonyms.some((s) => cleanIngrToken(s) === korNorm) ||
-      entry.englishSynonyms.some((s) => cleanIngrToken(s) === engNorm);
+      if (isBaseExact || isSaltMatched) {
+        const confidence: IngredientMatchConfidence = isBaseExact ? 'EXACT' : 'SALT_MAPPED';
+        const saltNote =
+          !isBaseExact && korRaw !== entry.koreanBaseName
+            ? `원료 염/프로드러그 형태(${korRaw})에서 유효 주성분(${entry.inn}) 기준으로 매칭됨`
+            : undefined;
 
-    if (isBaseExact || isSaltMatched) {
-      const confidence: IngredientMatchConfidence = isBaseExact ? 'EXACT' : 'SALT_MAPPED';
-      const saltNote =
-        !isBaseExact && korRaw !== entry.koreanBaseName
-          ? `원료 염/프로드러그 형태(${korRaw})에서 유효 주성분(${entry.inn}) 기준으로 매칭됨`
-          : undefined;
+        // 인자로 전달된 영문명이 해당 entry(동의어 포함)와 일치하는지 검증
+        let resolvedEng = engRaw;
+        const engMatches =
+          engNorm &&
+          (engNorm === cleanIngrToken(entry.inn) ||
+            entry.englishSynonyms.some((s) => cleanIngrToken(s) === engNorm));
 
-      return {
-        koreanName: korRaw,
-        englishName: engRaw || entry.inn,
-        matchedInn: entry.inn,
-        amountText: params.amountText || '',
-        dosageForm: params.dosageForm,
-        route: params.route,
-        saltOrFormNote: saltNote,
-        matchConfidence: confidence
-      };
+        if (!engMatches) {
+          // engRaw가 비어있거나 엉뚱한 성분명(예: 타 성분 인덱스 혼입)인 경우,
+          // korRaw의 염 형태에 맞는 최적의 공식 영문명을 설정
+          if (/염산염|디히드로클로라이드/i.test(korRaw)) {
+            resolvedEng = `${entry.inn} Hydrochloride`;
+          } else if (/나트륨/i.test(korRaw)) {
+            resolvedEng = `${entry.inn} Sodium`;
+          } else if (/칼륨/i.test(korRaw)) {
+            resolvedEng = `${entry.inn} Potassium`;
+          } else if (/말레산염/i.test(korRaw)) {
+            resolvedEng = `${entry.inn} Maleate`;
+          } else if (/푸마르산염/i.test(korRaw)) {
+            resolvedEng = `${entry.inn} Fumarate`;
+          } else if (/황산염/i.test(korRaw)) {
+            resolvedEng = `${entry.inn} Sulfate`;
+          } else if (/인산염/i.test(korRaw)) {
+            resolvedEng = `${entry.inn} Phosphate`;
+          } else if (/타르타르산염|주석산염/i.test(korRaw)) {
+            resolvedEng = `${entry.inn} Tartrate`;
+          } else if (/브롬화수소산염/i.test(korRaw)) {
+            resolvedEng = `${entry.inn} Hydrobromide`;
+          } else {
+            resolvedEng = entry.inn;
+          }
+        }
+
+        return {
+          koreanName: korRaw,
+          englishName: resolvedEng,
+          matchedInn: entry.inn,
+          amountText: params.amountText || '',
+          dosageForm: params.dosageForm,
+          route: params.route,
+          saltOrFormNote: saltNote,
+          matchConfidence: confidence
+        };
+      }
+    }
+  }
+
+  // 1-2. 한국어 명칭이 없거나 한국어로 매칭되지 않은 경우, 영문명(engNorm)으로 단독 매칭
+  if (!korNorm && engNorm) {
+    for (const entry of INGREDIENT_CROSSWALK_TABLE) {
+      const isBaseExact = engNorm === cleanIngrToken(entry.inn);
+      const isSaltMatched = entry.englishSynonyms.some((s) => cleanIngrToken(s) === engNorm);
+
+      if (isBaseExact || isSaltMatched) {
+        return {
+          koreanName: korRaw || entry.koreanBaseName,
+          englishName: engRaw || entry.inn,
+          matchedInn: entry.inn,
+          amountText: params.amountText || '',
+          dosageForm: params.dosageForm,
+          route: params.route,
+          saltOrFormNote: !isBaseExact ? `영문 염 형태(${engRaw})에서 유효 주성분(${entry.inn}) 기준으로 매칭됨` : undefined,
+          matchConfidence: isBaseExact ? 'EXACT' : 'SALT_MAPPED'
+        };
+      }
     }
   }
 
@@ -1127,11 +1178,20 @@ export function matchDomesticIngredientToOverseasInn(params: {
       const entryKorNorm = cleanIngrToken(entry.koreanBaseName);
       const entryInnNorm = cleanIngrToken(entry.inn);
 
-      if (baseKorNorm === entryKorNorm || (baseEngNorm && baseEngNorm === entryInnNorm)) {
+      if (baseKorNorm ? baseKorNorm === entryKorNorm : (baseEngNorm && baseEngNorm === entryInnNorm)) {
         const removedDescr = [stripped.strippedKorPart, stripped.strippedEngWords].filter(Boolean).join(' / ');
+        let resolvedEng = engRaw;
+        const engMatches =
+          engNorm &&
+          (engNorm === cleanIngrToken(entry.inn) ||
+            entry.englishSynonyms.some((s) => cleanIngrToken(s) === engNorm));
+        if (!engMatches) {
+          resolvedEng = entry.inn;
+        }
+
         return {
           koreanName: korRaw,
-          englishName: engRaw || entry.inn,
+          englishName: resolvedEng,
           matchedInn: entry.inn,
           amountText: params.amountText || '',
           dosageForm: params.dosageForm,

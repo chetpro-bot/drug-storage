@@ -21,6 +21,7 @@ import {
   TGA_CATEGORY_DEFINITIONS
 } from '../data/tgaPregnancyCategoryDb';
 import { translateLactMedTextToKorean } from '../data/lactmedMonographDb';
+import { formatCleanAmount } from '../services/maternalSearchService';
 
 export interface TgaVisualTheme {
   cardBg: string;
@@ -444,18 +445,15 @@ export const MaternalSafetyDashboard: React.FC = () => {
                     전체 유효성분 및 함량 ({currentReport.ingredients.length}종)
                   </span>
                   <ul className="space-y-1">
-                    {currentReport.ingredients.map((ing, idx) => (
-                      <li key={idx} className="text-slate-900 font-semibold text-sm leading-snug">
-                        • {ing.koreanName}
-                        {ing.matchedInn ? ` (${ing.matchedInn})` : ing.englishName ? ` (${ing.englishName})` : ''}
-                        {ing.amountText ? ` — ${ing.amountText}` : ''}
-                        {ing.saltOrFormNote && (
-                          <span className="block text-[11px] font-normal text-slate-500 pl-2.5">
-                            └ {ing.saltOrFormNote}
-                          </span>
-                        )}
-                      </li>
-                    ))}
+                    {currentReport.ingredients.map((ing, idx) => {
+                      const engDisplayName = ing.englishName || ing.matchedInn || ing.koreanName;
+                      const cleanAmount = formatCleanAmount(ing.amountText);
+                      return (
+                        <li key={idx} className="text-slate-900 font-semibold text-sm leading-snug">
+                          • {engDisplayName}{cleanAmount ? ` ${cleanAmount}` : ''}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               </div>

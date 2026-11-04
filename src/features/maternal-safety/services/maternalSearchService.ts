@@ -16,7 +16,9 @@ import {
   PillIdentificationInfo
 } from '../types/maternalSafety';
 import {
+  cleanIngrToken,
   findCrosswalkBySearchQuery,
+  INGREDIENT_CROSSWALK_TABLE,
   matchDomesticIngredientToOverseasInn
 } from '../data/ingredientCrosswalkDb';
 import { lookupTgaCategoryByInn } from '../data/tgaPregnancyCategoryDb';
@@ -265,6 +267,49 @@ function formatDateYmd(raw?: string | null): string {
   return String(raw).trim();
 }
 
+export function formatCleanAmount(amtText?: string | null): string {
+  if (!amtText) return '';
+  return amtText
+    .replace(/([0-9]+)\.0+(?=[a-zA-Zμ가-힣\s]|$)/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * 한국어 성분명과 대조하여 복합제 MAIN_INGR_ENG 목록 중 가장 적합한 영문 후보명을 선택
+ */
+function findMatchingEngCandidate(korName: string, candidates: string[]): string {
+  if (candidates.length === 0) return '';
+  if (candidates.length === 1) return candidates[0];
+
+  const korNorm = cleanIngrToken(korName);
+  const matchedEntry = INGREDIENT_CROSSWALK_TABLE.find(
+    (e) =>
+      cleanIngrToken(e.koreanBaseName) === korNorm ||
+      e.koreanSynonyms.some((s) => cleanIngrToken(s) === korNorm)
+  );
+
+  if (matchedEntry) {
+    const direct = candidates.find((cand) => {
+      const cNorm = cleanIngrToken(cand);
+      return (
+        cNorm === cleanIngrToken(matchedEntry.inn) ||
+        matchedEntry.englishSynonyms.some((s) => cleanIngrToken(s) === cNorm)
+      );
+    });
+    if (direct) return direct;
+
+    const partial = candidates.find((cand) => {
+      const cNorm = cleanIngrToken(cand);
+      const innNorm = cleanIngrToken(matchedEntry.inn);
+      return cNorm.includes(innNorm) || innNorm.includes(cNorm);
+    });
+    if (partial) return partial;
+  }
+
+  return '';
+}
+
 /**
  * 식약처 MATERIAL_NAME 및 MAIN_ITEM_INGR / MAIN_INGR_ENG에서 유효성분만 정확히 분리
  */
@@ -299,7 +344,6 @@ export function parseMfdsActiveIngredients(params: {
       .map((b) => b.trim())
       .filter(Boolean);
 
-    let activeIdx = 0;
     for (const block of blocks) {
       const fields: Record<string, string> = {};
       block.split('|').forEach((kv) => {
@@ -332,9 +376,10 @@ export function parseMfdsActiveIngredients(params: {
       if (info) {
         amountText = amountText ? `${amountText} (${info})` : info;
       }
+      amountText = formatCleanAmount(amountText);
 
-      const engHint = engCandidates[activeIdx] || '';
-      activeIdx++;
+      // 인덱스 기반이 아닌, 성분명 매칭 기반으로 정확한 영문 후보 선별
+      const engHint = findMatchingEngCandidate(korName, engCandidates);
 
       // '아목시실린ㆍ클라불란산칼륨(4:1)'과 같이 두 가지 유효성분이 중점(ㆍ/·)으로 묶여 기재된 복합원료는 개별 유효성분으로 분리
       if (/[ㆍ·]/.test(korName) && !/셀룰로오스|이산화규소|만니톨|전분/.test(korName)) {
@@ -354,7 +399,7 @@ export function parseMfdsActiveIngredients(params: {
             results.push(
               matchDomesticIngredientToOverseasInn({
                 koreanName: subKor,
-                englishName: subEngParts[sIdx] || '',
+                englishName: subEngParts[sIdx] || findMatchingEngCandidate(subKor, engCandidates),
                 amountText: sIdx === 0 && amountText ? `복합 총량 ${amountText} (${korName})` : `복합 배합 (${korName})`,
                 dosageForm,
                 route
@@ -424,12 +469,34 @@ export function parseMfdsActiveIngredients(params: {
 
   // 중복 성분 제거
   const seen = new Set<string>();
-  return results.filter((item) => {
+  const uniqueResults = results.filter((item) => {
     const k = `${item.koreanName}_${item.matchedInn || ''}`;
     if (seen.has(k)) return false;
     seen.add(k);
     return true;
   });
+
+  // 복합제인 경우 공식 MAIN_INGR_ENG 순서 또는 영문 알파벳 순서로 정렬
+  if (engCandidates.length > 1 && uniqueResults.length > 1) {
+    uniqueResults.sort((a, b) => {
+      const aEngNorm = cleanIngrToken(a.englishName || a.matchedInn || '');
+      const bEngNorm = cleanIngrToken(b.englishName || b.matchedInn || '');
+      const idxA = engCandidates.findIndex((c) => {
+        const cNorm = cleanIngrToken(c);
+        return cNorm === aEngNorm || cNorm.includes(aEngNorm) || aEngNorm.includes(cNorm);
+      });
+      const idxB = engCandidates.findIndex((c) => {
+        const cNorm = cleanIngrToken(c);
+        return cNorm === bEngNorm || cNorm.includes(bEngNorm) || bEngNorm.includes(cNorm);
+      });
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return (a.englishName || '').localeCompare(b.englishName || '');
+    });
+  }
+
+  return uniqueResults;
 }
 
 /**

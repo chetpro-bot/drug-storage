@@ -114,7 +114,9 @@ export interface LactMedMonographInfo {
   infantAdverseEffectsOriginal: string; // Effects in Breastfed Infants 영문 원문
   ridOriginalText: string | null;       // 원문에 제시된 RID 문구/수치 (원문에 없으면 반드시 null, 절대 생성/추정 금지)
   ridKoreanSummary: string | null;      // 원문에 RID가 있는 경우에만 해당 수치 안내 (없으면 null)
+  drugLevelsKorean?: string | null;     // 모유 농도 및 영아 혈중 농도 한국어 요약/번역
   drugLevelsOriginal: string | null;    // 모유 농도 및 영아 혈중 농도 상세 원문 (상세보기용)
+  lactationEffectsKorean?: string | null; // 모유 분비량 영향 한국어 요약/번역
   lactationEffectsOriginal?: string | null; // 모유 분비량 영향 원문 (예: 슈도에페드린 등)
   sourceUrl: string;                    // https://www.ncbi.nlm.nih.gov/books/{nbkId}/
   lastRevisedDate: string;              // LactMed 원문 최종 개정일 (YYYY-MM-DD)

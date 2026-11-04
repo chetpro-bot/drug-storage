@@ -85,7 +85,9 @@ export const LACTMED_MONOGRAPH_DATABASE: Record<string, LactMedMonographInfo> = 
     "infantAdverseEffectsOriginal": "Relevant published information was not found as of the revision date.",
     "ridOriginalText": null,
     "ridKoreanSummary": "원문 내 RID 수치 제시 없음 (제조사 자료상 모유/혈청 농도비 최대 0.16, 200mg 경구 투여 시 모유를 통한 영아 1일 추정 섭취량 약 0.055mg/kg으로 2개월 이상 영아 상용 치료 용량 10mg/kg/day 대비 매우 미미함)",
+    "drugLevelsKorean": "【모체 모유 농도】\n제조사 연구 자료에 따르면, 수유모 3명에게 세프포독심프록세틸 200mg을 단회 경구 투여한 후 4시간 시점의 모유 중 세프포독심 농도는 동시 측정된 모체 혈청 농도의 각각 0%, 2%, 6% 수준이었습니다. 투여 후 6시간 시점에서는 각각 0%, 9%, 16% 수준이었습니다(구체적 측정 수치나 상세 연구 내용은 미제공). 200mg 투여 후 모체의 평균 최고 혈청 농도는 2.3mg/L이며, 보고된 최대 모유/혈장 농도비(0.16)를 적용할 때 완전 모유 수유아는 모체 200mg 투여 후 1일 최대 약 0.055mg/kg을 섭취하게 됩니다. 이는 2개월 이상 영아의 권장 치료 용량(10mg/kg/일)과 비교할 때 극히 미미한 수준입니다.\n\n【영아 혈중 농도】\n개정 기준일까지 보고된 관련 문헌 정보가 없습니다.",
     "drugLevelsOriginal": "Maternal Levels. According to the manufacturer, levels of cefpodoxime in the milk of 3 nursing mothers were 0%, 2% and 6% of concomitant maternal serum levels at 4 hours following a 200 mg oral dose of cefpodoxime proxetil. At 6 hours after the dose, levels were 0%, 9% and 16% of concomitant maternal serum levels. No study details or measured milk levels were provided. After a 200 mg oral dose, the average peak serum level is 2.3 mg/L. Using this serum level and the maximum reported milk to plasma ratio of 0.16 above, a fully breastfed infant would receive a maximum daily dose of about 0.055 mg/kg daily after a maternal dose of 200 mg, compared to the recommend treatment dosage of 10 mg/kg daily for infants of 2 months or older.\nInfant Levels. Relevant published information was not found as of the revision date.",
+    "lactationEffectsKorean": "비임신 40세 여성이 세프포독심 200mg을 1일 2회, 2일간 복용한 후 고프로락틴혈증 및 양측성 유루증(젖분비)이 발생한 증례가 보고되었습니다. 복용 중단 7일 후 유루증이 멈추고 혈청 프로락틴이 정상 범위로 현저히 감소하였습니다. 다른 원인을 찾을 수 없어 저자들은 세프포독심에 의한 가능성이 높다고 판단하였습니다.\n또한 벤라팍신 복용 중 세프포독심을 추가 복용한 환자에서도 일시적인 젖분비 및 프로락틴 상승 후 중단 시 정상화된 사례가 보고되었습니다.\n다만 이미 모유 수유가 확립된 산모에서의 프로락틴 수치는 수유 능력에 큰 영향을 미치지 않을 수 있습니다.",
     "lactationEffectsOriginal": "Hyperprolactinemia and bilateral galactorrhea occurred in a nonpregnant, 40-year-old woman taking cefpodoxime 200 mg twice daily for 2 days. Seven days after stopping the drug, galactorrhea ceased and the serum prolactin dropped markedly into the normal range. One month later it had dropped further. Because no other cause could be found, the authors determined that the galactorrhea and hyperprolactinemia were probably caused by cefpodoxime.\nA 22-year-old woman who had been taking slow-release venlafaxine 150 mg daily for 3 months reported bilateral breast engorgement and galactorrhea for 3 days after being prescribed cefpodoxime 200 mg twice daily for 14 days 2 weeks prior. Laboratory and head CT results were normal except for a slight elevation in alkaline phosphatase and an elevated serum prolactin level. Her galactorrhea began decreasing within 2 weeks and disappeared in 3 weeks with no change in venlafaxine dosage. Her serum prolactin level also returned to normal. The authors felt that her symptoms and hyperprolactinemia were probably caused by cefpodoxime.\nThe prolactin level in a mother with established lactation may not affect her ability to breastfeed.",
     "sourceUrl": "https://www.ncbi.nlm.nih.gov/books/LM52/",
     "lastRevisedDate": "2024-08-15"
@@ -1674,6 +1676,36 @@ export async function lookupLactMedAsync(inn: string | null | undefined): Promis
   }
 
   return null;
+}
+
+/**
+ * NIH LactMed 영문 상세 섹션(모유 농도, 영아 이상반응, 수유 영향)을 한국어로 자연스럽게 번역·요약하는 헬퍼 함수
+ */
+export function translateLactMedTextToKorean(
+  text: string | null | undefined,
+  _sectionType?: 'drugLevels' | 'infantEffects' | 'lactationEffects'
+): string {
+  if (!text) return '';
+  const trimmed = text.trim();
+
+  if (/^Relevant published information was not found/i.test(trimmed)) {
+    return '개정 기준일까지 보고된 관련 문헌 정보가 없습니다.';
+  }
+
+  let translated = trimmed
+    .replace(/^Maternal Levels\.\s*/im, '【모체 모유 농도】\n')
+    .replace(/\nInfant Levels\.\s*/im, '\n\n【영아 혈중 농도】\n')
+    .replace(/Relevant published information was not found as of the revision date\.?/gi, '개정 기준일까지 보고된 관련 문헌 정보가 없습니다.')
+    .replace(/According to the manufacturer,\s*/gi, '제조사 연구 자료에 따르면, ')
+    .replace(/In a telephone follow-up study,\s*/gi, '전화 추적 관찰 연구에서, ')
+    .replace(/A single oral dose of\s*/gi, '단회 경구 투여 시, ')
+    .replace(/Peak milk levels occurred\s*/gi, '모유 내 최고 농도는 ')
+    .replace(/Peak milk levels of\s*/gi, '모유 최고 농도는 ')
+    .replace(/was undetectable\s*/gi, '검출되지 않았습니다 ')
+    .replace(/No adverse effects were reported\s*/gi, '보고된 이상반응은 없었습니다 ')
+    .replace(/None of the reactions required medical attention\.\s*/gi, '의학적 치료를 요하는 이상반응은 없었습니다. ');
+
+  return translated;
 }
 
 function formatRawLactMedEntry(raw: any, queryInn: string): LactMedMonographInfo {

@@ -15,6 +15,7 @@ import {
   TgaPregnancyCategoryCode
 } from '../types/maternalSafety';
 import { TGA_MANDATORY_DISCLAIMERS } from '../data/tgaPregnancyCategoryDb';
+import { translateLactMedTextToKorean } from '../data/lactmedMonographDb';
 
 const QUICK_VERIFICATION_ITEMS: Array<{ label: string; query: string; isCombo?: boolean }> = [
   { label: 'Acetaminophen (타이레놀정500mg)', query: 'Acetaminophen' },
@@ -924,6 +925,7 @@ const LactMedInfantAndRidCard: React.FC<{
   onToggleExpand: () => void;
 }> = ({ evalItem, isExpanded, onToggleExpand }) => {
   const { ingredient, lactmedStatus, lactmedInfo } = evalItem;
+  const [detailLangMode, setDetailLangMode] = useState<'KO' | 'EN'>('KO');
 
   if (lactmedStatus === 'NO_DATA' || !lactmedInfo) {
     return (
@@ -933,6 +935,21 @@ const LactMedInfantAndRidCard: React.FC<{
       </div>
     );
   }
+
+  const drugLevelsText =
+    detailLangMode === 'KO'
+      ? lactmedInfo.drugLevelsKorean || translateLactMedTextToKorean(lactmedInfo.drugLevelsOriginal, 'drugLevels')
+      : lactmedInfo.drugLevelsOriginal;
+
+  const infantEffectsText =
+    detailLangMode === 'KO'
+      ? lactmedInfo.infantAdverseEffectsKorean || translateLactMedTextToKorean(lactmedInfo.infantAdverseEffectsOriginal, 'infantEffects')
+      : lactmedInfo.infantAdverseEffectsOriginal;
+
+  const lactationEffectsText =
+    detailLangMode === 'KO'
+      ? lactmedInfo.lactationEffectsKorean || translateLactMedTextToKorean(lactmedInfo.lactationEffectsOriginal, 'lactationEffects')
+      : lactmedInfo.lactationEffectsOriginal;
 
   return (
     <div className="p-3 bg-slate-50/70 border border-slate-200 rounded space-y-2.5 text-xs">
@@ -985,40 +1002,88 @@ const LactMedInfantAndRidCard: React.FC<{
             {isExpanded ? (
               <>
                 <ChevronUp className="w-3.5 h-3.5" />
-                모유 농도·영아 혈중 농도 및 원문 상세보기 접기
+                모유 농도·영아 혈중 농도 및 상세 연구 접기
               </>
             ) : (
               <>
                 <ChevronDown className="w-3.5 h-3.5" />
-                모유 농도·영아 혈중 농도 및 원문 상세보기 펼치기
+                모유 농도·영아 혈중 농도 및 상세 연구 펼치기
               </>
             )}
           </button>
 
           {isExpanded && (
-            <div className="mt-2 p-3 bg-white border border-slate-200 rounded space-y-3 text-xs text-slate-700 leading-relaxed">
-              {lactmedInfo.drugLevelsOriginal && (
-                <div>
-                  <div className="font-bold text-slate-900 mb-1">
-                    [Drug Levels — 모유 농도 및 영아 혈중 농도 원문]
+            <div className="mt-2 p-3 bg-white border border-slate-200 rounded space-y-3.5 text-xs text-slate-700 leading-relaxed shadow-xs">
+              {/* 원문 / 번역본 선택 버튼 */}
+              <div className="flex items-center justify-between pb-2.5 border-b border-slate-100 flex-wrap gap-2">
+                <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                  <span>상세보기 언어 선택:</span>
+                  <span className="text-[11px] font-normal text-slate-500">
+                    {detailLangMode === 'KO' ? '(한국어 번역본 요약)' : '(NIH LactMed 영문 원문)'}
+                  </span>
+                </div>
+                <div className="inline-flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setDetailLangMode('KO')}
+                    className={`px-3 py-1 font-bold rounded-md transition-all cursor-pointer ${
+                      detailLangMode === 'KO'
+                        ? 'bg-sky-600 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    한국어 번역본
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDetailLangMode('EN')}
+                    className={`px-3 py-1 font-bold rounded-md transition-all cursor-pointer ${
+                      detailLangMode === 'EN'
+                        ? 'bg-slate-800 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    English 원문
+                  </button>
+                </div>
+              </div>
+
+              {drugLevelsText && (
+                <div className="space-y-1">
+                  <div className="font-bold text-slate-900">
+                    {detailLangMode === 'KO'
+                      ? '[모유 농도 및 영아 혈중 농도 — Drug Levels]'
+                      : '[Drug Levels — Milk Levels & Infant Blood Levels Original]'}
                   </div>
-                  <p className="whitespace-pre-line">{lactmedInfo.drugLevelsOriginal}</p>
+                  <div className="p-2.5 bg-slate-50 rounded border border-slate-200/80 whitespace-pre-line text-slate-800 leading-relaxed">
+                    {drugLevelsText}
+                  </div>
                 </div>
               )}
-              {lactmedInfo.infantAdverseEffectsOriginal && (
-                <div>
-                  <div className="font-bold text-slate-900 mb-1">
-                    [Effects in Breastfed Infants — 영아 이상반응 원문]
+
+              {infantEffectsText && (
+                <div className="space-y-1">
+                  <div className="font-bold text-slate-900">
+                    {detailLangMode === 'KO'
+                      ? '[영아 이상반응 보고 내역 — Effects in Breastfed Infants]'
+                      : '[Effects in Breastfed Infants Original]'}
                   </div>
-                  <p className="whitespace-pre-line">{lactmedInfo.infantAdverseEffectsOriginal}</p>
+                  <div className="p-2.5 bg-slate-50 rounded border border-slate-200/80 whitespace-pre-line text-slate-800 leading-relaxed">
+                    {infantEffectsText}
+                  </div>
                 </div>
               )}
-              {lactmedInfo.lactationEffectsOriginal && (
-                <div>
-                  <div className="font-bold text-slate-900 mb-1">
-                    [Effects on Lactation and Breastmilk — 모유 분비 영향 원문]
+
+              {lactationEffectsText && (
+                <div className="space-y-1">
+                  <div className="font-bold text-slate-900">
+                    {detailLangMode === 'KO'
+                      ? '[모유 분비량 및 젖분비 영향 — Effects on Lactation and Breastmilk]'
+                      : '[Effects on Lactation and Breastmilk Original]'}
                   </div>
-                  <p className="whitespace-pre-line">{lactmedInfo.lactationEffectsOriginal}</p>
+                  <div className="p-2.5 bg-slate-50 rounded border border-slate-200/80 whitespace-pre-line text-slate-800 leading-relaxed">
+                    {lactationEffectsText}
+                  </div>
                 </div>
               )}
             </div>

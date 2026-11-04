@@ -7,6 +7,19 @@ export const UpdateNotificationToast: React.FC = () => {
   const [latestVersion, setLatestVersion] = useState<string | null>(null);
   const [isDismissed, setIsDismissed] = useState(false);
 
+  // 원격 버전이 현재 앱 버전보다 더 최신인지 비교
+  const isNewerVersion = (remote: string, current: string): boolean => {
+    const rParts = remote.split('.').map(Number);
+    const cParts = current.split('.').map(Number);
+    for (let i = 0; i < Math.max(rParts.length, cParts.length); i++) {
+      const r = rParts[i] || 0;
+      const c = cParts[i] || 0;
+      if (r > c) return true;
+      if (r < c) return false;
+    }
+    return false;
+  };
+
   // 버전 체크 함수
   const checkForUpdates = async () => {
     try {
@@ -17,9 +30,11 @@ export const UpdateNotificationToast: React.FC = () => {
       if (!response.ok) return;
 
       const data = await response.json();
-      if (data?.version && data.version !== APP_VERSION) {
+      if (data?.version && isNewerVersion(data.version, APP_VERSION)) {
         setLatestVersion(data.version);
         setHasUpdate(true);
+      } else {
+        setHasUpdate(false);
       }
     } catch {
       // 오프라인이거나 개발 모드일 때 조용히 패스

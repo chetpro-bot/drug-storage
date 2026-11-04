@@ -1,435 +1,986 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  ArrowLeft,
-  Baby,
-  BookOpen,
-  CheckCircle2,
-  ClipboardList,
-  Clock,
-  ExternalLink,
-  HeartPulse,
-  Layers,
-  Pill,
-  Scale,
   Search,
-  ShieldCheck,
-  Sparkles,
-  X
+  ExternalLink,
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  Info,
+  Loader2
 } from 'lucide-react';
+import { useMaternalStore } from '../stores/useMaternalStore';
 import {
-  MaternalActiveTab,
-  useMaternalStore
-} from '../stores/useMaternalStore';
-import {
-  getVerifiedIngredientBundle,
-  searchLiveMfdsForMaternalSafety,
-  searchLocalMaternalDatabase
-} from '../services/maternalSearchService';
-import {
-  PREGNANCY_SAFETY_DB,
-  SAFETY_LEVEL_META
-} from '../data/verifiedMaternalDb';
-import { QuickConsultationSummaryView } from './QuickConsultationSummaryView';
-import { PregnancySafetyView } from './PregnancySafetyView';
-import { LactationSafetyView } from './LactationSafetyView';
-import {
-  AlternativeDrugCompareView,
-  CombinationDrugView
-} from './CombinationAndCompareView';
-import { EvidenceSourcesPanel } from './EvidenceSourcesPanel';
-import { MaternalSearchResult } from '../types/maternalSafety';
+  IngredientSafetyEvaluation,
+  MaternalDrugSearchCandidate,
+  TgaPregnancyCategoryCode
+} from '../types/maternalSafety';
+import { TGA_MANDATORY_DISCLAIMERS } from '../data/tgaPregnancyCategoryDb';
+import { VERIFIED_DOMESTIC_SEED_PRODUCTS } from '../services/maternalSearchService';
+
+const QUICK_VERIFICATION_ITEMS: Array<{ label: string; query: string; isCombo?: boolean }> = [
+  { label: 'Acetaminophen (타이레놀정500mg)', query: 'Acetaminophen' },
+  { label: 'Ibuprofen (부루펜정400mg)', query: 'Ibuprofen' },
+  { label: 'Cetirizine (지르텍정)', query: 'Cetirizine' },
+  { label: 'Loratadine (클라리틴정)', query: 'Loratadine' },
+  { label: 'Amoxicillin (아목시실린캡슐)', query: 'Amoxicillin' },
+  { label: 'Pseudoephedrine (슈다페드정)', query: 'Pseudoephedrine' },
+  { label: '[복합제] 오구멘틴정625mg', query: '오구멘틴정625밀리그램', isCombo: true },
+  { label: '[복합제] 액티피드정', query: '액티피드정', isCombo: true }
+];
+
+function getTgaBadgeStyle(category: TgaPregnancyCategoryCode): string {
+  switch (category) {
+    case 'X':
+      return 'bg-red-50 text-red-800 border-red-300';
+    case 'D':
+      return 'bg-amber-50 text-amber-900 border-amber-300';
+    case 'C':
+      return 'bg-orange-50/70 text-orange-900 border-orange-200';
+    default:
+      return 'bg-slate-100 text-slate-800 border-slate-300';
+  }
+}
 
 export const MaternalSafetyDashboard: React.FC = () => {
   const {
-    activeTab,
+    mobileSectionTab,
+    setMobileSectionTab,
     searchQuery,
-    recentSearches,
-    selectedResult,
-    activeIngredientId,
-    selectedGestationalWeek,
-    selectedInfantAge,
-    isPretermInfant,
-    setActiveTab,
-    setSearchQuery,
-    selectSearchResult,
-    setActiveIngredientId
+    isSearching,
+    searchCandidates,
+    detectedIngredientNotice,
+    searchApiError,
+    selectedCandidate,
+    currentReport,
+    isLoadingReport,
+    executeSearch,
+    selectCandidateAndLoadReport
   } = useMaternalStore();
 
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [liveMfdsResults, setLiveMfdsResults] = useState<MaternalSearchResult[]>([]);
-  const [isSearchingLive, setIsSearchingLive] = useState(false);
-  const [synthesisTick, setSynthesisTick] = useState(0);
+  const [inputValue, setInputValue] = useState(searchQuery);
+  const [showCandidateList, setShowCandidateList] = useState(false);
 
-  // 로컬(검증 성분 + 내장 국내 대표 품목 + KPIC 처방 성분 사전) 결과
-  const localMatches = useMemo(
-    () => searchLocalMaternalDatabase(searchQuery),
-    [searchQuery, synthesisTick]
-  );
+  // 상세보기 접기/펼치기 상태
+  const [expandPregFullLabel, setExpandPregFullLabel] = useState(false);
+  const [expandLactFullLabel, setExpandLactFullLabel] = useState(false);
+  const [expandedLactmedDetailMap, setExpandedLactmedDetailMap] = useState<Record<string, boolean>>({});
 
-  // 식약처·KPIC·FDA 실시간 API 통합 검색 핸들러
-  const handleTriggerLiveSearch = async () => {
-    const q = searchQuery.trim();
-    if (!q) return;
-    setIsSearchingLive(true);
-    setIsDropdownOpen(true);
-    try {
-      const live = await searchLiveMfdsForMaternalSafety(q);
-      setLiveMfdsResults(live);
-      setSynthesisTick((t) => t + 1);
-      if (live.length > 0) {
-        selectSearchResult(live[0]);
-      }
-    } finally {
-      setIsSearchingLive(false);
+  // 최초 진입 시 기본 품목(타이레놀정500밀리그람) 리포트 로드
+  useEffect(() => {
+    if (!currentReport && !isLoadingReport) {
+      selectCandidateAndLoadReport(VERIFIED_DOMESTIC_SEED_PRODUCTS[0]);
     }
+  }, [currentReport, isLoadingReport, selectCandidateAndLoadReport]);
+
+  // 품목 변경 시 상세보기 접힘 상태 초기화
+  useEffect(() => {
+    setExpandPregFullLabel(false);
+    setExpandLactFullLabel(false);
+    setExpandedLactmedDetailMap({});
+  }, [currentReport?.itemSeq]);
+
+  const handleSearchSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setShowCandidateList(true);
+    await executeSearch(inputValue);
   };
 
-  const handleSelectResult = (res: MaternalSearchResult) => {
-    setIsDropdownOpen(false);
-    selectSearchResult(res);
+  const handleQuickChipClick = async (query: string) => {
+    setInputValue(query);
+    setShowCandidateList(false);
+    await executeSearch(query);
   };
 
-  // 현재 선택된 성분의 검증 데이터 번들 조회
-  const { pregnancy, lactation, sources } = useMemo(
-    () => getVerifiedIngredientBundle(activeIngredientId),
-    [activeIngredientId, selectedResult, synthesisTick]
-  );
+  const handleSelectCandidate = async (candidate: MaternalDrugSearchCandidate) => {
+    setShowCandidateList(false);
+    await selectCandidateAndLoadReport(candidate);
+  };
 
-  const activeMapping =
-    selectedResult.mappedIngredients.find((m) => m.ingredientId === activeIngredientId) ||
-    selectedResult.mappedIngredients[0];
+  const toggleLactmedDetail = (key: string) => {
+    setExpandedLactmedDetailMap((prev) => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-[#f8fafc] select-text">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 space-y-4">
-        {/* 1. 상단: 국내 허가 의약품 제품명 검색창 */}
-        <section className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-3">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-base font-extrabold text-slate-900">
-                임신·수유부 약물 안전성 빠른 조회
+    <div className="flex-1 flex flex-col bg-slate-50 text-slate-900 overflow-y-auto select-text">
+      {/* 1. 상단 검색 영역 (가장 눈에 잘 띄는 위치) */}
+      <section className="bg-white border-b border-slate-200 px-4 sm:px-6 py-4 shrink-0">
+        <div className="max-w-7xl mx-auto space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+            <div>
+              <h2 className="text-base sm:text-lg font-bold text-slate-900">
+                임신부·수유부 약물 안전성 빠른 조회
               </h2>
-              <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-extrabold flex items-center gap-1">
-                <ShieldCheck className="w-3 h-3" />
-                AI 임의 판단 배제 · 국내/국외 원문 기반
-              </span>
+              <p className="text-xs text-slate-500">
+                식약처 허가사항 · 식약처 DUR 임부금기 · 호주 TGA 분류 · NIH LactMed 공식 원문 대조
+              </p>
             </div>
           </div>
 
-          {/* 제품명 검색창 */}
-          <div className="relative">
-            <div className="flex flex-col sm:flex-row gap-2">
+          {/* 검색 폼 */}
+          <form onSubmit={handleSearchSubmit} className="relative">
+            <div className="flex gap-2">
               <div className="relative flex-1">
-                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
                   type="text"
-                  value={searchQuery}
-                  onFocus={() => setIsDropdownOpen(true)}
-                  onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    setIsDropdownOpen(true);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      if (localMatches.length > 0) {
-                        handleSelectResult(localMatches[0]);
-                      } else {
-                        handleTriggerLiveSearch();
-                      }
-                    }
-                  }}
-                  placeholder="국내 허가 의약품 제품명 입력 (예: 리피토정 20mg, 타이레놀정, 부루펜정, 지르텍정, 판콜에스 등)..."
-                  className="w-full pl-10 pr-9 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold text-slate-900 focus:outline-none focus:border-sky-600 focus:ring-2 focus:ring-sky-100"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onFocus={() => setShowCandidateList(true)}
+                  placeholder="국내 제품명(예: 타이레놀, 부루펜, 오구멘틴), 국내 성분명(예: 이부프로펜), 영문 성분명(예: Ibuprofen) 검색"
+                  className="w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-slate-300 rounded-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-700 focus:ring-1 focus:ring-slate-700"
                 />
-                {searchQuery && (
-                  <button
-                    onClick={() => {
-                      setSearchQuery('');
-                      setLiveMfdsResults([]);
-                    }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                )}
               </div>
-
               <button
-                onClick={handleTriggerLiveSearch}
-                disabled={isSearchingLive}
-                className="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-extrabold text-xs shadow-xs transition-all cursor-pointer shrink-0 flex items-center justify-center gap-1.5"
+                type="submit"
+                disabled={isSearching}
+                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-400 text-white text-sm font-semibold rounded-lg transition-colors shrink-0 flex items-center gap-1.5 cursor-pointer"
               >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>{isSearchingLive ? '식약처·FDA 실시간 조회 중...' : '식약처 국내 제품 검색'}</span>
+                {isSearching ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    검색 중
+                  </>
+                ) : (
+                  '검색'
+                )}
               </button>
             </div>
 
-            {/* 자동완성 & 검색 결과 드롭다운 */}
-            {isDropdownOpen && (
-              <div className="absolute left-0 right-0 top-full mt-1.5 bg-white rounded-2xl border border-slate-300 shadow-xl z-30 max-h-80 overflow-y-auto divide-y divide-slate-100">
-                <div className="px-3.5 py-2 bg-slate-50 flex items-center justify-between text-[11px] font-bold text-slate-500">
-                  <span>
-                    내장 국내 허가 품목 ({localMatches.length}건)
-                    {liveMfdsResults.length > 0
-                      ? ` + 식약처 실시간 연동 (${liveMfdsResults.length}건)`
-                      : ''}
-                  </span>
-                  <button
-                    onClick={() => setIsDropdownOpen(false)}
-                    className="text-slate-500 hover:text-slate-800 cursor-pointer"
-                  >
-                    닫기 ✕
-                  </button>
-                </div>
-
-                {[...localMatches, ...liveMfdsResults].map((res) => (
-                  <button
-                    key={res.id}
-                    onClick={() => handleSelectResult(res)}
-                    className="w-full px-4 py-2.5 text-left hover:bg-sky-50/70 flex items-center justify-between gap-3 transition-colors cursor-pointer"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${
-                            res.isCombination
-                              ? 'bg-indigo-100 text-indigo-800'
-                              : 'bg-sky-100 text-sky-800'
-                          }`}
-                        >
-                          {res.isCombination
-                            ? `복합제 (${res.mappedIngredients.length}성분)`
-                            : '국내 단일제'}
-                        </span>
-                        <span className="text-xs font-extrabold text-slate-900">
-                          {res.displayName}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">{res.subLabel}</div>
-                    </div>
-                    <span className="text-[11px] font-bold text-sky-700 shrink-0">
-                      요약 보기 →
-                    </span>
-                  </button>
-                ))}
+            {/* 성분명 매칭 안내 및 API 오류 배너 */}
+            {detectedIngredientNotice && (
+              <div className="mt-2 text-xs text-slate-600 bg-slate-100 border border-slate-200 rounded px-3 py-1.5 flex items-center justify-between">
+                <span>{detectedIngredientNotice}</span>
+                <button
+                  type="button"
+                  onClick={() => setShowCandidateList((v) => !v)}
+                  className="text-slate-800 font-semibold underline ml-2 cursor-pointer"
+                >
+                  {showCandidateList ? '목록 접기' : `검색 결과(${searchCandidates.length}건) 보기`}
+                </button>
               </div>
             )}
-          </div>
 
-          {/* 최근 검색 기록 */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-slate-500">
-              <Clock className="w-3 h-3" /> 최근/다빈도:
-            </span>
-            {recentSearches.map((term) => (
+            {searchApiError && (
+              <div className="mt-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>
+                  [API 통신 오류] {searchApiError} (실제 자료 없음이 아닌 네트워크/API 응답 오류입니다.)
+                </span>
+              </div>
+            )}
+
+            {/* 검색 결과 제품 선택 리스트 */}
+            {showCandidateList && searchCandidates.length > 0 && (
+              <div className="mt-2 bg-white border border-slate-300 rounded-lg shadow-md max-h-64 overflow-y-auto divide-y divide-slate-100 z-20">
+                <div className="px-3 py-1.5 bg-slate-50 text-[11px] font-semibold text-slate-500 flex items-center justify-between">
+                  <span>검색된 국내 의약품 목록 ({searchCandidates.length}건) — 조회할 제품을 선택하세요</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowCandidateList(false)}
+                    className="text-slate-500 hover:text-slate-800 cursor-pointer"
+                  >
+                    닫기
+                  </button>
+                </div>
+                {searchCandidates.map((cand) => {
+                  const isSelected = cand.itemSeq === selectedCandidate?.itemSeq;
+                  return (
+                    <button
+                      key={cand.itemSeq}
+                      type="button"
+                      onClick={() => handleSelectCandidate(cand)}
+                      className={`w-full text-left px-3.5 py-2.5 text-xs hover:bg-slate-50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 cursor-pointer ${
+                        isSelected ? 'bg-slate-100/80 font-semibold' : ''
+                      }`}
+                    >
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-bold text-slate-900">{cand.productName}</span>
+                          {cand.isCombination && (
+                            <span className="px-1.5 py-0.5 text-[10px] font-semibold bg-slate-200 text-slate-800 rounded">
+                              복합제
+                            </span>
+                          )}
+                          <span className="text-[11px] text-slate-500">{cand.manufacturer}</span>
+                        </div>
+                        <div className="text-slate-600">{cand.mainIngredientsText}</div>
+                      </div>
+                      <div className="text-[11px] text-slate-500 shrink-0">
+                        {cand.dosageForm} · {cand.route} · 품목코드 {cand.itemSeq}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </form>
+
+          {/* 다빈도/필수 검증 성분 빠른 조회 버튼 */}
+          <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+            <span className="text-[11px] font-semibold text-slate-500 mr-1">빠른 조회:</span>
+            {QUICK_VERIFICATION_ITEMS.map((item) => (
               <button
-                key={term}
-                onClick={async () => {
-                  setSearchQuery(term);
-                  const found = searchLocalMaternalDatabase(term);
-                  if (found.length > 0) {
-                    handleSelectResult(found[0]);
-                  } else {
-                    setIsSearchingLive(true);
-                    try {
-                      const live = await searchLiveMfdsForMaternalSafety(term);
-                      setLiveMfdsResults(live);
-                      setSynthesisTick((t) => t + 1);
-                      if (live.length > 0) selectSearchResult(live[0]);
-                    } finally {
-                      setIsSearchingLive(false);
-                    }
-                  }
-                }}
-                className="px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold transition-colors cursor-pointer"
+                key={item.query}
+                type="button"
+                onClick={() => handleQuickChipClick(item.query)}
+                className="px-2.5 py-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded border border-slate-200/80 transition-colors cursor-pointer"
               >
-                {term}
+                {item.label}
               </button>
             ))}
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* 2. 현재 선택된 제품이 복합제이거나 국내 제품일 때 구성 성분 선택 바 */}
-        {(selectedResult.resultType === 'DOMESTIC_PRODUCT' ||
-          selectedResult.mappedIngredients.length > 1) && (
-          <section className="bg-slate-900 text-white rounded-2xl px-4 py-3 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="px-2 py-0.5 rounded bg-sky-500/20 border border-sky-400/40 text-sky-300 text-[11px] font-extrabold">
-                {selectedResult.isCombination
-                  ? `복합제 (${selectedResult.mappedIngredients.length}성분)`
-                  : '국내 허가 의약품'}
-              </span>
-              <span className="text-sm font-extrabold text-white">
-                {selectedResult.displayName}
-              </span>
-              {selectedResult.drugMaster && (
-                <a
-                  href={selectedResult.drugMaster.productSourceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-[11px] font-bold text-sky-300 hover:underline"
-                >
-                  <span>식약처 원문 ({selectedResult.drugMaster.itemSeq})</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
+      {/* 2. 본문 영역 */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-5 space-y-5">
+        {isLoadingReport || !currentReport ? (
+          <div className="bg-white border border-slate-200 rounded-lg p-12 flex flex-col items-center justify-center gap-3 text-slate-600">
+            <Loader2 className="w-6 h-6 animate-spin text-slate-700" />
+            <p className="text-sm font-medium">
+              식약처 허가사항, DUR 임부금기, 호주 TGA, NIH LactMed 데이터를 확인하고 있습니다...
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* [A] 제품 기본정보 */}
+            <section className="bg-white border border-slate-200 rounded-lg p-4 sm:p-5">
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 border-b border-slate-100 pb-3.5">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="px-2 py-0.5 text-[11px] font-semibold bg-slate-100 text-slate-700 rounded border border-slate-200">
+                      {currentReport.etcOtcName}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 text-[11px] font-semibold rounded border ${
+                        currentReport.isCombination
+                          ? 'bg-amber-50 text-amber-900 border-amber-200'
+                          : 'bg-slate-100 text-slate-700 border-slate-200'
+                      }`}
+                    >
+                      {currentReport.isCombination
+                        ? `복합제 (유효성분 ${currentReport.ingredients.length}종 개별 매칭)`
+                        : '단일제'}
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      품목기준코드: {currentReport.itemSeq}
+                    </span>
+                  </div>
+                  <h3 className="text-lg sm:text-xl font-bold text-slate-900">
+                    {currentReport.productName}
+                  </h3>
+                </div>
+
+                <div className="flex flex-col sm:items-end gap-1 shrink-0">
+                  <a
+                    href={currentReport.permitUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded transition-colors"
+                  >
+                    식약처 허가사항 원문 보기
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                  <span className="text-[11px] text-slate-500">
+                    식약처 허가/변경 기준일: {currentReport.permitUpdatedAt}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-3.5 text-xs">
+                <div>
+                  <span className="text-slate-500 font-medium block mb-0.5">제조사</span>
+                  <span className="text-slate-900 font-semibold text-sm">
+                    {currentReport.manufacturer || '정보 없음'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-medium block mb-0.5">제형 및 투여경로</span>
+                  <span className="text-slate-900 font-semibold text-sm">
+                    {currentReport.dosageForm} ({currentReport.route})
+                    {currentReport.chartText && currentReport.chartText !== currentReport.dosageForm
+                      ? ` — ${currentReport.chartText}`
+                      : ''}
+                  </span>
+                </div>
+                <div className="sm:col-span-1">
+                  <span className="text-slate-500 font-medium block mb-0.5">
+                    전체 유효성분 및 함량 ({currentReport.ingredients.length}종)
+                  </span>
+                  <ul className="space-y-1">
+                    {currentReport.ingredients.map((ing, idx) => (
+                      <li key={idx} className="text-slate-900 font-semibold text-sm leading-snug">
+                        • {ing.koreanName}
+                        {ing.matchedInn ? ` (${ing.matchedInn})` : ing.englishName ? ` (${ing.englishName})` : ''}
+                        {ing.amountText ? ` — ${ing.amountText}` : ''}
+                        {ing.saltOrFormNote && (
+                          <span className="block text-[11px] font-normal text-slate-500 pl-2.5">
+                            └ {ing.saltOrFormNote}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {currentReport.isCombination && (
+                <div className="mt-3.5 pt-3 border-t border-slate-100 text-xs text-slate-600 flex items-start gap-2">
+                  <Info className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
+                  <span>
+                    본 제품은 복합제이므로 전체 유효성분을 각각 분리하여 호주 TGA 및 NIH LactMed 데이터와 개별 매칭하였습니다. 복합제 전체에 대해 임의의 통합 안전성 등급을 생성하지 않습니다.
+                  </span>
+                </div>
+              )}
+            </section>
+
+            {/* 모바일 화면용 임신부 / 수유부 탭 스위치 (데스크톱에서는 2열 나란히 표시) */}
+            <div className="flex lg:hidden border-b border-slate-200 bg-white rounded-t-lg overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setMobileSectionTab('PREGNANCY')}
+                className={`flex-1 py-2.5 text-sm font-bold border-b-2 cursor-pointer ${
+                  mobileSectionTab === 'PREGNANCY'
+                    ? 'border-slate-900 text-slate-900 bg-white'
+                    : 'border-transparent text-slate-500 bg-slate-50'
+                }`}
+              >
+                임신부 정보
+              </button>
+              <button
+                type="button"
+                onClick={() => setMobileSectionTab('LACTATION')}
+                className={`flex-1 py-2.5 text-sm font-bold border-b-2 cursor-pointer ${
+                  mobileSectionTab === 'LACTATION'
+                    ? 'border-slate-900 text-slate-900 bg-white'
+                    : 'border-transparent text-slate-500 bg-slate-50'
+                }`}
+              >
+                수유부 정보
+              </button>
+            </div>
+
+            {/* [B] 임신부 정보 & [C] 수유부 정보 2열 레이아웃 */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+              {/* ================= 좌측: 임신부 정보 ================= */}
+              <div
+                className={`space-y-4 ${
+                  mobileSectionTab === 'LACTATION' ? 'hidden lg:block' : 'block'
+                }`}
+              >
+                <div className="border-b-2 border-slate-800 pb-2 flex items-center justify-between">
+                  <h3 className="text-base font-bold text-slate-900">
+                    임신부 정보 (Pregnancy Safety)
+                  </h3>
+                  <span className="text-xs text-slate-500">
+                    식약처 허가사항 · DUR 임부금기 · 호주 TGA
+                  </span>
+                </div>
+
+                {/* 1. 식약처 허가사항의 임신 관련 문구 */}
+                <article className="bg-white border border-slate-200 rounded-lg p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">
+                        1. 식약처 허가사항의 임신 관련 문구
+                      </h4>
+                      {currentReport.mfdsLabel.pregnancySectionTitle && (
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          발췌 항목: {currentReport.mfdsLabel.pregnancySectionTitle}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <a
+                        href={currentReport.mfdsLabel.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 hover:text-slate-900 underline"
+                      >
+                        원문 링크
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                      <span className="block text-[11px] text-slate-400">
+                        갱신일: {currentReport.mfdsLabel.updatedAt}
+                      </span>
+                    </div>
+                  </div>
+
+                  {currentReport.mfdsLabel.status === 'API_ERROR' ? (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded text-xs text-red-800">
+                      <strong>[API 조회 오류]</strong> {currentReport.mfdsLabel.errorMessage} (실제 자료 부재가 아닌 API 통신 오류입니다.)
+                    </div>
+                  ) : currentReport.mfdsLabel.pregnancyKeyText ? (
+                    <div className="space-y-2">
+                      <div className="text-xs sm:text-sm text-slate-800 whitespace-pre-line leading-relaxed bg-slate-50 p-3 rounded border border-slate-200/80">
+                        {expandPregFullLabel
+                          ? currentReport.mfdsLabel.pregnancyFullText
+                          : currentReport.mfdsLabel.pregnancyKeyText}
+                      </div>
+
+                      {(currentReport.mfdsLabel.pregnancyFullText !==
+                        currentReport.mfdsLabel.pregnancyKeyText ||
+                        currentReport.mfdsLabel.fullPrecautionsText) && (
+                        <button
+                          type="button"
+                          onClick={() => setExpandPregFullLabel((v) => !v)}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
+                        >
+                          {expandPregFullLabel ? (
+                            <>
+                              <ChevronUp className="w-3.5 h-3.5" />
+                              상세보기 접기
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDown className="w-3.5 h-3.5" />
+                              임부 관련 허가사항 전문 상세보기
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded text-xs text-slate-600">
+                      식약처 사용상의 주의사항 원문 내 별도 임부 관련 명시 문구가 확인되지 않습니다 (자료 없음). 원문 링크에서 전체 허가사항을 확인하십시오.
+                    </div>
+                  )}
+                </article>
+
+                {/* 2. 식약처 DUR 임부금기 등급 및 사유 */}
+                <article className="bg-white border border-slate-200 rounded-lg p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">
+                        2. 식약처 DUR 임부금기 등급 및 사유
+                      </h4>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        식약처 의약품안전사용서비스(DUR) 공식 고시 기준
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <a
+                        href={currentReport.mfdsDur.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 hover:text-slate-900 underline"
+                      >
+                        원문 링크
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                      <span className="block text-[11px] text-slate-400">
+                        고시/확인일: {currentReport.mfdsDur.updatedAt}
+                      </span>
+                    </div>
+                  </div>
+
+                  {currentReport.mfdsDur.status === 'API_ERROR' ? (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded text-xs text-red-800">
+                      <strong>[DUR API 조회 오류]</strong> {currentReport.mfdsDur.errorMessage} (실제 임부금기 미지정이 아닌 API 통신 오류입니다.)
+                    </div>
+                  ) : currentReport.mfdsDur.hasTaboo ? (
+                    <div className="space-y-2.5">
+                      {currentReport.mfdsDur.entries.map((entry, idx) => (
+                        <div
+                          key={idx}
+                          className={`p-3 rounded border space-y-1.5 ${
+                            entry.grade === '1등급'
+                              ? 'bg-red-50/70 border-red-300 text-red-950'
+                              : 'bg-amber-50/70 border-amber-300 text-amber-950'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex items-center gap-2">
+                              <span
+                                className={`px-2 py-0.5 text-xs font-bold rounded border ${
+                                  entry.grade === '1등급'
+                                    ? 'bg-red-600 text-white border-red-700'
+                                    : 'bg-amber-600 text-white border-amber-700'
+                                }`}
+                              >
+                                DUR 임부금기 {entry.grade}
+                              </span>
+                              <span className="text-xs font-bold">
+                                [{entry.mixType}] {entry.ingrName}
+                                {entry.ingrEngName ? ` (${entry.ingrEngName})` : ''}
+                              </span>
+                            </div>
+                            {entry.notificationDate && (
+                              <span className="text-[11px] opacity-75">
+                                고시일: {entry.notificationDate}
+                              </span>
+                            )}
+                          </div>
+
+                          <p className="text-xs leading-relaxed font-medium">
+                            <span className="font-bold">금기 사유 및 조건: </span>
+                            {entry.prohibitContent ||
+                              (entry.grade === '2등급'
+                                ? '명확한 임상적 근거 또는 사유가 있는 경우에 한하여 부득이하게 사용 (세부 문구 별도 미기재)'
+                                : '원칙적 사용금기')}
+                          </p>
+
+                          {(entry.formName || entry.remark) && (
+                            <div className="text-[11px] pt-1 border-t border-black/10 space-y-0.5 opacity-90">
+                              {entry.formName && (
+                                <p>
+                                  <span className="font-semibold">적용 제형:</span>{' '}
+                                  {entry.formName.length > 90
+                                    ? `${entry.formName.slice(0, 90)}...`
+                                    : entry.formName}
+                                </p>
+                              )}
+                              {entry.remark && (
+                                <p>
+                                  <span className="font-semibold">예외/비고 조건:</span> {entry.remark}
+                                </p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded space-y-1.5">
+                      <div className="text-sm font-bold text-slate-800">
+                        DUR 임부금기 정보 없음
+                      </div>
+                      <p className="text-xs text-slate-600">
+                        ※ DUR 임부금기 정보가 없다는 것을 임신 중 안전하다는 의미로 해석하지 마십시오. 반드시 식약처 허가사항 원문과 해외 분류(TGA)를 함께 확인하십시오.
+                      </p>
+                    </div>
+                  )}
+                </article>
+
+                {/* 3. 호주 TGA 임신 등급 및 설명 */}
+                <article className="bg-white border border-slate-200 rounded-lg p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">
+                        3. 호주 TGA 임신 등급 및 설명
+                      </h4>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        Australian Categorisation System for Prescribing Medicines in Pregnancy
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <a
+                        href={
+                          currentReport.ingredientEvaluations[0]?.tgaInfo?.sourceUrl ||
+                          'https://www.tga.gov.au/resources/health-professional-information-and-resources/australian-categorisation-system-prescribing-medicines-pregnancy/prescribing-medicines-pregnancy-database'
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 hover:text-slate-900 underline"
+                      >
+                        TGA 원문 링크
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                      <span className="block text-[11px] text-slate-400">
+                        갱신일:{' '}
+                        {currentReport.ingredientEvaluations[0]?.tgaInfo?.updatedAt || '2026-10-01'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 성분별 TGA 결과 표시 (복합제는 성분별 각각 구분 표시) */}
+                  <div className="space-y-3">
+                    {currentReport.ingredientEvaluations.map((evalItem, idx) => (
+                      <TgaIngredientCard key={idx} evalItem={evalItem} />
+                    ))}
+                  </div>
+
+                  {/* TGA 필수 주의문구 */}
+                  <div className="p-2.5 bg-slate-50 border border-slate-200 rounded text-[11px] text-slate-600 space-y-1">
+                    {TGA_MANDATORY_DISCLAIMERS.map((notice, idx) => (
+                      <p key={idx}>• {notice}</p>
+                    ))}
+                  </div>
+                </article>
+              </div>
+
+              {/* ================= 우측: 수유부 정보 ================= */}
+              <div
+                className={`space-y-4 ${
+                  mobileSectionTab === 'PREGNANCY' ? 'hidden lg:block' : 'block'
+                }`}
+              >
+                <div className="border-b-2 border-slate-800 pb-2 flex items-center justify-between">
+                  <h3 className="text-base font-bold text-slate-900">
+                    수유부 정보 (Lactation Safety)
+                  </h3>
+                  <span className="text-xs text-slate-500">
+                    식약처 허가사항 · NIH LactMed (NBK501922)
+                  </span>
+                </div>
+
+                {/* 1. 식약처 허가사항의 수유 관련 문구 */}
+                <article className="bg-white border border-slate-200 rounded-lg p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">
+                        1. 식약처 허가사항의 수유 관련 문구
+                      </h4>
+                      {currentReport.mfdsLabel.lactationSectionTitle && (
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          발췌 항목: {currentReport.mfdsLabel.lactationSectionTitle}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <a
+                        href={currentReport.mfdsLabel.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 hover:text-slate-900 underline"
+                      >
+                        원문 링크
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                      <span className="block text-[11px] text-slate-400">
+                        갱신일: {currentReport.mfdsLabel.updatedAt}
+                      </span>
+                    </div>
+                  </div>
+
+                  {currentReport.mfdsLabel.status === 'API_ERROR' ? (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded text-xs text-red-800">
+                      <strong>[API 조회 오류]</strong> {currentReport.mfdsLabel.errorMessage}
+                    </div>
+                  ) : currentReport.mfdsLabel.lactationKeyText ? (
+                    <div className="space-y-2">
+                      <div className="text-xs sm:text-sm text-slate-800 whitespace-pre-line leading-relaxed bg-slate-50 p-3 rounded border border-slate-200/80">
+                        {expandLactFullLabel
+                          ? currentReport.mfdsLabel.lactationFullText
+                          : currentReport.mfdsLabel.lactationKeyText}
+                      </div>
+
+                      {currentReport.mfdsLabel.lactationFullText !==
+                        currentReport.mfdsLabel.lactationKeyText && (
+                        <button
+                          type="button"
+                          onClick={() => setExpandLactFullLabel((v) => !v)}
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
+                        >
+                          {expandLactFullLabel ? (
+                            <>
+                              <ChevronUp className="w-3.5 h-3.5" />
+                              상세보기 접기
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDown className="w-3.5 h-3.5" />
+                              수유부 관련 허가사항 전문 상세보기
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded text-xs text-slate-600">
+                      식약처 사용상의 주의사항 원문 내 별도 수유부 관련 명시 문구가 확인되지 않습니다 (자료 없음). 원문 링크에서 전체 허가사항을 확인하십시오.
+                    </div>
+                  )}
+                </article>
+
+                {/* 2. NIH LactMed 수유 중 사용 요약 (Summary of Use During Lactation) */}
+                <article className="bg-white border border-slate-200 rounded-lg p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">
+                        2. NIH LactMed 수유 중 사용 요약 (Summary of Use During Lactation)
+                      </h4>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        미국 국립보건원(NIH) Drugs and Lactation Database 공식 원문 기반
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {currentReport.ingredientEvaluations.map((evalItem, idx) => (
+                      <LactMedSummaryCard key={idx} evalItem={evalItem} />
+                    ))}
+                  </div>
+                </article>
+
+                {/* 3. 영아 이상반응 및 RID (자료가 있는 경우) + 모유/영아 농도 상세보기 */}
+                <article className="bg-white border border-slate-200 rounded-lg p-4 space-y-3">
+                  <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">
+                        3. 영아 이상반응 및 상대적 영아 용량 (RID)
+                      </h4>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        원문에 제시된 RID만 표시하며, 원문에 없는 RID는 추정하거나 생성하지 않습니다.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {currentReport.ingredientEvaluations.map((evalItem, idx) => {
+                      const key = `${evalItem.ingredient.koreanName}_${idx}`;
+                      const isExpanded = !!expandedLactmedDetailMap[key];
+                      return (
+                        <LactMedInfantAndRidCard
+                          key={key}
+                          evalItem={evalItem}
+                          isExpanded={isExpanded}
+                          onToggleExpand={() => toggleLactmedDetail(key)}
+                        />
+                      );
+                    })}
+                  </div>
+                </article>
+              </div>
+            </div>
+          </>
+        )}
+      </main>
+    </div>
+  );
+};
+
+const TgaIngredientCard: React.FC<{ evalItem: IngredientSafetyEvaluation }> = ({ evalItem }) => {
+  const { ingredient, tgaStatus, tgaInfo } = evalItem;
+
+  return (
+    <div className="p-3 bg-slate-50/70 border border-slate-200 rounded space-y-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="text-xs font-bold text-slate-900">
+          성분: {ingredient.koreanName}
+          {ingredient.matchedInn ? ` (${ingredient.matchedInn})` : ''}
+          {ingredient.amountText ? ` · ${ingredient.amountText}` : ''}
+        </div>
+
+        {tgaStatus === 'MATCHED' && tgaInfo ? (
+          <span
+            className={`px-2.5 py-0.5 text-xs font-bold rounded border ${getTgaBadgeStyle(
+              tgaInfo.category
+            )}`}
+          >
+            TGA Category {tgaInfo.category}
+          </span>
+        ) : tgaStatus === 'UNCERTAIN_MATCH_HIDDEN' ? (
+          <span className="px-2 py-0.5 text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 rounded">
+            성분 매칭 불확실 — 등급 미표시
+          </span>
+        ) : (
+          <span className="px-2 py-0.5 text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200 rounded">
+            해당 성분 자료 없음
+          </span>
+        )}
+      </div>
+
+      {tgaStatus === 'MATCHED' && tgaInfo ? (
+        <div className="space-y-1.5 text-xs">
+          <p className="text-slate-800 leading-relaxed">
+            <span className="font-semibold">등급 설명 (Category {tgaInfo.category}): </span>
+            {tgaInfo.categoryDefinitionKorean}
+          </p>
+          {tgaInfo.ingredientNoteKorean && (
+            <p className="text-slate-700 bg-white p-2 rounded border border-slate-200/80 leading-relaxed">
+              <span className="font-semibold">성분별 추가 설명: </span>
+              {tgaInfo.ingredientNoteKorean}
+            </p>
+          )}
+        </div>
+      ) : tgaStatus === 'UNCERTAIN_MATCH_HIDDEN' ? (
+        <p className="text-xs text-amber-900">
+          {ingredient.matchWarningNote ||
+            '국내 성분명과 해외 단일 성분명 간 염·제형·유도체 매칭이 불확실하여 TGA 등급을 표시하지 않습니다.'}
+        </p>
+      ) : (
+        <p className="text-xs text-slate-500">
+          호주 TGA 데이터베이스에서 해당 성분의 분류 자료가 확인되지 않습니다 (해당 성분 자료 없음).
+        </p>
+      )}
+    </div>
+  );
+};
+
+const LactMedSummaryCard: React.FC<{ evalItem: IngredientSafetyEvaluation }> = ({ evalItem }) => {
+  const { ingredient, lactmedStatus, lactmedInfo } = evalItem;
+  const [showOriginalEng, setShowOriginalEng] = useState(false);
+
+  return (
+    <div className="p-3 bg-slate-50/70 border border-slate-200 rounded space-y-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="text-xs font-bold text-slate-900">
+          성분: {ingredient.koreanName}
+          {lactmedInfo?.drugTitle
+            ? ` (LactMed 표제어: ${lactmedInfo.drugTitle})`
+            : ingredient.matchedInn
+            ? ` (${ingredient.matchedInn})`
+            : ''}
+        </div>
+        {lactmedInfo && (
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-slate-400">
+              개정일: {lactmedInfo.lastRevisedDate}
+            </span>
+            <a
+              href={lactmedInfo.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 hover:text-slate-900 underline"
+            >
+              LactMed 원문 ({lactmedInfo.nbkId})
+              <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
+        )}
+      </div>
+
+      {lactmedStatus !== 'NO_DATA' && lactmedInfo ? (
+        <div className="space-y-2">
+          <p className="text-xs sm:text-sm text-slate-900 leading-relaxed bg-white p-2.5 rounded border border-slate-200/80">
+            {lactmedInfo.summaryKorean}
+          </p>
+
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowOriginalEng((v) => !v)}
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
+            >
+              {showOriginalEng ? (
+                <>
+                  <ChevronUp className="w-3 h-3" />
+                  Summary of Use During Lactation 영문 원문 접기
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="w-3 h-3" />
+                  Summary of Use During Lactation 영문 원문 보기
+                </>
+              )}
+            </button>
+            {showOriginalEng && (
+              <div className="mt-1.5 p-2.5 bg-white border border-slate-200 rounded text-xs text-slate-700 whitespace-pre-line leading-relaxed">
+                {lactmedInfo.summaryOriginalEnglish}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <p className="text-xs text-slate-500">
+          NIH LactMed 데이터베이스에서 해당 성분의 자료가 확인되지 않습니다 (해당 성분 자료 없음).
+        </p>
+      )}
+    </div>
+  );
+};
+
+const LactMedInfantAndRidCard: React.FC<{
+  evalItem: IngredientSafetyEvaluation;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+}> = ({ evalItem, isExpanded, onToggleExpand }) => {
+  const { ingredient, lactmedStatus, lactmedInfo } = evalItem;
+
+  if (lactmedStatus === 'NO_DATA' || !lactmedInfo) {
+    return (
+      <div className="p-3 bg-slate-50/70 border border-slate-200 rounded text-xs text-slate-500">
+        <span className="font-bold text-slate-800">{ingredient.koreanName}: </span>
+        해당 성분 자료 없음
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-3 bg-slate-50/70 border border-slate-200 rounded space-y-2.5 text-xs">
+      <div className="flex items-center justify-between">
+        <span className="font-bold text-slate-900">
+          성분: {ingredient.koreanName} ({lactmedInfo.drugTitle})
+        </span>
+        <span className="text-[11px] text-slate-400">
+          개정일: {lactmedInfo.lastRevisedDate}
+        </span>
+      </div>
+
+      {/* 영아 이상반응 */}
+      <div className="bg-white p-2.5 rounded border border-slate-200/80 space-y-1">
+        <div className="font-bold text-slate-800">영아에게 보고된 이상반응 (Effects in Breastfed Infants)</div>
+        <p className="text-slate-700 leading-relaxed">{lactmedInfo.infantAdverseEffectsKorean}</p>
+      </div>
+
+      {/* RID (원문에 제시되어 있는 경우에만 표시) */}
+      <div className="bg-white p-2.5 rounded border border-slate-200/80 space-y-1">
+        <div className="font-bold text-slate-800">
+          상대적 영아 용량 (RID — Relative Infant Dose)
+        </div>
+        {lactmedInfo.ridOriginalText ? (
+          <div className="space-y-1">
+            {lactmedInfo.ridKoreanSummary && (
+              <p className="text-slate-900 font-semibold">{lactmedInfo.ridKoreanSummary}</p>
+            )}
+            <p className="text-slate-600 text-[11px] leading-relaxed">
+              [원문 발췌] {lactmedInfo.ridOriginalText}
+            </p>
+          </div>
+        ) : (
+          <p className="text-slate-500">
+            LactMed 원문 내 제시된 RID 수치 없음 (원문에 없는 RID를 추정하거나 생성하지 않음)
+          </p>
+        )}
+      </div>
+
+      {/* 필요할 때만 펼쳐 보는 모유 농도 및 영아 혈중 농도 상세보기 */}
+      {(lactmedInfo.drugLevelsOriginal ||
+        lactmedInfo.infantAdverseEffectsOriginal ||
+        lactmedInfo.lactationEffectsOriginal) && (
+        <div>
+          <button
+            type="button"
+            onClick={onToggleExpand}
+            className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 hover:text-slate-900 cursor-pointer"
+          >
+            {isExpanded ? (
+              <>
+                <ChevronUp className="w-3.5 h-3.5" />
+                모유 농도·영아 혈중 농도 및 원문 상세보기 접기
+              </>
+            ) : (
+              <>
+                <ChevronDown className="w-3.5 h-3.5" />
+                모유 농도·영아 혈중 농도 및 원문 상세보기 펼치기
+              </>
+            )}
+          </button>
+
+          {isExpanded && (
+            <div className="mt-2 p-3 bg-white border border-slate-200 rounded space-y-3 text-xs text-slate-700 leading-relaxed">
+              {lactmedInfo.drugLevelsOriginal && (
+                <div>
+                  <div className="font-bold text-slate-900 mb-1">
+                    [Drug Levels — 모유 농도 및 영아 혈중 농도 원문]
+                  </div>
+                  <p className="whitespace-pre-line">{lactmedInfo.drugLevelsOriginal}</p>
+                </div>
+              )}
+              {lactmedInfo.infantAdverseEffectsOriginal && (
+                <div>
+                  <div className="font-bold text-slate-900 mb-1">
+                    [Effects in Breastfed Infants — 영아 이상반응 원문]
+                  </div>
+                  <p className="whitespace-pre-line">{lactmedInfo.infantAdverseEffectsOriginal}</p>
+                </div>
+              )}
+              {lactmedInfo.lactationEffectsOriginal && (
+                <div>
+                  <div className="font-bold text-slate-900 mb-1">
+                    [Effects on Lactation and Breastmilk — 모유 분비 영향 원문]
+                  </div>
+                  <p className="whitespace-pre-line">{lactmedInfo.lactationEffectsOriginal}</p>
+                </div>
               )}
             </div>
-
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[11px] font-bold text-slate-400 mr-1">구성 성분 선택:</span>
-              {selectedResult.mappedIngredients.map((m) => {
-                const isSelected =
-                  activeIngredientId === m.ingredientId &&
-                  m.koreanIngredientName === activeMapping?.koreanIngredientName;
-                const pRec = PREGNANCY_SAFETY_DB[m.ingredientId];
-                const dotClass = pRec
-                  ? SAFETY_LEVEL_META[pRec.trimester3Level].dotClass
-                  : SAFETY_LEVEL_META.LEVEL_5_INSUFFICIENT.dotClass;
-                return (
-                  <button
-                    key={m.mappingId}
-                    onClick={() => setActiveIngredientId(m.ingredientId)}
-                    className={`px-2.5 py-1 rounded-xl text-xs font-extrabold border transition-all cursor-pointer flex items-center gap-1.5 ${
-                      isSelected
-                        ? 'bg-white text-slate-900 border-white shadow-xs'
-                        : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'
-                    }`}
-                  >
-                    <span className={`w-2 h-2 rounded-full ${dotClass}`} />
-                    <span>
-                      {m.koreanIngredientName} ({m.amountText})
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-        )}
-
-        {/* 3. 상세 페이지 열람 중일 때 상단 네비게이션 바 (요약 페이지로 즉시 복귀 + 상세 탭 전환) */}
-        {activeTab !== 'SUMMARY' && (
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-3 shadow-2xs flex flex-wrap items-center justify-between gap-2">
-            <button
-              onClick={() => setActiveTab('SUMMARY')}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold shadow-xs transition-all cursor-pointer"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>복약지도 요약 페이지(국내/국외 요약표)로 돌아가기</span>
-            </button>
-
-            <div className="flex flex-wrap items-center gap-1.5">
-              {(
-                [
-                  { id: 'SUMMARY', label: '요약표 (국내/국외)', icon: ClipboardList },
-                  {
-                    id: 'PREGNANCY',
-                    label: `임신부 상세 (${selectedGestationalWeek}주)`,
-                    icon: HeartPulse
-                  },
-                  {
-                    id: 'LACTATION',
-                    label: `수유부 상세 · RID 계산기 (${
-                      selectedInfantAge === 'NEONATE'
-                        ? '신생아'
-                        : selectedInfantAge === 'INFANT_1_6M'
-                        ? '1~6개월'
-                        : '6개월+'
-                    }${isPretermInfant ? '·미숙아' : ''})`,
-                    icon: Baby
-                  },
-                  {
-                    id: 'COMBINATION',
-                    label: `복합제 분석 (${selectedResult.mappedIngredients.length})`,
-                    icon: Layers
-                  },
-                  { id: 'COMPARE', label: '타 성분 비교', icon: Scale },
-                  { id: 'SOURCES', label: `원문 출처 (${sources.length})`, icon: BookOpen }
-                ] as {
-                  id: MaternalActiveTab;
-                  label: string;
-                  icon: React.FC<{ className?: string }>;
-                }[]
-              ).map((tab) => {
-                const Icon = tab.icon;
-                const isCurr = activeTab === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-extrabold border transition-all cursor-pointer ${
-                      isCurr
-                        ? 'bg-sky-600 text-white border-sky-700 shadow-2xs'
-                        : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-                    }`}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    <span>{tab.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* 4. 메인 컨텐츠 영역: 기본은 '요약 페이지(SUMMARY)', 버튼 클릭 시에만 해당 상세 페이지 표시 */}
-        <section>
-          {activeTab === 'SUMMARY' && (
-            <QuickConsultationSummaryView
-              pregnancy={pregnancy}
-              lactation={lactation}
-              drugMaster={selectedResult.drugMaster}
-              unverifiedIngredientName={activeMapping?.koreanIngredientName}
-              sourcesCount={sources.length}
-            />
           )}
-
-          {activeTab === 'PREGNANCY' && (
-            <PregnancySafetyView
-              pregnancy={pregnancy}
-              drugMaster={selectedResult.drugMaster}
-              unverifiedIngredientName={activeMapping?.koreanIngredientName}
-            />
-          )}
-
-          {activeTab === 'LACTATION' && (
-            <LactationSafetyView
-              lactation={lactation}
-              drugMaster={selectedResult.drugMaster}
-              unverifiedIngredientName={activeMapping?.koreanIngredientName}
-            />
-          )}
-
-          {activeTab === 'COMBINATION' && <CombinationDrugView />}
-
-          {activeTab === 'COMPARE' && <AlternativeDrugCompareView />}
-
-          {activeTab === 'SOURCES' && (
-            <EvidenceSourcesPanel sources={sources} englishInn={pregnancy?.englishInn} />
-          )}
-        </section>
-
-        {/* 5. 하단: 간결한 데이터 출처 및 검증 상태 바 */}
-        <footer className="bg-white rounded-2xl border border-slate-200/90 px-4 py-3 text-xs text-slate-600 flex flex-col lg:flex-row lg:items-center justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-extrabold text-slate-800 flex items-center gap-1">
-              <Pill className="w-3.5 h-3.5 text-sky-600" />
-              연동 출처:
-            </span>
-            <span className="text-[11px] font-bold text-indigo-800 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
-              국내: 식약처 의약품안전나라 · 심평원 DUR · 약학정보원
-            </span>
-            <span className="text-[11px] font-bold text-sky-800 bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
-              국외: NIH LactMed · MotherToBaby · BUMPS(UKTIS) · FDA PLLR
-            </span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3 text-[11px] font-bold text-slate-500 shrink-0">
-            <span className="inline-flex items-center gap-1 text-emerald-700">
-              <CheckCircle2 className="w-3.5 h-3.5" /> 5대 핵심 성분 원문 검증 완료 (2026-11-04)
-            </span>
-          </div>
-        </footer>
-      </div>
+        </div>
+      )}
     </div>
   );
 };

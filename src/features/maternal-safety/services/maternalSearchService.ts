@@ -1,1965 +1,989 @@
 import {
-  DRUG_MASTER_DB,
-  PREGNANCY_SAFETY_DB,
-  LACTATION_SAFETY_DB,
-  EVIDENCE_SOURCES_DB,
-  INGREDIENT_MAPPING_DB
-} from '../data/verifiedMaternalDb';
+  cleanXmlDocText,
+  fetchMfdsDrugRawByItemSeq,
+  fetchNedrugDocTexts,
+  fetchNedrugIngredientsText
+} from '../../../services/publicDataService';
 import {
-  DrugMasterRecord,
-  IngredientMappingRecord,
-  MaternalSearchResult,
-  AdministrationRoute,
-  SafetySummaryLevel
+  DataFetchStatus,
+  DomesticIngredientItem,
+  IngredientSafetyEvaluation,
+  MaternalDrugSafetyReport,
+  MaternalDrugSearchCandidate,
+  MfdsDurPregnantTabooInfo,
+  MfdsDurTabooEntry,
+  MfdsLabelSafetyInfo
 } from '../types/maternalSafety';
 import {
-  searchPublicDrugDatabase,
-  fetchMfdsDrugDetail,
-  normalizeDrugSearchText
-} from '../../../services/publicDataService';
-import { INN_DICTIONARY, KPIC_MASTER_DATABASE, getLearnedDict } from '../../../utils/innMapper';
-import kpicDetailedIngredients from '../../../constants/kpicDetailedIngredients.json';
+  findCrosswalkBySearchQuery,
+  matchDomesticIngredientToOverseasInn
+} from '../data/ingredientCrosswalkDb';
+import { lookupTgaCategoryByInn } from '../data/tgaPregnancyCategoryDb';
+import {
+  fetchLactMedChapterLinkLive,
+  lookupLactMedByInn
+} from '../data/lactmedMonographDb';
+
+const DATA_GO_KR_API_KEY =
+  '864de6190645216e2e968761319f76898e0ac8da5200fe1def929646b0c7df9f';
+
+const MFDS_INQ_URL =
+  'https://apis.data.go.kr/1471000/DrugPrdtPrmsnInfoService08/getDrugPrdtPrmsnInq08';
+const DUR_PRDLST_TABOO_URL =
+  'https://apis.data.go.kr/1471000/DURPrdlstInfoService03/getPwnmTabooInfoList03';
+const DUR_IRDNT_TABOO_URL =
+  'https://apis.data.go.kr/1471000/DURIrdntInfoService03/getPwnmTabooInfoList02';
+
+// 캐시 (식약처 및 DUR API 호출 제한·응답 속도 최적화)
+const searchCache = new Map<string, MaternalDrugSearchCandidate[]>();
+const reportCache = new Map<string, MaternalDrugSafetyReport>();
+const durIrdntCache = new Map<string, MfdsDurTabooEntry[]>();
 
 /**
- * 한글 원료명에서 염(Salt)·수화물·제피·배산체 수식어를 제거하여 순수 성분명(Base Ingredient)으로 정규화
- * 예: "아토르바스타틴칼슘삼수화물" -> "아토르바스타틴"
- *     "세티리진염산염" -> "세티리진"
- *     "클로르페니라민말레산염" -> "클로르페니라민"
+ * 빠른 검증 및 API 장애 대비용 국내 대표 허가 의약품 시드 목록
+ * (실제 식약처 품목기준코드 ITEM_SEQ 및 공식 허가사항 기준)
  */
-export function stripKoreanSaltAndHydrate(rawName: string): string {
-  if (!rawName) return '';
-  let s = rawName
-    .replace(/\([^)]*\)/g, '')
-    .replace(/\[[^\]]*\]/g, '')
-    .replace(/[0-9]+(?:\.[0-9]+)?\s*(?:mg|g|ug|μg|mcg|mL|IU|밀리그램|밀리그람|그램|마이크로그램).*/gi, '')
-    .trim();
-
-  // 제피/미분화/배산 접미어 제거
-  s = s.replace(/(제피세립|제피과립|미분화|배산|장용성과립|속방성과립)$/g, '').trim();
-
-  // 수화물/무수물 제거 (반복 적용)
-  for (let i = 0; i < 2; i++) {
-    s = s
-      .replace(
-        /(십수화물|구수화물|팔수화물|칠수화물|육수화물|오수화물|사수화물|삼수화물|이수화물|일수화물|반수화물|수화물|무수물|수화)$/g,
-        ''
-      )
-      .trim();
-
-    // 염기(Salt) 제거
-    s = s
-      .replace(
-        /(브롬화수소산염|요오드화수소산염|베실산염|말레산염|말레인산염|푸마르산염|타르타르산염|시트르산염|석시네이트|숙신산염|메실산염|토실산염|캄실산염|올레산염|스테아르산염|발레르산염|프로피온산염|아세트산염|글루콘산염|락트산염|염산염|황산염|질산염|인산염|탄산염|나트륨염|칼륨염|칼슘염|마그네슘염|스트론튬염|트롬에타민염|트로메타민염|디염산염|일염산염|칼슘|나트륨|칼륨|마그네슘)$/g,
-        ''
-      )
-      .trim();
-  }
-
-  return s || rawName.trim();
-}
-
-/**
- * 영문 성분명에서 염(Salt) 및 수화물(Hydrate) 수식어를 제거하여 순수 INN(Base Moiety)으로 정규화
- * 예: "Atorvastatin Calcium Trihydrate" -> "Atorvastatin"
- *     "Cetirizine Hydrochloride" -> "Cetirizine"
- */
-export function stripEnglishSaltAndHydrate(rawEng: string): string {
-  if (!rawEng) return '';
-  let s = rawEng
-    .replace(/\([^)]*\)/g, '')
-    .replace(/[0-9]+(?:\.[0-9]+)?\s*(?:mg|g|ug|μg|mcg|mL|IU).*/gi, '')
-    .trim();
-
-  const saltWords = new RegExp(
-    '\\b(Calcium|Sodium|Potassium|Magnesium|Strontium|Zinc|Hydrochloride|Dihydrochloride|HCl|Hydrobromide|HBr|Maleate|Besylate|Besilate|Mesylate|Mesilate|Tosylate|Camsylate|Fumarate|Tartrate|Citrate|Succinate|Sulfate|Sulphate|Phosphate|Nitrate|Acetate|Propionate|Valerate|Stearate|Gluconate|Lactate|Tromethamine|Trihydrate|Dihydrate|Monohydrate|Hemihydrate|Pentahydrate|Hydrate|Anhydrous|Micronized)\\b',
-    'gi'
-  );
-
-  s = s.replace(saltWords, '').replace(/\s+/g, ' ').replace(/[,/;-]+$/, '').trim();
-  return s || rawEng.trim();
-}
-
-/**
- * 검색어 내 단위 표기 정규화 ('리피토정 20mg' <-> '리피토정20밀리그램' 양방향 매칭 지원)
- */
-export function normalizeQueryForProductMatch(text: string): string {
-  return normalizeDrugSearchText(
-    text
-      .replace(/밀리그램|밀리그람/g, 'mg')
-      .replace(/마이크로그램|마이크로그람/g, 'mcg')
-      .replace(/그램|그람/g, 'g')
-  );
-}
-
-/**
- * 주요 국내 다빈도 처방·일반의약품 순수 성분(염기 제외) 사전
- */
-const COMMON_BASE_INGREDIENT_MAP: Array<{
-  keywords: string[];
-  ingredientId: string;
-  englishInn: string;
-  koreanName: string;
-  isPrebuilt: boolean;
-  therapeuticClass?: string;
-  defaultDurGrade?: 'GRADE_1' | 'GRADE_2' | 'NONE';
-}> = [
-  {
-    keywords: ['acetaminophen', 'paracetamol', '아세트아미노펜'],
-    ingredientId: 'ing_acetaminophen',
-    englishInn: 'Acetaminophen',
-    koreanName: '아세트아미노펜',
-    isPrebuilt: true
-  },
-  {
-    keywords: ['ibuprofen', '이부프로펜'],
-    ingredientId: 'ing_ibuprofen',
-    englishInn: 'Ibuprofen',
-    koreanName: '이부프로펜',
-    isPrebuilt: true
-  },
-  {
-    keywords: ['cetirizine', '세티리진'],
-    ingredientId: 'ing_cetirizine',
-    englishInn: 'Cetirizine',
-    koreanName: '세티리진',
-    isPrebuilt: true
-  },
-  {
-    keywords: ['chlorpheniramine', 'chlorphenamine', '클로르페니라민'],
-    ingredientId: 'ing_chlorpheniramine',
-    englishInn: 'Chlorpheniramine',
-    koreanName: '클로르페니라민',
-    isPrebuilt: true
-  },
-  {
-    keywords: ['amoxicillin', 'amoxycillin', '아목시실린'],
-    ingredientId: 'ing_amoxicillin',
-    englishInn: 'Amoxicillin',
-    koreanName: '아목시실린',
-    isPrebuilt: true
-  },
-  {
-    keywords: ['atorvastatin', '아토르바스타틴', '리피토'],
-    ingredientId: 'ing_atorvastatin',
-    englishInn: 'Atorvastatin',
-    koreanName: '아토르바스타틴',
-    isPrebuilt: true
-  },
-  {
-    keywords: ['rosuvastatin', '로수바스타틴', '크레스토'],
-    ingredientId: 'ing_rosuvastatin',
-    englishInn: 'Rosuvastatin',
-    koreanName: '로수바스타틴',
-    isPrebuilt: true
-  },
-  {
-    keywords: ['omeprazole', '오메프라졸'],
-    ingredientId: 'ing_omeprazole',
-    englishInn: 'Omeprazole',
-    koreanName: '오메프라졸',
-    isPrebuilt: true
-  },
-  {
-    keywords: ['famotidine', '파모티딘'],
-    ingredientId: 'ing_famotidine',
-    englishInn: 'Famotidine',
-    koreanName: '파모티딘',
-    isPrebuilt: true
-  },
-  {
-    keywords: ['loratadine', '로라타딘', '클라리틴'],
-    ingredientId: 'ing_loratadine',
-    englishInn: 'Loratadine',
-    koreanName: '로라타딘',
-    isPrebuilt: true
-  },
-  {
-    keywords: ['dextromethorphan', '덱스트로메토르판'],
-    ingredientId: 'ing_dextromethorphan',
-    englishInn: 'Dextromethorphan',
-    koreanName: '덱스트로메토르판',
-    isPrebuilt: true
-  },
-  {
-    keywords: ['pseudoephedrine', '슈도에페드린'],
-    ingredientId: 'ing_pseudoephedrine',
-    englishInn: 'Pseudoephedrine',
-    koreanName: '슈도에페드린',
-    isPrebuilt: true
-  },
-  {
-    keywords: ['guaifenesin', '구아이페네신'],
-    ingredientId: 'ing_guaifenesin',
-    englishInn: 'Guaifenesin',
-    koreanName: '구아이페네신',
-    isPrebuilt: true
-  },
-  {
-    keywords: ['methylephedrine', '메틸에페드린'],
-    ingredientId: 'ing_methylephedrine',
-    englishInn: 'DL-Methylephedrine',
-    koreanName: 'DL-메틸에페드린',
-    isPrebuilt: true
-  },
-  {
-    keywords: ['caffeine', '카페인'],
-    ingredientId: 'ing_caffeine',
-    englishInn: 'Caffeine',
-    koreanName: '카페인',
-    isPrebuilt: true
-  },
-  // 실시간 합성 지원 주요 성분 사전 (염기 제거 순수 영문 INN 매핑)
-  {
-    keywords: ['simvastatin', '심바스타틴'],
-    ingredientId: 'ing_simvastatin',
-    englishInn: 'Simvastatin',
-    koreanName: '심바스타틴',
-    isPrebuilt: false,
-    therapeuticClass: '이상지질혈증 치료제 (HMG-CoA 환원효소 억제제 · 스타틴계)',
-    defaultDurGrade: 'GRADE_1'
-  },
-  {
-    keywords: ['pitavastatin', '피타바스타틴', '리바로'],
-    ingredientId: 'ing_pitavastatin',
-    englishInn: 'Pitavastatin',
-    koreanName: '피타바스타틴',
-    isPrebuilt: false,
-    therapeuticClass: '이상지질혈증 치료제 (스타틴계)',
-    defaultDurGrade: 'GRADE_1'
-  },
-  {
-    keywords: ['ezetimibe', '에제티미브'],
-    ingredientId: 'ing_ezetimibe',
-    englishInn: 'Ezetimibe',
-    koreanName: '에제티미브',
-    isPrebuilt: false,
-    therapeuticClass: '이상지질혈증 치료제 (콜레스테롤 흡수 억제제)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['dexibuprofen', '덱시부프로펜'],
-    ingredientId: 'ing_dexibuprofen',
-    englishInn: 'Dexibuprofen',
-    koreanName: '덱시부프로펜',
-    isPrebuilt: false,
-    therapeuticClass: '비스테로이드성 소염진통제 (NSAIDs)',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['naproxen', '나프록센', '탁센'],
-    ingredientId: 'ing_naproxen',
-    englishInn: 'Naproxen',
-    koreanName: '나프록센',
-    isPrebuilt: false,
-    therapeuticClass: '비스테로이드성 소염진통제 (NSAIDs)',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['loxoprofen', '록소프로펜'],
-    ingredientId: 'ing_loxoprofen',
-    englishInn: 'Loxoprofen',
-    koreanName: '록소프로펜',
-    isPrebuilt: false,
-    therapeuticClass: '비스테로이드성 소염진통제 (NSAIDs)',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['levocetirizine', '레보세티리진', '씨잘'],
-    ingredientId: 'ing_levocetirizine',
-    englishInn: 'Levocetirizine',
-    koreanName: '레보세티리진',
-    isPrebuilt: false,
-    therapeuticClass: '2세대 항히스타민제',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['fexofenadine', '펙소페나딘', '알레그라'],
-    ingredientId: 'ing_fexofenadine',
-    englishInn: 'Fexofenadine',
-    koreanName: '펙소페나딘',
-    isPrebuilt: false,
-    therapeuticClass: '2세대 항히스타민제',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['esomeprazole', '에소메프라졸', '넥시움'],
-    ingredientId: 'ing_esomeprazole',
-    englishInn: 'Esomeprazole',
-    koreanName: '에소메프라졸',
-    isPrebuilt: false,
-    therapeuticClass: '프로톤펌프억제제 (PPI)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['pantoprazole', '판토프라졸'],
-    ingredientId: 'ing_pantoprazole',
-    englishInn: 'Pantoprazole',
-    koreanName: '판토프라졸',
-    isPrebuilt: false,
-    therapeuticClass: '프로톤펌프억제제 (PPI)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['rabeprazole', '라베프라졸'],
-    ingredientId: 'ing_rabeprazole',
-    englishInn: 'Rabeprazole',
-    koreanName: '라베프라졸',
-    isPrebuilt: false,
-    therapeuticClass: '프로톤펌프억제제 (PPI)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['amlodipine', '암로디핀', '노바스크'],
-    ingredientId: 'ing_amlodipine',
-    englishInn: 'Amlodipine',
-    koreanName: '암로디핀',
-    isPrebuilt: false,
-    therapeuticClass: '칼슘채널차단제 (CCB · 항고혈압제)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['losartan', '로사르탄', '코자'],
-    ingredientId: 'ing_losartan',
-    englishInn: 'Losartan',
-    koreanName: '로사르탄',
-    isPrebuilt: false,
-    therapeuticClass: '안지오텐신 II 수용체 차단제 (ARB)',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['valsartan', '발사르탄', '디오반'],
-    ingredientId: 'ing_valsartan',
-    englishInn: 'Valsartan',
-    koreanName: '발사르탄',
-    isPrebuilt: false,
-    therapeuticClass: '안지오텐신 II 수용체 차단제 (ARB)',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['telmisartan', '텔미사르탄', '미카르디스'],
-    ingredientId: 'ing_telmisartan',
-    englishInn: 'Telmisartan',
-    koreanName: '텔미사르탄',
-    isPrebuilt: false,
-    therapeuticClass: '안지오텐신 II 수용체 차단제 (ARB)',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['candesartan', '칸데사르탄', '아타칸'],
-    ingredientId: 'ing_candesartan',
-    englishInn: 'Candesartan',
-    koreanName: '칸데사르탄',
-    isPrebuilt: false,
-    therapeuticClass: '안지오텐신 II 수용체 차단제 (ARB)',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['metformin', '메트포르민', '다이아벡스'],
-    ingredientId: 'ing_metformin',
-    englishInn: 'Metformin',
-    koreanName: '메트포르민',
-    isPrebuilt: false,
-    therapeuticClass: '경구용 혈당강하제 (Biguanide계)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['levothyroxine', '레보티록신', '씬지로이드'],
-    ingredientId: 'ing_levothyroxine',
-    englishInn: 'Levothyroxine',
-    koreanName: '레보티록신',
-    isPrebuilt: false,
-    therapeuticClass: '갑상선 호르몬제',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['isotretinoin', '이소트레티노인', '로아큐탄', '이소티논'],
-    ingredientId: 'ing_isotretinoin',
-    englishInn: 'Isotretinoin',
-    koreanName: '이소트레티노인',
-    isPrebuilt: false,
-    therapeuticClass: '비타민 A 유도체 (중증 여드름 치료제 · 최기형성 물질)',
-    defaultDurGrade: 'GRADE_1'
-  },
-  {
-    keywords: ['finasteride', '피나스테리드', '프로페시아', '프로스카'],
-    ingredientId: 'ing_finasteride',
-    englishInn: 'Finasteride',
-    koreanName: '피나스테리드',
-    isPrebuilt: false,
-    therapeuticClass: '5-알파 환원효소 억제제',
-    defaultDurGrade: 'GRADE_1'
-  },
-  {
-    keywords: ['dutasteride', '두타스테리드', '아보다트'],
-    ingredientId: 'ing_dutasteride',
-    englishInn: 'Dutasteride',
-    koreanName: '두타스테리드',
-    isPrebuilt: false,
-    therapeuticClass: '5-알파 환원효소 억제제',
-    defaultDurGrade: 'GRADE_1'
-  },
-  // 다빈도 처방 전문·일반의약품 확장 사전 (약학정보원 KPIC 연동)
-  {
-    keywords: ['sertraline', '설트랄린', '졸로푸트', '셀트라'],
-    ingredientId: 'ing_sertraline',
-    englishInn: 'Sertraline',
-    koreanName: '설트랄린',
-    isPrebuilt: false,
-    therapeuticClass: '선택적 세로토닌 재흡수 억제제 (SSRI · 항우울제)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['escitalopram', '에스시탈로프람', '렉사프로'],
-    ingredientId: 'ing_escitalopram',
-    englishInn: 'Escitalopram',
-    koreanName: '에스시탈로프람',
-    isPrebuilt: false,
-    therapeuticClass: '선택적 세로토닌 재흡수 억제제 (SSRI · 항우울제)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['fluoxetine', '플루옥세틴', '프로작'],
-    ingredientId: 'ing_fluoxetine',
-    englishInn: 'Fluoxetine',
-    koreanName: '플루옥세틴',
-    isPrebuilt: false,
-    therapeuticClass: '선택적 세로토닌 재흡수 억제제 (SSRI · 항우울제)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['paroxetine', '파록세틴', '팍실'],
-    ingredientId: 'ing_paroxetine',
-    englishInn: 'Paroxetine',
-    koreanName: '파록세틴',
-    isPrebuilt: false,
-    therapeuticClass: '선택적 세로토닌 재흡수 억제제 (SSRI · 항우울제)',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['alprazolam', '알프라졸람', '자낙스'],
-    ingredientId: 'ing_alprazolam',
-    englishInn: 'Alprazolam',
-    koreanName: '알프라졸람',
-    isPrebuilt: false,
-    therapeuticClass: '벤조디아제핀계 항불안제',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['zolpidem', '졸피뎀', '스틸녹스'],
-    ingredientId: 'ing_zolpidem',
-    englishInn: 'Zolpidem',
-    koreanName: '졸피뎀',
-    isPrebuilt: false,
-    therapeuticClass: '비벤조디아제핀계 수면진정제',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['valproic acid', 'valproate', 'divalproex', '발프로산', '데파킨', '데파코트'],
-    ingredientId: 'ing_valproic_acid',
-    englishInn: 'Valproic Acid',
-    koreanName: '발프로산',
-    isPrebuilt: false,
-    therapeuticClass: '항전간제 (뇌전증·양극성장애 치료제)',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['carbamazepine', '카르바마제핀', '테그레톨'],
-    ingredientId: 'ing_carbamazepine',
-    englishInn: 'Carbamazepine',
-    koreanName: '카르바마제핀',
-    isPrebuilt: false,
-    therapeuticClass: '항전간제 · 삼차신경통 치료제',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['lamotrigine', '라모트리진', '라믹탈'],
-    ingredientId: 'ing_lamotrigine',
-    englishInn: 'Lamotrigine',
-    koreanName: '라모트리진',
-    isPrebuilt: false,
-    therapeuticClass: '항전간제 · 기분안정제',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['levetiracetam', '레베티라세탐', '케프라'],
-    ingredientId: 'ing_levetiracetam',
-    englishInn: 'Levetiracetam',
-    koreanName: '레베티라세탐',
-    isPrebuilt: false,
-    therapeuticClass: '항전간제',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['topiramate', '토피라메이트', '토파맥스'],
-    ingredientId: 'ing_topiramate',
-    englishInn: 'Topiramate',
-    koreanName: '토피라메이트',
-    isPrebuilt: false,
-    therapeuticClass: '항전간제 · 편두통 예방제',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['pregabalin', '프레가발린', '리리카'],
-    ingredientId: 'ing_pregabalin',
-    englishInn: 'Pregabalin',
-    koreanName: '프레가발린',
-    isPrebuilt: false,
-    therapeuticClass: '신경병증성 통증 치료제 · 항전간제',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['gabapentin', '가바펜틴', '뉴론틴'],
-    ingredientId: 'ing_gabapentin',
-    englishInn: 'Gabapentin',
-    koreanName: '가바펜틴',
-    isPrebuilt: false,
-    therapeuticClass: '신경병증성 통증 치료제 · 항전간제',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['warfarin', '와파린', '쿠마딘'],
-    ingredientId: 'ing_warfarin',
-    englishInn: 'Warfarin',
-    koreanName: '와파린',
-    isPrebuilt: false,
-    therapeuticClass: '경구용 항응고제 (비타민 K 길항제)',
-    defaultDurGrade: 'GRADE_1'
-  },
-  {
-    keywords: ['aspirin', '아스피린'],
-    ingredientId: 'ing_aspirin',
-    englishInn: 'Aspirin',
-    koreanName: '아스피린',
-    isPrebuilt: false,
-    therapeuticClass: '살리실산계 항혈소판제 · 해열진통소염제',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['clopidogrel', '클로피도그렐', '플라빅스'],
-    ingredientId: 'ing_clopidogrel',
-    englishInn: 'Clopidogrel',
-    koreanName: '클로피도그렐',
-    isPrebuilt: false,
-    therapeuticClass: '혈소판 응집 억제제',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['nifedipine', '니페디핀', '아달라트'],
-    ingredientId: 'ing_nifedipine',
-    englishInn: 'Nifedipine',
-    koreanName: '니페디핀',
-    isPrebuilt: false,
-    therapeuticClass: '칼슘채널차단제 (CCB · 항고혈압제/자궁수축억제제)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['labetalol', '라베탈롤'],
-    ingredientId: 'ing_labetalol',
-    englishInn: 'Labetalol',
-    koreanName: '라베탈롤',
-    isPrebuilt: false,
-    therapeuticClass: '알파·베타차단제 (임신성 고혈압 치료제)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['propranolol', '프로프라놀롤', '인데놀'],
-    ingredientId: 'ing_propranolol',
-    englishInn: 'Propranolol',
-    koreanName: '프로프라놀롤',
-    isPrebuilt: false,
-    therapeuticClass: '비선택적 베타차단제',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['bisoprolol', '비소프롤롤', '콩코르'],
-    ingredientId: 'ing_bisoprolol',
-    englishInn: 'Bisoprolol',
-    koreanName: '비소프롤롤',
-    isPrebuilt: false,
-    therapeuticClass: '선택적 베타-1 차단제',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['carvedilol', '카르베딜롤', '딜라트렌'],
-    ingredientId: 'ing_carvedilol',
-    englishInn: 'Carvedilol',
-    koreanName: '카르베딜롤',
-    isPrebuilt: false,
-    therapeuticClass: '알파·베타차단제',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['olmesartan', '올메사르탄', '올메텍'],
-    ingredientId: 'ing_olmesartan',
-    englishInn: 'Olmesartan',
-    koreanName: '올메사르탄',
-    isPrebuilt: false,
-    therapeuticClass: '안지오텐신 II 수용체 차단제 (ARB)',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['irbesartan', '이르베사르탄', '아프로벨'],
-    ingredientId: 'ing_irbesartan',
-    englishInn: 'Irbesartan',
-    koreanName: '이르베사르탄',
-    isPrebuilt: false,
-    therapeuticClass: '안지오텐신 II 수용체 차단제 (ARB)',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['fimasartan', '피마사르탄', '카나브'],
-    ingredientId: 'ing_fimasartan',
-    englishInn: 'Fimasartan',
-    koreanName: '피마사르탄',
-    isPrebuilt: false,
-    therapeuticClass: '안지오텐신 II 수용체 차단제 (ARB)',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['enalapril', '에날라프릴'],
-    ingredientId: 'ing_enalapril',
-    englishInn: 'Enalapril',
-    koreanName: '에날라프릴',
-    isPrebuilt: false,
-    therapeuticClass: 'ACE 억제제 (항고혈압제)',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['ramipril', '라미프릴'],
-    ingredientId: 'ing_ramipril',
-    englishInn: 'Ramipril',
-    koreanName: '라미프릴',
-    isPrebuilt: false,
-    therapeuticClass: 'ACE 억제제 (항고혈압제)',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['furosemide', '푸로세미드', '라식스'],
-    ingredientId: 'ing_furosemide',
-    englishInn: 'Furosemide',
-    koreanName: '푸로세미드',
-    isPrebuilt: false,
-    therapeuticClass: '루프 이뇨제',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['hydrochlorothiazide', '히드로클로로티아지드'],
-    ingredientId: 'ing_hydrochlorothiazide',
-    englishInn: 'Hydrochlorothiazide',
-    koreanName: '히드로클로로티아지드',
-    isPrebuilt: false,
-    therapeuticClass: '티아지드계 이뇨제',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['spironolactone', '스피로노락톤', '알닥톤'],
-    ingredientId: 'ing_spironolactone',
-    englishInn: 'Spironolactone',
-    koreanName: '스피로노락톤',
-    isPrebuilt: false,
-    therapeuticClass: '칼륨보존성 이뇨제 (알도스테론 길항제)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['empagliflozin', '엠파글리플로진', '자디앙'],
-    ingredientId: 'ing_empagliflozin',
-    englishInn: 'Empagliflozin',
-    koreanName: '엠파글리플로진',
-    isPrebuilt: false,
-    therapeuticClass: 'SGLT-2 억제제 (혈당강하제)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['dapagliflozin', '다파글리플로진', '포시가'],
-    ingredientId: 'ing_dapagliflozin',
-    englishInn: 'Dapagliflozin',
-    koreanName: '다파글리플로진',
-    isPrebuilt: false,
-    therapeuticClass: 'SGLT-2 억제제 (혈당강하제)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['sitagliptin', '시타글립틴', '자누비아'],
-    ingredientId: 'ing_sitagliptin',
-    englishInn: 'Sitagliptin',
-    koreanName: '시타글립틴',
-    isPrebuilt: false,
-    therapeuticClass: 'DPP-4 억제제 (혈당강하제)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['linagliptin', '리나글립틴', '트라젠타'],
-    ingredientId: 'ing_linagliptin',
-    englishInn: 'Linagliptin',
-    koreanName: '리나글립틴',
-    isPrebuilt: false,
-    therapeuticClass: 'DPP-4 억제제 (혈당강하제)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['glimepiride', '글리메피리드', '아마릴'],
-    ingredientId: 'ing_glimepiride',
-    englishInn: 'Glimepiride',
-    koreanName: '글리메피리드',
-    isPrebuilt: false,
-    therapeuticClass: '설포닐우레아계 혈당강하제',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['methimazole', '메티마졸'],
-    ingredientId: 'ing_methimazole',
-    englishInn: 'Methimazole',
-    koreanName: '메티마졸',
-    isPrebuilt: false,
-    therapeuticClass: '항갑상선제',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['propylthiouracil', '프로필티오우라실', '안티로이드'],
-    ingredientId: 'ing_propylthiouracil',
-    englishInn: 'Propylthiouracil',
-    koreanName: '프로필티오우라실',
-    isPrebuilt: false,
-    therapeuticClass: '항갑상선제',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['prednisolone', '프레드니솔론', '소론도'],
-    ingredientId: 'ing_prednisolone',
-    englishInn: 'Prednisolone',
-    koreanName: '프레드니솔론',
-    isPrebuilt: false,
-    therapeuticClass: '부신피질호르몬제 (코르티코스테로이드)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['methylprednisolone', '메틸프레드니솔론', '메디솔론'],
-    ingredientId: 'ing_methylprednisolone',
-    englishInn: 'Methylprednisolone',
-    koreanName: '메틸프레드니솔론',
-    isPrebuilt: false,
-    therapeuticClass: '부신피질호르몬제 (코르티코스테로이드)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['dexamethasone', '덱사메타손'],
-    ingredientId: 'ing_dexamethasone',
-    englishInn: 'Dexamethasone',
-    koreanName: '덱사메타손',
-    isPrebuilt: false,
-    therapeuticClass: '부신피질호르몬제 (코르티코스테로이드)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['celecoxib', '세레콕시브', '쎄레브렉스'],
-    ingredientId: 'ing_celecoxib',
-    englishInn: 'Celecoxib',
-    koreanName: '세레콕시브',
-    isPrebuilt: false,
-    therapeuticClass: 'COX-2 선택적 비스테로이드성 소염진통제 (NSAIDs)',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['aceclofenac', '아세클로페낙', '에어탈'],
-    ingredientId: 'ing_aceclofenac',
-    englishInn: 'Aceclofenac',
-    koreanName: '아세클로페낙',
-    isPrebuilt: false,
-    therapeuticClass: '비스테로이드성 소염진통제 (NSAIDs)',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['diclofenac', '디클로페낙'],
-    ingredientId: 'ing_diclofenac',
-    englishInn: 'Diclofenac',
-    koreanName: '디클로페낙',
-    isPrebuilt: false,
-    therapeuticClass: '비스테로이드성 소염진통제 (NSAIDs)',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['meloxicam', '멜록시캄', '모빅'],
-    ingredientId: 'ing_meloxicam',
-    englishInn: 'Meloxicam',
-    koreanName: '멜록시캄',
-    isPrebuilt: false,
-    therapeuticClass: '비스테로이드성 소염진통제 (NSAIDs)',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['ketorolac', '케토롤락'],
-    ingredientId: 'ing_ketorolac',
-    englishInn: 'Ketorolac',
-    koreanName: '케토롤락',
-    isPrebuilt: false,
-    therapeuticClass: '비스테로이드성 소염진통제 (NSAIDs)',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['tramadol', '트라마돌'],
-    ingredientId: 'ing_tramadol',
-    englishInn: 'Tramadol',
-    koreanName: '트라마돌',
-    isPrebuilt: false,
-    therapeuticClass: '중추성 비마약성 진통제',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['sumatriptan', '수마트립탄'],
-    ingredientId: 'ing_sumatriptan',
-    englishInn: 'Sumatriptan',
-    koreanName: '수마트립탄',
-    isPrebuilt: false,
-    therapeuticClass: '편두통 치료제 (5-HT1 수용체 효능제 · Triptan계)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['cefadroxil', '세파드록실'],
-    ingredientId: 'ing_cefadroxil',
-    englishInn: 'Cefadroxil',
-    koreanName: '세파드록실',
-    isPrebuilt: false,
-    therapeuticClass: '1세대 세팔로스포린계 항생제',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['cephalexin', 'cefalexin', '세팔렉신'],
-    ingredientId: 'ing_cephalexin',
-    englishInn: 'Cephalexin',
-    koreanName: '세팔렉신',
-    isPrebuilt: false,
-    therapeuticClass: '1세대 세팔로스포린계 항생제',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['cefaclor', '세파클러'],
-    ingredientId: 'ing_cefaclor',
-    englishInn: 'Cefaclor',
-    koreanName: '세파클러',
-    isPrebuilt: false,
-    therapeuticClass: '2세대 세팔로스포린계 항생제',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['cefuroxime', '세푸록심'],
-    ingredientId: 'ing_cefuroxime',
-    englishInn: 'Cefuroxime',
-    koreanName: '세푸록심',
-    isPrebuilt: false,
-    therapeuticClass: '2세대 세팔로스포린계 항생제',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['cefdinir', '세프디니르', '옴니세프'],
-    ingredientId: 'ing_cefdinir',
-    englishInn: 'Cefdinir',
-    koreanName: '세프디니르',
-    isPrebuilt: false,
-    therapeuticClass: '3세대 세팔로스포린계 항생제',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['cefpodoxime', '세프포독심'],
-    ingredientId: 'ing_cefpodoxime',
-    englishInn: 'Cefpodoxime',
-    koreanName: '세프포독심',
-    isPrebuilt: false,
-    therapeuticClass: '3세대 세팔로스포린계 항생제',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['azithromycin', '아지트로마이신', '지스로맥스'],
-    ingredientId: 'ing_azithromycin',
-    englishInn: 'Azithromycin',
-    koreanName: '아지트로마이신',
-    isPrebuilt: false,
-    therapeuticClass: '마크로라이드계 항생제',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['clarithromycin', '클라리스로마이신', '클래리시드'],
-    ingredientId: 'ing_clarithromycin',
-    englishInn: 'Clarithromycin',
-    koreanName: '클라리스로마이신',
-    isPrebuilt: false,
-    therapeuticClass: '마크로라이드계 항생제',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['doxycycline', '독시사이클린'],
-    ingredientId: 'ing_doxycycline',
-    englishInn: 'Doxycycline',
-    koreanName: '독시사이클린',
-    isPrebuilt: false,
-    therapeuticClass: '테트라사이클린계 항생제',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['minocycline', '미노사이클린'],
-    ingredientId: 'ing_minocycline',
-    englishInn: 'Minocycline',
-    koreanName: '미노사이클린',
-    isPrebuilt: false,
-    therapeuticClass: '테트라사이클린계 항생제',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['ciprofloxacin', '시프로플록사신'],
-    ingredientId: 'ing_ciprofloxacin',
-    englishInn: 'Ciprofloxacin',
-    koreanName: '시프로플록사신',
-    isPrebuilt: false,
-    therapeuticClass: '플루오로퀴놀론계 항균제',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['levofloxacin', '레보플록사신', '크라비트'],
-    ingredientId: 'ing_levofloxacin',
-    englishInn: 'Levofloxacin',
-    koreanName: '레보플록사신',
-    isPrebuilt: false,
-    therapeuticClass: '플루오로퀴놀론계 항균제',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['metronidazole', '메트로니다졸', '후라시닐'],
-    ingredientId: 'ing_metronidazole',
-    englishInn: 'Metronidazole',
-    koreanName: '메트로니다졸',
-    isPrebuilt: false,
-    therapeuticClass: '항원충제 · 혐기성 세균 항균제',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['fluconazole', '플루코나졸', '디푸루칸'],
-    ingredientId: 'ing_fluconazole',
-    englishInn: 'Fluconazole',
-    koreanName: '플루코나졸',
-    isPrebuilt: false,
-    therapeuticClass: '트리아졸계 항진균제',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['itraconazole', '이트라코나졸', '스포라녹스'],
-    ingredientId: 'ing_itraconazole',
-    englishInn: 'Itraconazole',
-    koreanName: '이트라코나졸',
-    isPrebuilt: false,
-    therapeuticClass: '트리아졸계 항진균제',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['terbinafine', '테르비나핀', '라미실'],
-    ingredientId: 'ing_terbinafine',
-    englishInn: 'Terbinafine',
-    koreanName: '테르비나핀',
-    isPrebuilt: false,
-    therapeuticClass: '알릴아민계 항진균제',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['acyclovir', '아시클로버', '조비락스'],
-    ingredientId: 'ing_acyclovir',
-    englishInn: 'Acyclovir',
-    koreanName: '아시클로버',
-    isPrebuilt: false,
-    therapeuticClass: '항바이러스제 (헤르페스·수두 치료제)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['valacyclovir', '발라시클로버', '발트렉스'],
-    ingredientId: 'ing_valacyclovir',
-    englishInn: 'Valacyclovir',
-    koreanName: '발라시클로버',
-    isPrebuilt: false,
-    therapeuticClass: '항바이러스제 (헤르페스·대상포진 치료제)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['oseltamivir', '오셀타미비르', '타미플루'],
-    ingredientId: 'ing_oseltamivir',
-    englishInn: 'Oseltamivir',
-    koreanName: '오셀타미비르',
-    isPrebuilt: false,
-    therapeuticClass: '인플루엔자 항바이러스제 (뉴라미니다아제 억제제)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['lansoprazole', '란소프라졸', '란스톤'],
-    ingredientId: 'ing_lansoprazole',
-    englishInn: 'Lansoprazole',
-    koreanName: '란소프라졸',
-    isPrebuilt: false,
-    therapeuticClass: '프로톤펌프억제제 (PPI)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['dexlansoprazole', '덱슬란소프라졸', '덱실란트'],
-    ingredientId: 'ing_dexlansoprazole',
-    englishInn: 'Dexlansoprazole',
-    koreanName: '덱슬란소프라졸',
-    isPrebuilt: false,
-    therapeuticClass: '프로톤펌프억제제 (PPI)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['tegoprazan', '테고프라잔', '케이캡'],
-    ingredientId: 'ing_tegoprazan',
-    englishInn: 'Tegoprazan',
-    koreanName: '테고프라잔',
-    isPrebuilt: false,
-    therapeuticClass: '칼륨경쟁적 위산분비억제제 (P-CAB)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['fexuprazan', '펙수프라잔', '펙수클루'],
-    ingredientId: 'ing_fexuprazan',
-    englishInn: 'Fexuprazan',
-    koreanName: '펙수프라잔',
-    isPrebuilt: false,
-    therapeuticClass: '칼륨경쟁적 위산분비억제제 (P-CAB)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['mosapride', '모사프리드', '가스모틴'],
-    ingredientId: 'ing_mosapride',
-    englishInn: 'Mosapride',
-    koreanName: '모사프리드',
-    isPrebuilt: false,
-    therapeuticClass: '위장관 운동 촉진제 (5-HT4 수용체 효능제)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['domperidone', '돔페리돈'],
-    ingredientId: 'ing_domperidone',
-    englishInn: 'Domperidone',
-    koreanName: '돔페리돈',
-    isPrebuilt: false,
-    therapeuticClass: '위장관 운동 조절제 · 항구토제 (도파민 D2 길항제)',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['metoclopramide', '메토클로프라미드', '맥페란'],
-    ingredientId: 'ing_metoclopramide',
-    englishInn: 'Metoclopramide',
-    koreanName: '메토클로프라미드',
-    isPrebuilt: false,
-    therapeuticClass: '항구토제 · 위장관 운동 촉진제',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['ondansetron', '온단세트론', '조프란'],
-    ingredientId: 'ing_ondansetron',
-    englishInn: 'Ondansetron',
-    koreanName: '온단세트론',
-    isPrebuilt: false,
-    therapeuticClass: '항구토제 (5-HT3 수용체 길항제)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['doxylamine', '독실아민', '디클렉틴'],
-    ingredientId: 'ing_doxylamine',
-    englishInn: 'Doxylamine',
-    koreanName: '독실아민',
-    isPrebuilt: false,
-    therapeuticClass: '1세대 항히스타민제 (수면유도제 · 임신 오조증 치료제)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['montelukast', '몬테루카스트', '싱귤레어'],
-    ingredientId: 'ing_montelukast',
-    englishInn: 'Montelukast',
-    koreanName: '몬테루카스트',
-    isPrebuilt: false,
-    therapeuticClass: '류코트리엔 수용체 길항제 (천식 · 알레르기 비염 치료제)',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['methotrexate', '메토트렉세이트'],
-    ingredientId: 'ing_methotrexate',
-    englishInn: 'Methotrexate',
-    koreanName: '메토트렉세이트',
-    isPrebuilt: false,
-    therapeuticClass: '엽산 길항 대사억제제 · 면역억제제',
-    defaultDurGrade: 'GRADE_1'
-  },
-  {
-    keywords: ['acitretin', '아시트레틴', '네오티가손'],
-    ingredientId: 'ing_acitretin',
-    englishInn: 'Acitretin',
-    koreanName: '아시트레틴',
-    isPrebuilt: false,
-    therapeuticClass: '레티노이드계 건선 치료제 (최기형성 물질)',
-    defaultDurGrade: 'GRADE_1'
-  },
-  {
-    keywords: ['alretinoin', 'alitretinoin', '알리트레티노인', '알리톡'],
-    ingredientId: 'ing_alitretinoin',
-    englishInn: 'Alitretinoin',
-    koreanName: '알리트레티노인',
-    isPrebuilt: false,
-    therapeuticClass: '레티노이드계 만성 손습진 치료제 (최기형성 물질)',
-    defaultDurGrade: 'GRADE_1'
-  },
-  {
-    keywords: ['misoprostol', '미소프로스톨', '싸이토텍'],
-    ingredientId: 'ing_misoprostol',
-    englishInn: 'Misoprostol',
-    koreanName: '미소프로스톨',
-    isPrebuilt: false,
-    therapeuticClass: '프로스타글란딘 E1 유도체 (위궤양 치료제 · 자궁수축 유발 금기)',
-    defaultDurGrade: 'GRADE_1'
-  },
-  {
-    keywords: ['ribavirin', '리바비린'],
-    ingredientId: 'ing_ribavirin',
-    englishInn: 'Ribavirin',
-    koreanName: '리바비린',
-    isPrebuilt: false,
-    therapeuticClass: '항바이러스제 (최기형성 물질)',
-    defaultDurGrade: 'GRADE_1'
-  },
-  {
-    keywords: ['mycophenolate', '미코페놀레이트', '셀셉트'],
-    ingredientId: 'ing_mycophenolate',
-    englishInn: 'Mycophenolate',
-    koreanName: '미코페놀레이트',
-    isPrebuilt: false,
-    therapeuticClass: '면역억제제',
-    defaultDurGrade: 'GRADE_2'
-  },
-  {
-    keywords: ['tacrolimus', '타크로리무스', '프로그랍'],
-    ingredientId: 'ing_tacrolimus',
-    englishInn: 'Tacrolimus',
-    koreanName: '타크로리무스',
-    isPrebuilt: false,
-    therapeuticClass: '칼시뉴린 억제 면역억제제',
-    defaultDurGrade: 'NONE'
-  },
-  {
-    keywords: ['hydroxychloroquine', '히드록시클로로퀸', '옥시크로린'],
-    ingredientId: 'ing_hydroxychloroquine',
-    englishInn: 'Hydroxychloroquine',
-    koreanName: '히드록시클로로퀸',
-    isPrebuilt: false,
-    therapeuticClass: '항말라리아제 · 항류마티스제 (DMARDs)',
-    defaultDurGrade: 'NONE'
+export const VERIFIED_DOMESTIC_SEED_PRODUCTS: MaternalDrugSearchCandidate[] = [
+  {
+    itemSeq: '202106092',
+    productName: '타이레놀정500밀리그람(아세트아미노펜)',
+    manufacturer: '켄뷰코리아판매유한회사',
+    etcOtcName: '일반의약품',
+    dosageForm: '필름코팅정',
+    route: '경구',
+    mainIngredientsText: '아세트아미노펜 (Acetaminophen) 500mg',
+    isCombination: false
+  },
+  {
+    itemSeq: '198300343',
+    productName: '부루펜정400밀리그램(이부프로펜)',
+    manufacturer: '삼일제약(주)',
+    etcOtcName: '일반의약품',
+    dosageForm: '당의정',
+    route: '경구',
+    mainIngredientsText: '이부프로펜 (Ibuprofen) 400mg',
+    isCombination: false
+  },
+  {
+    itemSeq: '200610765',
+    productName: '지르텍정(세티리진염산염)',
+    manufacturer: '한국유씨비제약(주)',
+    etcOtcName: '일반의약품',
+    dosageForm: '필름코팅정',
+    route: '경구',
+    mainIngredientsText: '세티리진염산염 (Cetirizine Hydrochloride) 10mg',
+    isCombination: false
+  },
+  {
+    itemSeq: '200905692',
+    productName: '클라리틴정(로라타딘)',
+    manufacturer: '바이엘코리아(주)',
+    etcOtcName: '일반의약품',
+    dosageForm: '정제',
+    route: '경구',
+    mainIngredientsText: '로라타딘 (Loratadine) 10mg',
+    isCombination: false
+  },
+  {
+    itemSeq: '198000158',
+    productName: '곰실린캡슐(아목시실린수화물)(수출명:대웅아목시실린캡슐500밀리그램)',
+    manufacturer: '(주)대웅제약',
+    etcOtcName: '전문의약품',
+    dosageForm: '경질캡슐',
+    route: '경구',
+    mainIngredientsText: '아목시실린수화물 (Amoxicillin Hydrate) 500mg(역가)',
+    isCombination: false
+  },
+  {
+    itemSeq: '197900575',
+    productName: '슈다페드정(슈도에페드린염산염)',
+    manufacturer: '삼일제약(주)',
+    etcOtcName: '일반의약품',
+    dosageForm: '정제',
+    route: '경구',
+    mainIngredientsText: '슈도에페드린염산염 (Pseudoephedrine Hydrochloride) 60mg',
+    isCombination: false
+  },
+  {
+    itemSeq: '199101279',
+    productName: '오구멘틴정625밀리그램(아목시실린·클라불란산칼륨(4:1))',
+    manufacturer: '일성아이에스(주)',
+    etcOtcName: '전문의약품',
+    dosageForm: '필름코팅정',
+    route: '경구',
+    mainIngredientsText: '아목시실린수화물 500mg(역가) + 클라불란산칼륨 125mg(역가)',
+    isCombination: true
+  },
+  {
+    itemSeq: '197000053',
+    productName: '액티피드정',
+    manufacturer: '삼일제약(주)',
+    etcOtcName: '일반의약품',
+    dosageForm: '정제',
+    route: '경구',
+    mainIngredientsText: '슈도에페드린염산염 60mg + 트리프롤리딘염산염수화물 2.5mg',
+    isCombination: true
+  },
+  {
+    itemSeq: '202003694',
+    productName: '울트라셋정',
+    manufacturer: '(주)한국얀센',
+    etcOtcName: '전문의약품',
+    dosageForm: '필름코팅정',
+    route: '경구',
+    mainIngredientsText: '트라마돌염산염 37.5mg + 아세트아미노펜 325mg',
+    isCombination: true
   }
 ];
 
-const KPIC_DETAILED_LIST = kpicDetailedIngredients as Array<{
-  kpicatc_code: string;
-  name: string;
-  category: string;
-  dept1: string;
-  dept2: string;
-  dept3: string;
-  dept4: string;
-}>;
+function inferRouteFromProduct(productName: string, chartText: string): string {
+  const combined = `${productName} ${chartText}`;
+  if (/점안|안약|안연고/.test(combined)) return '점안';
+  if (/비강|나잘|점비|에보할러|터부할러|디스커스|흡입/.test(combined)) return '흡입/비강';
+  if (/크림|연고|겔|로션|첩부|플라스타|카타플라스마|외용|액\(외용\)/.test(combined)) return '외용';
+  if (/주사|바이알|앰플|프리필드/.test(combined)) return '주사';
+  if (/좌제|질정/.test(combined)) return '직장/질내';
+  return '경구';
+}
 
-/**
- * 약학정보원(KPIC) 내장 사전(kpicDetailedIngredients.json + kpicMasterDatabase.json)에서
- * 영문 성분명(INN) 또는 한글 성분명의 약효분류 계층(예: "신경계 질환 > 항전간제") 조회
- */
-export function resolveKpicTherapeuticClass(englishInn: string, koreanName?: string): string | null {
-  const cleanEng = normalizeDrugSearchText(stripEnglishSaltAndHydrate(englishInn));
-  const cleanKor = koreanName ? normalizeDrugSearchText(stripKoreanSaltAndHydrate(koreanName)) : '';
+function inferDosageFormText(productName: string, chartText: string): string {
+  const combined = `${productName} ${chartText}`;
+  if (combined.includes('필름코팅정')) return '필름코팅정';
+  if (combined.includes('장용정') || combined.includes('장용과립')) return '장용정/장용과립';
+  if (combined.includes('서방정')) return '서방정';
+  if (combined.includes('연질캡슐') || combined.includes('연질캅셀')) return '연질캡슐';
+  if (combined.includes('경질캡슐') || combined.includes('캡슐') || combined.includes('캅셀')) return '캡슐제';
+  if (combined.includes('시럽') || combined.includes('현탁액')) return '시럽제/현탁액제';
+  if (combined.includes('산제') || combined.includes('과립')) return '산제/과립제';
+  if (combined.includes('크림')) return '크림제';
+  if (combined.includes('연고')) return '연고제';
+  if (combined.includes('겔')) return '겔제';
+  if (combined.includes('점안')) return '점안제';
+  if (combined.includes('주사')) return '주사제';
+  if (combined.includes('정')) return '정제';
+  return chartText ? chartText.slice(0, 20) : '기타 제형';
+}
 
-  if (cleanEng) {
-    const exactDetailed = KPIC_DETAILED_LIST.find(
-      (item) => normalizeDrugSearchText(stripEnglishSaltAndHydrate(item.name)) === cleanEng
-    );
-    if (exactDetailed) {
-      const parts = [exactDetailed.dept2, exactDetailed.dept3, exactDetailed.dept4 || exactDetailed.category]
-        .map((s) => (s || '').trim())
-        .filter((s, idx, arr) => s && s !== '기타' && arr.indexOf(s) === idx);
-      if (parts.length > 0) return parts.join(' · ');
-    }
-
-    const partialDetailed = KPIC_DETAILED_LIST.find((item) => {
-      const n = normalizeDrugSearchText(item.name);
-      return cleanEng.length >= 4 && (n.includes(cleanEng) || cleanEng.includes(n));
-    });
-    if (partialDetailed) {
-      const parts = [partialDetailed.dept2, partialDetailed.dept3, partialDetailed.dept4 || partialDetailed.category]
-        .map((s) => (s || '').trim())
-        .filter((s, idx, arr) => s && s !== '기타' && arr.indexOf(s) === idx);
-      if (parts.length > 0) return parts.join(' · ');
-    }
+function formatDateYmd(raw?: string | null): string {
+  if (!raw) return '기준일 미상';
+  const digits = String(raw).replace(/[^0-9]/g, '');
+  if (digits.length >= 8) {
+    return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
   }
-
-  // KPIC_MASTER_DATABASE 보조 조회
-  for (const [kpicKey, kpicCat] of Object.entries(KPIC_MASTER_DATABASE)) {
-    const normKey = normalizeDrugSearchText(kpicKey);
-    if ((cleanEng && normKey === cleanEng) || (cleanKor && normKey === cleanKor)) {
-      if (kpicCat && kpicCat !== '기타') return kpicCat;
-    }
-  }
-
-  return null;
+  return String(raw).trim();
 }
 
 /**
- * 한글/영문 성분명을 염기 제외 순수 성분(Base Ingredient) ID로 매핑
- * - 1순위: COMMON_BASE_INGREDIENT_MAP (다빈도 처방/일반약 사전)
- * - 2순위: INN_DICTIONARY 및 사용자 학습 사전 (getLearnedDict)
- * - 3순위: 식약처 MAIN_INGR_ENG 힌트 + 약학정보원(KPIC) 내장 사전(2,230+ 성분) 매칭
+ * 식약처 MATERIAL_NAME 및 MAIN_ITEM_INGR / MAIN_INGR_ENG에서 유효성분만 정확히 분리
  */
-export function resolveCoreMaternalIngredientId(
-  rawName: string,
-  hintEnglishInn?: string
-): {
-  ingredientId: string;
-  englishInn: string;
-  koreanName: string;
-  isVerifiedCore5: boolean;
-  therapeuticClass?: string;
-  defaultDurGrade?: 'GRADE_1' | 'GRADE_2' | 'NONE';
-} {
-  const combinedInput = hintEnglishInn ? `${rawName} (${hintEnglishInn})` : rawName;
-  const norm = normalizeDrugSearchText(combinedInput);
-  const cleanKor = stripKoreanSaltAndHydrate(rawName.replace(/\([A-Za-z0-9\s,-]+\)/g, '').trim());
-  const cleanEng = stripEnglishSaltAndHydrate(hintEnglishInn || rawName);
+export function parseMfdsActiveIngredients(params: {
+  materialName?: string | null;
+  mainItemIngr?: string | null;
+  mainIngrEng?: string | null;
+  rawIngredientsFallback?: string | null;
+  dosageForm: string;
+  route: string;
+}): DomesticIngredientItem[] {
+  const { materialName, mainItemIngr, mainIngrEng, rawIngredientsFallback, dosageForm, route } = params;
 
-  // 덱시부프로펜과 이부프로펜, 레보세티리진과 세티리진, 에스오메프라졸과 오메프라졸 구분 우선 처리
-  if (norm.includes('dexibuprofen') || norm.includes('덱시부프로펜')) {
-    const entry = COMMON_BASE_INGREDIENT_MAP.find((e) => e.ingredientId === 'ing_dexibuprofen')!;
-    return {
-      ingredientId: entry.ingredientId,
-      englishInn: entry.englishInn,
-      koreanName: entry.koreanName,
-      isVerifiedCore5: Boolean(PREGNANCY_SAFETY_DB[entry.ingredientId]),
-      therapeuticClass: entry.therapeuticClass,
-      defaultDurGrade: entry.defaultDurGrade
-    };
-  }
-  if (norm.includes('levocetirizine') || norm.includes('레보세티리진')) {
-    const entry = COMMON_BASE_INGREDIENT_MAP.find((e) => e.ingredientId === 'ing_levocetirizine')!;
-    return {
-      ingredientId: entry.ingredientId,
-      englishInn: entry.englishInn,
-      koreanName: entry.koreanName,
-      isVerifiedCore5: Boolean(PREGNANCY_SAFETY_DB[entry.ingredientId]),
-      therapeuticClass: entry.therapeuticClass,
-      defaultDurGrade: entry.defaultDurGrade
-    };
-  }
-  if (norm.includes('esomeprazole') || norm.includes('에소메프라졸') || norm.includes('에스오메프라졸')) {
-    const entry = COMMON_BASE_INGREDIENT_MAP.find((e) => e.ingredientId === 'ing_esomeprazole')!;
-    return {
-      ingredientId: entry.ingredientId,
-      englishInn: entry.englishInn,
-      koreanName: entry.koreanName,
-      isVerifiedCore5: Boolean(PREGNANCY_SAFETY_DB[entry.ingredientId]),
-      therapeuticClass: entry.therapeuticClass,
-      defaultDurGrade: entry.defaultDurGrade
-    };
-  }
-  if (norm.includes('dexlansoprazole') || norm.includes('덱슬란소프라졸')) {
-    const entry = COMMON_BASE_INGREDIENT_MAP.find((e) => e.ingredientId === 'ing_dexlansoprazole')!;
-    return {
-      ingredientId: entry.ingredientId,
-      englishInn: entry.englishInn,
-      koreanName: entry.koreanName,
-      isVerifiedCore5: Boolean(PREGNANCY_SAFETY_DB[entry.ingredientId]),
-      therapeuticClass: entry.therapeuticClass,
-      defaultDurGrade: entry.defaultDurGrade
-    };
-  }
-  if (norm.includes('escitalopram') || norm.includes('에스시탈로프람')) {
-    const entry = COMMON_BASE_INGREDIENT_MAP.find((e) => e.ingredientId === 'ing_escitalopram')!;
-    return {
-      ingredientId: entry.ingredientId,
-      englishInn: entry.englishInn,
-      koreanName: entry.koreanName,
-      isVerifiedCore5: Boolean(PREGNANCY_SAFETY_DB[entry.ingredientId]),
-      therapeuticClass: entry.therapeuticClass,
-      defaultDurGrade: entry.defaultDurGrade
-    };
-  }
-  if (norm.includes('valacyclovir') || norm.includes('발라시클로버')) {
-    const entry = COMMON_BASE_INGREDIENT_MAP.find((e) => e.ingredientId === 'ing_valacyclovir')!;
-    return {
-      ingredientId: entry.ingredientId,
-      englishInn: entry.englishInn,
-      koreanName: entry.koreanName,
-      isVerifiedCore5: Boolean(PREGNANCY_SAFETY_DB[entry.ingredientId]),
-      therapeuticClass: entry.therapeuticClass,
-      defaultDurGrade: entry.defaultDurGrade
-    };
-  }
-  if (norm.includes('methylprednisolone') || norm.includes('메틸프레드니솔론')) {
-    const entry = COMMON_BASE_INGREDIENT_MAP.find((e) => e.ingredientId === 'ing_methylprednisolone')!;
-    return {
-      ingredientId: entry.ingredientId,
-      englishInn: entry.englishInn,
-      koreanName: entry.koreanName,
-      isVerifiedCore5: Boolean(PREGNANCY_SAFETY_DB[entry.ingredientId]),
-      therapeuticClass: entry.therapeuticClass,
-      defaultDurGrade: entry.defaultDurGrade
-    };
-  }
+  const engCandidates = (mainIngrEng || '')
+    .split('/')
+    .map((s) => s.replace(/\[M[0-9]+\]/gi, '').trim())
+    .filter(Boolean);
 
-  for (const entry of COMMON_BASE_INGREDIENT_MAP) {
-    if (entry.keywords.some((kw) => norm.includes(normalizeDrugSearchText(kw)))) {
-      return {
-        ingredientId: entry.ingredientId,
-        englishInn: entry.englishInn,
-        koreanName: entry.koreanName,
-        isVerifiedCore5: Boolean(PREGNANCY_SAFETY_DB[entry.ingredientId]),
-        therapeuticClass:
-          entry.therapeuticClass || resolveKpicTherapeuticClass(entry.englishInn, entry.koreanName) || undefined,
-        defaultDurGrade: entry.defaultDurGrade
-      };
-    }
-  }
+  const mainKorSet = new Set(
+    (mainItemIngr || '')
+      .split(/[/|]/)
+      .map((s) => s.replace(/\[M[0-9]+\]/gi, '').trim())
+      .filter(Boolean)
+  );
 
-  // 2순위: INN_DICTIONARY 및 학습된 약학정보원 사전(getLearnedDict)에서 매칭
-  const allDicts = { ...INN_DICTIONARY, ...getLearnedDict() };
-  const normCleanKor = normalizeDrugSearchText(cleanKor);
-  const normCleanEng = normalizeDrugSearchText(cleanEng);
+  const results: DomesticIngredientItem[] = [];
 
-  for (const [dictKorKey, meta] of Object.entries(allDicts)) {
-    const normDictKor = normalizeDrugSearchText(stripKoreanSaltAndHydrate(dictKorKey));
-    const baseDictEng = stripEnglishSaltAndHydrate(meta.englishInn);
-    const normDictEng = normalizeDrugSearchText(baseDictEng);
+  // 1순위: MATERIAL_NAME 세미콜론(;) 구분 구조 파싱
+  if (materialName && materialName.includes('|')) {
+    const blocks = materialName
+      .split(';')
+      .map((b) => b.trim())
+      .filter(Boolean);
 
-    if (
-      (normCleanKor && normDictKor === normCleanKor) ||
-      (normCleanEng && normDictEng && normDictEng === normCleanEng)
-    ) {
-      const slug = normDictEng.replace(/[^a-z0-9]/g, '') || normDictKor;
-      const dynamicId = `ing_${slug}`;
-      const kpicClass = resolveKpicTherapeuticClass(baseDictEng, cleanKor) || meta.functionalCategory;
-      return {
-        ingredientId: dynamicId,
-        englishInn: baseDictEng,
-        koreanName: /[가-힣]/.test(cleanKor) ? cleanKor : dictKorKey,
-        isVerifiedCore5: Boolean(PREGNANCY_SAFETY_DB[dynamicId]),
-        therapeuticClass: kpicClass
-      };
-    }
-  }
-
-  // 3순위: 약학정보원(KPIC) 2,230+ 영문 성분 사전(kpicDetailedIngredients.json)에서 영문 INN 매칭
-  const parenEngMatch = combinedInput.match(/\(([A-Za-z0-9\s,-]+)\)/);
-  const candidateEng = parenEngMatch
-    ? stripEnglishSaltAndHydrate(parenEngMatch[1])
-    : /^[A-Za-z\s,-]+$/.test(cleanEng)
-    ? cleanEng
-    : '';
-
-  if (candidateEng) {
-    const normCandEng = normalizeDrugSearchText(candidateEng);
-    const kpicHit = KPIC_DETAILED_LIST.find(
-      (item) => normalizeDrugSearchText(stripEnglishSaltAndHydrate(item.name)) === normCandEng
-    );
-    const finalEng = kpicHit ? stripEnglishSaltAndHydrate(kpicHit.name) : candidateEng;
-    const kpicClass = resolveKpicTherapeuticClass(finalEng, cleanKor);
-    const slug = normalizeDrugSearchText(finalEng).replace(/[^a-z0-9]/g, '');
-    const dynamicId = `ing_kpic_${slug || 'unknown'}`;
-
-    return {
-      ingredientId: dynamicId,
-      englishInn: finalEng,
-      koreanName: /[가-힣]/.test(cleanKor) ? cleanKor : finalEng,
-      isVerifiedCore5: Boolean(PREGNANCY_SAFETY_DB[dynamicId]),
-      therapeuticClass: kpicClass || undefined
-    };
-  }
-
-  const slug = normalizeDrugSearchText(cleanKor).replace(/[^a-z0-9가-힣]/g, '');
-  const dynamicId = `ing_dyn_${slug || 'unknown'}`;
-  const kpicClass = resolveKpicTherapeuticClass(cleanEng, cleanKor);
-
-  return {
-    ingredientId: dynamicId,
-    englishInn: cleanEng || cleanKor,
-    koreanName: cleanKor,
-    isVerifiedCore5: Boolean(PREGNANCY_SAFETY_DB[dynamicId]),
-    therapeuticClass: kpicClass || undefined
-  };
-}
-
-/**
- * 제형/성상 텍스트로부터 투여 경로 판별
- */
-function inferRouteFromDosageForm(formOrName: string): {
-  route: AdministrationRoute;
-  routeKorean: string;
-} {
-  const s = formOrName.toLowerCase();
-  if (/점안|안약/.test(s)) return { route: 'OPHTHALMIC', routeKorean: '점안 투여' };
-  if (/연고|크림|겔|로션|외용|패치|카타플라스마|플라스타/.test(s)) {
-    return { route: 'TOPICAL', routeKorean: '외용 도포/부착' };
-  }
-  if (/주사|바이알|앰플/.test(s) && !/내복/.test(s)) {
-    return { route: 'INJECTION', routeKorean: '주사 투여' };
-  }
-  if (/흡입|분무|나잘스프레이/.test(s)) {
-    return { route: 'INHALATION', routeKorean: '흡입/비강 분무' };
-  }
-  return { route: 'ORAL', routeKorean: '경구 투여' };
-}
-
-/**
- * 로컬 검증 DB(내장 국내 대표 단일제·복합제 품목) 즉시 검색 (제품명 전용)
- * - '리피토정 20mg' 입력 시 '리피토정20밀리그램'과 자동 매칭
- */
-export function searchLocalMaternalDatabase(query: string): MaternalSearchResult[] {
-  const clean = query.trim();
-  const norm = normalizeQueryForProductMatch(clean);
-
-  const results: MaternalSearchResult[] = [];
-
-  // 내장 국내 허가 의약품(단일제·복합제) 제품명 검색 (단위 mg <-> 밀리그램 정규화 적용, 성분명 검색 제외)
-  for (const drug of DRUG_MASTER_DB) {
-    const mappings = INGREDIENT_MAPPING_DB.filter((m) => m.drugMasterId === drug.id);
-    const matchProd = normalizeQueryForProductMatch(drug.koreanProductName).includes(norm);
-    const matchSeq = Boolean(clean) && drug.itemSeq.includes(clean);
-
-    if (!norm || matchProd || matchSeq) {
-      const firstVerified = mappings.find((m) => m.verificationStatus === 'VERIFIED_CORE_5');
-      results.push({
-        resultType: 'DOMESTIC_PRODUCT',
-        id: drug.id,
-        displayName: drug.koreanProductName,
-        subLabel: `${drug.manufacturer} · ${drug.dosageForm} · 품목기준코드 ${drug.itemSeq}`,
-        isCombination: drug.isCombination,
-        drugMaster: drug,
-        mappedIngredients: mappings,
-        primaryIngredientId: firstVerified?.ingredientId || mappings[0]?.ingredientId || 'ing_acetaminophen'
+    let activeIdx = 0;
+    for (const block of blocks) {
+      const fields: Record<string, string> = {};
+      block.split('|').forEach((kv) => {
+        const colonIdx = kv.indexOf(':');
+        if (colonIdx !== -1) {
+          fields[kv.slice(0, colonIdx).trim()] = kv.slice(colonIdx + 1).trim();
+        }
       });
-    }
-  }
 
-  return results;
-}
+      const korName = (fields['성분명'] || '').trim();
+      if (!korName) continue;
 
-/**
- * 실시간 조회된 식약처 허가사항(NB_DOC_DATA) 및 openFDA 라벨 원문을 바탕으로
- * 기등록 성분이 아닌 국내 의약품도 아세트아미노펜/아토르바스타틴과 동일한 구조의 요약·상세 데이터를 생성
- * - 절대 RID 등 정량 수치를 임의 생성하지 않으며('확인되지 않음' 유지), 식약처 및 FDA 원문에 기반해 구조화
- */
-async function ensureDynamicMaternalRecord(params: {
-  ingredientId: string;
-  koreanName: string;
-  englishInn: string;
-  therapeuticClass: string;
-  route: AdministrationRoute;
-  routeKorean: string;
-  mfdsPrecautionText: string;
-  itemSeq: string;
-  productName: string;
-  defaultDurGrade?: 'GRADE_1' | 'GRADE_2' | 'NONE';
-}): Promise<void> {
-  const {
-    ingredientId,
-    koreanName,
-    englishInn,
-    therapeuticClass,
-    route,
-    routeKorean,
-    mfdsPrecautionText,
-    itemSeq,
-    productName,
-    defaultDurGrade
-  } = params;
-
-  if (PREGNANCY_SAFETY_DB[ingredientId] && LACTATION_SAFETY_DB[ingredientId]) {
-    return;
-  }
-
-  // openFDA 실시간 라벨 원문 조회 시도 (영문 INN이 알파벳인 경우)
-  const hasEnglishInn = /^[A-Za-z\s-]+$/.test(englishInn);
-  const fdaLabel = hasEnglishInn ? await fetchLiveOpenFdaLabel(englishInn) : null;
-
-  // 식약처 허가문구 및 FDA 문구에서 금기/주의 수준 판별
-  const combinedText = `${mfdsPrecautionText}\n${fdaLabel?.pregnancyText || ''}`;
-  const isContraindicatedPreg =
-    defaultDurGrade === 'GRADE_1' ||
-    /임부.*투여하지\s*말\s*것|임부.*금기|임신.*금기|contraindicated in pregnancy/i.test(combinedText);
-  const isSecondGradeOrThirdTriRisk =
-    defaultDurGrade === 'GRADE_2' ||
-    /임신\s*말기.*투여하지|임신\s*20주|임신\s*30주|태아.*동맥관|양수과소증/i.test(combinedText);
-
-  const t1Level: SafetySummaryLevel = isContraindicatedPreg
-    ? 'LEVEL_4_AVOID'
-    : isSecondGradeOrThirdTriRisk
-    ? 'LEVEL_3_CAUTION'
-    : 'LEVEL_3_CAUTION';
-  const t2Level: SafetySummaryLevel = isContraindicatedPreg
-    ? 'LEVEL_4_AVOID'
-    : isSecondGradeOrThirdTriRisk
-    ? 'LEVEL_4_AVOID'
-    : 'LEVEL_3_CAUTION';
-  const t3Level: SafetySummaryLevel = isContraindicatedPreg
-    ? 'LEVEL_4_AVOID'
-    : isSecondGradeOrThirdTriRisk
-    ? 'LEVEL_4_AVOID'
-    : 'LEVEL_3_CAUTION';
-
-  const isLactationAvoid =
-    isContraindicatedPreg ||
-    /수유부.*투여하지\s*말\s*것|수유를\s*중단|do not breastfeed|breastfeeding is not recommended/i.test(
-      `${mfdsPrecautionText}\n${fdaLabel?.lactationText || ''}`
-    );
-  const lactLevel: SafetySummaryLevel = isLactationAvoid ? 'LEVEL_4_AVOID' : 'LEVEL_3_CAUTION';
-
-  const durGradeText: '임부금기 1등급' | '임부금기 2등급' | '임부금기 미지정' =
-    defaultDurGrade === 'GRADE_1' || isContraindicatedPreg
-      ? '임부금기 1등급'
-      : defaultDurGrade === 'GRADE_2' || isSecondGradeOrThirdTriRisk
-      ? '임부금기 2등급'
-      : '임부금기 미지정';
-
-  const fdaPregSnippet = fdaLabel?.pregnancyText
-    ? fdaLabel.pregnancyText.slice(0, 420) + (fdaLabel.pregnancyText.length > 420 ? '...' : '')
-    : `openFDA 영문 라벨 원문 또는 MotherToBaby/LactMed에서 ${englishInn}의 최신 임신 코호트 근거를 교차 확인하십시오.`;
-
-  const fdaLactSnippet = fdaLabel?.lactationText
-    ? fdaLabel.lactationText.slice(0, 420) + (fdaLabel.lactationText.length > 420 ? '...' : '')
-    : '확인되지 않음 (모유 내 농도 정량 데이터는 하단 LactMed 원문 검색 링크에서 직접 확인 필요).';
-
-  const validItemSeq = itemSeq && itemSeq !== '-' ? itemSeq : '';
-  const mfdsSourceId = validItemSeq ? `src_mfds_dyn_${validItemSeq}` : `src_mfds_dyn_${ingredientId}`;
-  const lactmedSourceId = `src_lactmed_dyn_${ingredientId}`;
-  const fdaSourceId = `src_fda_dyn_${ingredientId}`;
-
-  EVIDENCE_SOURCES_DB[mfdsSourceId] = {
-    sourceId: mfdsSourceId,
-    ingredientId,
-    organizationName: '식약처 의약품안전나라',
-    documentTitle: validItemSeq
-      ? `식약처 의약품 상세허가정보: ${productName} [품목기준코드: ${validItemSeq}]`
-      : `식약처 의약품안전나라 성분 검색: ${koreanName} (${englishInn})`,
-    originalUrl: validItemSeq
-      ? `https://nedrug.mfds.go.kr/pbp/CCBBB01/getItemDetail?itemSeq=${validItemSeq}`
-      : `https://nedrug.mfds.go.kr/searchDrug?sort=&sortOrder=false&searchYn=true&ingrName1=${encodeURIComponent(
-          koreanName
-        )}`,
-    studyDesign: '대한민국 식품의약품안전처 공식 허가사항 (사용상의 주의사항 원문)',
-    studySubjects: '국내 허가 의약품',
-    studyScale: '공식 규제 허가문서',
-    keyFindings: mfdsPrecautionText.slice(0, 260),
-    studyLimitations: '국내 허가사항 원문 기준이며, 해외 최신 코호트 연구와 병행 확인 권장.',
-    publishedDate: '식약처 실시간 API',
-    collectedDate: new Date().toISOString().slice(0, 10),
-    lastVerifiedDate: new Date().toISOString().slice(0, 10)
-  };
-
-  EVIDENCE_SOURCES_DB[lactmedSourceId] = {
-    sourceId: lactmedSourceId,
-    ingredientId,
-    organizationName: 'LactMed (NIH)',
-    documentTitle: `NIH LactMed® Database Search: ${englishInn}`,
-    originalUrl: `https://www.ncbi.nlm.nih.gov/books/NBK501922/?term=${encodeURIComponent(englishInn)}`,
-    studyDesign: '미국 국립의학도서관(NLM) 모유 수유 약물 데이터베이스',
-    studySubjects: `${englishInn} 복용 수유부 및 영아`,
-    studyScale: '국제 수유 약동학 문헌 데이터베이스',
-    keyFindings: `${englishInn} 성분의 모유 이행 및 RID 원문 모노그래프 직접 조회 링크.`,
-    studyLimitations: '실시간 연동 요약에서는 정량 RID를 임의 추정하지 않으므로 원문 모노그래프를 직접 확인하십시오.',
-    publishedDate: '상시 업데이트',
-    collectedDate: new Date().toISOString().slice(0, 10),
-    lastVerifiedDate: new Date().toISOString().slice(0, 10)
-  };
-
-  EVIDENCE_SOURCES_DB[fdaSourceId] = {
-    sourceId: fdaSourceId,
-    ingredientId,
-    organizationName: 'FDA PLLR',
-    documentTitle: `openFDA Drug Label: ${englishInn} (Pregnancy & Lactation)`,
-    originalUrl: `https://api.fda.gov/drug/label.json?search=openfda.generic_name:%22${encodeURIComponent(
-      englishInn
-    )}%22&limit=1`,
-    studyDesign: '미국 FDA 허가사항 (PLLR Section 8.1 & 8.2)',
-    studySubjects: '임부 및 수유부 허가 심사 근거',
-    studyScale: 'FDA 공식 라벨 데이터',
-    keyFindings: fdaPregSnippet,
-    studyLimitations: '성분별 미국 허가 라벨 유무에 따라 원문 길이가 다를 수 있음.',
-    publishedDate: fdaLabel?.effectiveTime || 'openFDA 실시간 API',
-    collectedDate: new Date().toISOString().slice(0, 10),
-    lastVerifiedDate: new Date().toISOString().slice(0, 10)
-  };
-
-  PREGNANCY_SAFETY_DB[ingredientId] = {
-    ingredientId,
-    englishInn,
-    koreanIngrName: koreanName,
-    therapeuticClass,
-    route,
-    routeKorean,
-    trimester1Level: t1Level,
-    trimester2Level: t2Level,
-    trimester3Level: t3Level,
-    trimester1Summary: isContraindicatedPreg
-      ? `임신 1삼분기(1~13주): 식약처 허가사항 및 임상 근거상 임부 투여 금지(사용 회피) 대상입니다.`
-      : `임신 1삼분기(1~13주): 식약처 허가사항 원문 주의 조항이 적용되며, 치료상 유익성이 위험성을 상회할 때만 제한적으로 사용합니다.`,
-    trimester2Summary: isContraindicatedPreg
-      ? `임신 2삼분기(14~27주): 임신 전 기간 투여 금지(사용 회피) 대상입니다.`
-      : `임신 2삼분기(14~27주): 태아 성장 및 장기 발달에 미치는 영향을 고려하여 주의하여 사용합니다.`,
-    trimester3Summary:
-      isContraindicatedPreg || isSecondGradeOrThirdTriRisk
-        ? `임신 3삼분기(28~40주): 임신 후기 태아 독성 또는 분만 관련 위험으로 인해 사용 회피가 권고됩니다.`
-        : `임신 3삼분기(28~40주): 출산 임박 시기 신생아 이행 영향을 고려하여 처방의와 상의 후 주의하여 사용합니다.`,
-    weekSpecificRisks: [
-      {
-        startWeek: 1,
-        endWeek: 40,
-        level: isContraindicatedPreg ? 'LEVEL_4_AVOID' : 'LEVEL_3_CAUTION',
-        riskTitle: `${koreanName} (${englishInn}) 식약처 허가사항 및 FDA 기준 임신 중 주의·금기 안내`,
-        clinicalDetail: mfdsPrecautionText
-      }
-    ],
-    congenitalMalformationData: fdaLabel?.pregnancyText
-      ? `[FDA PLLR 8.1 원문 발췌] ${fdaPregSnippet}`
-      : `식약처 허가사항 원문: "${mfdsPrecautionText}"`,
-    miscarriageData: '식약처 허가사항 및 FDA 라벨 원문 기준 (하단 원문 출처 탭에서 상세 확인 가능).',
-    fetalToxicityData: mfdsPrecautionText,
-    fetalRenalRisk: /신장|신기능|양수/.test(combinedText)
-      ? '허가사항 내 태아 신기능 또는 양수 관련 주의 문구가 포함되어 있습니다. 원문을 반드시 확인하십시오.'
-      : '식약처 허가사항 원문 내 특이 태아 신독성 언급 없음 (원문 참조).',
-    fetalDuctusArteriosusRisk: /동맥관/.test(combinedText)
-      ? '임신 후기 태아 동맥관 조기 폐쇄 위험 주의 문구가 포함되어 있습니다.'
-      : '식약처 허가사항 원문 내 태아 동맥관 조기 폐쇄 특이 언급 없음 (원문 참조).',
-    maternalRisk: '산모 기저 질환 및 복용 적응증에 따른 유익성·위험성 평가가 필요합니다.',
-    domesticDurGrade: durGradeText,
-    domesticDurNoticeDetail: mfdsPrecautionText,
-    domesticPermitSummary: mfdsPrecautionText,
-    domesticVsInternationalComparison: fdaLabel?.pregnancyText
-      ? `국내 식약처 허가사항과 미국 FDA PLLR(Section 8.1) 원문을 실시간으로 대조하였습니다.`
-      : `국내 식약처 허가사항 원문이 수집되었으며, 해외 상세 모노그래프는 하단 LactMed/MotherToBaby 공식 링크에서 즉시 열람할 수 있습니다.`,
-    internationalAgencySummaries: [
-      {
-        agencyName: 'FDA PLLR',
-        summaryText: fdaPregSnippet,
-        sourceUrl: `https://api.fda.gov/drug/label.json?search=openfda.generic_name:%22${encodeURIComponent(
-          englishInn
-        )}%22&limit=1`
-      },
-      {
-        agencyName: 'LactMed (NIH)',
-        summaryText: `NIH LactMed에서 ${englishInn} 성분의 수유 및 모유 이행 모노그래프를 확인하십시오.`,
-        sourceUrl: `https://www.ncbi.nlm.nih.gov/books/NBK501922/?term=${encodeURIComponent(englishInn)}`
-      }
-    ],
-    clinicalRecommendation: isContraindicatedPreg
-      ? `[임부 투여 금지/회피] ${koreanName} (${englishInn}) 성분은 임신 중 투여 금기 또는 회피 권고 대상입니다. 임신이 확인되거나 임신 계획 시 처방의와 상의하여 안전한 대안으로 변경하도록 복약지도하십시오.`
-      : `[식약처 허가사항 기반 복약지도] ${koreanName} (${englishInn}) 복용 전 임신 주수를 확인하고, 식약처 허가사항("${mfdsPrecautionText.slice(
-          0,
-          120
-        )}...")에 따라 치료상 유익성이 위험성을 상회하는지 처방의와 확인하도록 안내하십시오.`,
-    evidenceQualityLevel: fdaLabel?.pregnancyText ? 'MODERATE' : 'LOW',
-    alternativeIngredientIds: ['ing_acetaminophen'],
-    evidenceSourceIds: [mfdsSourceId, fdaSourceId, lactmedSourceId]
-  };
-
-  LACTATION_SAFETY_DB[ingredientId] = {
-    ingredientId,
-    englishInn,
-    koreanIngrName: koreanName,
-    therapeuticClass,
-    route,
-    routeKorean,
-    overallSafetyLevel: lactLevel,
-    milkConcentrationText: fdaLactSnippet,
-    infantSerumConcentrationText: '확인되지 않음 (원문 내 영아 혈중 농도 미측정 또는 LactMed 원문 직접 확인 필요).',
-    ridRangeText: '확인되지 않음 (임의 추정 금지 원칙 적용 · LactMed 원문 참조)',
-    ridNumericMin: null,
-    ridNumericMax: null,
-    referenceInfantDoseMgPerKgDay: null,
-    referenceMaternalDoseMgPerKgDay: null,
-    ridClinicalInterpretation:
-      '실시간 연동 성분은 AI가 임의로 RID(%) 수치를 추정하거나 생성하지 않습니다. 식약처 수유부 허가사항과 미국 FDA Lactation(8.2) 원문을 우선 확인하십시오.',
-    halfLifeText: '확인되지 않음 (제품 상세 허가사항 약동학 조항 참조).',
-    activeMetabolitesText: '식약처 상세 허가사항 참조.',
-    infantAdverseEffects: mfdsPrecautionText,
-    ageConsiderations: {
-      NEONATE: {
-        level: lactLevel,
-        title: '신생아 (생후 0~4주)',
-        clinicalNote: isLactationAvoid
-          ? '수유 중 투여 회피 또는 수유 중단이 권고됩니다.'
-          : '신생아는 약물 대사 및 배설이 미성숙하므로 수유부 복용 시 영아 이상반응을 면밀히 관찰해야 합니다.'
-      },
-      INFANT_1_6M: {
-        level: lactLevel,
-        title: '생후 1~6개월 영아',
-        clinicalNote: isLactationAvoid
-          ? '수유 중 투여 회피 또는 수유 중단이 권고됩니다.'
-          : '식약처 허가사항 수유부 주의 조항에 따라 신중히 투여합니다.'
-      },
-      INFANT_OVER_6M: {
-        level: lactLevel,
-        title: '생후 6개월 이상 영아',
-        clinicalNote: isLactationAvoid
-          ? '수유 중 투여 회피 또는 수유 중단이 권고됩니다.'
-          : '치료상 유익성과 모유 수유의 유익성을 고려하여 복약지도합니다.'
-      }
-    },
-    pretermInfantRisk: {
-      level: isLactationAvoid ? 'LEVEL_4_AVOID' : 'LEVEL_3_CAUTION',
-      clinicalNote: '미숙아 수유 시에는 주치의와 상의 후 수유 지속 여부를 결정하십시오.'
-    },
-    continuationGuidance: isLactationAvoid
-      ? `식약처 허가사항 또는 FDA 라벨상 수유 중 투여 회피(또는 투여 시 수유 중단)가 권고되는 성분입니다.`
-      : `식약처 허가사항 수유부 조항을 확인하고 필요 시 수유 직후 복용하여 영아 노출을 최소화하도록 안내하십시오.`,
-    domesticPermitLactationSummary: mfdsPrecautionText,
-    alternativeIngredientIds: ['ing_acetaminophen'],
-    evidenceSourceIds: [mfdsSourceId, fdaSourceId, lactmedSourceId]
-  };
-}
-
-/**
- * 식약처 의약품 허가 API (DrugPrdtPrmsnInfoService08) + 약학정보원(KPIC) 사전 + 미국 FDA(openFDA) 실시간 연동 검색 (제품명 전용)
- * - 약사가 내장 샘플 외의 국내 의약품 제품명을 검색했을 때 실시간으로 식약처 원료약품·허가사항(임부·수유부 조항),
- *   KPIC 약효분류, openFDA 라벨 원문을 가져와 염기/수화물을 제거한 순수 성분 기준으로 매핑하고 요약표·상세 페이지를 즉시 생성합니다.
- */
-export async function searchLiveMfdsForMaternalSafety(query: string): Promise<MaternalSearchResult[]> {
-  const clean = query.trim();
-  if (clean.length < 2) return [];
-
-  // 사용자가 "리피토정 20mg" 처럼 입력한 경우 식약처 검색어 호환성을 위해 제품명 키워드도 함께 검색
-  const normalizedKoreanUnitQuery = clean.replace(/([0-9]+)\s*mg/gi, '$1밀리그램');
-  const baseBrandQuery = clean.replace(/\s*[0-9]+(?:\.[0-9]+)?\s*(?:mg|밀리그램|밀리그람|g|mcg).*$/i, '').trim();
-  const normBaseBrand = normalizeQueryForProductMatch(baseBrandQuery || clean);
-
-  try {
-    let mfdsItems = await searchPublicDrugDatabase(normalizedKoreanUnitQuery, {
-      classification: 'OTC_DRUG',
-      targetSource: 'OTC_DRUG'
-    });
-
-    if ((!mfdsItems || mfdsItems.length === 0) && baseBrandQuery.length >= 2 && baseBrandQuery !== normalizedKoreanUnitQuery) {
-      mfdsItems = await searchPublicDrugDatabase(baseBrandQuery, {
-        classification: 'OTC_DRUG',
-        targetSource: 'OTC_DRUG'
-      });
-    }
-
-    // 괄호 안 성분명(예: "셀트라정50밀리그램(설트랄린염산염)")이 아닌 실제 제품명(브랜드명) 또는 품목기준코드가 일치하는 품목만 필터링
-    const productMatchedItems = (mfdsItems || []).filter((item) => {
-      const pureBrandName = item.productName.replace(/\([^)]*\)/g, '').trim();
-      const normPureBrand = normalizeQueryForProductMatch(pureBrandName);
-      return normPureBrand.includes(normBaseBrand) || item.regulatoryCode.includes(clean);
-    });
-
-    const topItems = productMatchedItems.slice(0, 6);
-    const liveResults: MaternalSearchResult[] = [];
-
-    for (const item of topItems) {
-      // 이미 내장 DB에 동일 품목기준코드로 등록된 경우 중복 제외
-      if (DRUG_MASTER_DB.some((d) => d.itemSeq === item.regulatoryCode)) {
+      // 부형제/첨가제가 섞여 있는 경우 mainKorSet과 대조
+      if (mainKorSet.size > 0 && !Array.from(mainKorSet).some((m) => korName.includes(m) || m.includes(korName))) {
         continue;
       }
 
-      const pureProductName = item.productName.replace(/\([^)]*\)/g, '').trim() || item.productName;
+      const qty = (fields['분량'] || '').trim();
+      let unit = (fields['단위'] || '').trim();
+      if (unit === '밀리그램' || unit === '밀리그람') unit = 'mg';
+      else if (unit === '마이크로그램' || unit === '마이크로그람') unit = 'μg';
+      else if (unit === '그램' || unit === '그람') unit = 'g';
 
-      // 상세 원료약품 및 주의사항(NB_DOC_DATA) 조회
-      const detail = await fetchMfdsDrugDetail(item.regulatoryCode);
-      const rawIngText = detail?.rawIngredientsText || item.rawIngredientsText || '';
-      const rawLines = rawIngText
-        .split(/[\r\n\/;]+/)
-        .map((s) => s.trim())
-        .filter(Boolean);
+      const info = (fields['성분정보'] || '')
+        .replace(/밀리그램/g, 'mg')
+        .replace(/마이크로그램/g, 'μg')
+        .trim();
 
-      // 식약처 상세 응답의 영문 주성분 목록(MAIN_INGR_ENG) 추출 -> KPIC & FDA 매핑 정확도 극대화
-      const detailEngList = (detail?.mainIngrEng || item.rawIngredientsText || '')
-        .split(/[\/;,\r\n]+/)
-        .map((s) => s.trim())
-        .filter((s) => /^[A-Za-z0-9\s,\-\(\)]+$/.test(s));
+      let amountText = qty ? `${qty}${unit}` : '';
+      if (info) {
+        amountText = amountText ? `${amountText} (${info})` : info;
+      }
 
-      // 식약처 주의사항(precautionsSummary)에서 임부/수유부 관련 문단 추출
-      const allPrecautions = detail?.precautionsSummary || item.precautionsSummary || [];
-      const maternalParagraphs = allPrecautions.filter((p) => /임부|임신|수유|태아|기형|동맥관|양수/.test(p));
-      const mfdsPregnancyPrecautionText =
-        maternalParagraphs.length > 0
-          ? maternalParagraphs.slice(0, 6).join('\n')
-          : '식약처 상세 허가사항 원문 링크에서 임부 및 수유부 투여 조항을 확인하십시오.';
+      const engHint = engCandidates[activeIdx] || '';
+      activeIdx++;
 
-      const { route, routeKorean } = inferRouteFromDosageForm(`${item.dosageForm} ${item.productName}`);
-      const mappedIngredients: IngredientMappingRecord[] = [];
+      // '아목시실린ㆍ클라불란산칼륨(4:1)'과 같이 두 가지 유효성분이 중점(ㆍ/·)으로 묶여 기재된 복합원료는 개별 유효성분으로 분리
+      if (/[ㆍ·]/.test(korName) && !/셀룰로오스|이산화규소|만니톨|전분/.test(korName)) {
+        const subKorParts = korName
+          .replace(/\([0-9]+:[0-9]+\)/g, '')
+          .split(/[ㆍ·]/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+        const subEngParts = engHint
+          .replace(/\([0-9]+:[0-9]+\)/g, '')
+          .split(/[ㆍ·]/)
+          .map((s) => s.trim())
+          .filter(Boolean);
 
-      for (let idx = 0; idx < rawLines.length; idx++) {
-        const line = rawLines[idx];
-        const amountMatch = line.match(/([0-9]+(?:\.[0-9]+)?\s*(?:mg|g|ug|μg|mL|IU|밀리그램|밀리그람))/i);
-        const amountText = amountMatch ? amountMatch[1].replace(/밀리그램|밀리그람/g, 'mg') : '허가사항 참조';
-        const hintEng = detailEngList[idx] || (detailEngList.length === 1 ? detailEngList[0] : undefined);
-        const resolved = resolveCoreMaternalIngredientId(line, hintEng);
-
-        // 미등록 성분인 경우 실시간으로 식약처 + KPIC + openFDA 기반 안전성 레코드 생성
-        if (!PREGNANCY_SAFETY_DB[resolved.ingredientId]) {
-          await ensureDynamicMaternalRecord({
-            ingredientId: resolved.ingredientId,
-            koreanName: resolved.koreanName,
-            englishInn: resolved.englishInn,
-            therapeuticClass:
-              resolved.therapeuticClass ||
-              resolveKpicTherapeuticClass(resolved.englishInn, resolved.koreanName) ||
-              '국내 허가 의약품 유효성분 (식약처·KPIC·FDA 실시간 연동)',
-            route,
-            routeKorean,
-            mfdsPrecautionText: mfdsPregnancyPrecautionText,
-            itemSeq: item.regulatoryCode,
-            productName: pureProductName,
-            defaultDurGrade: resolved.defaultDurGrade
+        if (subKorParts.length > 1) {
+          subKorParts.forEach((subKor, sIdx) => {
+            results.push(
+              matchDomesticIngredientToOverseasInn({
+                koreanName: subKor,
+                englishName: subEngParts[sIdx] || '',
+                amountText: sIdx === 0 && amountText ? `복합 총량 ${amountText} (${korName})` : `복합 배합 (${korName})`,
+                dosageForm,
+                route
+              })
+            );
           });
+          continue;
         }
+      }
 
-        mappedIngredients.push({
-          mappingId: `live_map_${item.regulatoryCode}_${idx}`,
-          drugMasterId: `live_${item.regulatoryCode}`,
-          koreanProductName: pureProductName,
-          itemSeq: item.regulatoryCode,
-          koreanIngredientName: resolved.koreanName, // 염기 제외 순수 한글 성분명
-          englishIngredientName: resolved.englishInn, // 염기 제외 순수 영문 성분명
-          ingredientId: resolved.ingredientId,
+      results.push(
+        matchDomesticIngredientToOverseasInn({
+          koreanName: korName,
+          englishName: engHint,
           amountText,
-          dosageForm: item.dosageForm,
-          route,
-          isCombination: rawLines.length > 1,
-          verificationStatus: 'VERIFIED_CORE_5'
-        });
-      }
+          dosageForm,
+          route
+        })
+      );
+    }
+  }
 
-      if (mappedIngredients.length === 0) {
-        const hintEng = detailEngList[0];
-        const resolved = resolveCoreMaternalIngredientId(item.productName, hintEng);
-        if (!PREGNANCY_SAFETY_DB[resolved.ingredientId]) {
-          await ensureDynamicMaternalRecord({
-            ingredientId: resolved.ingredientId,
-            koreanName: resolved.koreanName,
-            englishInn: resolved.englishInn,
-            therapeuticClass:
-              resolved.therapeuticClass ||
-              resolveKpicTherapeuticClass(resolved.englishInn, resolved.koreanName) ||
-              '국내 허가 의약품 유효성분 (식약처·KPIC·FDA 실시간 연동)',
-            route,
-            routeKorean,
-            mfdsPrecautionText: mfdsPregnancyPrecautionText,
-            itemSeq: item.regulatoryCode,
-            productName: pureProductName,
-            defaultDurGrade: resolved.defaultDurGrade
-          });
+  // 2순위: MAIN_ITEM_INGR / MAIN_INGR_ENG 기반 파싱
+  if (results.length === 0 && mainItemIngr) {
+    const korList = mainItemIngr
+      .split(/[/|]/)
+      .map((s) => s.replace(/\[M[0-9]+\]/gi, '').trim())
+      .filter(Boolean);
+
+    korList.forEach((korName, idx) => {
+      const engName = engCandidates[idx] || '';
+      results.push(
+        matchDomesticIngredientToOverseasInn({
+          koreanName: korName,
+          englishName: engName,
+          amountText: '',
+          dosageForm,
+          route
+        })
+      );
+    });
+  }
+
+  // 3순위: nedrug 또는 시드 텍스트 폴백
+  if (results.length === 0 && rawIngredientsFallback) {
+    const parts = rawIngredientsFallback
+      .split(/[\n+]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    for (const part of parts) {
+      const m = part.match(/^([가-힣A-Za-z0-9·\-\(\)\s]+?)(?:\s*\(([A-Za-z\s\-]+)\))?\s*([0-9.,]+\s*(?:mg|μg|ug|g|mL)(?:\s*\([^)]+\))?)?$/i);
+      const kor = (m ? m[1] : part).replace(/\([A-Za-z\s\-]+\)/g, '').trim();
+      const eng = m?.[2]?.trim() || '';
+      const amt = m?.[3]?.trim() || '';
+      results.push(
+        matchDomesticIngredientToOverseasInn({
+          koreanName: kor,
+          englishName: eng,
+          amountText: amt,
+          dosageForm,
+          route
+        })
+      );
+    }
+  }
+
+  // 중복 성분 제거
+  const seen = new Set<string>();
+  return results.filter((item) => {
+    const k = `${item.koreanName}_${item.matchedInn || ''}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+/**
+ * ① 식약처 허가사항(NB_DOC_DATA)에서 임부 및 수유부 투여 관련 문구 원문 추출
+ * - 원문이 없는 경우 절대 내용을 생성하지 않음
+ */
+export function extractMfdsPregnancyAndLactationText(
+  rawNbDocXmlOrText: string | null | undefined,
+  itemSeq: string,
+  updatedAt: string,
+  fetchStatus: DataFetchStatus = 'SUCCESS',
+  errorMessage?: string
+): MfdsLabelSafetyInfo {
+  const sourceUrl = `https://nedrug.mfds.go.kr/pbp/CCBBB01/getItemDetail?itemSeq=${encodeURIComponent(itemSeq)}`;
+
+  if (fetchStatus === 'API_ERROR') {
+    return {
+      status: 'API_ERROR',
+      errorMessage: errorMessage || '식약처 의약품 허가사항 API 조회 중 통신 오류가 발생했습니다.',
+      pregnancySectionTitle: null,
+      pregnancyKeyText: null,
+      pregnancyFullText: null,
+      lactationSectionTitle: null,
+      lactationKeyText: null,
+      lactationFullText: null,
+      fullPrecautionsText: null,
+      sourceUrl,
+      updatedAt
+    };
+  }
+
+  const cleanedFull = cleanXmlDocText(rawNbDocXmlOrText || '');
+  if (!cleanedFull) {
+    return {
+      status: 'NO_DATA',
+      pregnancySectionTitle: null,
+      pregnancyKeyText: null,
+      pregnancyFullText: null,
+      lactationSectionTitle: null,
+      lactationKeyText: null,
+      lactationFullText: null,
+      fullPrecautionsText: null,
+      sourceUrl,
+      updatedAt
+    };
+  }
+
+  const lines = cleanedFull
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  // 1. 전용 섹션(예: "6. 임부 및 수유부에 대한 투여", "5) 임부 및 수유부에 대한 투여") 탐색
+  const dedicatedSectionLines: string[] = [];
+  let dedicatedTitle: string | null = null;
+  let inDedicatedSection = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const isHeader =
+      /^(?:[0-9]+[\.\)]|\([0-9]+\)|[가-하][\.\)])?\s*(?:임부\s*(?:및|·|,)?\s*수유부|임산부|임부\s*투여|수유부\s*투여)/.test(
+        line
+      ) && line.length < 60;
+
+    const isNextMajorHeader =
+      inDedicatedSection &&
+      /^(?:[0-9]+[\.\)]|\([0-9]+\))\s*(?:소아|고령자|과량\s*투여|적용상의\s*주의|보관\s*및\s*취급|기타|운전|임상검사)/.test(
+        line
+      ) &&
+      line.length < 60;
+
+    if (isHeader) {
+      inDedicatedSection = true;
+      dedicatedTitle = line;
+      continue;
+    }
+    if (isNextMajorHeader) {
+      inDedicatedSection = false;
+      break;
+    }
+    if (inDedicatedSection) {
+      dedicatedSectionLines.push(line);
+    }
+  }
+
+  // 2. 전체 주의사항 본문에서 임부/임신 관련 문장 및 수유/모유 관련 문장 분류 추출 (금기 조항 포함)
+  const pregSentences: string[] = [];
+  const lactSentences: string[] = [];
+
+  const sourcePool = dedicatedSectionLines.length > 0 ? dedicatedSectionLines : lines;
+
+  for (const line of lines) {
+    if (/임부|임신|태아|기형|양수|동맥관|분만/.test(line)) {
+      if (!pregSentences.includes(line)) pregSentences.push(line);
+    }
+    if (/수유|모유|유즙|신생아.*수유/.test(line)) {
+      if (!lactSentences.includes(line)) lactSentences.push(line);
+    }
+  }
+
+  // 전용 섹션이 있는 경우 전용 섹션 내 임부/수유부 문단을 우선 배치
+  const dedicatedPregLines = sourcePool.filter(
+    (l) => /임부|임신|태아|기형|양수|동맥관|분만/.test(l) || (!/수유|모유|유즙/.test(l) && dedicatedSectionLines.includes(l))
+  );
+  const dedicatedLactLines = sourcePool.filter((l) => /수유|모유|유즙/.test(l));
+
+  const finalPregLines =
+    dedicatedPregLines.length > 0
+      ? Array.from(new Set([...dedicatedPregLines, ...pregSentences]))
+      : pregSentences;
+
+  const finalLactLines =
+    dedicatedLactLines.length > 0
+      ? Array.from(new Set([...dedicatedLactLines, ...lactSentences]))
+      : lactSentences;
+
+  const pregnancyFullText = finalPregLines.length > 0 ? finalPregLines.join('\n') : null;
+  const pregnancyKeyText =
+    finalPregLines.length > 0 ? finalPregLines.slice(0, 4).join('\n') : null;
+
+  const lactationFullText = finalLactLines.length > 0 ? finalLactLines.join('\n') : null;
+  const lactationKeyText =
+    finalLactLines.length > 0 ? finalLactLines.slice(0, 4).join('\n') : null;
+
+  return {
+    status: 'SUCCESS',
+    pregnancySectionTitle: dedicatedTitle || (pregnancyFullText ? '사용상의 주의사항 내 임부 관련 문구' : null),
+    pregnancyKeyText,
+    pregnancyFullText,
+    lactationSectionTitle: dedicatedTitle || (lactationFullText ? '사용상의 주의사항 내 수유부 관련 문구' : null),
+    lactationKeyText,
+    lactationFullText,
+    fullPrecautionsText: cleanedFull,
+    sourceUrl,
+    updatedAt
+  };
+}
+
+/**
+ * ② 식약처 공식 DUR OpenAPI (품목별 + 성분별) 조회
+ * - DURPrdlstInfoService03/getPwnmTabooInfoList03 (품목 조회)
+ * - DURIrdntInfoService03/getPwnmTabooInfoList02 (성분 조회)
+ */
+export async function fetchMfdsDurPregnantTaboo(params: {
+  itemSeq: string;
+  productName: string;
+  ingredients: DomesticIngredientItem[];
+  isCombination: boolean;
+}): Promise<{
+  overall: MfdsDurPregnantTabooInfo;
+  byIngredientMap: Map<string, { status: DataFetchStatus; entries: MfdsDurTabooEntry[] }>;
+}> {
+  const { itemSeq, ingredients, isCombination } = params;
+  const byIngredientMap = new Map<string, { status: DataFetchStatus; entries: MfdsDurTabooEntry[] }>();
+  const allEntries: MfdsDurTabooEntry[] = [];
+  let hadApiError = false;
+  let latestDate = '2026-11-04';
+
+  const firstIngrKor = ingredients[0]?.koreanName || params.productName;
+  const durSourceUrl = `https://nedrug.mfds.go.kr/pbp/CCBAJ01/getList?searchName=${encodeURIComponent(
+    firstIngrKor
+  )}&searchTypeCode=C`;
+
+  // 1. 품목기준코드(itemSeq) 기준 DUR 품목 API 조회
+  const prdlstMap = new Map<string, any>();
+  try {
+    const prdUrl = `${DUR_PRDLST_TABOO_URL}?serviceKey=${encodeURIComponent(
+      DATA_GO_KR_API_KEY
+    )}&itemSeq=${encodeURIComponent(itemSeq)}&type=json&numOfRows=50`;
+    const rPrd = await fetch(prdUrl);
+    if (rPrd.ok) {
+      const jPrd = await rPrd.json();
+      const rawItems = jPrd?.body?.items || [];
+      const list = Array.isArray(rawItems) ? rawItems : [rawItems];
+      for (const it of list) {
+        const row = it?.item || it;
+        if (row && row.INGR_CODE) {
+          prdlstMap.set(row.INGR_CODE, row);
         }
-        mappedIngredients.push({
-          mappingId: `live_map_${item.regulatoryCode}_0`,
-          drugMasterId: `live_${item.regulatoryCode}`,
-          koreanProductName: pureProductName,
-          itemSeq: item.regulatoryCode,
-          koreanIngredientName: resolved.koreanName,
-          englishIngredientName: resolved.englishInn,
-          ingredientId: resolved.ingredientId,
-          amountText: '허가사항 참조',
-          dosageForm: item.dosageForm,
-          route,
-          isCombination: false,
-          verificationStatus: 'VERIFIED_CORE_5'
-        });
       }
+    } else {
+      hadApiError = true;
+    }
+  } catch {
+    hadApiError = true;
+  }
 
-      const hasGrade1 = mappedIngredients.some((m) => {
-        const p = PREGNANCY_SAFETY_DB[m.ingredientId];
-        return p?.domesticDurGrade === '임부금기 1등급';
-      });
-      const hasGrade2 = mappedIngredients.some((m) => {
-        const p = PREGNANCY_SAFETY_DB[m.ingredientId];
-        return p?.domesticDurGrade === '임부금기 2등급';
-      });
+  // 2. 각 유효성분별 DUR 성분 API (DURIrdntInfoService03/getPwnmTabooInfoList02) 조회
+  for (const ingr of ingredients) {
+    const key = ingr.koreanName;
+    const cw = findCrosswalkBySearchQuery(ingr.matchedInn || ingr.koreanName);
+    const searchKor = cw?.durSearchKeyword || ingr.koreanName.replace(/(?:염산염|수화물|칼륨|나트륨|말레산염).*$/, '');
 
-      const drugMaster: DrugMasterRecord = {
-        id: `live_${item.regulatoryCode}`,
-        itemSeq: item.regulatoryCode,
-        koreanProductName: pureProductName,
-        englishIngredientsSummary: mappedIngredients.map((m) => m.englishIngredientName).join(' / '),
-        strengthText: mappedIngredients.map((m) => m.amountText).join(' / '),
-        dosageForm: item.dosageForm,
-        route,
-        routeKorean,
-        manufacturer: item.manufacturer,
-        isCombination: mappedIngredients.length > 1,
-        mfdsPregnancyPrecautionText,
-        durPregnancyTabooGrade: hasGrade1 ? 'GRADE_1' : hasGrade2 ? 'GRADE_2' : 'NONE',
-        durPregnancyTabooDetail: hasGrade1
-          ? '식약처 DUR 임부금기 1등급 해당 성분 포함 (원칙적 처방·조제 금지)'
-          : hasGrade2
-          ? '식약처 DUR 임부금기 2등급 해당 성분 포함'
-          : null,
-        productSourceUrl: `https://nedrug.mfds.go.kr/pbp/CCBBB01/getItemDetail?itemSeq=${item.regulatoryCode}`,
-        updatedAt: new Date().toISOString().slice(0, 10)
-      };
-
-      liveResults.push({
-        resultType: 'DOMESTIC_PRODUCT',
-        id: drugMaster.id,
-        displayName: drugMaster.koreanProductName,
-        subLabel: `[식약처 실시간 연동] ${drugMaster.manufacturer} · 품목기준코드 ${drugMaster.itemSeq}`,
-        isCombination: drugMaster.isCombination,
-        drugMaster,
-        mappedIngredients,
-        primaryIngredientId: mappedIngredients[0].ingredientId
-      });
+    if (durIrdntCache.has(searchKor)) {
+      const cachedEntries = durIrdntCache.get(searchKor)!;
+      const filtered = filterDurEntriesForProduct(cachedEntries, isCombination, ingredients);
+      byIngredientMap.set(key, { status: 'SUCCESS', entries: filtered });
+      allEntries.push(...filtered);
+      continue;
     }
 
-    return liveResults;
-  } catch (e) {
-    console.warn('식약처 실시간 임신·수유 의약품 검색 실패:', e);
-    return [];
+    try {
+      const irdUrl = `${DUR_IRDNT_TABOO_URL}?serviceKey=${encodeURIComponent(
+        DATA_GO_KR_API_KEY
+      )}&ingrName=${encodeURIComponent(searchKor)}&type=json&numOfRows=50`;
+      const rIrd = await fetch(irdUrl);
+      if (!rIrd.ok) {
+        hadApiError = true;
+        byIngredientMap.set(key, { status: 'API_ERROR', entries: [] });
+        continue;
+      }
+
+      const jIrd = await rIrd.json();
+      const rawList = jIrd?.body?.items || [];
+      const items = (Array.isArray(rawList) ? rawList : [rawList])
+        .map((x: any) => x?.item || x)
+        .filter((x: any) => x && x.DEL_YN === '정상');
+
+      const parsedEntries: MfdsDurTabooEntry[] = items
+        .filter((it: any) => {
+          // 검색어가 정확히 해당 성분(또는 ORI_INGR 내 염 형태)에 해당하는지 확인 (예: '이부프로펜' 검색 시 '이부프로펜피코놀' 제외)
+          const ingrNameClean = (it.INGR_NAME || '').trim();
+          if (searchKor === '이부프로펜' && ingrNameClean.includes('이부프로펜피코놀')) {
+            return false;
+          }
+          return (
+            ingrNameClean === searchKor ||
+            ingrNameClean.startsWith(`${searchKor}/`) ||
+            ingrNameClean.endsWith(`/${searchKor}`) ||
+            (it.ORI_INGR || '').includes(ingr.koreanName)
+          );
+        })
+        .map((it: any) => {
+          const prdMatch = prdlstMap.get(it.INGR_CODE);
+          const notifDate = formatDateYmd(it.NOTIFICATION_DATE || prdMatch?.NOTIFICATION_DATE);
+          if (notifDate && notifDate !== '기준일 미상') {
+            latestDate = notifDate;
+          }
+          const rawGrade = (it.GRADE || '').trim();
+          const grade: '1등급' | '2등급' | '임부금기' =
+            rawGrade === '1등급' ? '1등급' : rawGrade === '2등급' ? '2등급' : '임부금기';
+
+          return {
+            durSeq: it.DUR_SEQ || undefined,
+            mixType: it.MIX_TYPE === '복합' ? '복합' : '단일',
+            ingrCode: it.INGR_CODE || undefined,
+            ingrName: (it.INGR_NAME || searchKor).trim(),
+            ingrEngName: (it.INGR_ENG_NAME || ingr.matchedInn || '').trim(),
+            grade,
+            prohibitContent:
+              (it.PROHBT_CONTENT || prdMatch?.PROHBT_CONTENT || '').replace(/^"|"$/g, '').trim() ||
+              null,
+            formName: (it.FORM_NAME || prdMatch?.FORM_NAME || '').trim() || null,
+            remark: (it.REMARK || prdMatch?.REMARK || '').trim() || null,
+            notificationDate: notifDate
+          };
+        });
+
+      durIrdntCache.set(searchKor, parsedEntries);
+      const filtered = filterDurEntriesForProduct(parsedEntries, isCombination, ingredients);
+      byIngredientMap.set(key, { status: 'SUCCESS', entries: filtered });
+      allEntries.push(...filtered);
+    } catch {
+      hadApiError = true;
+      byIngredientMap.set(key, { status: 'API_ERROR', entries: [] });
+    }
   }
-}
 
-/**
- * 미국 FDA openFDA API 실시간 라벨 원문 조회 (Pregnancy 8.1 & Lactation 8.2)
- */
-export async function fetchLiveOpenFdaLabel(englishInn: string): Promise<{
-  pregnancyText: string | null;
-  lactationText: string | null;
-  effectiveTime: string | null;
-} | null> {
-  try {
-    const cleanInn = stripEnglishSaltAndHydrate(englishInn);
-    const url = `https://api.fda.gov/drug/label.json?search=openfda.generic_name:%22${encodeURIComponent(
-      cleanInn
-    )}%22+AND+_exists_:pregnancy&limit=1`;
-    const res = await fetch(url);
-    if (!res.ok) return null;
-    const data = await res.json();
-    const record = data?.results?.[0];
-    if (!record) return null;
-
-    const pregnancyText = Array.isArray(record.pregnancy)
-      ? record.pregnancy.join('\n\n')
-      : Array.isArray(record.teratogenic_effects)
-      ? record.teratogenic_effects.join('\n\n')
-      : null;
-
-    const lactationText = Array.isArray(record.lactation)
-      ? record.lactation.join('\n\n')
-      : Array.isArray(record.nursing_mothers)
-      ? record.nursing_mothers.join('\n\n')
-      : null;
-
-    return {
-      pregnancyText,
-      lactationText,
-      effectiveTime: record.effective_time || null
-    };
-  } catch {
-    return null;
+  // 중복 DUR 항목 제거
+  const uniqueEntries: MfdsDurTabooEntry[] = [];
+  const seenDurKeys = new Set<string>();
+  for (const e of allEntries) {
+    const k = `${e.mixType}_${e.ingrName}_${e.grade}_${e.prohibitContent || ''}`;
+    if (!seenDurKeys.has(k)) {
+      seenDurKeys.add(k);
+      uniqueEntries.push(e);
+    }
   }
-}
 
-/**
- * 성분 ID로 임신·수유 안전성 및 출처 문헌 일괄 조회
- */
-export function getVerifiedIngredientBundle(ingredientId: string) {
-  const pregnancy = PREGNANCY_SAFETY_DB[ingredientId] || null;
-  const lactation = LACTATION_SAFETY_DB[ingredientId] || null;
-  const sources = Object.values(EVIDENCE_SOURCES_DB).filter((s) => s.ingredientId === ingredientId);
+  const hasGrade1 = uniqueEntries.some((e) => e.grade === '1등급');
+  const hasGrade2 = uniqueEntries.some((e) => e.grade === '2등급');
+  const highestGrade = hasGrade1 ? '1등급' : hasGrade2 ? '2등급' : null;
+
+  const overallStatus: DataFetchStatus =
+    uniqueEntries.length > 0
+      ? 'SUCCESS'
+      : hadApiError
+      ? 'API_ERROR'
+      : 'NO_DATA';
+
   return {
-    pregnancy,
-    lactation,
-    sources
+    overall: {
+      status: overallStatus,
+      errorMessage:
+        overallStatus === 'API_ERROR'
+          ? '식약처 DUR OpenAPI 통신 중 오류가 발생했습니다. 네트워크 상태를 확인하십시오.'
+          : undefined,
+      hasTaboo: uniqueEntries.length > 0,
+      highestGrade,
+      entries: uniqueEntries,
+      sourceUrl: durSourceUrl,
+      updatedAt: latestDate
+    },
+    byIngredientMap
   };
+}
+
+function filterDurEntriesForProduct(
+  entries: MfdsDurTabooEntry[],
+  isCombination: boolean,
+  productIngredients: DomesticIngredientItem[]
+): MfdsDurTabooEntry[] {
+  if (entries.length === 0) return [];
+
+  // 단일제인 경우 '단일' 고시 항목만 표시
+  if (!isCombination) {
+    const singleOnly = entries.filter((e) => e.mixType === '단일');
+    return singleOnly.length > 0 ? singleOnly : entries.slice(0, 1);
+  }
+
+  // 복합제인 경우: (1) 개별 성분의 '단일' 고시 항목 + (2) 현재 복합제 구성 성분과 일치하는 '복합' 고시 항목 표시
+  const result: MfdsDurTabooEntry[] = [];
+  const korNames = productIngredients.map((i) => i.koreanName);
+
+  for (const e of entries) {
+    if (e.mixType === '단일') {
+      result.push(e);
+    } else if (e.mixType === '복합') {
+      const parts = e.ingrName.split('/').map((s) => s.trim());
+      const allPartsPresent = parts.every((p) =>
+        korNames.some((k) => k.includes(p) || p.includes(k))
+      );
+      if (allPartsPresent) {
+        result.push(e);
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
+ * 상단 통합 의약품 검색 (국내 제품명 / 국내 성분명 / 영문 성분명 모두 지원)
+ */
+export async function searchDomesticDrugsForMaternalSafety(
+  query: string
+): Promise<{
+  candidates: MaternalDrugSearchCandidate[];
+  detectedIngredientNotice?: string;
+  apiError?: string;
+}> {
+  const cleanQuery = (query || '').trim();
+  if (!cleanQuery) return { candidates: VERIFIED_DOMESTIC_SEED_PRODUCTS };
+
+  const cacheKey = cleanQuery.toLowerCase();
+  if (searchCache.has(cacheKey)) {
+    return { candidates: searchCache.get(cacheKey)! };
+  }
+
+  // 1. 입력 검색어가 한글 성분명 또는 영문 성분명인지 확인
+  const crosswalkMatch = findCrosswalkBySearchQuery(cleanQuery);
+  let detectedIngredientNotice: string | undefined;
+
+  if (crosswalkMatch) {
+    detectedIngredientNotice = `성분명 매칭: ${crosswalkMatch.koreanBaseName} (${crosswalkMatch.inn}) 함유 국내 허가 의약품 검색 결과`;
+  }
+
+  const results: MaternalDrugSearchCandidate[] = [];
+  const seenItemSeq = new Set<string>();
+
+  // 2. 내장 검증 시드 품목 중 일치 항목 최우선 포함 (즉각 반응 및 검증 보장)
+  const qLower = cleanQuery.replace(/\s+/g, '').toLowerCase();
+  for (const seed of VERIFIED_DOMESTIC_SEED_PRODUCTS) {
+    const seedNorm = `${seed.productName} ${seed.mainIngredientsText} ${seed.itemSeq}`
+      .replace(/\s+/g, '')
+      .toLowerCase();
+    const cwKor = crosswalkMatch?.koreanBaseName.toLowerCase() || '';
+    const cwEng = crosswalkMatch?.inn.toLowerCase() || '';
+
+    if (
+      seedNorm.includes(qLower) ||
+      (cwKor && seedNorm.includes(cwKor)) ||
+      (cwEng && seedNorm.includes(cwEng))
+    ) {
+      results.push({
+        ...seed,
+        matchedKeywordNote: detectedIngredientNotice
+      });
+      seenItemSeq.add(seed.itemSeq);
+    }
+  }
+
+  // 3. 식약처 의약품 제품허가 목록 API (getDrugPrdtPrmsnInq08) 실시간 호출
+  const queryParamsToTry: string[] = [];
+
+  if (/^[0-9]{8,9}$/.test(cleanQuery)) {
+    queryParamsToTry.push(`item_seq=${encodeURIComponent(cleanQuery)}`);
+  } else if (crosswalkMatch) {
+    // 영문 성분명 또는 한글 성분명으로 검색한 경우: 대표 제품명 및 한글 성분명이 제품명에 포함된 품목 조회
+    queryParamsToTry.push(`item_name=${encodeURIComponent(crosswalkMatch.koreanBaseName)}`);
+    if (crosswalkMatch.representativeProductKeyword !== crosswalkMatch.koreanBaseName) {
+      queryParamsToTry.push(`item_name=${encodeURIComponent(crosswalkMatch.representativeProductKeyword)}`);
+    }
+  } else {
+    queryParamsToTry.push(`item_name=${encodeURIComponent(cleanQuery)}`);
+  }
+
+  let apiError: string | undefined;
+
+  for (const qParam of queryParamsToTry) {
+    try {
+      const url = `${MFDS_INQ_URL}?serviceKey=${encodeURIComponent(
+        DATA_GO_KR_API_KEY
+      )}&${qParam}&type=json&pageNo=1&numOfRows=30`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        apiError = `식약처 API 응답 오류 (HTTP ${res.status})`;
+        continue;
+      }
+      const data = await res.json();
+      const rawItems = data?.body?.items || [];
+      const list = Array.isArray(rawItems) ? rawItems : [rawItems];
+
+      for (const item of list) {
+        if (!item || !item.ITEM_SEQ) continue;
+        if (item.CANCEL_NAME && item.CANCEL_NAME !== '정상') continue;
+        const seq = String(item.ITEM_SEQ).trim();
+        if (seenItemSeq.has(seq)) continue;
+        seenItemSeq.add(seq);
+
+        const prodName = (item.ITEM_NAME || '').trim();
+        const chart = (item.CHART || '').trim();
+        const ingrKor = (item.ITEM_INGR_NAME || '').trim();
+        const ingrCount = Number(item.ITEM_INGR_CNT || 1);
+        const isComb = ingrCount > 1 || (ingrKor.includes('/') && !ingrKor.includes('밀리그램/'));
+
+        results.push({
+          itemSeq: seq,
+          productName: prodName,
+          manufacturer: (item.ENTP_NAME || '').trim(),
+          etcOtcName: (item.INDUTY_class || item.ETC_OTC_NAME || item.SPCLTY_PBLC || '의약품').trim(),
+          dosageForm: inferDosageFormText(prodName, chart),
+          route: inferRouteFromProduct(prodName, chart),
+          mainIngredientsText: ingrKor || '상세 조회 시 유효성분 확인',
+          isCombination: isComb,
+          matchedKeywordNote: detectedIngredientNotice,
+          rawMfdsItem: item
+        });
+      }
+    } catch (e: any) {
+      apiError = e?.message || '식약처 의약품 검색 API 네트워크 오류';
+    }
+  }
+
+  if (results.length > 0) {
+    searchCache.set(cacheKey, results);
+  }
+
+  return {
+    candidates: results,
+    detectedIngredientNotice,
+    apiError: results.length === 0 ? apiError : undefined
+  };
+}
+
+/**
+ * 제품 선택 시 4대 공식 데이터 소스를 통합 조회하여 단일 화면용 리포트 생성
+ */
+export async function buildMaternalDrugSafetyReport(
+  candidate: MaternalDrugSearchCandidate
+): Promise<MaternalDrugSafetyReport> {
+  const itemSeq = candidate.itemSeq;
+  if (reportCache.has(itemSeq)) {
+    return reportCache.get(itemSeq)!;
+  }
+
+  // 1. 식약처 의약품 제품허가 상세 API (getDrugPrdtPrmsnDtlInq08) 호출
+  let dtlItem: Record<string, any> | null = null;
+  let mfdsFetchStatus: DataFetchStatus = 'SUCCESS';
+  let mfdsErrorMsg: string | undefined;
+
+  try {
+    dtlItem = await fetchMfdsDrugRawByItemSeq(itemSeq);
+    if (!dtlItem) {
+      mfdsFetchStatus = 'NO_DATA';
+    }
+  } catch (e: any) {
+    mfdsFetchStatus = 'API_ERROR';
+    mfdsErrorMsg = e?.message || '식약처 허가사항 상세 API 호출 실패';
+  }
+
+  const productName = (dtlItem?.ITEM_NAME || candidate.productName).trim();
+  const manufacturer = (dtlItem?.ENTP_NAME || candidate.manufacturer).trim();
+  const etcOtcName = (dtlItem?.ETC_OTC_CODE || candidate.etcOtcName || '의약품').trim();
+  const chartText = (dtlItem?.CHART || candidate.dosageForm || '').trim();
+  const dosageForm = inferDosageFormText(productName, chartText);
+  const route = inferRouteFromProduct(productName, chartText);
+  const permitUpdatedAt = formatDateYmd(dtlItem?.CHANGE_DATE || dtlItem?.ITEM_PERMIT_DATE);
+  const permitUrl = `https://nedrug.mfds.go.kr/pbp/CCBBB01/getItemDetail?itemSeq=${encodeURIComponent(itemSeq)}`;
+
+  // NB_DOC_DATA(사용상의 주의사항) 원문 확보 (API 누락 시 자체 서버 프록시 nedrug 보완)
+  let rawNbDoc: string | null = dtlItem?.NB_DOC_DATA || null;
+  if (!rawNbDoc) {
+    try {
+      const nedrugDocs = await fetchNedrugDocTexts(itemSeq);
+      if (nedrugDocs?.nbDocText) {
+        rawNbDoc = nedrugDocs.nbDocText;
+        mfdsFetchStatus = 'SUCCESS';
+      }
+    } catch {
+      // ignore proxy fallback error
+    }
+  }
+
+  // MATERIAL_NAME(원료약품 및 분량) 확보 (API 누락 시 nedrug 보완)
+  let rawMaterialName: string | null = dtlItem?.MATERIAL_NAME || null;
+  let nedrugIngrText: string | null = null;
+  if (!rawMaterialName) {
+    try {
+      nedrugIngrText = await fetchNedrugIngredientsText(itemSeq, dtlItem?.MAIN_INGR_ENG);
+    } catch {
+      // ignore
+    }
+  }
+
+  // 유효성분 파싱 및 해외 표준 성분(INN) 매칭
+  const ingredients = parseMfdsActiveIngredients({
+    materialName: rawMaterialName,
+    mainItemIngr: dtlItem?.MAIN_ITEM_INGR || candidate.mainIngredientsText,
+    mainIngrEng: dtlItem?.MAIN_INGR_ENG || '',
+    rawIngredientsFallback: nedrugIngrText || candidate.mainIngredientsText,
+    dosageForm,
+    route
+  });
+
+  const isCombination = ingredients.length > 1 || candidate.isCombination;
+
+  const formattedIngredientsSummary =
+    ingredients.length > 0
+      ? ingredients
+          .map(
+            (ing) =>
+              `${ing.koreanName}${ing.englishName ? ` (${ing.englishName})` : ''}${
+                ing.amountText ? ` ${ing.amountText}` : ''
+              }`
+          )
+          .join(' / ')
+      : candidate.mainIngredientsText;
+
+  // ① 식약처 허가사항 임부·수유부 투여 문구 추출
+  const mfdsLabel = extractMfdsPregnancyAndLactationText(
+    rawNbDoc,
+    itemSeq,
+    permitUpdatedAt,
+    mfdsFetchStatus,
+    mfdsErrorMsg
+  );
+
+  // ② 식약처 DUR 임부금기 실시간 조회
+  const durResult = await fetchMfdsDurPregnantTaboo({
+    itemSeq,
+    productName,
+    ingredients,
+    isCombination
+  });
+
+  // ③ 호주 TGA & ④ NIH LactMed 성분별 개별 매칭 (복합제는 성분별 각각 분리 평가)
+  const ingredientEvaluations: IngredientSafetyEvaluation[] = [];
+
+  for (const ingr of ingredients) {
+    const durForIngr = durResult.byIngredientMap.get(ingr.koreanName) || {
+      status: durResult.overall.status,
+      entries: []
+    };
+
+    // 호주 TGA 매칭: 불확실한 성분 매칭(UNCERTAIN / UNMATCHED)이면 등급을 표시하지 않음!
+    let tgaStatus: IngredientSafetyEvaluation['tgaStatus'] = 'NO_DATA';
+    let tgaInfo = null;
+
+    if (ingr.matchConfidence === 'UNCERTAIN') {
+      tgaStatus = 'UNCERTAIN_MATCH_HIDDEN';
+      tgaInfo = null;
+    } else if (ingr.matchedInn) {
+      tgaInfo = lookupTgaCategoryByInn(ingr.matchedInn);
+      tgaStatus = tgaInfo ? 'MATCHED' : 'NO_DATA';
+    }
+
+    // NIH LactMed 매칭
+    let lactmedStatus: IngredientSafetyEvaluation['lactmedStatus'] = 'NO_DATA';
+    let lactmedInfo = ingr.matchedInn ? lookupLactMedByInn(ingr.matchedInn) : null;
+
+    if (lactmedInfo) {
+      lactmedStatus = 'MATCHED';
+    } else if (ingr.matchedInn && ingr.matchConfidence !== 'UNCERTAIN') {
+      // 로컬 DB에 없는 성분은 NCBI Entrez E-utilities API로 실제 NBK 챕터 존재 여부 확인
+      const liveCheck = await fetchLactMedChapterLinkLive(ingr.matchedInn);
+      if (liveCheck.exists && liveCheck.nbkId && liveCheck.sourceUrl) {
+        lactmedStatus = 'LIVE_LINK_ONLY';
+        lactmedInfo = {
+          matchedInn: ingr.matchedInn,
+          drugTitle: liveCheck.title || ingr.matchedInn,
+          pmcid: liveCheck.nbkId,
+          nbkId: liveCheck.nbkId,
+          summaryKorean:
+            'NIH LactMed에 해당 성분의 공식 수유부 모노그래프가 존재합니다. 원문 링크를 통해 Summary of Use During Lactation을 직접 확인하십시오.',
+          summaryOriginalEnglish: 'Please open the official NIH LactMed link to view the full monograph.',
+          infantAdverseEffectsKorean: '원문 링크에서 영아 이상반응 보고 내역을 확인하십시오.',
+          infantAdverseEffectsOriginal: 'See official NIH LactMed monograph.',
+          ridOriginalText: null,
+          ridKoreanSummary: null,
+          drugLevelsOriginal: null,
+          sourceUrl: liveCheck.sourceUrl,
+          lastRevisedDate: '실시간 링크 확인'
+        };
+      }
+    }
+
+    ingredientEvaluations.push({
+      ingredient: ingr,
+      durEntries: durForIngr.entries,
+      durStatus: durForIngr.status,
+      tgaStatus,
+      tgaInfo,
+      lactmedStatus,
+      lactmedInfo
+    });
+  }
+
+  const report: MaternalDrugSafetyReport = {
+    itemSeq,
+    productName,
+    manufacturer,
+    etcOtcName,
+    dosageForm,
+    chartText,
+    route,
+    isCombination,
+    ingredients,
+    rawIngredientsText: formattedIngredientsSummary,
+    permitUrl,
+    permitUpdatedAt,
+    mfdsLabel,
+    mfdsDur: durResult.overall,
+    ingredientEvaluations
+  };
+
+  reportCache.set(itemSeq, report);
+  return report;
 }

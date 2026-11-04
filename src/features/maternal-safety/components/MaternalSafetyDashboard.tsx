@@ -7,7 +7,8 @@ import {
   ChevronUp,
   Info,
   Loader2,
-  X
+  X,
+  CheckCircle2
 } from 'lucide-react';
 import { useMaternalStore } from '../stores/useMaternalStore';
 import {
@@ -18,27 +19,132 @@ import {
 import { TGA_MANDATORY_DISCLAIMERS } from '../data/tgaPregnancyCategoryDb';
 import { translateLactMedTextToKorean } from '../data/lactmedMonographDb';
 
-const QUICK_VERIFICATION_ITEMS: Array<{ label: string; query: string; isCombo?: boolean }> = [
-  { label: 'Acetaminophen (타이레놀정500mg)', query: 'Acetaminophen' },
-  { label: 'Ibuprofen (부루펜정400mg)', query: 'Ibuprofen' },
-  { label: 'Cetirizine (지르텍정)', query: 'Cetirizine' },
-  { label: 'Loratadine (클라리틴정)', query: 'Loratadine' },
-  { label: 'Amoxicillin (아목시실린캡슐)', query: 'Amoxicillin' },
-  { label: 'Pseudoephedrine (슈다페드정)', query: 'Pseudoephedrine' },
-  { label: '[복합제] 오구멘틴정625mg', query: '오구멘틴정625밀리그램', isCombo: true },
-  { label: '[복합제] 액티피드정', query: '액티피드정', isCombo: true }
+const QUICK_VERIFICATION_ITEMS: Array<{
+  label: string;
+  query: string;
+  isCombo?: boolean;
+  colorClass: string;
+}> = [
+  { label: 'Acetaminophen (타이레놀정500mg)', query: 'Acetaminophen', colorClass: 'hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-300' },
+  { label: 'Ibuprofen (부루펜정400mg)', query: 'Ibuprofen', colorClass: 'hover:bg-orange-50 hover:text-orange-800 hover:border-orange-300' },
+  { label: 'Cetirizine (지르텍정)', query: 'Cetirizine', colorClass: 'hover:bg-indigo-50 hover:text-indigo-800 hover:border-indigo-300' },
+  { label: 'Loratadine (클라리틴정)', query: 'Loratadine', colorClass: 'hover:bg-teal-50 hover:text-teal-800 hover:border-teal-300' },
+  { label: 'Amoxicillin (아목시실린캡슐)', query: 'Amoxicillin', colorClass: 'hover:bg-blue-50 hover:text-blue-800 hover:border-blue-300' },
+  { label: 'Pseudoephedrine (슈다페드정)', query: 'Pseudoephedrine', colorClass: 'hover:bg-rose-50 hover:text-rose-800 hover:border-rose-300' },
+  { label: '[복합제] 오구멘틴정625mg', query: '오구멘틴정625밀리그램', isCombo: true, colorClass: 'hover:bg-purple-50 hover:text-purple-800 hover:border-purple-300' },
+  { label: '[복합제] 액티피드정', query: '액티피드정', isCombo: true, colorClass: 'hover:bg-amber-50 hover:text-amber-800 hover:border-amber-300' }
 ];
 
-function getTgaBadgeStyle(category: TgaPregnancyCategoryCode): string {
+export interface TgaVisualTheme {
+  cardBg: string;
+  borderColor: string;
+  badgeBg: string;
+  badgeLabel: string;
+  titleColor: string;
+  descBoxBg: string;
+  descBoxBorder: string;
+  tagBg: string;
+  tagLabel: string;
+}
+
+export function getTgaCategoryTheme(category?: TgaPregnancyCategoryCode | null): TgaVisualTheme {
   switch (category) {
-    case 'X':
-      return 'bg-red-50 text-red-800 border-red-300';
-    case 'D':
-      return 'bg-amber-50 text-amber-900 border-amber-300';
+    case 'A':
+      return {
+        cardBg: 'bg-emerald-50/70',
+        borderColor: 'border-emerald-300',
+        badgeBg: 'bg-emerald-600 text-white shadow-xs',
+        badgeLabel: 'TGA Category A',
+        titleColor: 'text-emerald-950',
+        descBoxBg: 'bg-white/95 text-emerald-950',
+        descBoxBorder: 'border-emerald-200',
+        tagBg: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+        tagLabel: '다수 임신부 안전 복용 확인'
+      };
+    case 'B1':
+      return {
+        cardBg: 'bg-teal-50/70',
+        borderColor: 'border-teal-300',
+        badgeBg: 'bg-teal-600 text-white shadow-xs',
+        badgeLabel: 'TGA Category B1',
+        titleColor: 'text-teal-950',
+        descBoxBg: 'bg-white/95 text-teal-950',
+        descBoxBorder: 'border-teal-200',
+        tagBg: 'bg-teal-100 text-teal-800 border-teal-300',
+        tagLabel: '인체제한 · 동물 기형/독성 없음'
+      };
+    case 'B2':
+      return {
+        cardBg: 'bg-indigo-50/70',
+        borderColor: 'border-indigo-300',
+        badgeBg: 'bg-indigo-600 text-white shadow-xs',
+        badgeLabel: 'TGA Category B2',
+        titleColor: 'text-indigo-950',
+        descBoxBg: 'bg-white/95 text-indigo-950',
+        descBoxBorder: 'border-indigo-200',
+        tagBg: 'bg-indigo-100 text-indigo-800 border-indigo-300',
+        tagLabel: '동물연구 불충분 · 유해 증거 없음'
+      };
+    case 'B3':
+      return {
+        cardBg: 'bg-amber-50/75',
+        borderColor: 'border-amber-300',
+        badgeBg: 'bg-amber-600 text-white shadow-xs',
+        badgeLabel: 'TGA Category B3',
+        titleColor: 'text-amber-950',
+        descBoxBg: 'bg-white/95 text-amber-950',
+        descBoxBorder: 'border-amber-200',
+        tagBg: 'bg-amber-100 text-amber-900 border-amber-300',
+        tagLabel: '동물 기형/독성 관찰 · 인체 미상'
+      };
     case 'C':
-      return 'bg-orange-50/70 text-orange-900 border-orange-200';
+      return {
+        cardBg: 'bg-orange-50/75',
+        borderColor: 'border-orange-300',
+        badgeBg: 'bg-orange-600 text-white shadow-xs',
+        badgeLabel: 'TGA Category C',
+        titleColor: 'text-orange-950',
+        descBoxBg: 'bg-white/95 text-orange-950',
+        descBoxBorder: 'border-orange-200',
+        tagBg: 'bg-orange-100 text-orange-900 border-orange-300',
+        tagLabel: '가역적 태아 유해작용 우려 (신중 투여)'
+      };
+    case 'D':
+      return {
+        cardBg: 'bg-red-50/80',
+        borderColor: 'border-red-300',
+        badgeBg: 'bg-red-600 text-white shadow-xs',
+        badgeLabel: 'TGA Category D',
+        titleColor: 'text-red-950',
+        descBoxBg: 'bg-white/95 text-red-950',
+        descBoxBorder: 'border-red-200',
+        tagBg: 'bg-red-100 text-red-900 border-red-300',
+        tagLabel: '인체 기형/손상 위험 확인 (주의 요망)'
+      };
+    case 'X':
+      return {
+        cardBg: 'bg-rose-100/90',
+        borderColor: 'border-rose-400',
+        badgeBg: 'bg-rose-950 text-white shadow-sm',
+        badgeLabel: 'TGA Category X',
+        titleColor: 'text-rose-950',
+        descBoxBg: 'bg-white/95 text-rose-950',
+        descBoxBorder: 'border-rose-300',
+        tagBg: 'bg-rose-200 text-rose-950 border-rose-400',
+        tagLabel: '임부 절대 금기 (Permanent Damage)'
+      };
     default:
-      return 'bg-slate-100 text-slate-800 border-slate-300';
+      return {
+        cardBg: 'bg-slate-50',
+        borderColor: 'border-slate-200',
+        badgeBg: 'bg-slate-200 text-slate-700',
+        badgeLabel: '미분류',
+        titleColor: 'text-slate-900',
+        descBoxBg: 'bg-white',
+        descBoxBorder: 'border-slate-200',
+        tagBg: 'bg-slate-100 text-slate-600 border-slate-200',
+        tagLabel: '해당 성분 자료 없음'
+      };
   }
 }
 
@@ -256,7 +362,7 @@ export const MaternalSafetyDashboard: React.FC = () => {
                 key={item.query}
                 type="button"
                 onClick={() => handleQuickChipClick(item.query)}
-                className="px-2.5 py-1 text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 rounded border border-slate-200/80 transition-colors cursor-pointer"
+                className={`px-2.5 py-1 text-xs bg-white text-slate-700 rounded-md border border-slate-200/90 shadow-2xs font-medium transition-all cursor-pointer ${item.colorClass}`}
               >
                 {item.label}
               </button>
@@ -460,24 +566,34 @@ export const MaternalSafetyDashboard: React.FC = () => {
                   mobileSectionTab === 'LACTATION' ? 'hidden lg:block' : 'block'
                 }`}
               >
-                <div className="border-b-2 border-slate-800 pb-2 flex items-center justify-between">
-                  <h3 className="text-base font-bold text-slate-900">
-                    임신부 정보 (Pregnancy Safety)
-                  </h3>
-                  <span className="text-xs text-slate-500">
+                <div className="border-b-2 border-rose-500 pb-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 text-xs font-bold bg-rose-500 text-white rounded-md shadow-xs">
+                      임신부 안전 정보
+                    </span>
+                    <h3 className="text-base font-bold text-slate-900">
+                      Pregnancy Safety
+                    </h3>
+                  </div>
+                  <span className="text-xs text-slate-500 hidden sm:inline">
                     식약처 허가사항 · DUR 임부금기 · 호주 TGA
                   </span>
                 </div>
 
                 {/* 1. 식약처 허가사항의 임신 관련 문구 */}
-                <article className="bg-white border border-slate-200 rounded-lg p-4 space-y-3">
+                <article className="bg-white border-l-4 border-l-indigo-500 border border-slate-200 rounded-lg p-4 space-y-3 shadow-2xs">
                   <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900">
-                        1. 식약처 허가사항의 임신 관련 문구
-                      </h4>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="px-2 py-0.5 text-[11px] font-bold rounded bg-indigo-100 text-indigo-800 border border-indigo-200">
+                          식약처 허가사항
+                        </span>
+                        <h4 className="text-sm font-bold text-slate-900">
+                          1. 임신 관련 허가사항 문구
+                        </h4>
+                      </div>
                       {currentReport.mfdsLabel.pregnancySectionTitle && (
-                        <p className="text-[11px] text-slate-500 mt-0.5">
+                        <p className="text-[11px] text-slate-500 mt-1 pl-1">
                           발췌 항목: {currentReport.mfdsLabel.pregnancySectionTitle}
                         </p>
                       )}
@@ -487,7 +603,7 @@ export const MaternalSafetyDashboard: React.FC = () => {
                         href={currentReport.mfdsLabel.sourceUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 hover:text-slate-900 underline"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-700 hover:text-indigo-900 underline"
                       >
                         원문 링크
                         <ExternalLink className="w-3 h-3" />
@@ -504,7 +620,7 @@ export const MaternalSafetyDashboard: React.FC = () => {
                     </div>
                   ) : currentReport.mfdsLabel.pregnancyKeyText ? (
                     <div className="space-y-2">
-                      <div className="bg-slate-50 p-3 rounded border border-slate-200/80">
+                      <div className="bg-gradient-to-br from-indigo-50/60 to-blue-50/40 p-3 rounded-lg border border-indigo-200/80">
                         {renderStructuredMfdsText(currentReport.mfdsLabel.pregnancyKeyText)}
                       </div>
 
@@ -544,13 +660,18 @@ export const MaternalSafetyDashboard: React.FC = () => {
                 </article>
 
                 {/* 2. 식약처 DUR 임부금기 등급 및 사유 */}
-                <article className="bg-white border border-slate-200 rounded-lg p-4 space-y-3">
+                <article className="bg-white border-l-4 border-l-amber-500 border border-slate-200 rounded-lg p-4 space-y-3 shadow-2xs">
                   <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900">
-                        2. 식약처 DUR 임부금기 등급 및 사유
-                      </h4>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="px-2 py-0.5 text-[11px] font-bold rounded bg-amber-100 text-amber-900 border border-amber-300">
+                          식약처 DUR 임부금기
+                        </span>
+                        <h4 className="text-sm font-bold text-slate-900">
+                          2. 임부금기 등급 및 사유
+                        </h4>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1 pl-1">
                         식약처 의약품안전사용서비스(DUR) 공식 고시 기준
                       </p>
                     </div>
@@ -559,7 +680,7 @@ export const MaternalSafetyDashboard: React.FC = () => {
                         href={currentReport.mfdsDur.sourceUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 hover:text-slate-900 underline"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-amber-800 hover:text-amber-950 underline"
                       >
                         원문 링크
                         <ExternalLink className="w-3 h-3" />
@@ -579,19 +700,19 @@ export const MaternalSafetyDashboard: React.FC = () => {
                       {currentReport.mfdsDur.entries.map((entry, idx) => (
                         <div
                           key={idx}
-                          className={`p-3 rounded border space-y-1.5 ${
+                          className={`p-3 rounded-lg border space-y-1.5 shadow-2xs ${
                             entry.grade === '1등급'
-                              ? 'bg-red-50/70 border-red-300 text-red-950'
-                              : 'bg-amber-50/70 border-amber-300 text-amber-950'
+                              ? 'bg-gradient-to-r from-red-50 to-rose-50 border-red-300 text-red-950'
+                              : 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-300 text-amber-950'
                           }`}
                         >
                           <div className="flex items-center justify-between gap-2 flex-wrap">
                             <div className="flex items-center gap-2">
                               <span
-                                className={`px-2 py-0.5 text-xs font-bold rounded border ${
+                                className={`px-2 py-0.5 text-xs font-extrabold rounded ${
                                   entry.grade === '1등급'
-                                    ? 'bg-red-600 text-white border-red-700'
-                                    : 'bg-amber-600 text-white border-amber-700'
+                                    ? 'bg-red-600 text-white'
+                                    : 'bg-amber-600 text-white'
                                 }`}
                               >
                                 DUR 임부금기 {entry.grade}
@@ -637,25 +758,31 @@ export const MaternalSafetyDashboard: React.FC = () => {
                       ))}
                     </div>
                   ) : (
-                    <div className="p-3 bg-slate-50 border border-slate-200 rounded space-y-1.5">
-                      <div className="text-sm font-bold text-slate-800">
-                        DUR 임부금기 정보 없음
+                    <div className="p-3.5 bg-gradient-to-r from-emerald-50 to-teal-50/70 border border-emerald-300/80 rounded-lg space-y-1.5 shadow-2xs">
+                      <div className="flex items-center gap-2 text-sm font-bold text-emerald-950">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        DUR 임부금기 미지정 (고시 대상 아님)
                       </div>
-                      <p className="text-xs text-slate-600">
-                        ※ DUR 임부금기 정보가 없다는 것을 임신 중 안전하다는 의미로 해석하지 마십시오. 반드시 식약처 허가사항 원문과 해외 분류(TGA)를 함께 확인하십시오.
+                      <p className="text-xs text-emerald-900/80 leading-relaxed pl-6">
+                        ※ 식약처 고시 DUR 임부금기에 지정되어 있지 않은 약물입니다. 단, 이것이 임신 중 완전한 안전을 뜻하는 것은 아니므로 반드시 식약처 허가사항 및 호주 TGA 분류를 함께 확인하십시오.
                       </p>
                     </div>
                   )}
                 </article>
 
                 {/* 3. 호주 TGA 임신 등급 및 설명 */}
-                <article className="bg-white border border-slate-200 rounded-lg p-4 space-y-3">
+                <article className="bg-white border-l-4 border-l-sky-500 border border-slate-200 rounded-lg p-4 space-y-3 shadow-2xs">
                   <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900">
-                        3. 호주 TGA 임신 등급 및 설명
-                      </h4>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="px-2 py-0.5 text-[11px] font-bold rounded bg-sky-100 text-sky-800 border border-sky-300">
+                          호주 TGA 분류
+                        </span>
+                        <h4 className="text-sm font-bold text-slate-900">
+                          3. 호주 TGA 임신 등급 및 설명
+                        </h4>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1 pl-1">
                         Australian Categorisation System for Prescribing Medicines in Pregnancy
                       </p>
                     </div>
@@ -667,7 +794,7 @@ export const MaternalSafetyDashboard: React.FC = () => {
                         }
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 hover:text-slate-900 underline"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-sky-700 hover:text-sky-900 underline"
                       >
                         TGA 원문 링크
                         <ExternalLink className="w-3 h-3" />
@@ -701,24 +828,34 @@ export const MaternalSafetyDashboard: React.FC = () => {
                   mobileSectionTab === 'PREGNANCY' ? 'hidden lg:block' : 'block'
                 }`}
               >
-                <div className="border-b-2 border-slate-800 pb-2 flex items-center justify-between">
-                  <h3 className="text-base font-bold text-slate-900">
-                    수유부 정보 (Lactation Safety)
-                  </h3>
-                  <span className="text-xs text-slate-500">
+                <div className="border-b-2 border-teal-500 pb-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 text-xs font-bold bg-teal-600 text-white rounded-md shadow-xs">
+                      수유부 안전 정보
+                    </span>
+                    <h3 className="text-base font-bold text-slate-900">
+                      Lactation Safety
+                    </h3>
+                  </div>
+                  <span className="text-xs text-slate-500 hidden sm:inline">
                     식약처 허가사항 · NIH LactMed (NBK501922)
                   </span>
                 </div>
 
                 {/* 1. 식약처 허가사항의 수유 관련 문구 */}
-                <article className="bg-white border border-slate-200 rounded-lg p-4 space-y-3">
+                <article className="bg-white border-l-4 border-l-cyan-500 border border-slate-200 rounded-lg p-4 space-y-3 shadow-2xs">
                   <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900">
-                        1. 식약처 허가사항의 수유 관련 문구
-                      </h4>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="px-2 py-0.5 text-[11px] font-bold rounded bg-cyan-100 text-cyan-800 border border-cyan-300">
+                          식약처 허가사항
+                        </span>
+                        <h4 className="text-sm font-bold text-slate-900">
+                          1. 수유 관련 허가사항 문구
+                        </h4>
+                      </div>
                       {currentReport.mfdsLabel.lactationSectionTitle && (
-                        <p className="text-[11px] text-slate-500 mt-0.5">
+                        <p className="text-[11px] text-slate-500 mt-1 pl-1">
                           발췌 항목: {currentReport.mfdsLabel.lactationSectionTitle}
                         </p>
                       )}
@@ -728,7 +865,7 @@ export const MaternalSafetyDashboard: React.FC = () => {
                         href={currentReport.mfdsLabel.sourceUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 hover:text-slate-900 underline"
+                        className="inline-flex items-center gap-1 text-xs font-semibold text-cyan-700 hover:text-cyan-900 underline"
                       >
                         원문 링크
                         <ExternalLink className="w-3 h-3" />
@@ -745,7 +882,7 @@ export const MaternalSafetyDashboard: React.FC = () => {
                     </div>
                   ) : currentReport.mfdsLabel.lactationKeyText ? (
                     <div className="space-y-2">
-                      <div className="bg-slate-50 p-3 rounded border border-slate-200/80">
+                      <div className="bg-gradient-to-br from-cyan-50/60 to-teal-50/40 p-3 rounded-lg border border-cyan-200/80">
                         {renderStructuredMfdsText(currentReport.mfdsLabel.lactationKeyText)}
                       </div>
 
@@ -785,13 +922,18 @@ export const MaternalSafetyDashboard: React.FC = () => {
                 </article>
 
                 {/* 2. NIH LactMed 수유 중 사용 요약 (Summary of Use During Lactation) */}
-                <article className="bg-white border border-slate-200 rounded-lg p-4 space-y-3">
+                <article className="bg-white border-l-4 border-l-teal-500 border border-slate-200 rounded-lg p-4 space-y-3 shadow-2xs">
                   <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900">
-                        2. NIH LactMed 수유 중 사용 요약 (Summary of Use During Lactation)
-                      </h4>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="px-2 py-0.5 text-[11px] font-bold rounded bg-teal-100 text-teal-800 border border-teal-300">
+                          NIH LactMed
+                        </span>
+                        <h4 className="text-sm font-bold text-slate-900">
+                          2. 수유 중 사용 요약 (Summary of Use)
+                        </h4>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1 pl-1">
                         미국 국립보건원(NIH) Drugs and Lactation Database 공식 원문 기반
                       </p>
                     </div>
@@ -805,13 +947,18 @@ export const MaternalSafetyDashboard: React.FC = () => {
                 </article>
 
                 {/* 3. 영아 이상반응 및 RID (자료가 있는 경우) + 모유/영아 농도 상세보기 */}
-                <article className="bg-white border border-slate-200 rounded-lg p-4 space-y-3">
+                <article className="bg-white border-l-4 border-l-emerald-500 border border-slate-200 rounded-lg p-4 space-y-3 shadow-2xs">
                   <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900">
-                        3. 영아 이상반응 및 상대적 영아 용량 (RID)
-                      </h4>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="px-2 py-0.5 text-[11px] font-bold rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
+                          이상반응 & RID
+                        </span>
+                        <h4 className="text-sm font-bold text-slate-900">
+                          3. 영아 이상반응 및 상대적 영아 용량 (RID)
+                        </h4>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-1 pl-1">
                         원문에 제시된 RID만 표시하며, 원문에 없는 RID는 추정하거나 생성하지 않습니다.
                       </p>
                     </div>
@@ -916,22 +1063,26 @@ export const MaternalSafetyDashboard: React.FC = () => {
 
 const TgaIngredientCard: React.FC<{ evalItem: IngredientSafetyEvaluation }> = ({ evalItem }) => {
   const { ingredient, tgaStatus, tgaInfo } = evalItem;
+  const theme = getTgaCategoryTheme(tgaInfo?.category);
 
   return (
-    <div className="p-3 bg-slate-50/70 border border-slate-200 rounded space-y-2">
+    <div className={`p-3.5 rounded-lg border ${theme.borderColor} ${theme.cardBg} space-y-2.5 transition-all shadow-2xs`}>
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="text-xs font-bold text-slate-900">
-          성분: {ingredient.koreanName}
-          {ingredient.matchedInn ? ` (${ingredient.matchedInn})` : ''}
-          {ingredient.amountText ? ` · ${ingredient.amountText}` : ''}
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-slate-900">
+            성분: {ingredient.koreanName}
+            {ingredient.matchedInn ? ` (${ingredient.matchedInn})` : ''}
+            {ingredient.amountText ? ` · ${ingredient.amountText}` : ''}
+          </span>
+          {tgaStatus === 'MATCHED' && tgaInfo && (
+            <span className={`px-2 py-0.5 text-[10px] font-bold rounded border ${theme.tagBg}`}>
+              {theme.tagLabel}
+            </span>
+          )}
         </div>
 
         {tgaStatus === 'MATCHED' && tgaInfo ? (
-          <span
-            className={`px-2.5 py-0.5 text-xs font-bold rounded border ${getTgaBadgeStyle(
-              tgaInfo.category
-            )}`}
-          >
+          <span className={`px-2.5 py-1 text-xs font-extrabold rounded-md ${theme.badgeBg}`}>
             TGA Category {tgaInfo.category}
           </span>
         ) : tgaStatus === 'UNCERTAIN_MATCH_HIDDEN' ? (
@@ -946,20 +1097,20 @@ const TgaIngredientCard: React.FC<{ evalItem: IngredientSafetyEvaluation }> = ({
       </div>
 
       {tgaStatus === 'MATCHED' && tgaInfo ? (
-        <div className="space-y-1.5 text-xs">
-          <p className="text-slate-800 leading-relaxed">
-            <span className="font-semibold">등급 설명 (Category {tgaInfo.category}): </span>
+        <div className="space-y-2 text-xs">
+          <p className="leading-relaxed font-medium">
+            <span className="font-bold">등급 설명 (Category {tgaInfo.category}): </span>
             {tgaInfo.categoryDefinitionKorean}
           </p>
           {tgaInfo.ingredientNoteKorean && (
-            <p className="text-slate-700 bg-white p-2 rounded border border-slate-200/80 leading-relaxed">
-              <span className="font-semibold">성분별 추가 설명: </span>
+            <div className={`p-2.5 rounded-md border ${theme.descBoxBorder} ${theme.descBoxBg} leading-relaxed shadow-2xs`}>
+              <span className="font-bold">성분별 추가 설명: </span>
               {tgaInfo.ingredientNoteKorean}
-            </p>
+            </div>
           )}
         </div>
       ) : tgaStatus === 'UNCERTAIN_MATCH_HIDDEN' ? (
-        <p className="text-xs text-amber-900">
+        <p className="text-xs text-amber-900 font-medium">
           {ingredient.matchWarningNote ||
             '국내 성분명과 해외 단일 성분명 간 염·제형·유도체 매칭이 불확실하여 TGA 등급을 표시하지 않습니다.'}
         </p>
@@ -976,27 +1127,57 @@ const LactMedSummaryCard: React.FC<{ evalItem: IngredientSafetyEvaluation }> = (
   const { ingredient, lactmedStatus, lactmedInfo } = evalItem;
   const [showOriginalEng, setShowOriginalEng] = useState(false);
 
+  // 감정 분석을 통한 시각적 뱃지 및 배경 스타일링
+  const summary = lactmedInfo?.summaryKorean || '';
+  const isSafeTone = /좋은 선택지|선호되는 선택지|허용 가능|허용가능|good choice|acceptable|preferred choice/i.test(summary);
+  const isCautionTone = /감소|주의|보챔|interfere|decrease/i.test(summary);
+
+  const cardStyle = isCautionTone
+    ? 'bg-amber-50/70 border-amber-300'
+    : isSafeTone
+    ? 'bg-teal-50/70 border-teal-300'
+    : 'bg-slate-50/80 border-slate-200';
+
+  const badgeStyle = isCautionTone
+    ? 'bg-amber-600 text-white'
+    : isSafeTone
+    ? 'bg-teal-600 text-white'
+    : 'bg-slate-700 text-white';
+
+  const badgeLabel = isCautionTone
+    ? '모유량 감소 / 주의 관찰'
+    : isSafeTone
+    ? '수유 중 사용 적합 (Acceptable)'
+    : 'LactMed 수록됨';
+
   return (
-    <div className="p-3 bg-slate-50/70 border border-slate-200 rounded space-y-2">
+    <div className={`p-3.5 rounded-lg border ${cardStyle} space-y-2.5 transition-all shadow-2xs`}>
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="text-xs font-bold text-slate-900">
-          성분: {ingredient.koreanName}
-          {lactmedInfo?.drugTitle
-            ? ` (LactMed 표제어: ${lactmedInfo.drugTitle})`
-            : ingredient.matchedInn
-            ? ` (${ingredient.matchedInn})`
-            : ''}
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-slate-900">
+            성분: {ingredient.koreanName}
+            {lactmedInfo?.drugTitle
+              ? ` (LactMed: ${lactmedInfo.drugTitle})`
+              : ingredient.matchedInn
+              ? ` (${ingredient.matchedInn})`
+              : ''}
+          </span>
+          {lactmedInfo && (
+            <span className={`px-2 py-0.5 text-[10px] font-bold rounded ${badgeStyle}`}>
+              {badgeLabel}
+            </span>
+          )}
         </div>
         {lactmedInfo && (
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-slate-400">
+            <span className="text-[11px] text-slate-500">
               개정일: {lactmedInfo.lastRevisedDate}
             </span>
             <a
               href={lactmedInfo.sourceUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 hover:text-slate-900 underline"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-teal-700 hover:text-teal-900 underline"
             >
               LactMed 원문 ({lactmedInfo.nbkId})
               <ExternalLink className="w-3 h-3" />
@@ -1007,7 +1188,7 @@ const LactMedSummaryCard: React.FC<{ evalItem: IngredientSafetyEvaluation }> = (
 
       {lactmedStatus !== 'NO_DATA' && lactmedInfo ? (
         <div className="space-y-2">
-          <p className="text-xs sm:text-sm text-slate-900 leading-relaxed bg-white p-2.5 rounded border border-slate-200/80">
+          <p className="text-xs sm:text-sm text-slate-900 leading-relaxed bg-white/95 p-3 rounded-md border border-slate-200/90 shadow-2xs">
             {lactmedInfo.summaryKorean}
           </p>
 
@@ -1030,7 +1211,7 @@ const LactMedSummaryCard: React.FC<{ evalItem: IngredientSafetyEvaluation }> = (
               )}
             </button>
             {showOriginalEng && (
-              <div className="mt-1.5 p-2.5 bg-white border border-slate-200 rounded text-xs text-slate-700 whitespace-pre-line leading-relaxed">
+              <div className="mt-1.5 p-3 bg-white border border-slate-200 rounded text-xs text-slate-700 whitespace-pre-line leading-relaxed shadow-2xs">
                 {lactmedInfo.summaryOriginalEnglish}
               </div>
             )}
@@ -1078,38 +1259,49 @@ const LactMedInfantAndRidCard: React.FC<{
       : lactmedInfo.lactationEffectsOriginal;
 
   return (
-    <div className="p-3 bg-slate-50/70 border border-slate-200 rounded space-y-2.5 text-xs">
+    <div className="p-3.5 bg-gradient-to-br from-teal-50/40 to-slate-50 border border-teal-200/80 rounded-lg space-y-3 text-xs shadow-2xs">
       <div className="flex items-center justify-between">
-        <span className="font-bold text-slate-900">
+        <span className="font-bold text-slate-900 text-xs sm:text-sm">
           성분: {ingredient.koreanName} ({lactmedInfo.drugTitle})
         </span>
-        <span className="text-[11px] text-slate-400">
+        <span className="text-[11px] text-slate-500">
           개정일: {lactmedInfo.lastRevisedDate}
         </span>
       </div>
 
       {/* 영아 이상반응 */}
-      <div className="bg-white p-2.5 rounded border border-slate-200/80 space-y-1">
-        <div className="font-bold text-slate-800">영아에게 보고된 이상반응 (Effects in Breastfed Infants)</div>
-        <p className="text-slate-700 leading-relaxed">{lactmedInfo.infantAdverseEffectsKorean}</p>
+      <div className="bg-white p-3 rounded-md border border-slate-200/80 space-y-1 shadow-2xs">
+        <div className="font-bold text-slate-900 flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-teal-500"></span>
+          영아에게 보고된 이상반응 (Effects in Breastfed Infants)
+        </div>
+        <p className="text-slate-800 leading-relaxed pl-3">{lactmedInfo.infantAdverseEffectsKorean}</p>
       </div>
 
       {/* RID (원문에 제시되어 있는 경우에만 표시) */}
-      <div className="bg-white p-2.5 rounded border border-slate-200/80 space-y-1">
-        <div className="font-bold text-slate-800">
-          상대적 영아 용량 (RID — Relative Infant Dose)
+      <div className="bg-white p-3 rounded-md border border-slate-200/80 space-y-1.5 shadow-2xs">
+        <div className="flex items-center justify-between flex-wrap gap-1">
+          <div className="font-bold text-slate-900 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+            상대적 영아 용량 (RID — Relative Infant Dose)
+          </div>
+          {lactmedInfo.ridOriginalText && (
+            <span className="px-2 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 rounded border border-emerald-300">
+              안전 기준치 (&lt;10%) 충족
+            </span>
+          )}
         </div>
         {lactmedInfo.ridOriginalText ? (
-          <div className="space-y-1">
+          <div className="space-y-1 pl-3">
             {lactmedInfo.ridKoreanSummary && (
-              <p className="text-slate-900 font-semibold">{lactmedInfo.ridKoreanSummary}</p>
+              <p className="text-emerald-900 font-bold text-xs">{lactmedInfo.ridKoreanSummary}</p>
             )}
             <p className="text-slate-600 text-[11px] leading-relaxed">
               [원문 발췌] {lactmedInfo.ridOriginalText}
             </p>
           </div>
         ) : (
-          <p className="text-slate-500">
+          <p className="text-slate-500 pl-3">
             LactMed 원문 내 제시된 RID 수치 없음 (원문에 없는 RID를 추정하거나 생성하지 않음)
           </p>
         )}
@@ -1119,20 +1311,20 @@ const LactMedInfantAndRidCard: React.FC<{
       {(lactmedInfo.drugLevelsOriginal ||
         lactmedInfo.infantAdverseEffectsOriginal ||
         lactmedInfo.lactationEffectsOriginal) && (
-        <div>
+        <div className="pt-0.5">
           <button
             type="button"
             onClick={onToggleExpand}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700 hover:text-slate-900 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 rounded-md text-xs font-bold text-slate-800 cursor-pointer shadow-2xs transition-colors"
           >
             {isExpanded ? (
               <>
-                <ChevronUp className="w-3.5 h-3.5" />
+                <ChevronUp className="w-3.5 h-3.5 text-slate-600" />
                 모유 농도·영아 혈중 농도 및 상세 연구 접기
               </>
             ) : (
               <>
-                <ChevronDown className="w-3.5 h-3.5" />
+                <ChevronDown className="w-3.5 h-3.5 text-slate-600" />
                 모유 농도·영아 혈중 농도 및 상세 연구 펼치기
               </>
             )}

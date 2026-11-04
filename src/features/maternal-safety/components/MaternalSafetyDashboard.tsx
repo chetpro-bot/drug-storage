@@ -357,7 +357,7 @@ export const MaternalSafetyDashboard: React.FC = () => {
             {/* [A] 제품 기본정보 */}
             <section className="bg-white border border-slate-200 rounded-lg p-4 sm:p-5">
               <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 border-b border-slate-100 pb-3.5">
-                {/* 좌측: 제품 분류, 코드, 제품명 */}
+                {/* 좌측: 제품 분류, 코드, 제품명 및 바로 뒤 알약 사진 */}
                 <div className="space-y-1.5 min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="px-2 py-0.5 text-[11px] font-semibold bg-slate-100 text-slate-700 rounded border border-slate-200">
@@ -378,44 +378,45 @@ export const MaternalSafetyDashboard: React.FC = () => {
                       품목기준코드: {currentReport.itemSeq}
                     </span>
                   </div>
-                  <h3 className="text-lg sm:text-xl font-bold text-slate-900 break-keep">
-                    {currentReport.productName}
-                  </h3>
+
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <h3 className="text-lg sm:text-xl font-bold text-slate-900 break-keep">
+                      {currentReport.productName}
+                    </h3>
+
+                    {currentReport.pillIdentification?.itemImage && (
+                      <div className="shrink-0 relative group">
+                        <img
+                          src={currentReport.pillIdentification.itemImage}
+                          alt={`${currentReport.productName} 실물 알약`}
+                          className="w-14 h-14 sm:w-16 sm:h-16 object-contain bg-white border border-slate-200 rounded-lg p-1 shadow-xs cursor-pointer hover:border-sky-500 hover:shadow-md transition-all"
+                          onClick={() => setSelectedPillImage(currentReport.pillIdentification?.itemImage || null)}
+                          referrerPolicy="no-referrer"
+                          loading="lazy"
+                          title="클릭하여 식약처 공식 낱알 확대보기"
+                        />
+                        <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 px-1 py-0.2 bg-slate-900/80 text-white text-[9px] rounded font-medium whitespace-nowrap shadow-xs pointer-events-none">
+                          식약처 실물
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
-                {/* 우측: 허가사항 원문 링크 및 실물 알약 사진 */}
-                <div className="flex items-center sm:items-start gap-3.5 shrink-0">
-                  <div className="flex flex-col sm:items-end gap-1 text-right">
-                    <a
-                      href={currentReport.permitUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded transition-colors"
-                    >
-                      식약처 허가사항 원문 보기
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                    <span className="text-[11px] text-slate-500">
-                      식약처 허가/변경 기준일: {currentReport.permitUpdatedAt}
-                    </span>
-                  </div>
-
-                  {currentReport.pillIdentification?.itemImage && (
-                    <div className="shrink-0 relative group">
-                      <img
-                        src={currentReport.pillIdentification.itemImage}
-                        alt={`${currentReport.productName} 실물 알약`}
-                        className="w-16 h-16 sm:w-20 sm:h-20 object-contain bg-white border border-slate-200 rounded-lg p-1 shadow-xs cursor-pointer hover:border-sky-500 hover:shadow-md transition-all"
-                        onClick={() => setSelectedPillImage(currentReport.pillIdentification?.itemImage || null)}
-                        referrerPolicy="no-referrer"
-                        loading="lazy"
-                        title="클릭하여 식약처 공식 낱알 확대보기"
-                      />
-                      <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 px-1.5 py-0.2 bg-slate-900/80 text-white text-[9px] rounded font-medium whitespace-nowrap shadow-xs pointer-events-none">
-                        식약처 실물
-                      </span>
-                    </div>
-                  )}
+                {/* 우측: 허가사항 원문 링크 */}
+                <div className="flex flex-col sm:items-end gap-1 text-right shrink-0">
+                  <a
+                    href={currentReport.permitUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded transition-colors"
+                  >
+                    식약처 허가사항 원문 보기
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                  <span className="text-[11px] text-slate-500">
+                    식약처 허가/변경 기준일: {currentReport.permitUpdatedAt}
+                  </span>
                 </div>
               </div>
 

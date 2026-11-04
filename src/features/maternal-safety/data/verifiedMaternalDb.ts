@@ -6,6 +6,13 @@ import {
   IngredientMappingRecord,
   SafetySummaryLevel
 } from '../types/maternalSafety';
+import {
+  EXPANDED_PREGNANCY_SAFETY_DB,
+  EXPANDED_LACTATION_SAFETY_DB,
+  EXPANDED_EVIDENCE_SOURCES_DB,
+  EXPANDED_DRUG_MASTER_DB,
+  EXPANDED_INGREDIENT_MAPPING_DB
+} from './expandedMaternalDb';
 
 /**
  * 5단계 자체 안전성 요약 분류 메타데이터
@@ -504,7 +511,8 @@ export const PREGNANCY_SAFETY_DB: Record<string, PregnancySafetyRecord> = {
       'src_fda_amoxicillin_pllr',
       'src_mfds_amoxicillin_198000158'
     ]
-  }
+  },
+  ...EXPANDED_PREGNANCY_SAFETY_DB
 };
 
 /**
@@ -803,7 +811,8 @@ export const LACTATION_SAFETY_DB: Record<string, LactationSafetyRecord> = {
       'src_mtb_amoxicillin_nbk582571',
       'src_fda_amoxicillin_pllr'
     ]
-  }
+  },
+  ...EXPANDED_LACTATION_SAFETY_DB
 };
 
 /**
@@ -1171,7 +1180,8 @@ export const EVIDENCE_SOURCES_DB: Record<string, EvidenceSourceRecord> = {
     publishedDate: '식약처 상시 업데이트',
     collectedDate: '2026-11-04',
     lastVerifiedDate: '2026-11-04'
-  }
+  },
+  ...EXPANDED_EVIDENCE_SOURCES_DB
 };
 
 /**
@@ -1237,7 +1247,7 @@ export const DRUG_MASTER_DB: DrugMasterRecord[] = [
     id: 'drug_zyrtec_10',
     itemSeq: '200610765',
     koreanProductName: '지르텍정(세티리진염산염)',
-    englishIngredientsSummary: 'Cetirizine Hydrochloride',
+    englishIngredientsSummary: 'Cetirizine',
     strengthText: '10mg',
     dosageForm: '필름코팅정',
     route: 'ORAL',
@@ -1255,7 +1265,7 @@ export const DRUG_MASTER_DB: DrugMasterRecord[] = [
     id: 'drug_peniramin_2',
     itemSeq: '196000011',
     koreanProductName: '페니라민정(클로르페니라민말레산염)',
-    englishIngredientsSummary: 'Chlorpheniramine Maleate',
+    englishIngredientsSummary: 'Chlorpheniramine',
     strengthText: '2mg',
     dosageForm: '정제',
     route: 'ORAL',
@@ -1273,7 +1283,7 @@ export const DRUG_MASTER_DB: DrugMasterRecord[] = [
     id: 'drug_gomsillin_500',
     itemSeq: '198000158',
     koreanProductName: '곰실린캡슐(아목시실린수화물)',
-    englishIngredientsSummary: 'Amoxicillin Hydrate',
+    englishIngredientsSummary: 'Amoxicillin',
     strengthText: '500mg',
     dosageForm: '경질캡슐',
     route: 'ORAL',
@@ -1293,7 +1303,7 @@ export const DRUG_MASTER_DB: DrugMasterRecord[] = [
     itemSeq: '202106095',
     koreanProductName: '타이레놀콜드-에스정 (종합감기약 복합제)',
     englishIngredientsSummary:
-      'Acetaminophen 325mg / Chlorpheniramine Maleate 2mg / Dextromethorphan HBr 15mg / Pseudoephedrine HCl 30mg',
+      'Acetaminophen 325mg / Chlorpheniramine 2mg / Dextromethorphan 15mg / Pseudoephedrine 30mg',
     strengthText: '325mg / 2mg / 15mg / 30mg',
     dosageForm: '필름코팅정',
     route: 'ORAL',
@@ -1312,7 +1322,7 @@ export const DRUG_MASTER_DB: DrugMasterRecord[] = [
     itemSeq: '196800036',
     koreanProductName: '판콜에스내복액 (종합감기약 액제 복합제)',
     englishIngredientsSummary:
-      'Acetaminophen 300mg / Chlorpheniramine Maleate 2.5mg / Caffeine Anhydrous 30mg / DL-Methylephedrine HCl 17.5mg / Guaifenesin 83.3mg',
+      'Acetaminophen 300mg / Chlorpheniramine 2.5mg / Caffeine 30mg / DL-Methylephedrine 17.5mg / Guaifenesin 83.3mg',
     strengthText: '30mL(1병) 중 복합성분',
     dosageForm: '내복액제',
     route: 'ORAL',
@@ -1320,16 +1330,17 @@ export const DRUG_MASTER_DB: DrugMasterRecord[] = [
     manufacturer: '동화약품(주)',
     isCombination: true,
     mfdsPregnancyPrecautionText:
-      '임부 또는 임신하고 있을 가능성이 있는 여성 및 수유부는 복용하기 전에 의사·약사와 상의할 것. 아세트아미노펜 외에 클로르페니라민말레산염, DL-메틸에페드린염산염, 카페인무수물, 구아이페네신이 복합되어 있으므로 아세트아미노펜만 보고 안전하다고 판단해서는 안 된다.',
+      '임부 또는 임신하고 있을 가능성이 있는 여성 및 수유부는 복용하기 전에 의사·약사와 상의할 것. 아세트아미노펜 외에 클로르페니라민, DL-메틸에페드린, 카페인, 구아이페네신이 복합되어 있으므로 아세트아미노펜만 보고 안전하다고 판단해서는 안 된다.',
     durPregnancyTabooGrade: 'NONE',
     durPregnancyTabooDetail: null,
     productSourceUrl: 'https://nedrug.mfds.go.kr/pbp/CCBBB01/getItemDetail?itemSeq=196800036',
     updatedAt: '2026-11-04'
-  }
+  },
+  ...EXPANDED_DRUG_MASTER_DB
 ];
 
 /**
- * ⑤ Ingredient Mapping 테이블 (국내 제품 ↔ 개별 성분 분리 매핑)
+ * ⑤ Ingredient Mapping 테이블 (국내 제품 ↔ 개별 성분 분리 매핑 · 염기/수화물 제거 순수 성분 기준)
  */
 export const INGREDIENT_MAPPING_DB: IngredientMappingRecord[] = [
   // 단일제 매핑
@@ -1380,7 +1391,7 @@ export const INGREDIENT_MAPPING_DB: IngredientMappingRecord[] = [
     drugMasterId: 'drug_zyrtec_10',
     koreanProductName: '지르텍정(세티리진염산염)',
     itemSeq: '200610765',
-    koreanIngredientName: '세티리진염산염',
+    koreanIngredientName: '세티리진',
     englishIngredientName: 'Cetirizine',
     ingredientId: 'ing_cetirizine',
     amountText: '10mg',
@@ -1394,7 +1405,7 @@ export const INGREDIENT_MAPPING_DB: IngredientMappingRecord[] = [
     drugMasterId: 'drug_peniramin_2',
     koreanProductName: '페니라민정(클로르페니라민말레산염)',
     itemSeq: '196000011',
-    koreanIngredientName: '클로르페니라민말레산염',
+    koreanIngredientName: '클로르페니라민',
     englishIngredientName: 'Chlorpheniramine',
     ingredientId: 'ing_chlorpheniramine',
     amountText: '2mg',
@@ -1408,7 +1419,7 @@ export const INGREDIENT_MAPPING_DB: IngredientMappingRecord[] = [
     drugMasterId: 'drug_gomsillin_500',
     koreanProductName: '곰실린캡슐(아목시실린수화물)',
     itemSeq: '198000158',
-    koreanIngredientName: '아목시실린수화물',
+    koreanIngredientName: '아목시실린',
     englishIngredientName: 'Amoxicillin',
     ingredientId: 'ing_amoxicillin',
     amountText: '500mg',
@@ -1418,7 +1429,7 @@ export const INGREDIENT_MAPPING_DB: IngredientMappingRecord[] = [
     verificationStatus: 'VERIFIED_CORE_5'
   },
 
-  // 복합제 1: 타이레놀콜드-에스정 (4개 유효성분 전체 분리)
+  // 복합제 1: 타이레놀콜드-에스정 (4개 유효성분 전체 분리 · 염기 제외 순수 성분 매핑)
   {
     mappingId: 'map_tcold_1',
     drugMasterId: 'drug_tylenol_cold_s',
@@ -1438,7 +1449,7 @@ export const INGREDIENT_MAPPING_DB: IngredientMappingRecord[] = [
     drugMasterId: 'drug_tylenol_cold_s',
     koreanProductName: '타이레놀콜드-에스정 (종합감기약 복합제)',
     itemSeq: '202106095',
-    koreanIngredientName: '클로르페니라민말레산염',
+    koreanIngredientName: '클로르페니라민',
     englishIngredientName: 'Chlorpheniramine',
     ingredientId: 'ing_chlorpheniramine',
     amountText: '2mg',
@@ -1452,31 +1463,31 @@ export const INGREDIENT_MAPPING_DB: IngredientMappingRecord[] = [
     drugMasterId: 'drug_tylenol_cold_s',
     koreanProductName: '타이레놀콜드-에스정 (종합감기약 복합제)',
     itemSeq: '202106095',
-    koreanIngredientName: '덱스트로메토르판브롬화수소산염수화물',
+    koreanIngredientName: '덱스트로메토르판',
     englishIngredientName: 'Dextromethorphan',
-    ingredientId: 'UNVERIFIED_INGREDIENT',
+    ingredientId: 'ing_dextromethorphan',
     amountText: '15mg',
     dosageForm: '필름코팅정',
     route: 'ORAL',
     isCombination: true,
-    verificationStatus: 'UNVERIFIED_IN_MVP'
+    verificationStatus: 'VERIFIED_CORE_5'
   },
   {
     mappingId: 'map_tcold_4',
     drugMasterId: 'drug_tylenol_cold_s',
     koreanProductName: '타이레놀콜드-에스정 (종합감기약 복합제)',
     itemSeq: '202106095',
-    koreanIngredientName: '슈도에페드린염산염',
+    koreanIngredientName: '슈도에페드린',
     englishIngredientName: 'Pseudoephedrine',
-    ingredientId: 'UNVERIFIED_INGREDIENT',
+    ingredientId: 'ing_pseudoephedrine',
     amountText: '30mg',
     dosageForm: '필름코팅정',
     route: 'ORAL',
     isCombination: true,
-    verificationStatus: 'UNVERIFIED_IN_MVP'
+    verificationStatus: 'VERIFIED_CORE_5'
   },
 
-  // 복합제 2: 판콜에스내복액 (5개 유효성분 전체 분리)
+  // 복합제 2: 판콜에스내복액 (5개 유효성분 전체 분리 · 염기 제외 순수 성분 매핑)
   {
     mappingId: 'map_pancol_1',
     drugMasterId: 'drug_pancol_s',
@@ -1496,7 +1507,7 @@ export const INGREDIENT_MAPPING_DB: IngredientMappingRecord[] = [
     drugMasterId: 'drug_pancol_s',
     koreanProductName: '판콜에스내복액 (종합감기약 액제 복합제)',
     itemSeq: '196800036',
-    koreanIngredientName: '클로르페니라민말레산염',
+    koreanIngredientName: '클로르페니라민',
     englishIngredientName: 'Chlorpheniramine',
     ingredientId: 'ing_chlorpheniramine',
     amountText: '2.5mg',
@@ -1512,39 +1523,40 @@ export const INGREDIENT_MAPPING_DB: IngredientMappingRecord[] = [
     itemSeq: '196800036',
     koreanIngredientName: '구아이페네신',
     englishIngredientName: 'Guaifenesin',
-    ingredientId: 'UNVERIFIED_INGREDIENT',
+    ingredientId: 'ing_guaifenesin',
     amountText: '83.3mg',
     dosageForm: '내복액제',
     route: 'ORAL',
     isCombination: true,
-    verificationStatus: 'UNVERIFIED_IN_MVP'
+    verificationStatus: 'VERIFIED_CORE_5'
   },
   {
     mappingId: 'map_pancol_4',
     drugMasterId: 'drug_pancol_s',
     koreanProductName: '판콜에스내복액 (종합감기약 액제 복합제)',
     itemSeq: '196800036',
-    koreanIngredientName: 'DL-메틸에페드린염산염',
+    koreanIngredientName: 'DL-메틸에페드린',
     englishIngredientName: 'DL-Methylephedrine',
-    ingredientId: 'UNVERIFIED_INGREDIENT',
+    ingredientId: 'ing_methylephedrine',
     amountText: '17.5mg',
     dosageForm: '내복액제',
     route: 'ORAL',
     isCombination: true,
-    verificationStatus: 'UNVERIFIED_IN_MVP'
+    verificationStatus: 'VERIFIED_CORE_5'
   },
   {
     mappingId: 'map_pancol_5',
     drugMasterId: 'drug_pancol_s',
     koreanProductName: '판콜에스내복액 (종합감기약 액제 복합제)',
     itemSeq: '196800036',
-    koreanIngredientName: '카페인무수물',
-    englishIngredientName: 'Caffeine Anhydrous',
-    ingredientId: 'UNVERIFIED_INGREDIENT',
+    koreanIngredientName: '카페인',
+    englishIngredientName: 'Caffeine',
+    ingredientId: 'ing_caffeine',
     amountText: '30mg',
     dosageForm: '내복액제',
     route: 'ORAL',
     isCombination: true,
-    verificationStatus: 'UNVERIFIED_IN_MVP'
-  }
+    verificationStatus: 'VERIFIED_CORE_5'
+  },
+  ...EXPANDED_INGREDIENT_MAPPING_DB
 ];

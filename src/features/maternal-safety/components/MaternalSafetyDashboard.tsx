@@ -74,6 +74,10 @@ export const MaternalSafetyDashboard: React.FC = () => {
     try {
       const live = await searchLiveMfdsForMaternalSafety(q);
       setLiveMfdsResults(live);
+      if (live.length > 0 && localMatches.length === 0) {
+        selectSearchResult(live[0]);
+        setIsDropdownOpen(false);
+      }
     } finally {
       setIsSearchingLive(false);
     }
@@ -87,14 +91,26 @@ export const MaternalSafetyDashboard: React.FC = () => {
   // 현재 선택된 성분의 검증 데이터 번들 조회
   const { pregnancy, lactation, sources } = useMemo(
     () => getVerifiedIngredientBundle(activeIngredientId),
-    [activeIngredientId]
+    [activeIngredientId, selectedResult]
   );
 
   const activeMapping =
     selectedResult.mappedIngredients.find((m) => m.ingredientId === activeIngredientId) ||
     selectedResult.mappedIngredients[0];
 
-  const core5List = Object.values(PREGNANCY_SAFETY_DB);
+  const featuredChipIds = [
+    'ing_acetaminophen',
+    'ing_ibuprofen',
+    'ing_atorvastatin',
+    'ing_cetirizine',
+    'ing_chlorpheniramine',
+    'ing_amoxicillin',
+    'ing_omeprazole',
+    'ing_famotidine'
+  ];
+  const coreChipList = featuredChipIds
+    .map((id) => PREGNANCY_SAFETY_DB[id])
+    .filter(Boolean);
 
   return (
     <div className="flex-1 overflow-y-auto bg-[#f8fafc] select-text">
@@ -112,12 +128,12 @@ export const MaternalSafetyDashboard: React.FC = () => {
               </span>
             </div>
 
-            {/* 5대 핵심 MVP 성분 즉시 선택 칩 */}
+            {/* 주요 검증 성분 즉시 선택 칩 (염기 제외 순수 성분 기준) */}
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="text-[11px] font-extrabold text-slate-500 mr-0.5">
-                5대 핵심 성분:
+                주요 성분(염기 제외):
               </span>
-              {core5List.map((ing) => {
+              {coreChipList.map((ing) => {
                 const isSelected =
                   activeIngredientId === ing.ingredientId &&
                   selectedResult.resultType === 'INGREDIENT_DIRECT';

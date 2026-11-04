@@ -15,11 +15,11 @@ export type MaternalActiveTab =
   | 'COMPARE'
   | 'SOURCES';
 
-const RECENT_SEARCH_STORAGE_KEY = 'pharmassist_maternal_recent_searches_v1';
+const RECENT_SEARCH_STORAGE_KEY = 'pharmassist_maternal_recent_searches_v2';
 
 function loadRecentSearches(): string[] {
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
-    return ['타이레놀정500밀리그람', '부루펜정400밀리그램', '지르텍정', '판콜에스내복액', '아목시실린'];
+    return ['리피토정 20mg', '타이레놀정500밀리그람', '부루펜정400밀리그램', '지르텍정', '크레스토정 10mg', '판콜에스내복액', '아목시실린'];
   }
   try {
     const saved = localStorage.getItem(RECENT_SEARCH_STORAGE_KEY);
@@ -30,7 +30,7 @@ function loadRecentSearches(): string[] {
   } catch {
     // ignore
   }
-  return ['타이레놀정500밀리그람', '부루펜정400밀리그램', '지르텍정', '판콜에스내복액', '아목시실린'];
+  return ['리피토정 20mg', '타이레놀정500밀리그람', '부루펜정400밀리그램', '지르텍정', '크레스토정 10mg', '판콜에스내복액', '아목시실린'];
 }
 
 function saveRecentSearches(items: string[]) {

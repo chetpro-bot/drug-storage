@@ -16,7 +16,10 @@ import {
   MaternalDrugSearchCandidate,
   TgaPregnancyCategoryCode
 } from '../types/maternalSafety';
-import { TGA_MANDATORY_DISCLAIMERS } from '../data/tgaPregnancyCategoryDb';
+import {
+  TGA_MANDATORY_DISCLAIMERS,
+  TGA_CATEGORY_DEFINITIONS
+} from '../data/tgaPregnancyCategoryDb';
 import { translateLactMedTextToKorean } from '../data/lactmedMonographDb';
 
 export interface TgaVisualTheme {
@@ -30,6 +33,8 @@ export interface TgaVisualTheme {
   tagBg: string;
   tagLabel: string;
 }
+
+export const TGA_CATEGORY_LIST: TgaPregnancyCategoryCode[] = ['A', 'B1', 'B2', 'B3', 'C', 'D', 'X'];
 
 export function getTgaCategoryTheme(category?: TgaPregnancyCategoryCode | null): TgaVisualTheme {
   switch (category) {
@@ -190,6 +195,7 @@ export const MaternalSafetyDashboard: React.FC = () => {
   const [expandLactFullLabel, setExpandLactFullLabel] = useState(false);
   const [expandedLactmedDetailMap, setExpandedLactmedDetailMap] = useState<Record<string, boolean>>({});
   const [selectedPillImage, setSelectedPillImage] = useState<string | null>(null);
+  const [showTgaCategoryGuide, setShowTgaCategoryGuide] = useState(false);
 
   // 품목 변경 시 상세보기 접힘 상태 및 알약 모달 초기화
   useEffect(() => {
@@ -779,11 +785,83 @@ export const MaternalSafetyDashboard: React.FC = () => {
                     ))}
                   </div>
 
-                  {/* TGA 필수 주의문구 */}
-                  <div className="p-2.5 bg-slate-50 border border-slate-200 rounded text-[11px] text-slate-600 space-y-1">
-                    {TGA_MANDATORY_DISCLAIMERS.map((notice, idx) => (
-                      <p key={idx}>• {notice}</p>
-                    ))}
+                  {/* TGA 카테고리 설명 버튼 및 A~X 전체 등급 상세 안내 (클릭 시 토글) */}
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowTgaCategoryGuide((prev) => !prev)}
+                      className="w-full flex items-center justify-between px-3.5 py-2.5 text-xs font-semibold text-sky-900 bg-sky-50/80 hover:bg-sky-100 border border-sky-200 rounded-lg transition-all shadow-2xs group cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2 text-left">
+                        <Info className="w-4 h-4 text-sky-600 shrink-0 group-hover:scale-110 transition-transform" />
+                        <span>호주 TGA 카테고리(A ~ X) 분류 체계 및 등급 설명</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-sky-700 bg-white border border-sky-200 px-2.5 py-0.5 rounded shadow-2xs shrink-0">
+                        {showTgaCategoryGuide ? '설명 접기' : '카테고리 설명 보기'}
+                        {showTgaCategoryGuide ? (
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        ) : (
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        )}
+                      </span>
+                    </button>
+
+                    {showTgaCategoryGuide && (
+                      <div className="mt-2.5 p-3.5 bg-slate-50 border border-slate-200 rounded-lg space-y-3.5 text-xs animate-fadeIn">
+                        {/* 1. TGA 필수 주의사항 */}
+                        <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-md text-[11px] text-amber-950 space-y-1.5">
+                          <div className="font-bold flex items-center gap-1.5 text-amber-900">
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                            <span>TGA 분류 체계 판독 시 핵심 주의사항</span>
+                          </div>
+                          {TGA_MANDATORY_DISCLAIMERS.map((notice, idx) => (
+                            <p key={idx} className="leading-relaxed pl-1">• {notice}</p>
+                          ))}
+                        </div>
+
+                        {/* 2. A부터 X까지 각각의 카테고리 공식 의미 설명 */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between pb-1 border-b border-slate-200">
+                            <span className="font-bold text-slate-800 text-xs">
+                              호주 TGA 등급별 공식 정의 및 의미 (A, B1, B2, B3, C, D, X)
+                            </span>
+                            <span className="text-[10px] text-slate-500 font-medium">
+                              호주 의약품관리국 공식 기준
+                            </span>
+                          </div>
+
+                          <div className="space-y-2">
+                            {TGA_CATEGORY_LIST.map((catKey) => {
+                              const def = TGA_CATEGORY_DEFINITIONS[catKey];
+                              const theme = getTgaCategoryTheme(catKey);
+                              return (
+                                <div
+                                  key={catKey}
+                                  className={`p-2.5 rounded-md border ${theme.borderColor} ${theme.cardBg} space-y-1.5 shadow-2xs`}
+                                >
+                                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                                    <div className="flex items-center gap-2">
+                                      <span className={`px-2 py-0.5 text-xs font-extrabold rounded ${theme.badgeBg}`}>
+                                        Category {catKey}
+                                      </span>
+                                      <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded border ${theme.tagBg}`}>
+                                        {theme.tagLabel}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <p className="text-slate-800 leading-relaxed font-medium text-[11.5px]">
+                                    {def.koreanDescription}
+                                  </p>
+                                  <p className="text-slate-500 text-[10.5px] leading-relaxed italic border-t border-slate-200/50 pt-1">
+                                    {def.englishDescription}
+                                  </p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </article>
               </div>

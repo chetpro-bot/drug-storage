@@ -253,6 +253,43 @@ export const TGA_PREGNANCY_DATABASE: Record<string, TgaRawRecord> = {
     category: 'B1',
     noteKorean: '2세대 세팔로스포린계 항생제로 TGA Category B1으로 분류됩니다.'
   },
+  cefpodoxime: {
+    inn: 'Cefpodoxime',
+    category: 'B1',
+    noteKorean:
+      '3세대 경구용 세팔로스포린계 항생제로 동물실험에서 태아 손상 증거가 보고되지 않아 호주 TGA Category B1으로 분류됩니다.',
+    noteEnglish: 'Classified as Category B1 in the Australian TGA database.'
+  },
+  cefditoren: {
+    inn: 'Cefditoren',
+    category: 'B1',
+    noteKorean: '3세대 경구용 세팔로스포린계 항생제로 TGA Category B1으로 분류됩니다.'
+  },
+  cefixime: {
+    inn: 'Cefixime',
+    category: 'B1',
+    noteKorean: '3세대 경구용 세팔로스포린계 항생제로 TGA Category B1으로 분류됩니다.'
+  },
+  cefazolin: {
+    inn: 'Cefazolin',
+    category: 'A',
+    noteKorean: '1세대 세팔로스포린계 항생제로 다수의 임신부 사용 경험에 근거해 TGA Category A로 분류됩니다.'
+  },
+  ceftriaxone: {
+    inn: 'Ceftriaxone',
+    category: 'B1',
+    noteKorean: '3세대 세팔로스포린계 항생제로 동물실험에서 기형 유발이 없어 TGA Category B1으로 분류됩니다.'
+  },
+  cefotaxime: {
+    inn: 'Cefotaxime',
+    category: 'B1',
+    noteKorean: '3세대 세팔로스포린계 항생제로 TGA Category B1으로 분류됩니다.'
+  },
+  ceftazidime: {
+    inn: 'Ceftazidime',
+    category: 'B1',
+    noteKorean: '3세대 세팔로스포린계 항생제로 TGA Category B1으로 분류됩니다.'
+  },
   azithromycin: {
     inn: 'Azithromycin',
     category: 'B1',
@@ -684,12 +721,48 @@ export const TGA_PREGNANCY_DATABASE: Record<string, TgaRawRecord> = {
 };
 
 /**
+ * 영문 성분명에서 염·수화물·에스테르 프로드러그 단어 제거
+ */
+function stripEngSaltWords(eng: string): string {
+  const words = eng.trim().split(/\s+/).filter(Boolean);
+  const saltWords = new Set([
+    'proxetil', 'axetil', 'pivoxil', 'medoxomil', 'cilexetil', 'ester', 'ethyl', 'methyl',
+    'hydrochloride', 'dihydrochloride', 'monohydrochloride', 'trihydrochloride', 'hcl',
+    'sulfate', 'sulphate', 'bisulfate', 'hemisulfate', 'disulfate',
+    'maleate', 'fumarate', 'succinate', 'tartrate', 'bitartrate', 'citrate',
+    'mesylate', 'besylate', 'camsylate', 'tosylate', 'esylate', 'napadisylate', 'edisylate',
+    'phosphate', 'nitrate', 'acetate', 'gluconate', 'propionate', 'dipropionate', 'valerate', 'butyrate', 'hydrobromide',
+    'sodium', 'disodium', 'trisodium', 'potassium', 'calcium', 'magnesium', 'zinc', 'aluminum',
+    'hydrate', 'monohydrate', 'dihydrate', 'trihydrate', 'tetrahydrate', 'pentahydrate', 'hemihydrate', 'sesquihydrate', 'anhydrous',
+    'micronized', 'encapsulated'
+  ]);
+  while (words.length > 1) {
+    const last = words[words.length - 1].toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (saltWords.has(last)) {
+      words.pop();
+    } else {
+      break;
+    }
+  }
+  return words.join(' ');
+}
+
+/**
  * 표준 INN 성분명으로 호주 TGA 임신부 약물 분류 조회
+ * - 원문에 염·프로드러그(예: Cefpodoxime Proxetil)가 기재되어 있더라도 주성분(Cefpodoxime) 기준으로 자동 매칭
  */
 export function lookupTgaCategoryByInn(inn: string | null | undefined): TgaPregnancyCategoryInfo | null {
   if (!inn) return null;
-  const key = inn.trim().toLowerCase();
-  const record = TGA_PREGNANCY_DATABASE[key];
+  const rawKey = inn.trim().toLowerCase();
+  let record = TGA_PREGNANCY_DATABASE[rawKey];
+
+  if (!record) {
+    const baseKey = stripEngSaltWords(rawKey);
+    if (baseKey && baseKey !== rawKey) {
+      record = TGA_PREGNANCY_DATABASE[baseKey];
+    }
+  }
+
   if (!record) return null;
 
   const def = TGA_CATEGORY_DEFINITIONS[record.category];

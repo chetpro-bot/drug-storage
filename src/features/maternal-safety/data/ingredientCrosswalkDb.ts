@@ -88,6 +88,64 @@ export const INGREDIENT_CROSSWALK_TABLE: CrosswalkEntry[] = [
     representativeProductKeyword: '슈다페드정'
   },
 
+  // === 주요 세팔로스포린계 및 항생제 성분 (염·에스테르 프로드러그 포함) ===
+  {
+    inn: 'Cefpodoxime',
+    koreanBaseName: '세프포독심',
+    koreanSynonyms: ['세프포독심', '세프포독심프록세틸', '세프포독심프로세틸'],
+    englishSynonyms: ['cefpodoxime', 'cefpodoxime proxetil'],
+    durSearchKeyword: '세프포독심',
+    representativeProductKeyword: '바난건조시럽'
+  },
+  {
+    inn: 'Cefditoren',
+    koreanBaseName: '세프디토렌',
+    koreanSynonyms: ['세프디토렌', '세프디토렌피복실'],
+    englishSynonyms: ['cefditoren', 'cefditoren pivoxil'],
+    durSearchKeyword: '세프디토렌',
+    representativeProductKeyword: '메이액트정'
+  },
+  {
+    inn: 'Cefuroxime',
+    koreanBaseName: '세푸록심',
+    koreanSynonyms: ['세푸록심', '세푸록심악세틸', '세푸록심아세틸', '세푸록심나트륨'],
+    englishSynonyms: ['cefuroxime', 'cefuroxime axetil', 'cefuroxime sodium'],
+    durSearchKeyword: '세푸록심',
+    representativeProductKeyword: '진네트정'
+  },
+  {
+    inn: 'Cephalexin',
+    koreanBaseName: '세팔렉신',
+    koreanSynonyms: ['세팔렉신', '세팔렉신수화물', '세파렉신'],
+    englishSynonyms: ['cephalexin', 'cefalexin', 'cephalexin monohydrate'],
+    durSearchKeyword: '세팔렉신',
+    representativeProductKeyword: '세팔렉신'
+  },
+  {
+    inn: 'Cefaclor',
+    koreanBaseName: '세파클러',
+    koreanSynonyms: ['세파클러', '세파클러수화물', '세파클러수화물서방정'],
+    englishSynonyms: ['cefaclor', 'cefaclor hydrate', 'cefaclor monohydrate'],
+    durSearchKeyword: '세파클러',
+    representativeProductKeyword: '시클러'
+  },
+  {
+    inn: 'Cefdinir',
+    koreanBaseName: '세프디니르',
+    koreanSynonyms: ['세프디니르'],
+    englishSynonyms: ['cefdinir'],
+    durSearchKeyword: '세프디니르',
+    representativeProductKeyword: '옴니세프'
+  },
+  {
+    inn: 'Cefixime',
+    koreanBaseName: '세픽심',
+    koreanSynonyms: ['세픽심', '세픽심수화물'],
+    englishSynonyms: ['cefixime', 'cefixime trihydrate', 'cefixime hydrate'],
+    durSearchKeyword: '세픽심',
+    representativeProductKeyword: '슈프락스'
+  },
+
   // === 복합제 및 다빈도 처방·일반의약품 성분 ===
   {
     inn: 'Clavulanic Acid',
@@ -936,6 +994,67 @@ export function findCrosswalkBySearchQuery(query: string): CrosswalkEntry | null
   return null;
 }
 
+export const KOR_SALT_SUFFIX_RE =
+  /(?:프록세틸|악세틸|아세틸|피복실|메독소밀|실렉세틸|염산염|이염산염|일염산염|삼염산염|무수염산염|황산수소염|황산염|말레산염|말레인산염|푸마르산염|숙신산염|호박산염|타르타르산염|주석산염|중주석산염|구연산염|시트르산염|메실산염|베실산염|캄실산염|토실산염|에실산염|나파디실산염|에디실산염|인산염|질산염|아세트산염|초산염|글루콘산염|프로피온산염|디프로피온산염|발레르산염|부티르산염|브롬화수소산염|이나트륨|삼나트륨|나트륨|칼륨|칼슘|마그네슘|아연|알루미늄|일수화물|이수화물|삼수화물|사수화물|오수화물|반수화물|무수물|수화물|미분화|제피세립|제피|혼합분말)+$/;
+
+export const ENG_SALT_WORDS = new Set([
+  'proxetil', 'axetil', 'pivoxil', 'medoxomil', 'cilexetil', 'ester', 'ethyl', 'methyl',
+  'hydrochloride', 'dihydrochloride', 'monohydrochloride', 'trihydrochloride', 'hcl',
+  'sulfate', 'sulphate', 'bisulfate', 'hemisulfate', 'disulfate',
+  'maleate', 'fumarate', 'succinate', 'tartrate', 'bitartrate', 'citrate',
+  'mesylate', 'besylate', 'camsylate', 'tosylate', 'esylate', 'napadisylate', 'edisylate',
+  'phosphate', 'nitrate', 'acetate', 'gluconate', 'propionate', 'dipropionate', 'valerate', 'butyrate', 'hydrobromide',
+  'sodium', 'disodium', 'trisodium', 'potassium', 'calcium', 'magnesium', 'zinc', 'aluminum',
+  'hydrate', 'monohydrate', 'dihydrate', 'trihydrate', 'tetrahydrate', 'pentahydrate', 'hemihydrate', 'sesquihydrate', 'anhydrous',
+  'micronized', 'encapsulated'
+]);
+
+/**
+ * 성분명에서 염(Salt), 수화물(Hydrate), 프로드러그 에스테르(Ester Prodrug)를 분리하여 주성분(Base Active Ingredient) 추출
+ */
+export function stripSaltsAndEsters(korName: string, engName?: string): {
+  rawKor: string;
+  rawEng: string;
+  baseKor: string;
+  baseEng: string;
+  strippedKorPart: string;
+  strippedEngWords: string;
+} {
+  const cleanKor = (korName || '').replace(/\[M[0-9]+\]/gi, '').trim();
+  const cleanEng = (engName || '').replace(/\[M[0-9]+\]/gi, '').trim();
+
+  // 1. 영문 성분명 우측에서 염/에스테르 단어 분리
+  const engTokens = cleanEng.split(/\s+/).filter(Boolean);
+  const strippedEngWords: string[] = [];
+  while (engTokens.length > 1) {
+    const lastWord = engTokens[engTokens.length - 1].toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (ENG_SALT_WORDS.has(lastWord)) {
+      strippedEngWords.unshift(engTokens.pop()!);
+    } else {
+      break;
+    }
+  }
+  const baseEng = engTokens.join(' ');
+
+  // 2. 한글 성분명 말미에서 염/에스테르 접미사 분리
+  let strippedKorPart = '';
+  const korMatch = cleanKor.match(KOR_SALT_SUFFIX_RE);
+  let baseKor = cleanKor;
+  if (korMatch && korMatch.index !== undefined && korMatch.index >= 2) {
+    strippedKorPart = korMatch[0];
+    baseKor = cleanKor.slice(0, korMatch.index);
+  }
+
+  return {
+    rawKor: cleanKor,
+    rawEng: cleanEng,
+    baseKor,
+    baseEng,
+    strippedKorPart,
+    strippedEngWords: strippedEngWords.join(' ')
+  };
+}
+
 /**
  * 국내 식약처 원문 성분명(한글/영문)을 해외 표준 성분(INN)과 매칭하고,
  * 염(Salt), 제형, 투여경로 및 매칭 확실성(EXACT / SALT_MAPPED / UNCERTAIN / UNMATCHED)을 판별
@@ -982,7 +1101,7 @@ export function matchDomesticIngredientToOverseasInn(params: {
       const confidence: IngredientMatchConfidence = isBaseExact ? 'EXACT' : 'SALT_MAPPED';
       const saltNote =
         !isBaseExact && korRaw !== entry.koreanBaseName
-          ? `원료 염/수화물 형태(${korRaw})에서 유효 주성분(${entry.inn}) 기준으로 매칭됨`
+          ? `원료 염/프로드러그 형태(${korRaw})에서 유효 주성분(${entry.inn}) 기준으로 매칭됨`
           : undefined;
 
       return {
@@ -998,7 +1117,33 @@ export function matchDomesticIngredientToOverseasInn(params: {
     }
   }
 
-  // 2. 접두/포함 염 형태 매칭 (예: '이부프로펜피코놀'처럼 약리적/외용 특성이 다른 유도체는 UNCERTAIN 처리!)
+  // 2. 염/에스테르/프로드러그 제거 후 주성분(Base Active INN) 기준 매칭
+  const stripped = stripSaltsAndEsters(korRaw, engRaw);
+  const baseKorNorm = cleanIngrToken(stripped.baseKor);
+  const baseEngNorm = cleanIngrToken(stripped.baseEng);
+
+  if (stripped.strippedKorPart || stripped.strippedEngWords) {
+    for (const entry of INGREDIENT_CROSSWALK_TABLE) {
+      const entryKorNorm = cleanIngrToken(entry.koreanBaseName);
+      const entryInnNorm = cleanIngrToken(entry.inn);
+
+      if (baseKorNorm === entryKorNorm || (baseEngNorm && baseEngNorm === entryInnNorm)) {
+        const removedDescr = [stripped.strippedKorPart, stripped.strippedEngWords].filter(Boolean).join(' / ');
+        return {
+          koreanName: korRaw,
+          englishName: engRaw || entry.inn,
+          matchedInn: entry.inn,
+          amountText: params.amountText || '',
+          dosageForm: params.dosageForm,
+          route: params.route,
+          saltOrFormNote: `원료 형태(${korRaw})에서 염·에스테르(${removedDescr})를 분리하여 유효 주성분(${entry.inn}) 기준으로 매칭됨`,
+          matchConfidence: 'SALT_MAPPED'
+        };
+      }
+    }
+  }
+
+  // 3. 외용 유도체 등 약리 기전이 상이한 예외 항목 UNCERTAIN 처리
   if (korRaw.includes('이부프로펜피코놀') || engNorm.includes('ibuprofenpiconol')) {
     return {
       koreanName: korRaw,
@@ -1014,6 +1159,7 @@ export function matchDomesticIngredientToOverseasInn(params: {
     };
   }
 
+  // 4. 일반적인 염·수화물·프로드러그 접미사 포함 여부 확인
   for (const entry of INGREDIENT_CROSSWALK_TABLE) {
     const baseKor = cleanIngrToken(entry.koreanBaseName);
     const baseEng = cleanIngrToken(entry.inn);
@@ -1021,14 +1167,10 @@ export function matchDomesticIngredientToOverseasInn(params: {
       (baseKor.length >= 3 && korNorm.startsWith(baseKor)) ||
       (baseEng.length >= 4 && engNorm.startsWith(baseEng))
     ) {
-      // 일반적인 염/수화물 접미사인지 확인
       const remainderKor = korNorm.slice(baseKor.length);
-      const isKnownSaltSuffix =
-        /^(염산염|황산염|말레산염|타르타르산염|숙신산염|베실산염|캄실산염|나트륨|칼륨|칼슘|마그네슘|수화물|삼수화물|이수화물|반수화물|무수물|아세테이트|인산염|브롬화수소산염|장용과립|제피세립|미분화|디씨|디\.씨)+$/.test(
-          remainderKor
-        );
+      const isKnownSalt = !remainderKor || KOR_SALT_SUFFIX_RE.test(remainderKor);
 
-      if (isKnownSaltSuffix || !remainderKor) {
+      if (isKnownSalt) {
         return {
           koreanName: korRaw,
           englishName: engRaw || entry.inn,
@@ -1036,23 +1178,33 @@ export function matchDomesticIngredientToOverseasInn(params: {
           amountText: params.amountText || '',
           dosageForm: params.dosageForm,
           route: params.route,
-          saltOrFormNote: `원료 염/제형(${korRaw})에서 주성분(${entry.inn})으로 매칭됨`,
+          saltOrFormNote: `원료 형태(${korRaw})에서 주성분(${entry.inn}) 기준으로 매칭됨`,
           matchConfidence: 'SALT_MAPPED'
-        };
-      } else {
-        return {
-          koreanName: korRaw,
-          englishName: engRaw,
-          matchedInn: entry.inn,
-          amountText: params.amountText || '',
-          dosageForm: params.dosageForm,
-          route: params.route,
-          saltOrFormNote: `복합 유도체/염 형태(${korRaw}) 확인 필요`,
-          matchConfidence: 'UNCERTAIN',
-          matchWarningNote: `국내 원료명(${korRaw})과 해외 단일 주성분(${entry.inn}) 간 염·유도체 차이가 있어 매칭이 불확실하므로 TGA 등급을 표시하지 않습니다.`
         };
       }
     }
+  }
+
+  // 5. 테이블 미등록 성분이라도 영문 주성분(Base INN)이 분리된 경우 (예: 해외 신약 또는 기타 항생제)
+  if (stripped.baseEng && stripped.baseEng.length >= 3) {
+    const formattedInn = stripped.baseEng
+      .split(' ')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ');
+
+    const hasSaltStripped = Boolean(stripped.strippedKorPart || stripped.strippedEngWords);
+    return {
+      koreanName: korRaw,
+      englishName: engRaw || formattedInn,
+      matchedInn: formattedInn,
+      amountText: params.amountText || '',
+      dosageForm: params.dosageForm,
+      route: params.route,
+      saltOrFormNote: hasSaltStripped
+        ? `원료 형태(${korRaw})에서 염·프로드러그를 분리하여 주성분(${formattedInn}) 기준으로 매칭됨`
+        : undefined,
+      matchConfidence: hasSaltStripped ? 'SALT_MAPPED' : 'EXACT'
+    };
   }
 
   return {

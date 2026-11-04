@@ -74,6 +74,22 @@ export const LACTMED_MONOGRAPH_DATABASE: Record<string, LactMedMonographInfo> = 
     "sourceUrl": "https://www.ncbi.nlm.nih.gov/books/NBK501009/",
     "lastRevisedDate": "2026-02-15"
   },
+  "cefpodoxime": {
+    "matchedInn": "Cefpodoxime",
+    "drugTitle": "Cefpodoxime",
+    "pmcid": "LM52",
+    "nbkId": "NBK501922",
+    "summaryKorean": "제한된 연구 정보에 따르면 세프포독심은 모유로의 이행량이 적고 모유 수유아에게 이상반응을 일으키지 않을 것으로 예상됩니다. 세팔로스포린계 약물 복용 시 영아의 장내 미생물총 교란(설사 또는 아구창)이 드물게 보고된 바 있으나 충분히 평가되지는 않았습니다. 세프포독심은 수유부에서 사용 가능(acceptable)한 약물입니다.",
+    "summaryOriginalEnglish": "Limited information indicates that cefpodoxime produces low levels in milk and is not be expected to cause any adverse effects in breastfed infants. Occasionally disruption of the infant's gastrointestinal flora, resulting in diarrhea or thrush have been reported with cephalosporins, but these effects have not been adequately evaluated. Cefpodoxime is acceptable in nursing mothers.",
+    "infantAdverseEffectsKorean": "개정 기준일까지 모유 수유아에서 보고된 관련 이상반응 문헌은 확인되지 않았습니다.",
+    "infantAdverseEffectsOriginal": "Relevant published information was not found as of the revision date.",
+    "ridOriginalText": null,
+    "ridKoreanSummary": "원문 내 RID 수치 제시 없음 (제조사 자료상 모유/혈청 농도비 최대 0.16, 200mg 경구 투여 시 모유를 통한 영아 1일 추정 섭취량 약 0.055mg/kg으로 2개월 이상 영아 상용 치료 용량 10mg/kg/day 대비 매우 미미함)",
+    "drugLevelsOriginal": "Maternal Levels. According to the manufacturer, levels of cefpodoxime in the milk of 3 nursing mothers were 0%, 2% and 6% of concomitant maternal serum levels at 4 hours following a 200 mg oral dose of cefpodoxime proxetil. At 6 hours after the dose, levels were 0%, 9% and 16% of concomitant maternal serum levels. No study details or measured milk levels were provided. After a 200 mg oral dose, the average peak serum level is 2.3 mg/L. Using this serum level and the maximum reported milk to plasma ratio of 0.16 above, a fully breastfed infant would receive a maximum daily dose of about 0.055 mg/kg daily after a maternal dose of 200 mg, compared to the recommend treatment dosage of 10 mg/kg daily for infants of 2 months or older.\nInfant Levels. Relevant published information was not found as of the revision date.",
+    "lactationEffectsOriginal": "Hyperprolactinemia and bilateral galactorrhea occurred in a nonpregnant, 40-year-old woman taking cefpodoxime 200 mg twice daily for 2 days. Seven days after stopping the drug, galactorrhea ceased and the serum prolactin dropped markedly into the normal range. One month later it had dropped further. Because no other cause could be found, the authors determined that the galactorrhea and hyperprolactinemia were probably caused by cefpodoxime.\nA 22-year-old woman who had been taking slow-release venlafaxine 150 mg daily for 3 months reported bilateral breast engorgement and galactorrhea for 3 days after being prescribed cefpodoxime 200 mg twice daily for 14 days 2 weeks prior. Laboratory and head CT results were normal except for a slight elevation in alkaline phosphatase and an elevated serum prolactin level. Her galactorrhea began decreasing within 2 weeks and disappeared in 3 weeks with no change in venlafaxine dosage. Her serum prolactin level also returned to normal. The authors felt that her symptoms and hyperprolactinemia were probably caused by cefpodoxime.\nThe prolactin level in a mother with established lactation may not affect her ability to breastfeed.",
+    "sourceUrl": "https://www.ncbi.nlm.nih.gov/books/LM52/",
+    "lastRevisedDate": "2024-08-15"
+  },
   "amoxicillin": {
     "matchedInn": "Amoxicillin",
     "drugTitle": "Amoxicillin",
@@ -1565,12 +1581,117 @@ export const LACTMED_MONOGRAPH_DATABASE: Record<string, LactMedMonographInfo> = 
 };
 
 /**
+ * 영문 성분명에서 염·수화물·에스테르 프로드러그 단어 제거
+ */
+function stripEngSaltWords(eng: string): string {
+  const words = eng.trim().split(/\s+/).filter(Boolean);
+  const saltWords = new Set([
+    'proxetil', 'axetil', 'pivoxil', 'medoxomil', 'cilexetil', 'ester', 'ethyl', 'methyl',
+    'hydrochloride', 'dihydrochloride', 'monohydrochloride', 'trihydrochloride', 'hcl',
+    'sulfate', 'sulphate', 'bisulfate', 'hemisulfate', 'disulfate',
+    'maleate', 'fumarate', 'succinate', 'tartrate', 'bitartrate', 'citrate',
+    'mesylate', 'besylate', 'camsylate', 'tosylate', 'esylate', 'napadisylate', 'edisylate',
+    'phosphate', 'nitrate', 'acetate', 'gluconate', 'propionate', 'dipropionate', 'valerate', 'butyrate', 'hydrobromide',
+    'sodium', 'disodium', 'trisodium', 'potassium', 'calcium', 'magnesium', 'zinc', 'aluminum',
+    'hydrate', 'monohydrate', 'dihydrate', 'trihydrate', 'tetrahydrate', 'pentahydrate', 'hemihydrate', 'sesquihydrate', 'anhydrous',
+    'micronized', 'encapsulated'
+  ]);
+  while (words.length > 1) {
+    const last = words[words.length - 1].toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (saltWords.has(last)) {
+      words.pop();
+    } else {
+      break;
+    }
+  }
+  return words.join(' ');
+}
+
+// 전체 1,971개 NIH LactMed 모노그래프 비동기 캐시
+let fullLactMedCache: Record<string, any> | null = null;
+let isFetchingFullArchive = false;
+
+/**
  * 로컬 DB에서 NIH LactMed 수유부 약물 정보 조회
+ * - 원문에 염·프로드러그(예: Cefpodoxime Proxetil)가 기재되어 있더라도 주성분(Cefpodoxime) 기준으로 자동 매칭
  */
 export function lookupLactMedByInn(inn: string | null | undefined): LactMedMonographInfo | null {
   if (!inn) return null;
-  const key = inn.trim().toLowerCase();
-  return LACTMED_MONOGRAPH_DATABASE[key] || null;
+  const rawKey = inn.trim().toLowerCase();
+  let record = LACTMED_MONOGRAPH_DATABASE[rawKey];
+
+  if (!record) {
+    const baseKey = stripEngSaltWords(rawKey);
+    if (baseKey && baseKey !== rawKey) {
+      record = LACTMED_MONOGRAPH_DATABASE[baseKey];
+    }
+  }
+
+  // 1차 내장 DB에 있으면 즉시 반환
+  if (record) return record;
+
+  // 2차: 전체 아카이브 캐시가 이미 로드되어 있다면 확인
+  if (fullLactMedCache) {
+    const rawEntry = fullLactMedCache[rawKey] || fullLactMedCache[stripEngSaltWords(rawKey)];
+    if (rawEntry) {
+      return formatRawLactMedEntry(rawEntry, inn);
+    }
+  }
+
+  return null;
+}
+
+/**
+ * 전체 1,971개 NIH LactMed 공식 FTP 아카이브 비동기 조회
+ */
+export async function lookupLactMedAsync(inn: string | null | undefined): Promise<LactMedMonographInfo | null> {
+  const syncResult = lookupLactMedByInn(inn);
+  if (syncResult) return syncResult;
+  if (!inn) return null;
+
+  const rawKey = inn.trim().toLowerCase();
+  const baseKey = stripEngSaltWords(rawKey);
+
+  if (!fullLactMedCache && !isFetchingFullArchive) {
+    isFetchingFullArchive = true;
+    try {
+      const res = await fetch('/data/lactmed_all.json');
+      if (res.ok) {
+        fullLactMedCache = await res.json();
+      }
+    } catch {
+      // offline or fetch failed
+    } finally {
+      isFetchingFullArchive = false;
+    }
+  }
+
+  if (fullLactMedCache) {
+    const rawEntry = fullLactMedCache[rawKey] || fullLactMedCache[baseKey];
+    if (rawEntry) {
+      return formatRawLactMedEntry(rawEntry, inn);
+    }
+  }
+
+  return null;
+}
+
+function formatRawLactMedEntry(raw: any, queryInn: string): LactMedMonographInfo {
+  return {
+    matchedInn: raw.title || queryInn,
+    drugTitle: raw.title || queryInn,
+    pmcid: raw.pmcid,
+    nbkId: raw.pmcid || 'NBK501922',
+    summaryKorean: raw.summary,
+    summaryOriginalEnglish: raw.summary,
+    infantAdverseEffectsKorean: raw.infantEffects || '원문 링크에서 영아 이상반응 보고 내역을 확인하십시오.',
+    infantAdverseEffectsOriginal: raw.infantEffects || null,
+    ridOriginalText: null,
+    ridKoreanSummary: null,
+    drugLevelsOriginal: raw.drugLevels || null,
+    sourceUrl: `https://www.ncbi.nlm.nih.gov/books/${raw.pmcid || ''}/`,
+    lastRevisedDate: raw.revisedDate || '확인됨'
+  };
 }
 
 /**

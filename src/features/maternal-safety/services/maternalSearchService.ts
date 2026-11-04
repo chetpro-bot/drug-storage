@@ -21,6 +21,7 @@ import {
 import { lookupTgaCategoryByInn } from '../data/tgaPregnancyCategoryDb';
 import {
   fetchLactMedChapterLinkLive,
+  lookupLactMedAsync,
   lookupLactMedByInn
 } from '../data/lactmedMonographDb';
 
@@ -1016,9 +1017,12 @@ export async function buildMaternalDrugSafetyReport(
       tgaStatus = tgaInfo ? 'MATCHED' : 'NO_DATA';
     }
 
-    // NIH LactMed 매칭
+    // NIH LactMed 매칭 (1차 내장 동기 DB -> 2차 전체 1,971개 아카이브 비동기 DB)
     let lactmedStatus: IngredientSafetyEvaluation['lactmedStatus'] = 'NO_DATA';
     let lactmedInfo = ingr.matchedInn ? lookupLactMedByInn(ingr.matchedInn) : null;
+    if (!lactmedInfo && ingr.matchedInn) {
+      lactmedInfo = await lookupLactMedAsync(ingr.matchedInn);
+    }
 
     if (lactmedInfo) {
       lactmedStatus = 'MATCHED';

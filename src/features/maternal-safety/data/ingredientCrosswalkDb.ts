@@ -1100,42 +1100,9 @@ export function matchDomesticIngredientToOverseasInn(params: {
             ? `원료 염/프로드러그 형태(${korRaw})에서 유효 주성분(${entry.inn}) 기준으로 매칭됨`
             : undefined;
 
-        // 인자로 전달된 영문명이 해당 entry(동의어 포함)와 일치하는지 검증
-        let resolvedEng = engRaw;
-        const engMatches =
-          engNorm &&
-          (engNorm === cleanIngrToken(entry.inn) ||
-            entry.englishSynonyms.some((s) => cleanIngrToken(s) === engNorm));
-
-        if (!engMatches) {
-          // engRaw가 비어있거나 엉뚱한 성분명(예: 타 성분 인덱스 혼입)인 경우,
-          // korRaw의 염 형태에 맞는 최적의 공식 영문명을 설정
-          if (/염산염|디히드로클로라이드/i.test(korRaw)) {
-            resolvedEng = `${entry.inn} Hydrochloride`;
-          } else if (/나트륨/i.test(korRaw)) {
-            resolvedEng = `${entry.inn} Sodium`;
-          } else if (/칼륨/i.test(korRaw)) {
-            resolvedEng = `${entry.inn} Potassium`;
-          } else if (/말레산염/i.test(korRaw)) {
-            resolvedEng = `${entry.inn} Maleate`;
-          } else if (/푸마르산염/i.test(korRaw)) {
-            resolvedEng = `${entry.inn} Fumarate`;
-          } else if (/황산염/i.test(korRaw)) {
-            resolvedEng = `${entry.inn} Sulfate`;
-          } else if (/인산염/i.test(korRaw)) {
-            resolvedEng = `${entry.inn} Phosphate`;
-          } else if (/타르타르산염|주석산염/i.test(korRaw)) {
-            resolvedEng = `${entry.inn} Tartrate`;
-          } else if (/브롬화수소산염/i.test(korRaw)) {
-            resolvedEng = `${entry.inn} Hydrobromide`;
-          } else {
-            resolvedEng = entry.inn;
-          }
-        }
-
         return {
           koreanName: korRaw,
-          englishName: resolvedEng,
+          englishName: entry.inn, // 염(Salt)을 배제한 유효 주성분 표준 INN(예: Tramadol)으로 매칭
           matchedInn: entry.inn,
           amountText: params.amountText || '',
           dosageForm: params.dosageForm,
@@ -1156,7 +1123,7 @@ export function matchDomesticIngredientToOverseasInn(params: {
       if (isBaseExact || isSaltMatched) {
         return {
           koreanName: korRaw || entry.koreanBaseName,
-          englishName: engRaw || entry.inn,
+          englishName: entry.inn, // 주성분 INN 기준 매칭
           matchedInn: entry.inn,
           amountText: params.amountText || '',
           dosageForm: params.dosageForm,
@@ -1180,18 +1147,9 @@ export function matchDomesticIngredientToOverseasInn(params: {
 
       if (baseKorNorm ? baseKorNorm === entryKorNorm : (baseEngNorm && baseEngNorm === entryInnNorm)) {
         const removedDescr = [stripped.strippedKorPart, stripped.strippedEngWords].filter(Boolean).join(' / ');
-        let resolvedEng = engRaw;
-        const engMatches =
-          engNorm &&
-          (engNorm === cleanIngrToken(entry.inn) ||
-            entry.englishSynonyms.some((s) => cleanIngrToken(s) === engNorm));
-        if (!engMatches) {
-          resolvedEng = entry.inn;
-        }
-
         return {
           koreanName: korRaw,
-          englishName: resolvedEng,
+          englishName: entry.inn, // 주성분 INN 기준 매칭
           matchedInn: entry.inn,
           amountText: params.amountText || '',
           dosageForm: params.dosageForm,

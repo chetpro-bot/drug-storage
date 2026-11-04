@@ -4161,6 +4161,10 @@ export async function fetchMfdsDrugDetail(itemSeq: string): Promise<{
   packagingUnit: string;
   dosageForm: DosageForm;
   chartText: string;
+  mainItemIngr?: string;
+  mainIngrEng?: string;
+  atcCode?: string;
+  etcOtcCode?: string;
 } | null> {
   try {
     const url = `${MFDS_DTL_URL}?serviceKey=${encodeURIComponent(DATA_GO_KR_API_KEY)}&item_seq=${encodeURIComponent(itemSeq)}&type=json`;
@@ -4213,7 +4217,11 @@ export async function fetchMfdsDrugDetail(itemSeq: string): Promise<{
       storageMethod,
       packagingUnit,
       dosageForm,
-      chartText: item.CHART || ''
+      chartText: item.CHART || '',
+      mainItemIngr: item.MAIN_ITEM_INGR || '',
+      mainIngrEng: item.MAIN_INGR_ENG || '',
+      atcCode: item.ATC_CODE || '',
+      etcOtcCode: item.ETC_OTC_CODE || ''
     };
   } catch (err) {
     console.warn('식약처 상세 정보 조회 실패:', err);
@@ -4303,9 +4311,14 @@ export async function searchPublicDrugDatabase(
           queryCandidates.push(`item_name=${encodeURIComponent(v)}`);
         }
 
-        if (normKw.length >= 4) {
+        // 영문 성분명(INN) 입력 시 식약처 영문 성분명 검색 파라미터(item_ingr_name)도 함께 조회
+        if (/[A-Za-z]/.test(cleanKw)) {
+          queryCandidates.push(`item_ingr_name=${encodeURIComponent(cleanKw)}`);
+        }
+
+        if (normKw.length >= 4 && !/^[a-z]+$/.test(normKw)) {
           queryCandidates.push(`item_name=${encodeURIComponent(normKw.slice(0, 3))}`);
-        } else if (normKw.length >= 2) {
+        } else if (normKw.length >= 2 && !/^[a-z]+$/.test(normKw)) {
           queryCandidates.push(`item_name=${encodeURIComponent(normKw.slice(0, 2))}`);
         }
 
@@ -4349,7 +4362,7 @@ export async function searchPublicDrugDatabase(
             rawIngredientsText: ingrListText,
             dosageInstruction: '용법용량 첨부문서 참조 (상세 연동 시 자동 세팅)',
             indicationsSummary: [mfdsItem.PRDUCT_TYPE || '일반의약품 효능·효과'],
-            searchKeywords: [cleanProdName, mfgName],
+            searchKeywords: [cleanProdName, mfgName, mfdsItem.ITEM_INGR_NAME || ''].filter(Boolean),
             sourceOrigin: '공공데이터포털 식약처 의약품 API' as PublicDataSourceOrigin,
             apiSourceBadge: '식약처 의약품 허가정보'
           };
@@ -4357,13 +4370,23 @@ export async function searchPublicDrugDatabase(
 
         const cleanKw = keyword.trim();
         parsedItems.sort((a, b) => {
-          const aScore = calcDrugMatchScore(a.productName, cleanKw);
-          const bScore = calcDrugMatchScore(b.productName, cleanKw);
+          const aScore = Math.max(
+            calcDrugMatchScore(a.productName, cleanKw),
+            calcDrugMatchScore(a.rawIngredientsText, cleanKw)
+          );
+          const bScore = Math.max(
+            calcDrugMatchScore(b.productName, cleanKw),
+            calcDrugMatchScore(b.rawIngredientsText, cleanKw)
+          );
           if (aScore !== bScore) return bScore - aScore;
           return 0;
         });
 
-        const matched = parsedItems.filter((it) => calcDrugMatchScore(it.productName, cleanKw) > 0);
+        const matched = parsedItems.filter(
+          (it) =>
+            calcDrugMatchScore(it.productName, cleanKw) > 0 ||
+            calcDrugMatchScore(it.rawIngredientsText, cleanKw) > 0
+        );
         return matched.length > 0 ? matched : parsedItems;
       }
       return [];

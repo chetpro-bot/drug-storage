@@ -58,14 +58,15 @@ export const MaternalSafetyDashboard: React.FC = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [liveMfdsResults, setLiveMfdsResults] = useState<MaternalSearchResult[]>([]);
   const [isSearchingLive, setIsSearchingLive] = useState(false);
+  const [synthesisTick, setSynthesisTick] = useState(0);
 
-  // 로컬(5대 성분 + 내장 국내 대표 품목) 자동완성 결과
+  // 로컬(검증 성분 + 내장 국내 대표 품목 + KPIC 처방 성분 사전) 결과
   const localMatches = useMemo(
     () => searchLocalMaternalDatabase(searchQuery),
-    [searchQuery]
+    [searchQuery, synthesisTick]
   );
 
-  // 식약처 실시간 API 확장 검색 핸들러
+  // 식약처·KPIC·FDA 실시간 API 통합 검색 핸들러
   const handleTriggerLiveSearch = async () => {
     const q = searchQuery.trim();
     if (!q) return;
@@ -74,24 +75,43 @@ export const MaternalSafetyDashboard: React.FC = () => {
     try {
       const live = await searchLiveMfdsForMaternalSafety(q);
       setLiveMfdsResults(live);
-      if (live.length > 0 && localMatches.length === 0) {
+      setSynthesisTick((t) => t + 1);
+      if (live.length > 0) {
         selectSearchResult(live[0]);
-        setIsDropdownOpen(false);
       }
     } finally {
       setIsSearchingLive(false);
     }
   };
 
-  const handleSelectResult = (res: MaternalSearchResult) => {
-    selectSearchResult(res);
+  const handleSelectResult = async (res: MaternalSearchResult) => {
     setIsDropdownOpen(false);
+    // 아직 실시간 안전성 레코드가 생성되지 않은 처방·KPIC 성분 후보를 선택한 경우 즉시 식약처·FDA 연동 수행
+    if (!PREGNANCY_SAFETY_DB[res.primaryIngredientId]) {
+      setIsSearchingLive(true);
+      try {
+        const targetQuery =
+          res.mappedIngredients[0]?.koreanIngredientName ||
+          res.mappedIngredients[0]?.englishIngredientName ||
+          res.displayName.split('(')[0].trim();
+        const live = await searchLiveMfdsForMaternalSafety(targetQuery);
+        setLiveMfdsResults(live);
+        setSynthesisTick((t) => t + 1);
+        const matchedDirect =
+          live.find((r) => r.primaryIngredientId === res.primaryIngredientId) || live[0] || res;
+        selectSearchResult(matchedDirect);
+      } finally {
+        setIsSearchingLive(false);
+      }
+      return;
+    }
+    selectSearchResult(res);
   };
 
   // 현재 선택된 성분의 검증 데이터 번들 조회
   const { pregnancy, lactation, sources } = useMemo(
     () => getVerifiedIngredientBundle(activeIngredientId),
-    [activeIngredientId, selectedResult]
+    [activeIngredientId, selectedResult, synthesisTick]
   );
 
   const activeMapping =
@@ -179,7 +199,7 @@ export const MaternalSafetyDashboard: React.FC = () => {
                       }
                     }
                   }}
-                  placeholder="국내 제품명(타이레놀, 부루펜, 지르텍, 페니라민, 판콜에스 등), 한글 성분명 또는 영문 INN 입력..."
+                  placeholder="제품명(리피토, 씬지로이드, 렉사프로 등), 한글 성분명(메트포르민, 발사르탄 등) 또는 영문 INN 입력..."
                   className="w-full pl-10 pr-9 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold text-slate-900 focus:outline-none focus:border-sky-600 focus:ring-2 focus:ring-sky-100"
                 />
                 {searchQuery && (
@@ -201,7 +221,7 @@ export const MaternalSafetyDashboard: React.FC = () => {
                 className="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-extrabold text-xs shadow-xs transition-all cursor-pointer shrink-0 flex items-center justify-center gap-1.5"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>{isSearchingLive ? '식약처 DB 조회 중...' : '식약처 국내 제품 통합검색'}</span>
+                <span>{isSearchingLive ? '식약처·FDA 실시간 조회 중...' : '식약처 제품·성분 통합검색'}</span>
               </button>
             </div>
 
@@ -210,9 +230,9 @@ export const MaternalSafetyDashboard: React.FC = () => {
               <div className="absolute left-0 right-0 top-full mt-1.5 bg-white rounded-2xl border border-slate-300 shadow-xl z-30 max-h-80 overflow-y-auto divide-y divide-slate-100">
                 <div className="px-3.5 py-2 bg-slate-50 flex items-center justify-between text-[11px] font-bold text-slate-500">
                   <span>
-                    검증 DB 일치 결과 ({localMatches.length}건)
+                    내장·KPIC 성분/품목 ({localMatches.length}건)
                     {liveMfdsResults.length > 0
-                      ? ` + 식약처 실시간 연동 (${liveMfdsResults.length}건)`
+                      ? ` + 식약처·FDA 실시간 연동 (${liveMfdsResults.length}건)`
                       : ''}
                   </span>
                   <button
@@ -241,7 +261,7 @@ export const MaternalSafetyDashboard: React.FC = () => {
                           }`}
                         >
                           {res.resultType === 'INGREDIENT_DIRECT'
-                            ? '핵심 성분'
+                            ? '성분 조회'
                             : res.isCombination
                             ? `복합제 (${res.mappedIngredients.length}성분)`
                             : '국내 단일제'}
@@ -269,11 +289,21 @@ export const MaternalSafetyDashboard: React.FC = () => {
             {recentSearches.map((term) => (
               <button
                 key={term}
-                onClick={() => {
+                onClick={async () => {
                   setSearchQuery(term);
                   const found = searchLocalMaternalDatabase(term);
                   if (found.length > 0) {
                     handleSelectResult(found[0]);
+                  } else {
+                    setIsSearchingLive(true);
+                    try {
+                      const live = await searchLiveMfdsForMaternalSafety(term);
+                      setLiveMfdsResults(live);
+                      setSynthesisTick((t) => t + 1);
+                      if (live.length > 0) selectSearchResult(live[0]);
+                    } finally {
+                      setIsSearchingLive(false);
+                    }
                   }
                 }}
                 className="px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold transition-colors cursor-pointer"

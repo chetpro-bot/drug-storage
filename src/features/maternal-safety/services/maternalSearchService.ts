@@ -342,6 +342,7 @@ export function parseMfdsActiveIngredients(params: {
 
 /**
  * ① 식약처 허가사항(NB_DOC_DATA)에서 임부 및 수유부 투여 관련 문구 원문 추출
+ * - 상위 조항 제목(예: "3. 다음과 같은 사람은 이 약을 복용하기 전에 의사, 치과의사, 약사와 상의할 것", "2. 다음과 같은 사람은 이 약을 복용하지 말 것", "6. 임부 및 수유부에 대한 투여")과 하위 항목(예: "10) 임부 또는 수유부")을 반드시 함께 묶어 추출
  * - 원문이 없는 경우 절대 내용을 생성하지 않음
  */
 export function extractMfdsPregnancyAndLactationText(
@@ -369,7 +370,8 @@ export function extractMfdsPregnancyAndLactationText(
     };
   }
 
-  const cleanedFull = cleanXmlDocText(rawNbDocXmlOrText || '');
+  const rawInput = (rawNbDocXmlOrText || '').trim();
+  const cleanedFull = cleanXmlDocText(rawInput);
   if (!cleanedFull) {
     return {
       status: 'NO_DATA',
@@ -385,92 +387,181 @@ export function extractMfdsPregnancyAndLactationText(
     };
   }
 
-  const lines = cleanedFull
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
+  const PREG_RE = /임부|임신|태아|태자|기형|양수|동맥관|분만|가임|생식\s*독성|배아/;
+  const LACT_RE = /수유|모유|유즙/;
 
-  // 1. 전용 섹션(예: "6. 임부 및 수유부에 대한 투여", "5) 임부 및 수유부에 대한 투여") 탐색
-  const dedicatedSectionLines: string[] = [];
-  let dedicatedTitle: string | null = null;
-  let inDedicatedSection = false;
+  interface ParsedArticle {
+    title: string;
+    paragraphs: string[];
+  }
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const isHeader =
-      /^(?:[0-9]+[\.\)]|\([0-9]+\)|[가-하][\.\)])?\s*(?:임부\s*(?:및|·|,)?\s*수유부|임산부|임부\s*투여|수유부\s*투여)/.test(
-        line
-      ) && line.length < 60;
+  const parsedArticles: ParsedArticle[] = [];
 
-    const isNextMajorHeader =
-      inDedicatedSection &&
-      /^(?:[0-9]+[\.\)]|\([0-9]+\))\s*(?:소아|고령자|과량\s*투여|적용상의\s*주의|보관\s*및\s*취급|기타|운전|임상검사)/.test(
-        line
-      ) &&
-      line.length < 60;
+  // 1. XML <ARTICLE title="..."> 구조가 있는 경우 조항 단위 파싱
+  const xmlArticleMatches = [
+    ...rawInput.matchAll(/<ARTICLE\s+title="([^"]*)"[^>]*>([\s\S]*?)<\/ARTICLE>/gi)
+  ];
 
-    if (isHeader) {
-      inDedicatedSection = true;
-      dedicatedTitle = line;
-      continue;
+  if (xmlArticleMatches.length > 0) {
+    for (const m of xmlArticleMatches) {
+      const title = m[1]
+        .replace(/<!\[CDATA\[|\]\]>/g, '')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      const body = m[2] || '';
+      const paras = [...body.matchAll(/<PARAGRAPH[^>]*>([\s\S]*?)<\/PARAGRAPH>/gi)]
+        .map((p) =>
+          p[1]
+            .replace(/<!\[CDATA\[|\]\]>/g, '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/&nbsp;/gi, ' ')
+            .replace(/&lt;/gi, '<')
+            .replace(/&gt;/gi, '>')
+            .replace(/&amp;/gi, '&')
+            .replace(/\s+/g, ' ')
+            .trim()
+        )
+        .filter(Boolean);
+
+      if (title || paras.length > 0) {
+        parsedArticles.push({
+          title: title || '사용상의 주의사항',
+          paragraphs: paras
+        });
+      }
     }
-    if (isNextMajorHeader) {
-      inDedicatedSection = false;
-      break;
+  } else {
+    // 2. 일반 텍스트(nedrug 폴백 등)인 경우 상위 대제목("1. ...", "2. ...") 기준으로 조항 분리
+    const lines = cleanedFull
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+
+    let currentArticle: ParsedArticle = {
+      title: '사용상의 주의사항',
+      paragraphs: []
+    };
+
+    for (const line of lines) {
+      const isMajorArticleTitle =
+        /^[0-9]{1,2}\.\s+\S+/.test(line) &&
+        line.length < 90 &&
+        (/말\s*것|상의할\s*것|투여|주의|이상반응|상호작용|경고|일반적|과량|보관|기타|영향/.test(line) ||
+          /임부|수유부/.test(line));
+
+      if (isMajorArticleTitle) {
+        if (currentArticle.paragraphs.length > 0 || currentArticle.title !== '사용상의 주의사항') {
+          parsedArticles.push(currentArticle);
+        }
+        currentArticle = { title: line, paragraphs: [] };
+      } else {
+        currentArticle.paragraphs.push(line);
+      }
     }
-    if (inDedicatedSection) {
-      dedicatedSectionLines.push(line);
+    if (currentArticle.paragraphs.length > 0 || parsedArticles.length === 0) {
+      parsedArticles.push(currentArticle);
     }
   }
 
-  // 2. 전체 주의사항 본문에서 임부/임신 관련 문장 및 수유/모유 관련 문장 분류 추출 (금기 조항 포함)
-  const pregSentences: string[] = [];
-  const lactSentences: string[] = [];
+  const pregBlocks: string[] = [];
+  const lactBlocks: string[] = [];
+  const pregTitles: string[] = [];
+  const lactTitles: string[] = [];
+  const fullFormattedSections: string[] = [];
 
-  const sourcePool = dedicatedSectionLines.length > 0 ? dedicatedSectionLines : lines;
-
-  for (const line of lines) {
-    if (/임부|임신|태아|기형|양수|동맥관|분만/.test(line)) {
-      if (!pregSentences.includes(line)) pregSentences.push(line);
+  for (const art of parsedArticles) {
+    const title = art.title;
+    if (art.paragraphs.length > 0) {
+      fullFormattedSections.push(`[${title}]\n${art.paragraphs.join('\n')}`);
+    } else {
+      fullFormattedSections.push(`[${title}]`);
     }
-    if (/수유|모유|유즙|신생아.*수유/.test(line)) {
-      if (!lactSentences.includes(line)) lactSentences.push(line);
+
+    // 조항 내 문단들을 하위 번호("1)", "2)", ..., "10)", "(1)") 단위로 그룹화하여 후속 설명 문단이 누락되지 않도록 함
+    const subItems: string[][] = [];
+    for (const p of art.paragraphs) {
+      if (/^(?:[0-9]{1,2}[\.\)]|\([0-9]{1,2}\))\s*/.test(p) || subItems.length === 0) {
+        subItems.push([p]);
+      } else {
+        subItems[subItems.length - 1].push(p);
+      }
+    }
+
+    const isDedicated = /임부|임신|수유부/.test(title);
+    const matchedPregSub: string[] = [];
+    const matchedLactSub: string[] = [];
+
+    for (const subLines of subItems) {
+      // 하위 항목 첫 줄이 "2) 임부 및 수유부에 대한 투여" 같은 소제목이고 아래에 ①, ② 세부 문단이 딸려 있는 경우
+      if (
+        subLines.length > 1 &&
+        /임부.*수유|수유.*임부/.test(subLines[0]) &&
+        subLines[0].length < 45
+      ) {
+        const rest = subLines.slice(1);
+        const pregRest = rest.filter((l) => PREG_RE.test(l) || !LACT_RE.test(l));
+        const lactRest = rest.filter((l) => LACT_RE.test(l) || !PREG_RE.test(l));
+
+        if (pregRest.some((l) => PREG_RE.test(l))) {
+          matchedPregSub.push(
+            `• ${subLines[0]}\n` + pregRest.map((l) => `  ${l}`).join('\n')
+          );
+        }
+        if (lactRest.some((l) => LACT_RE.test(l))) {
+          matchedLactSub.push(
+            `• ${subLines[0]}\n` + lactRest.map((l) => `  ${l}`).join('\n')
+          );
+        }
+        continue;
+      }
+
+      const subText = subLines.join('\n');
+      const hasPreg = PREG_RE.test(subText);
+      const hasLact = LACT_RE.test(subText);
+
+      if (hasPreg || (isDedicated && /임부|임신/.test(title) && !hasLact)) {
+        matchedPregSub.push(
+          subLines.map((l, idx) => (idx === 0 ? `• ${l}` : `  ${l}`)).join('\n')
+        );
+      }
+      if (hasLact || (isDedicated && /수유/.test(title) && !hasPreg)) {
+        matchedLactSub.push(
+          subLines.map((l, idx) => (idx === 0 ? `• ${l}` : `  ${l}`)).join('\n')
+        );
+      }
+    }
+
+    if (matchedPregSub.length > 0) {
+      pregTitles.push(title);
+      pregBlocks.push(`[${title}]\n${matchedPregSub.join('\n')}`);
+    }
+    if (matchedLactSub.length > 0) {
+      lactTitles.push(title);
+      lactBlocks.push(`[${title}]\n${matchedLactSub.join('\n')}`);
     }
   }
 
-  // 전용 섹션이 있는 경우 전용 섹션 내 임부/수유부 문단을 우선 배치
-  const dedicatedPregLines = sourcePool.filter(
-    (l) => /임부|임신|태아|기형|양수|동맥관|분만/.test(l) || (!/수유|모유|유즙/.test(l) && dedicatedSectionLines.includes(l))
-  );
-  const dedicatedLactLines = sourcePool.filter((l) => /수유|모유|유즙/.test(l));
+  const pregnancyFullText = pregBlocks.length > 0 ? pregBlocks.join('\n\n') : null;
+  const pregnancyKeyText = pregnancyFullText;
 
-  const finalPregLines =
-    dedicatedPregLines.length > 0
-      ? Array.from(new Set([...dedicatedPregLines, ...pregSentences]))
-      : pregSentences;
+  const lactationFullText = lactBlocks.length > 0 ? lactBlocks.join('\n\n') : null;
+  const lactationKeyText = lactationFullText;
 
-  const finalLactLines =
-    dedicatedLactLines.length > 0
-      ? Array.from(new Set([...dedicatedLactLines, ...lactSentences]))
-      : lactSentences;
-
-  const pregnancyFullText = finalPregLines.length > 0 ? finalPregLines.join('\n') : null;
-  const pregnancyKeyText =
-    finalPregLines.length > 0 ? finalPregLines.slice(0, 4).join('\n') : null;
-
-  const lactationFullText = finalLactLines.length > 0 ? finalLactLines.join('\n') : null;
-  const lactationKeyText =
-    finalLactLines.length > 0 ? finalLactLines.slice(0, 4).join('\n') : null;
+  const formattedFullPrecautions =
+    fullFormattedSections.length > 0 ? fullFormattedSections.join('\n\n') : cleanedFull;
 
   return {
     status: 'SUCCESS',
-    pregnancySectionTitle: dedicatedTitle || (pregnancyFullText ? '사용상의 주의사항 내 임부 관련 문구' : null),
+    pregnancySectionTitle:
+      pregTitles.length > 0 ? pregTitles.join(' / ') : null,
     pregnancyKeyText,
     pregnancyFullText,
-    lactationSectionTitle: dedicatedTitle || (lactationFullText ? '사용상의 주의사항 내 수유부 관련 문구' : null),
+    lactationSectionTitle:
+      lactTitles.length > 0 ? lactTitles.join(' / ') : null,
     lactationKeyText,
     lactationFullText,
-    fullPrecautionsText: cleanedFull,
+    fullPrecautionsText: formattedFullPrecautions,
     sourceUrl,
     updatedAt
   };

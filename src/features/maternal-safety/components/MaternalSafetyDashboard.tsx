@@ -15,7 +15,6 @@ import {
   TgaPregnancyCategoryCode
 } from '../types/maternalSafety';
 import { TGA_MANDATORY_DISCLAIMERS } from '../data/tgaPregnancyCategoryDb';
-import { VERIFIED_DOMESTIC_SEED_PRODUCTS } from '../services/maternalSearchService';
 
 const QUICK_VERIFICATION_ITEMS: Array<{ label: string; query: string; isCombo?: boolean }> = [
   { label: 'Acetaminophen (타이레놀정500mg)', query: 'Acetaminophen' },
@@ -41,6 +40,40 @@ function getTgaBadgeStyle(category: TgaPregnancyCategoryCode): string {
   }
 }
 
+/**
+ * 식약처 허가사항의 상위 조항 제목([3. 다음과 같은 사람은...])과 세부 항목(• 10) 임부 또는 수유부)을 시각적으로 구분하여 표시
+ */
+function renderStructuredMfdsText(rawText: string) {
+  const blocks = rawText.split(/\n\n+/).filter(Boolean);
+  return (
+    <div className="space-y-3">
+      {blocks.map((block, bIdx) => {
+        const lines = block.split('\n').filter(Boolean);
+        const firstLine = lines[0] || '';
+        const isBracketHeader = firstLine.startsWith('[') && firstLine.endsWith(']');
+        const headerText = isBracketHeader ? firstLine.slice(1, -1) : null;
+        const bodyLines = isBracketHeader ? lines.slice(1) : lines;
+
+        return (
+          <div
+            key={bIdx}
+            className={bIdx > 0 ? 'pt-2.5 border-t border-slate-200/80 space-y-1.5' : 'space-y-1.5'}
+          >
+            {headerText && (
+              <div className="font-bold text-slate-900 text-xs sm:text-sm">
+                {headerText}
+              </div>
+            )}
+            <div className="space-y-1 pl-1 text-xs sm:text-sm text-slate-800 leading-relaxed whitespace-pre-line">
+              {bodyLines.join('\n')}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export const MaternalSafetyDashboard: React.FC = () => {
   const {
     mobileSectionTab,
@@ -64,13 +97,6 @@ export const MaternalSafetyDashboard: React.FC = () => {
   const [expandPregFullLabel, setExpandPregFullLabel] = useState(false);
   const [expandLactFullLabel, setExpandLactFullLabel] = useState(false);
   const [expandedLactmedDetailMap, setExpandedLactmedDetailMap] = useState<Record<string, boolean>>({});
-
-  // 최초 진입 시 기본 품목(타이레놀정500밀리그람) 리포트 로드
-  useEffect(() => {
-    if (!currentReport && !isLoadingReport) {
-      selectCandidateAndLoadReport(VERIFIED_DOMESTIC_SEED_PRODUCTS[0]);
-    }
-  }, [currentReport, isLoadingReport, selectCandidateAndLoadReport]);
 
   // 품목 변경 시 상세보기 접힘 상태 초기화
   useEffect(() => {
@@ -237,11 +263,20 @@ export const MaternalSafetyDashboard: React.FC = () => {
 
       {/* 2. 본문 영역 */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-5 space-y-5">
-        {isLoadingReport || !currentReport ? (
+        {isLoadingReport ? (
           <div className="bg-white border border-slate-200 rounded-lg p-12 flex flex-col items-center justify-center gap-3 text-slate-600">
             <Loader2 className="w-6 h-6 animate-spin text-slate-700" />
             <p className="text-sm font-medium">
               식약처 허가사항, DUR 임부금기, 호주 TGA, NIH LactMed 데이터를 확인하고 있습니다...
+            </p>
+          </div>
+        ) : !currentReport ? (
+          <div className="bg-white border border-slate-200 rounded-lg p-10 text-center space-y-2">
+            <p className="text-sm sm:text-base font-bold text-slate-800">
+              상단 검색창에서 의약품을 검색하거나 빠른 조회 버튼을 선택하십시오.
+            </p>
+            <p className="text-xs text-slate-500">
+              국내 제품명, 국내 성분명, 또는 영문 성분명을 입력하면 식약처 허가사항 · 식약처 DUR 임부금기 · 호주 TGA · NIH LactMed 공식 원문 데이터를 한 화면에 표시합니다.
             </p>
           </div>
         ) : (
@@ -415,32 +450,36 @@ export const MaternalSafetyDashboard: React.FC = () => {
                     </div>
                   ) : currentReport.mfdsLabel.pregnancyKeyText ? (
                     <div className="space-y-2">
-                      <div className="text-xs sm:text-sm text-slate-800 whitespace-pre-line leading-relaxed bg-slate-50 p-3 rounded border border-slate-200/80">
-                        {expandPregFullLabel
-                          ? currentReport.mfdsLabel.pregnancyFullText
-                          : currentReport.mfdsLabel.pregnancyKeyText}
+                      <div className="bg-slate-50 p-3 rounded border border-slate-200/80">
+                        {renderStructuredMfdsText(currentReport.mfdsLabel.pregnancyKeyText)}
                       </div>
 
-                      {(currentReport.mfdsLabel.pregnancyFullText !==
-                        currentReport.mfdsLabel.pregnancyKeyText ||
-                        currentReport.mfdsLabel.fullPrecautionsText) && (
-                        <button
-                          type="button"
-                          onClick={() => setExpandPregFullLabel((v) => !v)}
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
-                        >
-                          {expandPregFullLabel ? (
-                            <>
-                              <ChevronUp className="w-3.5 h-3.5" />
-                              상세보기 접기
-                            </>
-                          ) : (
-                            <>
-                              <ChevronDown className="w-3.5 h-3.5" />
-                              임부 관련 허가사항 전문 상세보기
-                            </>
+                      {currentReport.mfdsLabel.fullPrecautionsText && (
+                        <div className="pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setExpandPregFullLabel((v) => !v)}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
+                          >
+                            {expandPregFullLabel ? (
+                              <>
+                                <ChevronUp className="w-3.5 h-3.5" />
+                                사용상의 주의사항 전문 접기
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="w-3.5 h-3.5" />
+                                사용상의 주의사항 전체 전문 상세보기
+                              </>
+                            )}
+                          </button>
+
+                          {expandPregFullLabel && (
+                            <div className="mt-2 p-3 bg-white border border-slate-200 rounded max-h-80 overflow-y-auto">
+                              {renderStructuredMfdsText(currentReport.mfdsLabel.fullPrecautionsText)}
+                            </div>
                           )}
-                        </button>
+                        </div>
                       )}
                     </div>
                   ) : (
@@ -652,31 +691,36 @@ export const MaternalSafetyDashboard: React.FC = () => {
                     </div>
                   ) : currentReport.mfdsLabel.lactationKeyText ? (
                     <div className="space-y-2">
-                      <div className="text-xs sm:text-sm text-slate-800 whitespace-pre-line leading-relaxed bg-slate-50 p-3 rounded border border-slate-200/80">
-                        {expandLactFullLabel
-                          ? currentReport.mfdsLabel.lactationFullText
-                          : currentReport.mfdsLabel.lactationKeyText}
+                      <div className="bg-slate-50 p-3 rounded border border-slate-200/80">
+                        {renderStructuredMfdsText(currentReport.mfdsLabel.lactationKeyText)}
                       </div>
 
-                      {currentReport.mfdsLabel.lactationFullText !==
-                        currentReport.mfdsLabel.lactationKeyText && (
-                        <button
-                          type="button"
-                          onClick={() => setExpandLactFullLabel((v) => !v)}
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
-                        >
-                          {expandLactFullLabel ? (
-                            <>
-                              <ChevronUp className="w-3.5 h-3.5" />
-                              상세보기 접기
-                            </>
-                          ) : (
-                            <>
-                              <ChevronDown className="w-3.5 h-3.5" />
-                              수유부 관련 허가사항 전문 상세보기
-                            </>
+                      {currentReport.mfdsLabel.fullPrecautionsText && (
+                        <div className="pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setExpandLactFullLabel((v) => !v)}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
+                          >
+                            {expandLactFullLabel ? (
+                              <>
+                                <ChevronUp className="w-3.5 h-3.5" />
+                                사용상의 주의사항 전문 접기
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="w-3.5 h-3.5" />
+                                사용상의 주의사항 전체 전문 상세보기
+                              </>
+                            )}
+                          </button>
+
+                          {expandLactFullLabel && (
+                            <div className="mt-2 p-3 bg-white border border-slate-200 rounded max-h-80 overflow-y-auto">
+                              {renderStructuredMfdsText(currentReport.mfdsLabel.fullPrecautionsText)}
+                            </div>
                           )}
-                        </button>
+                        </div>
                       )}
                     </div>
                   ) : (

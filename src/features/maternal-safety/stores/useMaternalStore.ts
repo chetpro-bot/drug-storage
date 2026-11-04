@@ -22,7 +22,7 @@ interface MaternalStoreState {
   detectedIngredientNotice: string | null;
   searchApiError: string | null;
 
-  selectedCandidate: MaternalDrugSearchCandidate;
+  selectedCandidate: MaternalDrugSearchCandidate | null;
   currentReport: MaternalDrugSafetyReport | null;
   isLoadingReport: boolean;
 
@@ -34,8 +34,6 @@ interface MaternalStoreState {
   selectCandidateAndLoadReport: (candidate: MaternalDrugSearchCandidate) => Promise<void>;
 }
 
-const defaultCandidate = VERIFIED_DOMESTIC_SEED_PRODUCTS[0];
-
 export const useMaternalStore = create<MaternalStoreState>((set) => ({
   workspaceMode: 'NUTRITION_CATALOG',
   mobileSectionTab: 'PREGNANCY',
@@ -46,7 +44,7 @@ export const useMaternalStore = create<MaternalStoreState>((set) => ({
   detectedIngredientNotice: null,
   searchApiError: null,
 
-  selectedCandidate: defaultCandidate,
+  selectedCandidate: null,
   currentReport: null,
   isLoadingReport: false,
 

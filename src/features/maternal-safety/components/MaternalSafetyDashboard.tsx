@@ -19,22 +19,6 @@ import {
 import { TGA_MANDATORY_DISCLAIMERS } from '../data/tgaPregnancyCategoryDb';
 import { translateLactMedTextToKorean } from '../data/lactmedMonographDb';
 
-const QUICK_VERIFICATION_ITEMS: Array<{
-  label: string;
-  query: string;
-  isCombo?: boolean;
-  colorClass: string;
-}> = [
-  { label: 'Acetaminophen (타이레놀정500mg)', query: 'Acetaminophen', colorClass: 'hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-300' },
-  { label: 'Ibuprofen (부루펜정400mg)', query: 'Ibuprofen', colorClass: 'hover:bg-orange-50 hover:text-orange-800 hover:border-orange-300' },
-  { label: 'Cetirizine (지르텍정)', query: 'Cetirizine', colorClass: 'hover:bg-indigo-50 hover:text-indigo-800 hover:border-indigo-300' },
-  { label: 'Loratadine (클라리틴정)', query: 'Loratadine', colorClass: 'hover:bg-teal-50 hover:text-teal-800 hover:border-teal-300' },
-  { label: 'Amoxicillin (아목시실린캡슐)', query: 'Amoxicillin', colorClass: 'hover:bg-blue-50 hover:text-blue-800 hover:border-blue-300' },
-  { label: 'Pseudoephedrine (슈다페드정)', query: 'Pseudoephedrine', colorClass: 'hover:bg-rose-50 hover:text-rose-800 hover:border-rose-300' },
-  { label: '[복합제] 오구멘틴정625mg', query: '오구멘틴정625밀리그램', isCombo: true, colorClass: 'hover:bg-purple-50 hover:text-purple-800 hover:border-purple-300' },
-  { label: '[복합제] 액티피드정', query: '액티피드정', isCombo: true, colorClass: 'hover:bg-amber-50 hover:text-amber-800 hover:border-amber-300' }
-];
-
 export interface TgaVisualTheme {
   cardBg: string;
   borderColor: string;
@@ -221,12 +205,6 @@ export const MaternalSafetyDashboard: React.FC = () => {
     await executeSearch(inputValue);
   };
 
-  const handleQuickChipClick = async (query: string) => {
-    setInputValue(query);
-    setShowCandidateList(false);
-    await executeSearch(query);
-  };
-
   const handleSelectCandidate = async (candidate: MaternalDrugSearchCandidate) => {
     setShowCandidateList(false);
     await selectCandidateAndLoadReport(candidate);
@@ -353,21 +331,6 @@ export const MaternalSafetyDashboard: React.FC = () => {
               </div>
             )}
           </form>
-
-          {/* 다빈도/필수 검증 성분 빠른 조회 버튼 */}
-          <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-            <span className="text-[11px] font-semibold text-slate-500 mr-1">빠른 조회:</span>
-            {QUICK_VERIFICATION_ITEMS.map((item) => (
-              <button
-                key={item.query}
-                type="button"
-                onClick={() => handleQuickChipClick(item.query)}
-                className={`px-2.5 py-1 text-xs bg-white text-slate-700 rounded-md border border-slate-200/90 shadow-2xs font-medium transition-all cursor-pointer ${item.colorClass}`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
         </div>
       </section>
 
@@ -383,7 +346,7 @@ export const MaternalSafetyDashboard: React.FC = () => {
         ) : !currentReport ? (
           <div className="bg-white border border-slate-200 rounded-lg p-10 text-center space-y-2">
             <p className="text-sm sm:text-base font-bold text-slate-800">
-              상단 검색창에서 의약품을 검색하거나 빠른 조회 버튼을 선택하십시오.
+              상단 검색창에서 의약품을 검색하십시오.
             </p>
             <p className="text-xs text-slate-500">
               국내 제품명, 국내 성분명, 또는 영문 성분명을 입력하면 식약처 허가사항 · 식약처 DUR 임부금기 · 호주 TGA · NIH LactMed 공식 원문 데이터를 한 화면에 표시합니다.
@@ -394,7 +357,49 @@ export const MaternalSafetyDashboard: React.FC = () => {
             {/* [A] 제품 기본정보 */}
             <section className="bg-white border border-slate-200 rounded-lg p-4 sm:p-5">
               <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 border-b border-slate-100 pb-3.5">
-                <div className="flex items-start gap-3.5">
+                {/* 좌측: 제품 분류, 코드, 제품명 */}
+                <div className="space-y-1.5 min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="px-2 py-0.5 text-[11px] font-semibold bg-slate-100 text-slate-700 rounded border border-slate-200">
+                      {currentReport.etcOtcName}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 text-[11px] font-semibold rounded border ${
+                        currentReport.isCombination
+                          ? 'bg-amber-50 text-amber-900 border-amber-200'
+                          : 'bg-slate-100 text-slate-700 border-slate-200'
+                      }`}
+                    >
+                      {currentReport.isCombination
+                        ? `복합제 (유효성분 ${currentReport.ingredients.length}종 개별 매칭)`
+                        : '단일제'}
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      품목기준코드: {currentReport.itemSeq}
+                    </span>
+                  </div>
+                  <h3 className="text-lg sm:text-xl font-bold text-slate-900 break-keep">
+                    {currentReport.productName}
+                  </h3>
+                </div>
+
+                {/* 우측: 허가사항 원문 링크 및 실물 알약 사진 */}
+                <div className="flex items-center sm:items-start gap-3.5 shrink-0">
+                  <div className="flex flex-col sm:items-end gap-1 text-right">
+                    <a
+                      href={currentReport.permitUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded transition-colors"
+                    >
+                      식약처 허가사항 원문 보기
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                    <span className="text-[11px] text-slate-500">
+                      식약처 허가/변경 기준일: {currentReport.permitUpdatedAt}
+                    </span>
+                  </div>
+
                   {currentReport.pillIdentification?.itemImage && (
                     <div className="shrink-0 relative group">
                       <img
@@ -411,46 +416,6 @@ export const MaternalSafetyDashboard: React.FC = () => {
                       </span>
                     </div>
                   )}
-
-                  <div className="space-y-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="px-2 py-0.5 text-[11px] font-semibold bg-slate-100 text-slate-700 rounded border border-slate-200">
-                        {currentReport.etcOtcName}
-                      </span>
-                      <span
-                        className={`px-2 py-0.5 text-[11px] font-semibold rounded border ${
-                          currentReport.isCombination
-                            ? 'bg-amber-50 text-amber-900 border-amber-200'
-                            : 'bg-slate-100 text-slate-700 border-slate-200'
-                        }`}
-                      >
-                        {currentReport.isCombination
-                          ? `복합제 (유효성분 ${currentReport.ingredients.length}종 개별 매칭)`
-                          : '단일제'}
-                      </span>
-                      <span className="text-xs text-slate-500">
-                        품목기준코드: {currentReport.itemSeq}
-                      </span>
-                    </div>
-                    <h3 className="text-lg sm:text-xl font-bold text-slate-900 break-keep">
-                      {currentReport.productName}
-                    </h3>
-                  </div>
-                </div>
-
-                <div className="flex flex-col sm:items-end gap-1 shrink-0">
-                  <a
-                    href={currentReport.permitUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 border border-slate-300 rounded transition-colors"
-                  >
-                    식약처 허가사항 원문 보기
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                  <span className="text-[11px] text-slate-500">
-                    식약처 허가/변경 기준일: {currentReport.permitUpdatedAt}
-                  </span>
                 </div>
               </div>
 

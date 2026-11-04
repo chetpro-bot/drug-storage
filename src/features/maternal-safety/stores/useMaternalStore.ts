@@ -7,7 +7,13 @@ import {
 import { searchLocalMaternalDatabase } from '../services/maternalSearchService';
 
 export type AppWorkspaceMode = 'NUTRITION_CATALOG' | 'MATERNAL_SAFETY';
-export type MaternalActiveTab = 'PREGNANCY' | 'LACTATION' | 'COMBINATION' | 'COMPARE';
+export type MaternalActiveTab =
+  | 'SUMMARY'
+  | 'PREGNANCY'
+  | 'LACTATION'
+  | 'COMBINATION'
+  | 'COMPARE'
+  | 'SOURCES';
 
 const RECENT_SEARCH_STORAGE_KEY = 'pharmassist_maternal_recent_searches_v1';
 
@@ -81,7 +87,7 @@ const defaultSelected = initialResults[0];
 
 export const useMaternalStore = create<MaternalStoreState>((set, get) => ({
   workspaceMode: 'NUTRITION_CATALOG',
-  activeTab: 'PREGNANCY',
+  activeTab: 'SUMMARY',
   searchQuery: '',
   recentSearches: loadRecentSearches(),
   selectedResult: defaultSelected,
@@ -119,7 +125,8 @@ export const useMaternalStore = create<MaternalStoreState>((set, get) => ({
     get().addRecentSearch(result.displayName.split('(')[0].trim());
     set({
       selectedResult: result,
-      activeIngredientId: nextIngId
+      activeIngredientId: nextIngId,
+      activeTab: 'SUMMARY'
     });
   },
 

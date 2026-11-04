@@ -546,16 +546,28 @@ export const AlternativeDrugCompareView: React.FC = () => {
                     <p className="text-slate-700 leading-relaxed">
                       <strong>[수유]</strong> {l.continuationGuidance}
                     </p>
-                    <button
-                      onClick={() => {
-                        setActiveIngredientId(id);
-                        setActiveTab('PREGNANCY');
-                      }}
-                      className="inline-flex items-center gap-1 text-[11px] font-extrabold text-sky-700 hover:underline cursor-pointer"
-                    >
-                      <span>이 성분 상세 화면으로 이동</span>
-                      <ArrowRight className="w-3 h-3" />
-                    </button>
+                    <div className="flex flex-wrap items-center gap-3 pt-1">
+                      <button
+                        onClick={() => {
+                          setActiveIngredientId(id);
+                          setActiveTab('SUMMARY');
+                        }}
+                        className="inline-flex items-center gap-1 text-[11px] font-extrabold text-slate-800 hover:underline cursor-pointer"
+                      >
+                        <span>요약표(국내/국외) 보기</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setActiveIngredientId(id);
+                          setActiveTab('PREGNANCY');
+                        }}
+                        className="inline-flex items-center gap-1 text-[11px] font-extrabold text-sky-700 hover:underline cursor-pointer"
+                      >
+                        <span>이 성분 상세 화면으로 이동</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
                   </td>
                 );
               })}

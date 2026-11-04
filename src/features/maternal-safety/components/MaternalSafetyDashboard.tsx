@@ -434,44 +434,10 @@ export const MaternalSafetyDashboard: React.FC = () => {
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 font-medium block mb-0.5">제형 및 외형 식별</span>
-                  <span className="text-slate-900 font-semibold text-sm block">
-                    {currentReport.dosageForm} ({currentReport.route})
-                    {currentReport.chartText && currentReport.chartText !== currentReport.dosageForm
-                      ? ` — ${currentReport.chartText}`
-                      : ''}
+                  <span className="text-slate-500 font-medium block mb-0.5">성상</span>
+                  <span className="text-slate-900 font-semibold text-sm block leading-snug">
+                    {currentReport.chartText || currentReport.pillIdentification?.chart || currentReport.dosageForm || '정보 없음'}
                   </span>
-                  {currentReport.pillIdentification && (
-                    <div className="mt-1.5 flex flex-wrap gap-1 text-[11px]">
-                      {currentReport.pillIdentification.drugShape && (
-                        <span className="px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded border border-slate-200">
-                          모양: {currentReport.pillIdentification.drugShape}
-                        </span>
-                      )}
-                      {currentReport.pillIdentification.colorClass1 && (
-                        <span className="px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded border border-slate-200">
-                          색상: {currentReport.pillIdentification.colorClass1}
-                        </span>
-                      )}
-                      {currentReport.pillIdentification.printFront && (
-                        <span className="px-1.5 py-0.5 bg-sky-50 text-sky-800 rounded border border-sky-200 font-mono">
-                          앞: {currentReport.pillIdentification.printFront}
-                        </span>
-                      )}
-                      {currentReport.pillIdentification.printBack && (
-                        <span className="px-1.5 py-0.5 bg-sky-50 text-sky-800 rounded border border-sky-200 font-mono">
-                          뒤: {currentReport.pillIdentification.printBack}
-                        </span>
-                      )}
-                      {currentReport.pillIdentification.lengLong && (
-                        <span className="px-1.5 py-0.5 bg-slate-50 text-slate-600 rounded border border-slate-200">
-                          크기: {currentReport.pillIdentification.lengLong}
-                          {currentReport.pillIdentification.lengShort ? `×${currentReport.pillIdentification.lengShort}` : ''}
-                          {currentReport.pillIdentification.thick ? `×${currentReport.pillIdentification.thick}` : ''}mm
-                        </span>
-                      )}
-                    </div>
-                  )}
                 </div>
                 <div className="sm:col-span-1">
                   <span className="text-slate-500 font-medium block mb-0.5">

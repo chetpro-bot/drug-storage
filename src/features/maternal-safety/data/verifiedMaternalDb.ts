@@ -1191,7 +1191,7 @@ export const DRUG_MASTER_DB: DrugMasterRecord[] = [
   {
     id: 'drug_tylenol_500',
     itemSeq: '202106092',
-    koreanProductName: '타이레놀정500밀리그람(아세트아미노펜)',
+    koreanProductName: '타이레놀정500밀리그람',
     englishIngredientsSummary: 'Acetaminophen',
     strengthText: '500mg',
     dosageForm: '필름코팅정',
@@ -1209,7 +1209,7 @@ export const DRUG_MASTER_DB: DrugMasterRecord[] = [
   {
     id: 'drug_brufen_400',
     itemSeq: '198300343',
-    koreanProductName: '부루펜정400밀리그램(이부프로펜)',
+    koreanProductName: '부루펜정400밀리그램',
     englishIngredientsSummary: 'Ibuprofen',
     strengthText: '400mg',
     dosageForm: '필름코팅정',
@@ -1228,7 +1228,7 @@ export const DRUG_MASTER_DB: DrugMasterRecord[] = [
   {
     id: 'drug_ezn6_any',
     itemSeq: '200501140',
-    koreanProductName: '이지엔6애니연질캡슐(이부프로펜)',
+    koreanProductName: '이지엔6애니연질캡슐',
     englishIngredientsSummary: 'Ibuprofen',
     strengthText: '200mg',
     dosageForm: '연질캡슐',
@@ -1246,7 +1246,7 @@ export const DRUG_MASTER_DB: DrugMasterRecord[] = [
   {
     id: 'drug_zyrtec_10',
     itemSeq: '200610765',
-    koreanProductName: '지르텍정(세티리진염산염)',
+    koreanProductName: '지르텍정',
     englishIngredientsSummary: 'Cetirizine',
     strengthText: '10mg',
     dosageForm: '필름코팅정',
@@ -1264,7 +1264,7 @@ export const DRUG_MASTER_DB: DrugMasterRecord[] = [
   {
     id: 'drug_peniramin_2',
     itemSeq: '196000011',
-    koreanProductName: '페니라민정(클로르페니라민말레산염)',
+    koreanProductName: '페니라민정',
     englishIngredientsSummary: 'Chlorpheniramine',
     strengthText: '2mg',
     dosageForm: '정제',
@@ -1282,7 +1282,7 @@ export const DRUG_MASTER_DB: DrugMasterRecord[] = [
   {
     id: 'drug_gomsillin_500',
     itemSeq: '198000158',
-    koreanProductName: '곰실린캡슐(아목시실린수화물)',
+    koreanProductName: '곰실린캡슐',
     englishIngredientsSummary: 'Amoxicillin',
     strengthText: '500mg',
     dosageForm: '경질캡슐',
@@ -1301,7 +1301,7 @@ export const DRUG_MASTER_DB: DrugMasterRecord[] = [
   {
     id: 'drug_tylenol_cold_s',
     itemSeq: '202106095',
-    koreanProductName: '타이레놀콜드-에스정 (종합감기약 복합제)',
+    koreanProductName: '타이레놀콜드-에스정',
     englishIngredientsSummary:
       'Acetaminophen 325mg / Chlorpheniramine 2mg / Dextromethorphan 15mg / Pseudoephedrine 30mg',
     strengthText: '325mg / 2mg / 15mg / 30mg',
@@ -1320,7 +1320,7 @@ export const DRUG_MASTER_DB: DrugMasterRecord[] = [
   {
     id: 'drug_pancol_s',
     itemSeq: '196800036',
-    koreanProductName: '판콜에스내복액 (종합감기약 액제 복합제)',
+    koreanProductName: '판콜에스내복액',
     englishIngredientsSummary:
       'Acetaminophen 300mg / Chlorpheniramine 2.5mg / Caffeine 30mg / DL-Methylephedrine 17.5mg / Guaifenesin 83.3mg',
     strengthText: '30mL(1병) 중 복합성분',
@@ -1347,7 +1347,7 @@ export const INGREDIENT_MAPPING_DB: IngredientMappingRecord[] = [
   {
     mappingId: 'map_tylenol_1',
     drugMasterId: 'drug_tylenol_500',
-    koreanProductName: '타이레놀정500밀리그람(아세트아미노펜)',
+    koreanProductName: '타이레놀정500밀리그람',
     itemSeq: '202106092',
     koreanIngredientName: '아세트아미노펜',
     englishIngredientName: 'Acetaminophen',
@@ -1361,7 +1361,7 @@ export const INGREDIENT_MAPPING_DB: IngredientMappingRecord[] = [
   {
     mappingId: 'map_brufen_1',
     drugMasterId: 'drug_brufen_400',
-    koreanProductName: '부루펜정400밀리그램(이부프로펜)',
+    koreanProductName: '부루펜정400밀리그램',
     itemSeq: '198300343',
     koreanIngredientName: '이부프로펜',
     englishIngredientName: 'Ibuprofen',
@@ -1375,7 +1375,7 @@ export const INGREDIENT_MAPPING_DB: IngredientMappingRecord[] = [
   {
     mappingId: 'map_ezn6_1',
     drugMasterId: 'drug_ezn6_any',
-    koreanProductName: '이지엔6애니연질캡슐(이부프로펜)',
+    koreanProductName: '이지엔6애니연질캡슐',
     itemSeq: '200501140',
     koreanIngredientName: '이부프로펜',
     englishIngredientName: 'Ibuprofen',
@@ -1389,7 +1389,7 @@ export const INGREDIENT_MAPPING_DB: IngredientMappingRecord[] = [
   {
     mappingId: 'map_zyrtec_1',
     drugMasterId: 'drug_zyrtec_10',
-    koreanProductName: '지르텍정(세티리진염산염)',
+    koreanProductName: '지르텍정',
     itemSeq: '200610765',
     koreanIngredientName: '세티리진',
     englishIngredientName: 'Cetirizine',
@@ -1403,7 +1403,7 @@ export const INGREDIENT_MAPPING_DB: IngredientMappingRecord[] = [
   {
     mappingId: 'map_peniramin_1',
     drugMasterId: 'drug_peniramin_2',
-    koreanProductName: '페니라민정(클로르페니라민말레산염)',
+    koreanProductName: '페니라민정',
     itemSeq: '196000011',
     koreanIngredientName: '클로르페니라민',
     englishIngredientName: 'Chlorpheniramine',
@@ -1417,7 +1417,7 @@ export const INGREDIENT_MAPPING_DB: IngredientMappingRecord[] = [
   {
     mappingId: 'map_gomsillin_1',
     drugMasterId: 'drug_gomsillin_500',
-    koreanProductName: '곰실린캡슐(아목시실린수화물)',
+    koreanProductName: '곰실린캡슐',
     itemSeq: '198000158',
     koreanIngredientName: '아목시실린',
     englishIngredientName: 'Amoxicillin',
@@ -1433,7 +1433,7 @@ export const INGREDIENT_MAPPING_DB: IngredientMappingRecord[] = [
   {
     mappingId: 'map_tcold_1',
     drugMasterId: 'drug_tylenol_cold_s',
-    koreanProductName: '타이레놀콜드-에스정 (종합감기약 복합제)',
+    koreanProductName: '타이레놀콜드-에스정',
     itemSeq: '202106095',
     koreanIngredientName: '아세트아미노펜',
     englishIngredientName: 'Acetaminophen',
@@ -1447,7 +1447,7 @@ export const INGREDIENT_MAPPING_DB: IngredientMappingRecord[] = [
   {
     mappingId: 'map_tcold_2',
     drugMasterId: 'drug_tylenol_cold_s',
-    koreanProductName: '타이레놀콜드-에스정 (종합감기약 복합제)',
+    koreanProductName: '타이레놀콜드-에스정',
     itemSeq: '202106095',
     koreanIngredientName: '클로르페니라민',
     englishIngredientName: 'Chlorpheniramine',
@@ -1461,7 +1461,7 @@ export const INGREDIENT_MAPPING_DB: IngredientMappingRecord[] = [
   {
     mappingId: 'map_tcold_3',
     drugMasterId: 'drug_tylenol_cold_s',
-    koreanProductName: '타이레놀콜드-에스정 (종합감기약 복합제)',
+    koreanProductName: '타이레놀콜드-에스정',
     itemSeq: '202106095',
     koreanIngredientName: '덱스트로메토르판',
     englishIngredientName: 'Dextromethorphan',
@@ -1475,7 +1475,7 @@ export const INGREDIENT_MAPPING_DB: IngredientMappingRecord[] = [
   {
     mappingId: 'map_tcold_4',
     drugMasterId: 'drug_tylenol_cold_s',
-    koreanProductName: '타이레놀콜드-에스정 (종합감기약 복합제)',
+    koreanProductName: '타이레놀콜드-에스정',
     itemSeq: '202106095',
     koreanIngredientName: '슈도에페드린',
     englishIngredientName: 'Pseudoephedrine',
@@ -1491,7 +1491,7 @@ export const INGREDIENT_MAPPING_DB: IngredientMappingRecord[] = [
   {
     mappingId: 'map_pancol_1',
     drugMasterId: 'drug_pancol_s',
-    koreanProductName: '판콜에스내복액 (종합감기약 액제 복합제)',
+    koreanProductName: '판콜에스내복액',
     itemSeq: '196800036',
     koreanIngredientName: '아세트아미노펜',
     englishIngredientName: 'Acetaminophen',
@@ -1505,7 +1505,7 @@ export const INGREDIENT_MAPPING_DB: IngredientMappingRecord[] = [
   {
     mappingId: 'map_pancol_2',
     drugMasterId: 'drug_pancol_s',
-    koreanProductName: '판콜에스내복액 (종합감기약 액제 복합제)',
+    koreanProductName: '판콜에스내복액',
     itemSeq: '196800036',
     koreanIngredientName: '클로르페니라민',
     englishIngredientName: 'Chlorpheniramine',
@@ -1519,7 +1519,7 @@ export const INGREDIENT_MAPPING_DB: IngredientMappingRecord[] = [
   {
     mappingId: 'map_pancol_3',
     drugMasterId: 'drug_pancol_s',
-    koreanProductName: '판콜에스내복액 (종합감기약 액제 복합제)',
+    koreanProductName: '판콜에스내복액',
     itemSeq: '196800036',
     koreanIngredientName: '구아이페네신',
     englishIngredientName: 'Guaifenesin',
@@ -1533,7 +1533,7 @@ export const INGREDIENT_MAPPING_DB: IngredientMappingRecord[] = [
   {
     mappingId: 'map_pancol_4',
     drugMasterId: 'drug_pancol_s',
-    koreanProductName: '판콜에스내복액 (종합감기약 액제 복합제)',
+    koreanProductName: '판콜에스내복액',
     itemSeq: '196800036',
     koreanIngredientName: 'DL-메틸에페드린',
     englishIngredientName: 'DL-Methylephedrine',
@@ -1547,7 +1547,7 @@ export const INGREDIENT_MAPPING_DB: IngredientMappingRecord[] = [
   {
     mappingId: 'map_pancol_5',
     drugMasterId: 'drug_pancol_s',
-    koreanProductName: '판콜에스내복액 (종합감기약 액제 복합제)',
+    koreanProductName: '판콜에스내복액',
     itemSeq: '196800036',
     koreanIngredientName: '카페인',
     englishIngredientName: 'Caffeine',

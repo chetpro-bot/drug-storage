@@ -1404,7 +1404,7 @@ function inferRouteFromDosageForm(formOrName: string): {
 }
 
 /**
- * 로컬 검증 DB(15대 검증 성분 + 대표 단일/복합제) 즉시 검색
+ * 로컬 검증 DB(내장 국내 대표 단일제·복합제 품목) 즉시 검색 (제품명 전용)
  * - '리피토정 20mg' 입력 시 '리피토정20밀리그램'과 자동 매칭
  */
 export function searchLocalMaternalDatabase(query: string): MaternalSearchResult[] {
@@ -1413,53 +1413,13 @@ export function searchLocalMaternalDatabase(query: string): MaternalSearchResult
 
   const results: MaternalSearchResult[] = [];
 
-  // 1. 검증 성분 직접 검색 (영문 INN / 한글 성분명 / 약효군)
-  for (const preg of Object.values(PREGNANCY_SAFETY_DB)) {
-    const matchInn = normalizeQueryForProductMatch(preg.englishInn).includes(norm);
-    const matchKor = normalizeQueryForProductMatch(preg.koreanIngrName).includes(norm);
-    const matchClass = normalizeQueryForProductMatch(preg.therapeuticClass).includes(norm);
-
-    if (!norm || matchInn || matchKor || matchClass) {
-      results.push({
-        resultType: 'INGREDIENT_DIRECT',
-        id: `direct_${preg.ingredientId}`,
-        displayName: `${preg.koreanIngrName} (${preg.englishInn})`,
-        subLabel: `${preg.therapeuticClass} · ${preg.routeKorean}`,
-        isCombination: false,
-        mappedIngredients: [
-          {
-            mappingId: `direct_map_${preg.ingredientId}`,
-            drugMasterId: `direct_${preg.ingredientId}`,
-            koreanProductName: `${preg.koreanIngrName} (${preg.englishInn}) 단일 성분 표준`,
-            itemSeq: '-',
-            koreanIngredientName: preg.koreanIngrName,
-            englishIngredientName: preg.englishInn,
-            ingredientId: preg.ingredientId,
-            amountText: '상용 치료 용량 기준',
-            dosageForm: '경구제 표준',
-            route: preg.route,
-            isCombination: false,
-            verificationStatus: 'VERIFIED_CORE_5'
-          }
-        ],
-        primaryIngredientId: preg.ingredientId
-      });
-    }
-  }
-
-  // 2. 내장 국내 허가 의약품(단일제·복합제) 검색 (단위 mg <-> 밀리그램 정규화 적용)
+  // 내장 국내 허가 의약품(단일제·복합제) 제품명 검색 (단위 mg <-> 밀리그램 정규화 적용, 성분명 검색 제외)
   for (const drug of DRUG_MASTER_DB) {
     const mappings = INGREDIENT_MAPPING_DB.filter((m) => m.drugMasterId === drug.id);
     const matchProd = normalizeQueryForProductMatch(drug.koreanProductName).includes(norm);
-    const matchEng = normalizeQueryForProductMatch(drug.englishIngredientsSummary).includes(norm);
-    const matchSeq = drug.itemSeq.includes(clean);
-    const matchIng = mappings.some(
-      (m) =>
-        normalizeQueryForProductMatch(m.koreanIngredientName).includes(norm) ||
-        normalizeQueryForProductMatch(m.englishIngredientName).includes(norm)
-    );
+    const matchSeq = Boolean(clean) && drug.itemSeq.includes(clean);
 
-    if (!norm || matchProd || matchEng || matchSeq || matchIng) {
+    if (!norm || matchProd || matchSeq) {
       const firstVerified = mappings.find((m) => m.verificationStatus === 'VERIFIED_CORE_5');
       results.push({
         resultType: 'DOMESTIC_PRODUCT',
@@ -1471,100 +1431,6 @@ export function searchLocalMaternalDatabase(query: string): MaternalSearchResult
         mappedIngredients: mappings,
         primaryIngredientId: firstVerified?.ingredientId || mappings[0]?.ingredientId || 'ing_acetaminophen'
       });
-    }
-  }
-
-  // 3. 검색어가 입력된 경우, 다빈도 처방 성분 사전(COMMON_BASE_INGREDIENT_MAP) 및 약학정보원(KPIC) 사전 후보 매칭
-  if (norm && norm.length >= 2) {
-    const existingIngIds = new Set(results.map((r) => r.primaryIngredientId));
-
-    for (const entry of COMMON_BASE_INGREDIENT_MAP) {
-      if (existingIngIds.has(entry.ingredientId)) continue;
-      const isMatch = entry.keywords.some((kw) => {
-        const nKw = normalizeQueryForProductMatch(kw);
-        return nKw.includes(norm) || norm.includes(nKw);
-      });
-      if (isMatch) {
-        existingIngIds.add(entry.ingredientId);
-        const durLabel =
-          entry.defaultDurGrade === 'GRADE_1'
-            ? 'DUR 임부금기 1등급'
-            : entry.defaultDurGrade === 'GRADE_2'
-            ? 'DUR 임부금기 2등급'
-            : '식약처·FDA 실시간 연동 대상';
-        results.push({
-          resultType: 'INGREDIENT_DIRECT',
-          id: `direct_cand_${entry.ingredientId}`,
-          displayName: `${entry.koreanName} (${entry.englishInn})`,
-          subLabel: `[처방·일반약 성분 · 클릭 시 실시간 조회] ${entry.therapeuticClass || '처방약 성분'} · ${durLabel}`,
-          isCombination: false,
-          mappedIngredients: [
-            {
-              mappingId: `direct_map_${entry.ingredientId}`,
-              drugMasterId: `direct_${entry.ingredientId}`,
-              koreanProductName: `${entry.koreanName} (${entry.englishInn}) 단일 성분 표준`,
-              itemSeq: '-',
-              koreanIngredientName: entry.koreanName,
-              englishIngredientName: entry.englishInn,
-              ingredientId: entry.ingredientId,
-              amountText: '상용 치료 용량 기준',
-              dosageForm: '경구제 표준',
-              route: 'ORAL',
-              isCombination: false,
-              verificationStatus: 'VERIFIED_CORE_5'
-            }
-          ],
-          primaryIngredientId: entry.ingredientId
-        });
-      }
-    }
-
-    // 영문 INN 검색 시 약학정보원(KPIC) 2,230+ 상세 성분 사전에서도 후보 최대 5건 제시
-    if (/^[a-z0-9\s-]+$/i.test(clean) && results.length < 10) {
-      let kpicAdded = 0;
-      for (const kpicItem of KPIC_DETAILED_LIST) {
-        if (kpicAdded >= 5) break;
-        const baseEng = stripEnglishSaltAndHydrate(kpicItem.name);
-        if (!/^[A-Za-z\s-]+$/.test(baseEng)) continue;
-        const normEng = normalizeQueryForProductMatch(baseEng);
-        if (normEng.includes(norm)) {
-          const slug = normEng.replace(/[^a-z0-9]/g, '');
-          const dynId = `ing_kpic_${slug}`;
-          if (existingIngIds.has(dynId)) continue;
-          existingIngIds.add(dynId);
-          kpicAdded++;
-          const kpicClass =
-            [kpicItem.dept2, kpicItem.dept3, kpicItem.dept4 || kpicItem.category]
-              .map((s) => (s || '').trim())
-              .filter((s, idx, arr) => s && s !== '기타' && arr.indexOf(s) === idx)
-              .join(' · ') || '약학정보원(KPIC) 등록 성분';
-
-          results.push({
-            resultType: 'INGREDIENT_DIRECT',
-            id: `direct_kpic_${dynId}`,
-            displayName: `${baseEng}`,
-            subLabel: `[KPIC 약학정보원 성분 · 클릭 시 식약처/FDA 조회] ${kpicClass}`,
-            isCombination: false,
-            mappedIngredients: [
-              {
-                mappingId: `direct_map_${dynId}`,
-                drugMasterId: `direct_${dynId}`,
-                koreanProductName: `${baseEng} 단일 성분 표준`,
-                itemSeq: '-',
-                koreanIngredientName: baseEng,
-                englishIngredientName: baseEng,
-                ingredientId: dynId,
-                amountText: '상용 치료 용량 기준',
-                dosageForm: '경구제 표준',
-                route: 'ORAL',
-                isCombination: false,
-                verificationStatus: 'VERIFIED_CORE_5'
-              }
-            ],
-            primaryIngredientId: dynId
-          });
-        }
-      }
     }
   }
 
@@ -1846,10 +1712,9 @@ async function ensureDynamicMaternalRecord(params: {
 }
 
 /**
- * 식약처 의약품 허가 API (DrugPrdtPrmsnInfoService08) + 약학정보원(KPIC) 사전 + 미국 FDA(openFDA) 실시간 연동 검색
- * - 약사가 내장 샘플 외의 국내 의약품 제품명 또는 특정 성분명(한글/영문 INN)을 검색했을 때
- *   실시간으로 식약처 원료약품·허가사항(임부·수유부 조항), KPIC 약효분류, openFDA 라벨 원문을 가져와
- *   염기/수화물을 제거한 순수 성분 기준으로 매핑하고 요약표·상세 페이지를 즉시 생성합니다.
+ * 식약처 의약품 허가 API (DrugPrdtPrmsnInfoService08) + 약학정보원(KPIC) 사전 + 미국 FDA(openFDA) 실시간 연동 검색 (제품명 전용)
+ * - 약사가 내장 샘플 외의 국내 의약품 제품명을 검색했을 때 실시간으로 식약처 원료약품·허가사항(임부·수유부 조항),
+ *   KPIC 약효분류, openFDA 라벨 원문을 가져와 염기/수화물을 제거한 순수 성분 기준으로 매핑하고 요약표·상세 페이지를 즉시 생성합니다.
  */
 export async function searchLiveMfdsForMaternalSafety(query: string): Promise<MaternalSearchResult[]> {
   const clean = query.trim();
@@ -1858,13 +1723,7 @@ export async function searchLiveMfdsForMaternalSafety(query: string): Promise<Ma
   // 사용자가 "리피토정 20mg" 처럼 입력한 경우 식약처 검색어 호환성을 위해 제품명 키워드도 함께 검색
   const normalizedKoreanUnitQuery = clean.replace(/([0-9]+)\s*mg/gi, '$1밀리그램');
   const baseBrandQuery = clean.replace(/\s*[0-9]+(?:\.[0-9]+)?\s*(?:mg|밀리그램|밀리그람|g|mcg).*$/i, '').trim();
-
-  // 입력 검색어가 약학정보원(KPIC) 또는 다빈도 성분 사전의 '성분명(한글/영문)'인지 사전 판별
-  const queryResolved = resolveCoreMaternalIngredientId(clean);
-  const isKnownIngredientQuery =
-    COMMON_BASE_INGREDIENT_MAP.some((e) => e.ingredientId === queryResolved.ingredientId) ||
-    queryResolved.ingredientId.startsWith('ing_kpic_') ||
-    Boolean(resolveKpicTherapeuticClass(queryResolved.englishInn, queryResolved.koreanName));
+  const normBaseBrand = normalizeQueryForProductMatch(baseBrandQuery || clean);
 
   try {
     let mfdsItems = await searchPublicDrugDatabase(normalizedKoreanUnitQuery, {
@@ -1879,43 +1738,23 @@ export async function searchLiveMfdsForMaternalSafety(query: string): Promise<Ma
       });
     }
 
-    // 한글 성분명이나 브랜드명으로 못 찾았으나 영문 INN이 매핑된 경우 영문 INN으로 식약처 재검색
-    if (
-      (!mfdsItems || mfdsItems.length === 0) &&
-      queryResolved.englishInn &&
-      /^[A-Za-z\s-]+$/.test(queryResolved.englishInn) &&
-      queryResolved.englishInn.toLowerCase() !== clean.toLowerCase()
-    ) {
-      mfdsItems = await searchPublicDrugDatabase(queryResolved.englishInn, {
-        classification: 'OTC_DRUG',
-        targetSource: 'OTC_DRUG'
-      });
-    }
+    // 괄호 안 성분명(예: "셀트라정50밀리그램(설트랄린염산염)")이 아닌 실제 제품명(브랜드명) 또는 품목기준코드가 일치하는 품목만 필터링
+    const productMatchedItems = (mfdsItems || []).filter((item) => {
+      const pureBrandName = item.productName.replace(/\([^)]*\)/g, '').trim();
+      const normPureBrand = normalizeQueryForProductMatch(pureBrandName);
+      return normPureBrand.includes(normBaseBrand) || item.regulatoryCode.includes(clean);
+    });
 
-    // 영문 성분명으로 검색했는데 식약처 item_ingr_name 검색 결과가 부족할 때 대응 한글 성분명으로도 보조 검색
-    if (
-      (!mfdsItems || mfdsItems.length === 0) &&
-      queryResolved.koreanName &&
-      /[가-힣]/.test(queryResolved.koreanName) &&
-      queryResolved.koreanName !== clean
-    ) {
-      mfdsItems = await searchPublicDrugDatabase(queryResolved.koreanName, {
-        classification: 'OTC_DRUG',
-        targetSource: 'OTC_DRUG'
-      });
-    }
-
-    const topItems = (mfdsItems || []).slice(0, 6);
+    const topItems = productMatchedItems.slice(0, 6);
     const liveResults: MaternalSearchResult[] = [];
-    let firstMatchedPrecautionText = '';
-    let firstMatchedItemSeq = '';
-    let firstMatchedProductName = '';
 
     for (const item of topItems) {
       // 이미 내장 DB에 동일 품목기준코드로 등록된 경우 중복 제외
       if (DRUG_MASTER_DB.some((d) => d.itemSeq === item.regulatoryCode)) {
         continue;
       }
+
+      const pureProductName = item.productName.replace(/\([^)]*\)/g, '').trim() || item.productName;
 
       // 상세 원료약품 및 주의사항(NB_DOC_DATA) 조회
       const detail = await fetchMfdsDrugDetail(item.regulatoryCode);
@@ -1938,12 +1777,6 @@ export async function searchLiveMfdsForMaternalSafety(query: string): Promise<Ma
         maternalParagraphs.length > 0
           ? maternalParagraphs.slice(0, 6).join('\n')
           : '식약처 상세 허가사항 원문 링크에서 임부 및 수유부 투여 조항을 확인하십시오.';
-
-      if (!firstMatchedPrecautionText && maternalParagraphs.length > 0) {
-        firstMatchedPrecautionText = mfdsPregnancyPrecautionText;
-        firstMatchedItemSeq = item.regulatoryCode;
-        firstMatchedProductName = item.productName;
-      }
 
       const { route, routeKorean } = inferRouteFromDosageForm(`${item.dosageForm} ${item.productName}`);
       const mappedIngredients: IngredientMappingRecord[] = [];
@@ -1969,7 +1802,7 @@ export async function searchLiveMfdsForMaternalSafety(query: string): Promise<Ma
             routeKorean,
             mfdsPrecautionText: mfdsPregnancyPrecautionText,
             itemSeq: item.regulatoryCode,
-            productName: item.productName,
+            productName: pureProductName,
             defaultDurGrade: resolved.defaultDurGrade
           });
         }
@@ -1977,7 +1810,7 @@ export async function searchLiveMfdsForMaternalSafety(query: string): Promise<Ma
         mappedIngredients.push({
           mappingId: `live_map_${item.regulatoryCode}_${idx}`,
           drugMasterId: `live_${item.regulatoryCode}`,
-          koreanProductName: item.productName,
+          koreanProductName: pureProductName,
           itemSeq: item.regulatoryCode,
           koreanIngredientName: resolved.koreanName, // 염기 제외 순수 한글 성분명
           englishIngredientName: resolved.englishInn, // 염기 제외 순수 영문 성분명
@@ -2006,14 +1839,14 @@ export async function searchLiveMfdsForMaternalSafety(query: string): Promise<Ma
             routeKorean,
             mfdsPrecautionText: mfdsPregnancyPrecautionText,
             itemSeq: item.regulatoryCode,
-            productName: item.productName,
+            productName: pureProductName,
             defaultDurGrade: resolved.defaultDurGrade
           });
         }
         mappedIngredients.push({
           mappingId: `live_map_${item.regulatoryCode}_0`,
           drugMasterId: `live_${item.regulatoryCode}`,
-          koreanProductName: item.productName,
+          koreanProductName: pureProductName,
           itemSeq: item.regulatoryCode,
           koreanIngredientName: resolved.koreanName,
           englishIngredientName: resolved.englishInn,
@@ -2038,7 +1871,7 @@ export async function searchLiveMfdsForMaternalSafety(query: string): Promise<Ma
       const drugMaster: DrugMasterRecord = {
         id: `live_${item.regulatoryCode}`,
         itemSeq: item.regulatoryCode,
-        koreanProductName: item.productName,
+        koreanProductName: pureProductName,
         englishIngredientsSummary: mappedIngredients.map((m) => m.englishIngredientName).join(' / '),
         strengthText: mappedIngredients.map((m) => m.amountText).join(' / '),
         dosageForm: item.dosageForm,
@@ -2067,94 +1900,6 @@ export async function searchLiveMfdsForMaternalSafety(query: string): Promise<Ma
         mappedIngredients,
         primaryIngredientId: mappedIngredients[0].ingredientId
       });
-    }
-
-    // 사용자가 특정 '성분명(한글 또는 영문 INN)'으로 검색했거나, 국내 품목 매칭 없이 영문/한글 성분명을 직접 조회한 경우
-    // 해당 성분의 직접 결과(INGREDIENT_DIRECT)를 최상단에 생성하여 즉시 조회 가능하도록 지원
-    const canSynthesizeDirectIngredient =
-      isKnownIngredientQuery ||
-      /^[A-Za-z\s-]{3,}$/.test(clean) ||
-      liveResults.some((r) =>
-        r.mappedIngredients.some(
-          (m) =>
-            normalizeQueryForProductMatch(m.koreanIngredientName).includes(normalizeQueryForProductMatch(clean)) ||
-            normalizeQueryForProductMatch(m.englishIngredientName).includes(normalizeQueryForProductMatch(clean))
-        )
-      );
-
-    if (canSynthesizeDirectIngredient) {
-      // 품목 검색 결과에서 매칭된 성분이 있으면 그 성분을 우선 활용
-      let targetIngId = queryResolved.ingredientId;
-      let targetKorName = queryResolved.koreanName;
-      let targetEngInn = queryResolved.englishInn;
-      let targetClass =
-        queryResolved.therapeuticClass ||
-        resolveKpicTherapeuticClass(targetEngInn, targetKorName) ||
-        '처방·일반의약품 유효성분 (식약처·KPIC·FDA 실시간 연동)';
-
-      for (const r of liveResults) {
-        const matchedMap = r.mappedIngredients.find(
-          (m) =>
-            normalizeQueryForProductMatch(m.koreanIngredientName).includes(normalizeQueryForProductMatch(clean)) ||
-            normalizeQueryForProductMatch(m.englishIngredientName).includes(normalizeQueryForProductMatch(clean))
-        );
-        if (matchedMap) {
-          targetIngId = matchedMap.ingredientId;
-          targetKorName = matchedMap.koreanIngredientName;
-          targetEngInn = matchedMap.englishIngredientName;
-          break;
-        }
-      }
-
-      if (!PREGNANCY_SAFETY_DB[targetIngId]) {
-        await ensureDynamicMaternalRecord({
-          ingredientId: targetIngId,
-          koreanName: targetKorName,
-          englishInn: targetEngInn,
-          therapeuticClass: targetClass,
-          route: 'ORAL',
-          routeKorean: '경구 투여 (표준)',
-          mfdsPrecautionText:
-            firstMatchedPrecautionText ||
-            '국내 대표 허가 품목의 임부·수유부 주의사항 및 미국 FDA PLLR(8.1/8.2)·NIH LactMed 원문을 확인하십시오.',
-          itemSeq: firstMatchedItemSeq || '-',
-          productName: firstMatchedProductName || `${targetKorName} (${targetEngInn}) 단일제`,
-          defaultDurGrade: queryResolved.defaultDurGrade
-        });
-      }
-
-      const pregRecord = PREGNANCY_SAFETY_DB[targetIngId];
-      if (pregRecord) {
-        const directResult: MaternalSearchResult = {
-          resultType: 'INGREDIENT_DIRECT',
-          id: `direct_${targetIngId}`,
-          displayName: `${pregRecord.koreanIngrName} (${pregRecord.englishInn})`,
-          subLabel: `[성분 직접 조회 · KPIC/FDA 연동] ${pregRecord.therapeuticClass} · ${pregRecord.domesticDurGrade}`,
-          isCombination: false,
-          mappedIngredients: [
-            {
-              mappingId: `direct_map_${targetIngId}`,
-              drugMasterId: `direct_${targetIngId}`,
-              koreanProductName: `${pregRecord.koreanIngrName} (${pregRecord.englishInn}) 단일 성분 표준`,
-              itemSeq: firstMatchedItemSeq || '-',
-              koreanIngredientName: pregRecord.koreanIngrName,
-              englishIngredientName: pregRecord.englishInn,
-              ingredientId: targetIngId,
-              amountText: '상용 치료 용량 기준',
-              dosageForm: '경구제 표준',
-              route: pregRecord.route,
-              isCombination: false,
-              verificationStatus: 'VERIFIED_CORE_5'
-            }
-          ],
-          primaryIngredientId: targetIngId
-        };
-
-        // 중복 방지 후 최상단에 배치
-        if (!liveResults.some((r) => r.id === directResult.id)) {
-          liveResults.unshift(directResult);
-        }
-      }
     }
 
     return liveResults;

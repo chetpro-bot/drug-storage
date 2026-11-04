@@ -15,13 +15,26 @@ export type MaternalActiveTab =
   | 'COMPARE'
   | 'SOURCES';
 
-const RECENT_SEARCH_STORAGE_KEY = 'pharmassist_maternal_recent_searches_v2';
+const RECENT_SEARCH_STORAGE_KEY = 'pharmassist_maternal_recent_searches_v3';
+
+const DEFAULT_RECENT_PRODUCTS = [
+  '리피토정 20mg',
+  '타이레놀정500밀리그람',
+  '부루펜정400밀리그램',
+  '지르텍정',
+  '크레스토정 10mg',
+  '판콜에스내복액'
+];
 
 function loadRecentSearches(): string[] {
   if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
-    return ['리피토정 20mg', '타이레놀정500밀리그람', '부루펜정400밀리그램', '지르텍정', '크레스토정 10mg', '판콜에스내복액', '아목시실린'];
+    return DEFAULT_RECENT_PRODUCTS;
   }
   try {
+    // 기존에 성분명 검색 기록이 저장되어 있던 구버전 로컬 스토리지 삭제
+    localStorage.removeItem('pharmassist_maternal_recent_searches_v1');
+    localStorage.removeItem('pharmassist_maternal_recent_searches_v2');
+
     const saved = localStorage.getItem(RECENT_SEARCH_STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
@@ -30,7 +43,7 @@ function loadRecentSearches(): string[] {
   } catch {
     // ignore
   }
-  return ['리피토정 20mg', '타이레놀정500밀리그람', '부루펜정400밀리그램', '지르텍정', '크레스토정 10mg', '판콜에스내복액', '아목시실린'];
+  return DEFAULT_RECENT_PRODUCTS;
 }
 
 function saveRecentSearches(items: string[]) {
@@ -82,7 +95,7 @@ interface MaternalStoreState {
   toggleCompareIngredient: (ingredientId: string) => void;
 }
 
-const initialResults = searchLocalMaternalDatabase('Acetaminophen');
+const initialResults = searchLocalMaternalDatabase('');
 const defaultSelected = initialResults[0];
 
 export const useMaternalStore = create<MaternalStoreState>((set, get) => ({

@@ -9,15 +9,13 @@ import {
 /**
  * 추가 검증 핵심 성분 DB (염기/수화물 제거 순수 성분명 기준)
  * - Atorvastatin (아토르바스타틴 - 리피토정 10mg/20mg/40mg)
- * - Rosuvastatin (로수바스타틴 - 크레스토정 10mg/20mg)
- * - Omeprazole (오메프라졸)
- * - Famotidine (파모티딘)
- * - Loratadine (로라타딘)
- * - Dextromethorphan (덱스트로메토르판)
- * - Pseudoephedrine (슈도에페드린)
- * - Guaifenesin (구아이페네신)
- * - DL-Methylephedrine (DL-메틸에페드린)
- * - Caffeine (카페인)
+ * - Rosuvastatin (로수바스타틴 - 크레스토정 10mg)
+ * - Loratadine (로라타딘 - 클라리틴정)
+ * - Dextromethorphan (덱스트로메토르판 - 타이레놀콜드-에스정)
+ * - Pseudoephedrine (슈도에페드린 - 타이레놀콜드-에스정)
+ * - Guaifenesin (구아이페네신 - 판콜에스내복액)
+ * - DL-Methylephedrine (DL-메틸에페드린 - 판콜에스내복액)
+ * - Caffeine (카페인 - 판콜에스내복액)
  */
 
 export const EXPANDED_PREGNANCY_SAFETY_DB: Record<string, PregnancySafetyRecord> = {
@@ -153,113 +151,6 @@ export const EXPANDED_PREGNANCY_SAFETY_DB: Record<string, PregnancySafetyRecord>
     evidenceQualityLevel: 'MODERATE',
     alternativeIngredientIds: ['ing_atorvastatin'],
     evidenceSourceIds: ['src_lactmed_rosuvastatin_nbk501362', 'src_bumps_statins']
-  },
-
-  ing_omeprazole: {
-    ingredientId: 'ing_omeprazole',
-    englishInn: 'Omeprazole',
-    koreanIngrName: '오메프라졸',
-    therapeuticClass: '양성자펌프억제제 (PPI · 위산분비억제제)',
-    route: 'ORAL',
-    routeKorean: '경구 투여 (장용캡슐·장용정)',
-    trimester1Level: 'LEVEL_1_SUPPORTED',
-    trimester2Level: 'LEVEL_1_SUPPORTED',
-    trimester3Level: 'LEVEL_1_SUPPORTED',
-    trimester1Summary:
-      '임신 1삼분기(1~13주): 수천 명 이상의 임신 1삼분기 노출 코호트(덴마크 국가 레지스트리 등)에서 주요 선천성 기형이나 유산 위험 증가가 확인되지 않았습니다.',
-    trimester2Summary:
-      '임신 2삼분기(14~27주): 제산제나 파모티딘(H2RA)으로 조절되지 않는 임신 중 중증 위식도역류질환(GERD)에 안전하게 사용할 수 있습니다.',
-    trimester3Summary:
-      '임신 3삼분기(28~40주): 임신 말기 자궁 확대로 인한 심한 역류성 식도염 조절에 널리 사용되며 조산이나 저체중아 위험을 높이지 않습니다.',
-    weekSpecificRisks: [
-      {
-        startWeek: 1,
-        endWeek: 40,
-        level: 'LEVEL_1_SUPPORTED',
-        riskTitle: '임신 전 기간(1~40주) 가장 임상 근거가 풍부한 대표 PPI',
-        clinicalDetail: 'PPI 계열 중 인간 임신 노출 데이터가 가장 많이 축적되어 있어 중증 속쓰림·역류성 식도염 시 선호됩니다.'
-      }
-    ],
-    congenitalMalformationData:
-      '대규모 전향적·후향적 코호트 연구에서 임신 1삼분기 오메프라졸 노출에 따른 선천성 기형 발생률 증가는 관찰되지 않았습니다 (MotherToBaby NBK582885, BUMPS).',
-    miscarriageData: '자연유산 위험 증가 없음.',
-    fetalToxicityData: '사산, 조산, 부당경량아(SGA) 위험 증가 없음.',
-    fetalRenalRisk: '확인되지 않음.',
-    fetalDuctusArteriosusRisk: '확인되지 않음.',
-    maternalRisk: '특이 산모 위험 없음.',
-    domesticDurGrade: '임부금기 미지정',
-    domesticDurNoticeDetail: '심평원/식약처 DUR 임부금기 미지정 성분.',
-    domesticPermitSummary:
-      '식약처 허가사항: "역학연구 결과 임신부 또는 태아/신생아의 건강에 유해한 영향이 나타나지 않았으므로 임부에게 투여할 수 있다(또는 유익성이 위험성을 상회할 때 투여)."',
-    domesticVsInternationalComparison:
-      '국내 DUR 비금기이며, 해외(MotherToBaby, BUMPS, FDA)에서도 임신 중 안전하게 사용할 수 있는 PPI로 평가가 일치합니다.',
-    internationalAgencySummaries: [
-      {
-        agencyName: 'MotherToBaby (OTIS)',
-        summaryText: '임신 중 오메프라졸 사용은 선천성 기형, 유산, 조산 위험을 높이지 않습니다 (NBK582885).',
-        sourceUrl: 'https://www.ncbi.nlm.nih.gov/books/NBK582885/'
-      },
-      {
-        agencyName: 'BUMPS / UKTIS',
-        summaryText: 'Omeprazole은 임신 중 위산 역류 치료에 가장 널리 연구된 PPI로 태아 유해성 근거가 없습니다.',
-        sourceUrl: 'https://www.medicinesinpregnancy.org/leaflets-a-z/omeprazole/'
-      }
-    ],
-    clinicalRecommendation:
-      '임신 중 비약물요법이나 제산제로 조절되지 않는 위식도역류질환·속쓰림에 1차로 선택 가능한 PPI입니다.',
-    evidenceQualityLevel: 'HIGH',
-    alternativeIngredientIds: ['ing_famotidine'],
-    evidenceSourceIds: ['src_lactmed_omeprazole_nbk501190', 'src_mtb_omeprazole_nbk582885']
-  },
-
-  ing_famotidine: {
-    ingredientId: 'ing_famotidine',
-    englishInn: 'Famotidine',
-    koreanIngrName: '파모티딘',
-    therapeuticClass: 'H2 수용체 길항제 (위산분비억제제)',
-    route: 'ORAL',
-    routeKorean: '경구 투여 (정제)',
-    trimester1Level: 'LEVEL_1_SUPPORTED',
-    trimester2Level: 'LEVEL_1_SUPPORTED',
-    trimester3Level: 'LEVEL_1_SUPPORTED',
-    trimester1Summary:
-      '임신 1삼분기(1~13주): 인간 임신 코호트 연구에서 선천성 기형이나 유산 위험 증가가 확인되지 않았습니다.',
-    trimester2Summary:
-      '임신 2삼분기(14~27주): 임산부 속쓰림·위염 치료에 널리 사용되는 1차 H2 차단제입니다.',
-    trimester3Summary:
-      '임신 3삼분기(28~40주): 태아 독성 보고 없이 임신 말기까지 사용 가능합니다.',
-    weekSpecificRisks: [
-      {
-        startWeek: 1,
-        endWeek: 40,
-        level: 'LEVEL_1_SUPPORTED',
-        riskTitle: '임신 및 수유 전 기간 선호되는 H2 수용체 길항제',
-        clinicalDetail: '시메티딘 대비 약물 상호작용 및 항안드로겐 영향이 없고 수유 이행량도 적어 가장 선호되는 H2 차단제입니다.'
-      }
-    ],
-    congenitalMalformationData: '인간 임신 노출 코호트에서 주요 선천성 기형 증가가 보고되지 않았습니다 (MotherToBaby NBK582700).',
-    miscarriageData: '자연유산 위험 증가 보고 없음.',
-    fetalToxicityData: '조산 및 저체중아 출산과의 유의한 연관성 없음.',
-    fetalRenalRisk: '확인되지 않음.',
-    fetalDuctusArteriosusRisk: '확인되지 않음.',
-    maternalRisk: '특이 산모 위험 없음.',
-    domesticDurGrade: '임부금기 미지정',
-    domesticDurNoticeDetail: '심평원/식약처 DUR 임부금기 미지정 성분.',
-    domesticPermitSummary:
-      '식약처 허가사항: "임부 또는 임신하고 있을 가능성이 있는 여성에게는 치료상의 유익성이 위험성을 상회한다고 판단되는 경우에만 투여한다."',
-    domesticVsInternationalComparison:
-      '국내 허가사항은 표준 신중투여 문구이나, 해외 임상 지침에서는 임신·수유 중 가장 선호되는 H2 차단제로 권고됩니다.',
-    internationalAgencySummaries: [
-      {
-        agencyName: 'MotherToBaby (OTIS)',
-        summaryText: '임신 중 파모티딘 사용이 선천성 기형이나 조산 위험을 높이지 않는 것으로 나타났습니다 (NBK582700).',
-        sourceUrl: 'https://www.ncbi.nlm.nih.gov/books/NBK582700/'
-      }
-    ],
-    clinicalRecommendation: '임신 및 수유 중 경증~중등도 속쓰림, 위산 역류 시 안전하게 권장할 수 있는 H2 차단제입니다.',
-    evidenceQualityLevel: 'HIGH',
-    alternativeIngredientIds: ['ing_omeprazole'],
-    evidenceSourceIds: ['src_lactmed_famotidine_nbk501097', 'src_mtb_famotidine_nbk582700']
   },
 
   ing_loratadine: {
@@ -644,68 +535,6 @@ export const EXPANDED_LACTATION_SAFETY_DB: Record<string, LactationSafetyRecord>
     evidenceSourceIds: ['src_lactmed_rosuvastatin_nbk501362']
   },
 
-  ing_omeprazole: {
-    ingredientId: 'ing_omeprazole',
-    englishInn: 'Omeprazole',
-    koreanIngrName: '오메프라졸',
-    therapeuticClass: '양성자펌프억제제 (PPI)',
-    route: 'ORAL',
-    routeKorean: '경구 투여',
-    overallSafetyLevel: 'LEVEL_1_SUPPORTED',
-    milkConcentrationText: '산모 20mg 복용 후 3시간째 모유 최고 농도 약 0.02 mg/L(58 nmol/L)로 극미량이며 위산에 의해 영아 위장에서 대부분 불활성화됨 (LactMed NBK501190).',
-    infantSerumConcentrationText: '확인되지 않음 (영아 위산에 의해 파괴되어 전신 흡수가 거의 일어나지 않음).',
-    ridRangeText: '약 0.1% ~ 0.5% 미만 (경구 생체이용률까지 고려 시 영아 노출 극미량)',
-    ridNumericMin: 0.1,
-    ridNumericMax: 0.5,
-    referenceInfantDoseMgPerKgDay: 0.003,
-    referenceMaternalDoseMgPerKgDay: 0.33,
-    ridClinicalInterpretation: '모유 내 농도 자체가 극히 낮고, 장용 코팅이 없는 상태로 모유에 녹아 있는 오메프라졸은 영아의 위산에 의해 파괴되므로 영아 전신 노출은 거의 없습니다.',
-    halfLifeText: '성인 혈장 반감기: 약 0.5 ~ 1시간 (매우 짧음).',
-    activeMetabolitesText: '간 CYP2C19/CYP3A4에 의해 비활성 대사체로 신속히 전환됨.',
-    infantAdverseEffects: '수유 영아에서 보고된 중대한 부작용 없음 (LactMed NBK501190).',
-    ageConsiderations: {
-      NEONATE: { level: 'LEVEL_1_SUPPORTED', title: '신생아 (0~4주)', clinicalNote: '수유 중단 없이 복용 가능합니다.' },
-      INFANT_1_6M: { level: 'LEVEL_1_SUPPORTED', title: '생후 1~6개월', clinicalNote: '수유 중 안전하게 사용 가능합니다.' },
-      INFANT_OVER_6M: { level: 'LEVEL_1_SUPPORTED', title: '생후 6개월 이상', clinicalNote: '제한 없이 수유 가능합니다.' }
-    },
-    pretermInfantRisk: { level: 'LEVEL_1_SUPPORTED', clinicalNote: '모유 이행량이 극미량이라 미숙아 수유모에서도 사용 가능합니다.' },
-    continuationGuidance: '모유 이행량이 극소량이고 영아 위산에 의해 불활성화되므로 수유를 중단할 필요가 전혀 없습니다 (LactMed NBK501190).',
-    domesticPermitLactationSummary: '식약처 허가사항: "모유로 배설되나 치료용량에서는 영아에게 영향을 미칠 가능성이 낮다."',
-    alternativeIngredientIds: ['ing_famotidine'],
-    evidenceSourceIds: ['src_lactmed_omeprazole_nbk501190', 'src_mtb_omeprazole_nbk582885']
-  },
-
-  ing_famotidine: {
-    ingredientId: 'ing_famotidine',
-    englishInn: 'Famotidine',
-    koreanIngrName: '파모티딘',
-    therapeuticClass: 'H2 수용체 길항제',
-    route: 'ORAL',
-    routeKorean: '경구 투여',
-    overallSafetyLevel: 'LEVEL_1_SUPPORTED',
-    milkConcentrationText: '산모 40mg 복용 후 6시간째 모유 최고 농도 약 0.072 mg/L로 다른 H2 차단제(시메티딘, 니자티딘)보다 모유 농도가 가장 낮음 (LactMed NBK501097).',
-    infantSerumConcentrationText: '확인되지 않음.',
-    ridRangeText: '약 1.3% ~ 1.9%',
-    ridNumericMin: 1.3,
-    ridNumericMax: 1.9,
-    referenceInfantDoseMgPerKgDay: 0.01,
-    referenceMaternalDoseMgPerKgDay: 0.67,
-    ridClinicalInterpretation: '모유 이행량이 가장 적은 H2 수용체 길항제로 영아 직접 치료 용량(0.5~1 mg/kg/day)의 약 1~2% 수준에 불과합니다.',
-    halfLifeText: '성인 반감기: 약 2.5 ~ 3.5시간 / 신생아: 약 8~10시간.',
-    activeMetabolitesText: '유효한 활성 대사체 없음.',
-    infantAdverseEffects: '수유 영아 부작용 보고 없음 (LactMed NBK501097).',
-    ageConsiderations: {
-      NEONATE: { level: 'LEVEL_1_SUPPORTED', title: '신생아 (0~4주)', clinicalNote: 'H2 차단제 중 수유 시 가장 선호되는 성분입니다.' },
-      INFANT_1_6M: { level: 'LEVEL_1_SUPPORTED', title: '생후 1~6개월', clinicalNote: '수유 중단 없이 안전하게 복용 가능합니다.' },
-      INFANT_OVER_6M: { level: 'LEVEL_1_SUPPORTED', title: '생후 6개월 이상', clinicalNote: '수유 중단 없이 복용 가능합니다.' }
-    },
-    pretermInfantRisk: { level: 'LEVEL_1_SUPPORTED', clinicalNote: '모유 이행량이 매우 적어 수유 중 선호됩니다.' },
-    continuationGuidance: 'H2 수용체 길항제 중 모유 이행이 가장 적어 수유부에게 1차로 권장되며 수유 중단이 불필요합니다 (LactMed NBK501097).',
-    domesticPermitLactationSummary: '식약처 허가사항: "모유 중으로 이행하므로 수유부 투여 시 주의한다."',
-    alternativeIngredientIds: ['ing_omeprazole'],
-    evidenceSourceIds: ['src_lactmed_famotidine_nbk501097', 'src_mtb_famotidine_nbk582700']
-  },
-
   ing_loratadine: {
     ingredientId: 'ing_loratadine',
     englishInn: 'Loratadine',
@@ -977,66 +806,6 @@ export const EXPANDED_EVIDENCE_SOURCES_DB: Record<string, EvidenceSourceRecord> 
     collectedDate: '2026-11-04',
     lastVerifiedDate: '2026-11-04'
   },
-  src_lactmed_omeprazole_nbk501190: {
-    sourceId: 'src_lactmed_omeprazole_nbk501190',
-    ingredientId: 'ing_omeprazole',
-    organizationName: 'LactMed (NIH)',
-    documentTitle: 'Drugs and Lactation Database (LactMed®): Omeprazole [NBK501190]',
-    originalUrl: 'https://www.ncbi.nlm.nih.gov/books/NBK501190/',
-    studyDesign: '인간 모유 약동학 모노그래프',
-    studySubjects: '오메프라졸 복용 수유부',
-    studyScale: '모유 농도 측정 연구',
-    keyFindings: '모유 최고 농도 극미량(0.02 mg/L) 및 영아 위산에 의한 파괴로 수유 중 안전하게 사용 가능.',
-    studyLimitations: '제한적인 표본 수이나 약리학적으로 영아 흡수 극미량.',
-    publishedDate: '상시 개정판',
-    collectedDate: '2026-11-04',
-    lastVerifiedDate: '2026-11-04'
-  },
-  src_mtb_omeprazole_nbk582885: {
-    sourceId: 'src_mtb_omeprazole_nbk582885',
-    ingredientId: 'ing_omeprazole',
-    organizationName: 'MotherToBaby (OTIS)',
-    documentTitle: 'MotherToBaby Fact Sheets: Omeprazole [NBK582885]',
-    originalUrl: 'https://www.ncbi.nlm.nih.gov/books/NBK582885/',
-    studyDesign: '임신 노출 대규모 역학 코호트 종합',
-    studySubjects: '임산부 수천 명 코호트',
-    studyScale: '국가 레지스트리 포함 대규모 코호트',
-    keyFindings: '선천성 기형, 유산, 조산 위험 증가 없음.',
-    studyLimitations: '관찰 연구 기반.',
-    publishedDate: '최신 개정판',
-    collectedDate: '2026-11-04',
-    lastVerifiedDate: '2026-11-04'
-  },
-  src_lactmed_famotidine_nbk501097: {
-    sourceId: 'src_lactmed_famotidine_nbk501097',
-    ingredientId: 'ing_famotidine',
-    organizationName: 'LactMed (NIH)',
-    documentTitle: 'Drugs and Lactation Database (LactMed®): Famotidine [NBK501097]',
-    originalUrl: 'https://www.ncbi.nlm.nih.gov/books/NBK501097/',
-    studyDesign: '인간 모유 약동학 모노그래프',
-    studySubjects: '수유부',
-    studyScale: '모유 농도 정량 연구',
-    keyFindings: 'H2 차단제 중 모유 이행이 가장 낮아(RID 1.3~1.9%) 수유 중 가장 선호됨.',
-    studyLimitations: '영아 혈중 농도 직접 측정은 없음.',
-    publishedDate: '상시 개정판',
-    collectedDate: '2026-11-04',
-    lastVerifiedDate: '2026-11-04'
-  },
-  src_mtb_famotidine_nbk582700: {
-    sourceId: 'src_mtb_famotidine_nbk582700',
-    ingredientId: 'ing_famotidine',
-    organizationName: 'MotherToBaby (OTIS)',
-    documentTitle: 'MotherToBaby Fact Sheets: Famotidine [NBK582700]',
-    originalUrl: 'https://www.ncbi.nlm.nih.gov/books/NBK582700/',
-    studyDesign: '임신 코호트 종합',
-    studySubjects: '임산부',
-    studyScale: '다수 관찰 코호트',
-    keyFindings: '선천성 기형 및 유산 위험 증가 없음.',
-    studyLimitations: '관찰 연구 중심.',
-    publishedDate: '최신 개정판',
-    collectedDate: '2026-11-04',
-    lastVerifiedDate: '2026-11-04'
-  },
   src_lactmed_loratadine_nbk501508: {
     sourceId: 'src_lactmed_loratadine_nbk501508',
     ingredientId: 'ing_loratadine',
@@ -1282,7 +1051,7 @@ export const EXPANDED_DRUG_MASTER_DB: DrugMasterRecord[] = [
   {
     id: 'drug_claritin_10',
     itemSeq: '199302890',
-    koreanProductName: '클라리틴정 (로라타딘 10mg)',
+    koreanProductName: '클라리틴정',
     englishIngredientsSummary: 'Loratadine',
     strengthText: '10mg',
     dosageForm: '정제',
@@ -1359,7 +1128,7 @@ export const EXPANDED_INGREDIENT_MAPPING_DB: IngredientMappingRecord[] = [
   {
     mappingId: 'map_claritin_10',
     drugMasterId: 'drug_claritin_10',
-    koreanProductName: '클라리틴정 (로라타딘 10mg)',
+    koreanProductName: '클라리틴정',
     itemSeq: '199302890',
     koreanIngredientName: '로라타딘',
     englishIngredientName: 'Loratadine',

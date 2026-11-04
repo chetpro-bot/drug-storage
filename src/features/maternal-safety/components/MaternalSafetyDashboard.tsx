@@ -84,27 +84,8 @@ export const MaternalSafetyDashboard: React.FC = () => {
     }
   };
 
-  const handleSelectResult = async (res: MaternalSearchResult) => {
+  const handleSelectResult = (res: MaternalSearchResult) => {
     setIsDropdownOpen(false);
-    // 아직 실시간 안전성 레코드가 생성되지 않은 처방·KPIC 성분 후보를 선택한 경우 즉시 식약처·FDA 연동 수행
-    if (!PREGNANCY_SAFETY_DB[res.primaryIngredientId]) {
-      setIsSearchingLive(true);
-      try {
-        const targetQuery =
-          res.mappedIngredients[0]?.koreanIngredientName ||
-          res.mappedIngredients[0]?.englishIngredientName ||
-          res.displayName.split('(')[0].trim();
-        const live = await searchLiveMfdsForMaternalSafety(targetQuery);
-        setLiveMfdsResults(live);
-        setSynthesisTick((t) => t + 1);
-        const matchedDirect =
-          live.find((r) => r.primaryIngredientId === res.primaryIngredientId) || live[0] || res;
-        selectSearchResult(matchedDirect);
-      } finally {
-        setIsSearchingLive(false);
-      }
-      return;
-    }
     selectSearchResult(res);
   };
 
@@ -118,24 +99,10 @@ export const MaternalSafetyDashboard: React.FC = () => {
     selectedResult.mappedIngredients.find((m) => m.ingredientId === activeIngredientId) ||
     selectedResult.mappedIngredients[0];
 
-  const featuredChipIds = [
-    'ing_acetaminophen',
-    'ing_ibuprofen',
-    'ing_atorvastatin',
-    'ing_cetirizine',
-    'ing_chlorpheniramine',
-    'ing_amoxicillin',
-    'ing_omeprazole',
-    'ing_famotidine'
-  ];
-  const coreChipList = featuredChipIds
-    .map((id) => PREGNANCY_SAFETY_DB[id])
-    .filter(Boolean);
-
   return (
     <div className="flex-1 overflow-y-auto bg-[#f8fafc] select-text">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 space-y-4">
-        {/* 1. 상단: 통합 검색창 & 5대 핵심 성분 원클릭 칩 */}
+        {/* 1. 상단: 국내 허가 의약품 제품명 검색창 */}
         <section className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-3">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
             <div className="flex flex-wrap items-center gap-2">
@@ -147,37 +114,9 @@ export const MaternalSafetyDashboard: React.FC = () => {
                 AI 임의 판단 배제 · 국내/국외 원문 기반
               </span>
             </div>
-
-            {/* 주요 검증 성분 즉시 선택 칩 (염기 제외 순수 성분 기준) */}
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[11px] font-extrabold text-slate-500 mr-0.5">
-                주요 성분(염기 제외):
-              </span>
-              {coreChipList.map((ing) => {
-                const isSelected =
-                  activeIngredientId === ing.ingredientId &&
-                  selectedResult.resultType === 'INGREDIENT_DIRECT';
-                return (
-                  <button
-                    key={ing.ingredientId}
-                    onClick={() => {
-                      const found = searchLocalMaternalDatabase(ing.englishInn)[0];
-                      if (found) handleSelectResult(found);
-                    }}
-                    className={`px-2.5 py-1 rounded-xl text-xs font-extrabold border transition-all cursor-pointer ${
-                      isSelected
-                        ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                        : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
-                    }`}
-                  >
-                    {ing.koreanIngrName} ({ing.englishInn})
-                  </button>
-                );
-              })}
-            </div>
           </div>
 
-          {/* 통합 검색창 */}
+          {/* 제품명 검색창 */}
           <div className="relative">
             <div className="flex flex-col sm:flex-row gap-2">
               <div className="relative flex-1">
@@ -199,7 +138,7 @@ export const MaternalSafetyDashboard: React.FC = () => {
                       }
                     }
                   }}
-                  placeholder="제품명(리피토, 씬지로이드, 렉사프로 등), 한글 성분명(메트포르민, 발사르탄 등) 또는 영문 INN 입력..."
+                  placeholder="국내 허가 의약품 제품명 입력 (예: 리피토정 20mg, 타이레놀정, 부루펜정, 지르텍정, 판콜에스 등)..."
                   className="w-full pl-10 pr-9 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold text-slate-900 focus:outline-none focus:border-sky-600 focus:ring-2 focus:ring-sky-100"
                 />
                 {searchQuery && (
@@ -221,7 +160,7 @@ export const MaternalSafetyDashboard: React.FC = () => {
                 className="px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-extrabold text-xs shadow-xs transition-all cursor-pointer shrink-0 flex items-center justify-center gap-1.5"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>{isSearchingLive ? '식약처·FDA 실시간 조회 중...' : '식약처 제품·성분 통합검색'}</span>
+                <span>{isSearchingLive ? '식약처·FDA 실시간 조회 중...' : '식약처 국내 제품 검색'}</span>
               </button>
             </div>
 
@@ -230,9 +169,9 @@ export const MaternalSafetyDashboard: React.FC = () => {
               <div className="absolute left-0 right-0 top-full mt-1.5 bg-white rounded-2xl border border-slate-300 shadow-xl z-30 max-h-80 overflow-y-auto divide-y divide-slate-100">
                 <div className="px-3.5 py-2 bg-slate-50 flex items-center justify-between text-[11px] font-bold text-slate-500">
                   <span>
-                    내장·KPIC 성분/품목 ({localMatches.length}건)
+                    내장 국내 허가 품목 ({localMatches.length}건)
                     {liveMfdsResults.length > 0
-                      ? ` + 식약처·FDA 실시간 연동 (${liveMfdsResults.length}건)`
+                      ? ` + 식약처 실시간 연동 (${liveMfdsResults.length}건)`
                       : ''}
                   </span>
                   <button
@@ -253,16 +192,12 @@ export const MaternalSafetyDashboard: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <span
                           className={`px-2 py-0.5 rounded text-[10px] font-extrabold ${
-                            res.resultType === 'INGREDIENT_DIRECT'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : res.isCombination
+                            res.isCombination
                               ? 'bg-indigo-100 text-indigo-800'
                               : 'bg-sky-100 text-sky-800'
                           }`}
                         >
-                          {res.resultType === 'INGREDIENT_DIRECT'
-                            ? '성분 조회'
-                            : res.isCombination
+                          {res.isCombination
                             ? `복합제 (${res.mappedIngredients.length}성분)`
                             : '국내 단일제'}
                         </span>

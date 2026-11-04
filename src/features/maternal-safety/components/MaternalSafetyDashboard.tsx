@@ -818,9 +818,6 @@ export const MaternalSafetyDashboard: React.FC = () => {
                                   <p className="text-slate-800 leading-relaxed font-medium text-[11.5px]">
                                     {def.koreanDescription}
                                   </p>
-                                  <p className="text-slate-500 text-[10.5px] leading-relaxed italic border-t border-slate-200/50 pt-1">
-                                    {def.englishDescription}
-                                  </p>
                                 </div>
                               );
                             })}

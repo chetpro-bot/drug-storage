@@ -6,7 +6,8 @@ import {
   ChevronDown,
   ChevronUp,
   Info,
-  Loader2
+  Loader2,
+  X
 } from 'lucide-react';
 import { useMaternalStore } from '../stores/useMaternalStore';
 import {
@@ -94,16 +95,18 @@ export const MaternalSafetyDashboard: React.FC = () => {
   const [inputValue, setInputValue] = useState(searchQuery);
   const [showCandidateList, setShowCandidateList] = useState(false);
 
-  // 상세보기 접기/펼치기 상태
+  // 상세보기 접기/펼치기 및 알약 이미지 모달 상태
   const [expandPregFullLabel, setExpandPregFullLabel] = useState(false);
   const [expandLactFullLabel, setExpandLactFullLabel] = useState(false);
   const [expandedLactmedDetailMap, setExpandedLactmedDetailMap] = useState<Record<string, boolean>>({});
+  const [selectedPillImage, setSelectedPillImage] = useState<string | null>(null);
 
-  // 품목 변경 시 상세보기 접힘 상태 초기화
+  // 품목 변경 시 상세보기 접힘 상태 및 알약 모달 초기화
   useEffect(() => {
     setExpandPregFullLabel(false);
     setExpandLactFullLabel(false);
     setExpandedLactmedDetailMap({});
+    setSelectedPillImage(null);
   }, [currentReport?.itemSeq]);
 
   const handleSearchSubmit = async (e: React.FormEvent) => {
@@ -284,30 +287,49 @@ export const MaternalSafetyDashboard: React.FC = () => {
           <>
             {/* [A] 제품 기본정보 */}
             <section className="bg-white border border-slate-200 rounded-lg p-4 sm:p-5">
-              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 border-b border-slate-100 pb-3.5">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="px-2 py-0.5 text-[11px] font-semibold bg-slate-100 text-slate-700 rounded border border-slate-200">
-                      {currentReport.etcOtcName}
-                    </span>
-                    <span
-                      className={`px-2 py-0.5 text-[11px] font-semibold rounded border ${
-                        currentReport.isCombination
-                          ? 'bg-amber-50 text-amber-900 border-amber-200'
-                          : 'bg-slate-100 text-slate-700 border-slate-200'
-                      }`}
-                    >
-                      {currentReport.isCombination
-                        ? `복합제 (유효성분 ${currentReport.ingredients.length}종 개별 매칭)`
-                        : '단일제'}
-                    </span>
-                    <span className="text-xs text-slate-500">
-                      품목기준코드: {currentReport.itemSeq}
-                    </span>
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 border-b border-slate-100 pb-3.5">
+                <div className="flex items-start gap-3.5">
+                  {currentReport.pillIdentification?.itemImage && (
+                    <div className="shrink-0 relative group">
+                      <img
+                        src={currentReport.pillIdentification.itemImage}
+                        alt={`${currentReport.productName} 실물 알약`}
+                        className="w-16 h-16 sm:w-20 sm:h-20 object-contain bg-white border border-slate-200 rounded-lg p-1 shadow-xs cursor-pointer hover:border-sky-500 hover:shadow-md transition-all"
+                        onClick={() => setSelectedPillImage(currentReport.pillIdentification?.itemImage || null)}
+                        referrerPolicy="no-referrer"
+                        loading="lazy"
+                        title="클릭하여 식약처 공식 낱알 확대보기"
+                      />
+                      <span className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 px-1.5 py-0.2 bg-slate-900/80 text-white text-[9px] rounded font-medium whitespace-nowrap shadow-xs pointer-events-none">
+                        식약처 실물
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="space-y-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-2 py-0.5 text-[11px] font-semibold bg-slate-100 text-slate-700 rounded border border-slate-200">
+                        {currentReport.etcOtcName}
+                      </span>
+                      <span
+                        className={`px-2 py-0.5 text-[11px] font-semibold rounded border ${
+                          currentReport.isCombination
+                            ? 'bg-amber-50 text-amber-900 border-amber-200'
+                            : 'bg-slate-100 text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        {currentReport.isCombination
+                          ? `복합제 (유효성분 ${currentReport.ingredients.length}종 개별 매칭)`
+                          : '단일제'}
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        품목기준코드: {currentReport.itemSeq}
+                      </span>
+                    </div>
+                    <h3 className="text-lg sm:text-xl font-bold text-slate-900 break-keep">
+                      {currentReport.productName}
+                    </h3>
                   </div>
-                  <h3 className="text-lg sm:text-xl font-bold text-slate-900">
-                    {currentReport.productName}
-                  </h3>
                 </div>
 
                 <div className="flex flex-col sm:items-end gap-1 shrink-0">
@@ -334,13 +356,44 @@ export const MaternalSafetyDashboard: React.FC = () => {
                   </span>
                 </div>
                 <div>
-                  <span className="text-slate-500 font-medium block mb-0.5">제형 및 투여경로</span>
-                  <span className="text-slate-900 font-semibold text-sm">
+                  <span className="text-slate-500 font-medium block mb-0.5">제형 및 외형 식별</span>
+                  <span className="text-slate-900 font-semibold text-sm block">
                     {currentReport.dosageForm} ({currentReport.route})
                     {currentReport.chartText && currentReport.chartText !== currentReport.dosageForm
                       ? ` — ${currentReport.chartText}`
                       : ''}
                   </span>
+                  {currentReport.pillIdentification && (
+                    <div className="mt-1.5 flex flex-wrap gap-1 text-[11px]">
+                      {currentReport.pillIdentification.drugShape && (
+                        <span className="px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded border border-slate-200">
+                          모양: {currentReport.pillIdentification.drugShape}
+                        </span>
+                      )}
+                      {currentReport.pillIdentification.colorClass1 && (
+                        <span className="px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded border border-slate-200">
+                          색상: {currentReport.pillIdentification.colorClass1}
+                        </span>
+                      )}
+                      {currentReport.pillIdentification.printFront && (
+                        <span className="px-1.5 py-0.5 bg-sky-50 text-sky-800 rounded border border-sky-200 font-mono">
+                          앞: {currentReport.pillIdentification.printFront}
+                        </span>
+                      )}
+                      {currentReport.pillIdentification.printBack && (
+                        <span className="px-1.5 py-0.5 bg-sky-50 text-sky-800 rounded border border-sky-200 font-mono">
+                          뒤: {currentReport.pillIdentification.printBack}
+                        </span>
+                      )}
+                      {currentReport.pillIdentification.lengLong && (
+                        <span className="px-1.5 py-0.5 bg-slate-50 text-slate-600 rounded border border-slate-200">
+                          크기: {currentReport.pillIdentification.lengLong}
+                          {currentReport.pillIdentification.lengShort ? `×${currentReport.pillIdentification.lengShort}` : ''}
+                          {currentReport.pillIdentification.thick ? `×${currentReport.pillIdentification.thick}` : ''}mm
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="sm:col-span-1">
                   <span className="text-slate-500 font-medium block mb-0.5">
@@ -782,6 +835,79 @@ export const MaternalSafetyDashboard: React.FC = () => {
               </div>
             </div>
           </>
+        )}
+
+        {/* 식약처 공식 낱알 실물 이미지 확대 모달 */}
+        {selectedPillImage && (
+          <div
+            className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-xs"
+            onClick={() => setSelectedPillImage(null)}
+          >
+            <div
+              className="bg-white rounded-xl p-4 sm:p-5 max-w-md w-full shadow-2xl space-y-3.5 relative"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-start justify-between pb-2 border-b border-slate-100 gap-2">
+                <div>
+                  <h4 className="font-bold text-sm sm:text-base text-slate-900 leading-snug">
+                    {currentReport?.productName}
+                  </h4>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    식품의약품안전처 의약품안전나라 공식 낱알식별 이미지 (공공누리 제1유형)
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPillImage(null)}
+                  className="p-1 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-center p-4 bg-slate-50 rounded-lg border border-slate-200/80">
+                <img
+                  src={selectedPillImage}
+                  alt={currentReport?.productName}
+                  className="max-h-64 object-contain rounded drop-shadow-sm"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+
+              {currentReport?.pillIdentification && (
+                <div className="text-xs text-slate-700 space-y-1.5 bg-slate-50 p-3 rounded border border-slate-200/60 leading-relaxed">
+                  <div>
+                    <span className="font-semibold text-slate-900">성상:</span>{' '}
+                    {currentReport.pillIdentification.chart || currentReport.chartText}
+                  </div>
+                  <div className="flex gap-4">
+                    <div>
+                      <span className="font-semibold text-slate-900">식별문자(앞):</span>{' '}
+                      <span className="font-mono">{currentReport.pillIdentification.printFront || '-'}</span>
+                    </div>
+                    <div>
+                      <span className="font-semibold text-slate-900">식별문자(뒤):</span>{' '}
+                      <span className="font-mono">{currentReport.pillIdentification.printBack || '-'}</span>
+                    </div>
+                  </div>
+                  {currentReport.pillIdentification.lengLong && (
+                    <div>
+                      <span className="font-semibold text-slate-900">실측 크기:</span>{' '}
+                      장축 {currentReport.pillIdentification.lengLong}mm
+                      {currentReport.pillIdentification.lengShort ? ` × 단축 ${currentReport.pillIdentification.lengShort}mm` : ''}
+                      {currentReport.pillIdentification.thick ? ` × 두께 ${currentReport.pillIdentification.thick}mm` : ''}
+                    </div>
+                  )}
+                  {currentReport.pillIdentification.lineFront && (
+                    <div>
+                      <span className="font-semibold text-slate-900">분할선:</span>{' '}
+                      앞 [{currentReport.pillIdentification.lineFront}] / 뒤 [{currentReport.pillIdentification.lineBack || '-'}]
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </main>
     </div>

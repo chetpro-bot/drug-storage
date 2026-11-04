@@ -12,7 +12,8 @@ import {
   MaternalDrugSearchCandidate,
   MfdsDurPregnantTabooInfo,
   MfdsDurTabooEntry,
-  MfdsLabelSafetyInfo
+  MfdsLabelSafetyInfo,
+  PillIdentificationInfo
 } from '../types/maternalSafety';
 import {
   findCrosswalkBySearchQuery,
@@ -34,11 +35,101 @@ const DUR_PRDLST_TABOO_URL =
   'https://apis.data.go.kr/1471000/DURPrdlstInfoService03/getPwnmTabooInfoList03';
 const DUR_IRDNT_TABOO_URL =
   'https://apis.data.go.kr/1471000/DURIrdntInfoService03/getPwnmTabooInfoList02';
+const PILL_IDNTFC_URL =
+  'https://apis.data.go.kr/1471000/MdcinGrnIdntfcInfoService03/getMdcinGrnIdntfcInfoList03';
 
 // 캐시 (식약처 및 DUR API 호출 제한·응답 속도 최적화)
 const searchCache = new Map<string, MaternalDrugSearchCandidate[]>();
 const reportCache = new Map<string, MaternalDrugSafetyReport>();
 const durIrdntCache = new Map<string, MfdsDurTabooEntry[]>();
+const pillInfoCache = new Map<string, PillIdentificationInfo | null>();
+
+/**
+ * 식약처 의약품 낱알식별 정보 API (MdcinGrnIdntfcInfoService03)
+ * - 공공누리 제1유형 공식 개방 저작물 (상업적 이용 가능, 저작권료 무료)
+ * - 1차 품목기준코드(item_seq) 조회 -> 없을 시 제품명(item_name) 보완 조회
+ */
+export async function fetchPillIdentificationInfo(
+  itemSeq: string,
+  productName?: string
+): Promise<PillIdentificationInfo | null> {
+  const cleanSeq = (itemSeq || '').trim();
+  if (!cleanSeq) return null;
+  if (pillInfoCache.has(cleanSeq)) {
+    return pillInfoCache.get(cleanSeq)!;
+  }
+
+  // 1. 품목기준코드(item_seq)로 우선 조회
+  try {
+    const urlSeq = `${PILL_IDNTFC_URL}?serviceKey=${encodeURIComponent(DATA_GO_KR_API_KEY)}&item_seq=${encodeURIComponent(cleanSeq)}&type=json`;
+    const res = await fetch(urlSeq);
+    if (res.ok) {
+      const data = await res.json();
+      const hit = data?.body?.items?.[0];
+      if (hit && (hit.ITEM_IMAGE || hit.PRINT_FRONT || hit.DRUG_SHAPE)) {
+        const info: PillIdentificationInfo = {
+          itemImage: hit.ITEM_IMAGE || null,
+          drugShape: hit.DRUG_SHAPE || null,
+          colorClass1: hit.COLOR_CLASS1 || null,
+          colorClass2: hit.COLOR_CLASS2 || null,
+          lineFront: hit.LINE_FRONT || null,
+          lineBack: hit.LINE_BACK || null,
+          printFront: hit.PRINT_FRONT || null,
+          printBack: hit.PRINT_BACK || null,
+          lengLong: hit.LENG_LONG || null,
+          lengShort: hit.LENG_SHORT || null,
+          thick: hit.THICK || null,
+          chart: hit.CHART || null,
+          formName: hit.FORM_CODE_NAME || null
+        };
+        pillInfoCache.set(cleanSeq, info);
+        return info;
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  // 2. 만약 갱신 코드 등으로 품목기준코드가 다를 경우 제품명(괄호 제거)으로 2차 조회
+  if (productName) {
+    try {
+      const cleanName = productName.replace(/\(.*?\)/g, '').trim();
+      if (cleanName.length >= 2) {
+        const urlName = `${PILL_IDNTFC_URL}?serviceKey=${encodeURIComponent(DATA_GO_KR_API_KEY)}&item_name=${encodeURIComponent(cleanName)}&type=json`;
+        const res = await fetch(urlName);
+        if (res.ok) {
+          const data = await res.json();
+          const items = data?.body?.items || [];
+          const hit = items.find((x: any) => (x.ITEM_NAME || '').includes(cleanName)) || items[0];
+          if (hit && (hit.ITEM_IMAGE || hit.PRINT_FRONT || hit.DRUG_SHAPE)) {
+            const info: PillIdentificationInfo = {
+              itemImage: hit.ITEM_IMAGE || null,
+              drugShape: hit.DRUG_SHAPE || null,
+              colorClass1: hit.COLOR_CLASS1 || null,
+              colorClass2: hit.COLOR_CLASS2 || null,
+              lineFront: hit.LINE_FRONT || null,
+              lineBack: hit.LINE_BACK || null,
+              printFront: hit.PRINT_FRONT || null,
+              printBack: hit.PRINT_BACK || null,
+              lengLong: hit.LENG_LONG || null,
+              lengShort: hit.LENG_SHORT || null,
+              thick: hit.THICK || null,
+              chart: hit.CHART || null,
+              formName: hit.FORM_CODE_NAME || null
+            };
+            pillInfoCache.set(cleanSeq, info);
+            return info;
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  pillInfoCache.set(cleanSeq, null);
+  return null;
+}
 
 /**
  * 빠른 검증 및 API 장애 대비용 국내 대표 허가 의약품 시드 목록
@@ -988,13 +1079,16 @@ export async function buildMaternalDrugSafetyReport(
     mfdsErrorMsg
   );
 
-  // ② 식약처 DUR 임부금기 실시간 조회
-  const durResult = await fetchMfdsDurPregnantTaboo({
-    itemSeq,
-    productName,
-    ingredients,
-    isCombination
-  });
+  // ② 식약처 DUR 임부금기 및 ⑤ 식약처 낱알식별정보 실시간 병렬 조회
+  const [durResult, pillIdentification] = await Promise.all([
+    fetchMfdsDurPregnantTaboo({
+      itemSeq,
+      productName,
+      ingredients,
+      isCombination
+    }),
+    fetchPillIdentificationInfo(itemSeq, productName)
+  ]);
 
   // ③ 호주 TGA & ④ NIH LactMed 성분별 개별 매칭 (복합제는 성분별 각각 분리 평가)
   const ingredientEvaluations: IngredientSafetyEvaluation[] = [];
@@ -1076,7 +1170,8 @@ export async function buildMaternalDrugSafetyReport(
     permitUpdatedAt,
     mfdsLabel,
     mfdsDur: durResult.overall,
-    ingredientEvaluations
+    ingredientEvaluations,
+    pillIdentification
   };
 
   reportCache.set(itemSeq, report);

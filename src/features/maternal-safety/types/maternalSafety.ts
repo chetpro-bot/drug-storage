@@ -152,6 +152,27 @@ export interface MaternalDrugSearchCandidate {
 }
 
 /**
+ * ⑤ 식약처 의약품 낱알식별 정보 (실물 알약 이미지 및 외형 식별 정보)
+ * - 출처: 식품의약품안전처_의약품 낱알식별 정보 (MdcinGrnIdntfcInfoService03)
+ * - 공공누리 제1유형 공식 개방 저작물 (상업적 이용 가능, 저작권료 무료)
+ */
+export interface PillIdentificationInfo {
+  itemImage: string | null;           // 낱알 이미지 URL (식약처 nedrug 원문 링크)
+  drugShape: string | null;           // 모양 (원형, 타원형, 장방형 등)
+  colorClass1: string | null;         // 색상1 (하양, 노랑, 주황 등)
+  colorClass2?: string | null;        // 색상2
+  lineFront: string | null;           // 분할선(앞) (예: +, -, 기타)
+  lineBack: string | null;            // 분할선(뒤)
+  printFront: string | null;          // 식별표시(앞) (예: SD, TYLENOL 등 각인)
+  printBack: string | null;           // 식별표시(뒤)
+  lengLong?: string | null;           // 크기 장축 (mm)
+  lengShort?: string | null;          // 크기 단축 (mm)
+  thick?: string | null;              // 두께 (mm)
+  chart?: string | null;              // 성상 원문 (예: 흰색의 원형 정제)
+  formName?: string | null;           // 제형명 (나정, 필름코팅정 등)
+}
+
+/**
  * 제품 선택 시 단일 화면에 표시되는 최종 통합 리포트
  */
 export interface MaternalDrugSafetyReport {
@@ -177,4 +198,7 @@ export interface MaternalDrugSafetyReport {
 
   // ③ & ④ 성분별 개별 매칭 결과 (단일제는 1개, 복합제는 전체 유효성분 각각 개별 표시)
   ingredientEvaluations: IngredientSafetyEvaluation[];
+
+  // ⑤ 식약처 낱알식별 정보 (알약 실물 사진 및 외형 식별표시)
+  pillIdentification?: PillIdentificationInfo | null;
 }

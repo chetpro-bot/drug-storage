@@ -46,3 +46,34 @@
 - [firebase.json](file:///c:/drug_storage/firebase.json): `/api/nedrug-proxy` Hosting Rewrite 설정
 - [vite.config.ts](file:///c:/drug_storage/vite.config.ts): 로컬 개발용 `/api/nedrug` 프록시 설정
 - [innMapper.ts](file:///c:/drug_storage/src/utils/innMapper.ts): `inferDrugIngredientConversion` (비상용 Fallback 코드 보존)
+- [lactmedMonographDb.ts](file:///c:/drug_storage/src/features/maternal-safety/data/lactmedMonographDb.ts): NIH LactMed 공식 모노그래프 및 한국어 전문 임상 번역 DB
+
+---
+
+## 3. NIH LactMed 해외 임상 데이터 번역 및 다국어 제공 원칙 (어설픈 정규식 혼용 번역 금지)
+
+사용자가 나중에 **"LactMed 번역 규칙이 뭐였지?"**, **"RID 번역 규칙 알려줘"**, 또는 **"영문 원문과 번역본 제공 원칙"**을 물어보면 반드시 아래 원칙을 기준으로 코드를 작성하고 유지한다.
+
+### 3.1 어설픈 정규식 단어 치환(영한 혼용 텍스트) 원천 금지
+- 정규식(Regex)을 이용해 일부 영어 단어 몇 개만 한국어로 바꾸고 나머지를 영어 문장 그대로 방치하여, `"완전 모유 수유아는 daily dosages of... 모체 체중 보정 용량s were..."` 처럼 영문과 한글이 흉측하게 뒤섞인 텍스트를 `[한국어 번역본]` 화면에 절대 노출하지 않는다.
+- `[한국어 번역본]`으로 표시되는 모든 영역(수유 중 사용 요약, 모유 농도, 영아 혈중 농도, 영아 이상반응, 수유 영향 등)은 문맥과 문법이 온전한 **100% 순수 한국어 임상 문장**으로 렌더링되어야 한다.
+
+### 3.2 탭(Tab) 기반의 번역본과 영문 원문 완전 분리 원칙
+- 모든 LactMed 상세 정보 영역은 `[한국어 번역본]`과 `[English 원문]` 탭(또는 전환 스위치)을 통해 명확히 분리하여 제공한다.
+  - **`[한국어 번역본]` 탭**: 의·약 전문가 및 일반 사용자가 즉시 이해할 수 있는 체계적인 한국어 전문 번역 및 임상 핵심 해설을 제공한다.
+  - **`[English 원문]` 탭**: 미국 국립보건원(NIH) LactMed 공식 영문 원문 전문을 단락별로 보존하여 제공함으로써 해외 공신력 있는 원문을 즉시 대조할 수 있도록 한다.
+
+### 3.3 상대적 영아 용량(RID - Relative Infant Dose) 한국어 해석 원칙
+- RID 영역에 번역 없이 영문 원문 문장(`[원문 발췌] The estimated weight-adjusted...`)만 덜렁 노출하는 것을 금지한다.
+- **필수 제공 형식**:
+  1. **한국어 요약**: 추정 RID 수치(예: `0.05% ~ 0.06%`)와 모체 투여량 대비 영아 흡수율 수준(예: `모체 투여량의 0.1% 미만`)을 명확히 명시한다.
+  2. **안전성 평가 기준 안내**: 세계보건기구(WHO) 및 임상 안전 기준치인 `10% 미만` 충족 여부를 한글로 직관적으로 표시한다.
+  3. **원문 발췌**: 원문 텍스트는 `[English 원문]` 모드 또는 별도의 원문 대조 블록에서만 제시한다.
+
+### 3.4 로컬 데이터베이스 5대 임상 영역 완비 원칙
+`lactmedMonographDb.ts`에 등록되는 모든 약물은 다음 5대 임상 필드에 대해 검증된 한국어 번역 텍스트를 반드시 구비해야 한다:
+1. `summaryKorean`: 수유 중 사용 요약 한국어 전문 (소제목별 체계적 구성)
+2. `ridKoreanSummary`: 상대적 영아 용량(RID) 한국어 수치 및 안전 기준 해설
+3. `infantAdverseEffectsKorean`: 수유 노출 영아에게 보고된 이상반응 임상 관찰 한국어 번역
+4. `drugLevelsKorean`: 모체 모유 내 약물 농도 및 영아 혈중 농도 한국어 번역
+5. `lactationEffectsKorean`: 프로락틴 및 젖분비(모유량) 영향 한국어 번역

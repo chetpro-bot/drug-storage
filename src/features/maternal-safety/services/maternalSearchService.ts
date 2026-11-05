@@ -637,17 +637,44 @@ export function extractMfdsPregnancyAndLactationText(
       fullFormattedSections.push(`[${title}]`);
     }
 
-    // 조항 내 문단들을 하위 번호("1)", "2)", ..., "10)", "(1)") 단위로 그룹화하여 후속 설명 문단이 누락되지 않도록 함
+    // 1) 조항 제목 검사:
+    // 전용 조항(임부, 임신, 가임, 산부, 수유 등)
+    const isDedicatedPreg = /임부|임신|가임|산부|태아/.test(title);
+    const isDedicatedLact = /수유/.test(title);
+    const isDedicated = isDedicatedPreg || isDedicatedLact;
+
+    // 비관련 일반 조항(기타, 보관/취급, 약리/약동학, 비임상, 과량 등)은 전용 조항이 아닌 경우 완전 배제
+    // 특히 '기타'(예: 11. 기타), '보관 및 취급상의 주의사항' 등 일반 정보 조항 제외
+    const isIrrelevantArticle =
+      /^(?:\d+[\.\s]*)?(?:기타|보관|취급|포장|약리|약동|비임상|임상시험|과량|이상반응|상호작용|적용상)/i.test(
+        title.trim()
+      );
+    if (isIrrelevantArticle && !isDedicated) {
+      continue;
+    }
+
+    // 환자 투약 주의사항 조항 (투여하지 말 것, 신중히 투여할 것, 복용하지 말 것, 상의할 것, 경고, 일반적 주의 등)
+    const isPatientWarning =
+      /투여하지\s*말\s*것|복용하지\s*말\s*것|신중히|상의할\s*것|경고|일반적\s*주의/.test(title);
+    if (!isDedicated && !isPatientWarning) {
+      // 전용 조항도 아니고 환자 투약 주의사항 조항도 아니면 임신/수유 발췌 대상에서 제외
+      continue;
+    }
+
+    // 2) 조항 내 문단들을 하위 번호("1)", "2)", ..., "10)", "(1)", "①", "1.", "<소제목>" 등) 단위로 그룹화
     const subItems: string[][] = [];
     for (const p of art.paragraphs) {
-      if (/^(?:[0-9]{1,2}[\.\)]|\([0-9]{1,2}\))\s*/.test(p) || subItems.length === 0) {
+      const isSubItemHeader =
+        /^(?:[0-9]{1,2}[\.\)]|\([0-9]{1,2}\)|\[[0-9]{1,2}\]|[①-⑳]|[㉮-㉻]|[가-하][\.\)]|<[^>]+>|\[[^\]]+\])\s*/.test(
+          p
+        );
+      if (isSubItemHeader || subItems.length === 0) {
         subItems.push([p]);
       } else {
         subItems[subItems.length - 1].push(p);
       }
     }
 
-    const isDedicated = /임부|임신|수유부/.test(title);
     const matchedPregSub: string[] = [];
     const matchedLactSub: string[] = [];
 
@@ -679,15 +706,26 @@ export function extractMfdsPregnancyAndLactationText(
       const hasPreg = PREG_RE.test(subText);
       const hasLact = LACT_RE.test(subText);
 
-      if (hasPreg || (isDedicated && /임부|임신/.test(title) && !hasLact)) {
-        matchedPregSub.push(
-          subLines.map((l, idx) => (idx === 0 ? `• ${l}` : `  ${l}`)).join('\n')
-        );
+      // (A) 임신부 관련 발췌:
+      // - 임신/임부 키워드가 있는 경우 (단, 수유 전용 문단 hasLact && !hasPreg 는 제외)
+      // - 또는 조항 자체가 임부 전용이고 수유 언급이 전혀 없는 경우
+      if (hasPreg || (isDedicatedPreg && !isDedicatedLact && !hasLact)) {
+        if (!(hasLact && !hasPreg)) {
+          matchedPregSub.push(
+            subLines.map((l, idx) => (idx === 0 ? `• ${l}` : `  ${l}`)).join('\n')
+          );
+        }
       }
-      if (hasLact || (isDedicated && /수유/.test(title) && !hasPreg)) {
-        matchedLactSub.push(
-          subLines.map((l, idx) => (idx === 0 ? `• ${l}` : `  ${l}`)).join('\n')
-        );
+
+      // (B) 수유부 관련 발췌:
+      // - 수유/모유 키워드가 있는 경우 (단, 임신 전용 문단 hasPreg && !hasLact 는 제외)
+      // - 또는 조항 자체가 수유 전용이고 임부 언급이 전혀 없는 경우
+      if (hasLact || (isDedicatedLact && !isDedicatedPreg && !hasPreg)) {
+        if (!(hasPreg && !hasLact)) {
+          matchedLactSub.push(
+            subLines.map((l, idx) => (idx === 0 ? `• ${l}` : `  ${l}`)).join('\n')
+          );
+        }
       }
     }
 
@@ -1187,6 +1225,21 @@ export async function buildMaternalDrugSafetyReport(
 
     if (lactmedInfo) {
       lactmedStatus = 'MATCHED';
+      // 로컬 DB의 nbkId가 일반 책 루트(NBK501922)인 경우 실시간 API로 실제 개별 챕터 ID 확인 및 갱신
+      if (lactmedInfo.nbkId === 'NBK501922' && ingr.matchedInn) {
+        try {
+          const liveCheck = await fetchLactMedChapterLinkLive(ingr.matchedInn);
+          if (liveCheck.exists && liveCheck.nbkId && liveCheck.nbkId !== 'NBK501922') {
+            lactmedInfo = {
+              ...lactmedInfo,
+              nbkId: liveCheck.nbkId,
+              sourceUrl: liveCheck.sourceUrl || `https://www.ncbi.nlm.nih.gov/books/${liveCheck.nbkId}/`
+            };
+          }
+        } catch {
+          // ignore
+        }
+      }
     } else if (ingr.matchedInn && ingr.matchConfidence !== 'UNCERTAIN') {
       // 로컬 DB에 없는 성분은 NCBI Entrez E-utilities API로 실제 NBK 챕터 존재 여부 확인
       const liveCheck = await fetchLactMedChapterLinkLive(ingr.matchedInn);

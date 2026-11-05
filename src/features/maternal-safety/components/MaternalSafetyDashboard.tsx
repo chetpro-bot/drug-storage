@@ -8,7 +8,8 @@ import {
   Info,
   Loader2,
   X,
-  CheckCircle2
+  CheckCircle2,
+  FileText
 } from 'lucide-react';
 import { useMaternalStore } from '../stores/useMaternalStore';
 import {
@@ -197,6 +198,7 @@ export const MaternalSafetyDashboard: React.FC = () => {
   const [expandedLactmedDetailMap, setExpandedLactmedDetailMap] = useState<Record<string, boolean>>({});
   const [selectedPillImage, setSelectedPillImage] = useState<string | null>(null);
   const [showTgaCategoryGuide, setShowTgaCategoryGuide] = useState(false);
+  const [showDurGuide, setShowDurGuide] = useState(false);
 
   // 품목 변경 시 상세보기 접힘 상태 및 알약 모달 초기화
   useEffect(() => {
@@ -204,6 +206,7 @@ export const MaternalSafetyDashboard: React.FC = () => {
     setExpandLactFullLabel(false);
     setExpandedLactmedDetailMap({});
     setSelectedPillImage(null);
+    setShowDurGuide(false);
   }, [currentReport?.itemSeq]);
 
   const handleSearchSubmit = async (e: React.FormEvent) => {
@@ -352,12 +355,25 @@ export const MaternalSafetyDashboard: React.FC = () => {
           </div>
         ) : !currentReport ? (
           <div className="bg-white border border-slate-200 rounded-lg p-10 text-center space-y-2">
-            <p className="text-sm sm:text-base font-bold text-slate-800">
-              상단 검색창에서 의약품을 검색하십시오.
-            </p>
-            <p className="text-xs text-slate-500">
-              국내 제품명, 국내 성분명, 또는 영문 성분명을 입력하면 식약처 허가사항 · 식약처 DUR 임부금기 · 호주 TGA · NIH LactMed 공식 원문 데이터를 한 화면에 표시합니다.
-            </p>
+            {searchCandidates.length > 0 ? (
+              <>
+                <p className="text-sm sm:text-base font-bold text-slate-800">
+                  조회할 의약품을 상단 검색 결과 목록에서 선택해 주세요.
+                </p>
+                <p className="text-xs text-slate-500">
+                  검색된 {searchCandidates.length}건의 의약품 목록 중 안전성 정보를 확인하실 제품을 클릭하면 상세 안전성 정보가 조회됩니다.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm sm:text-base font-bold text-slate-800">
+                  상단 검색창에서 의약품을 검색하십시오.
+                </p>
+                <p className="text-xs text-slate-500">
+                  국내 제품명, 국내 성분명, 또는 영문 성분명을 입력하면 식약처 허가사항 · 식약처 DUR 임부금기 · 호주 TGA · NIH LactMed 공식 원문 데이터를 한 화면에 표시합니다.
+                </p>
+              </>
+            )}
           </div>
         ) : (
           <>
@@ -525,14 +541,9 @@ export const MaternalSafetyDashboard: React.FC = () => {
                           식약처 허가사항
                         </span>
                         <h4 className="text-sm font-bold text-slate-900">
-                          1. 임신 관련 허가사항 문구
+                          임신 관련 허가사항 문구
                         </h4>
                       </div>
-                      {currentReport.mfdsLabel.pregnancySectionTitle && (
-                        <p className="text-[11px] text-slate-500 mt-1 pl-1">
-                          발췌 항목: {currentReport.mfdsLabel.pregnancySectionTitle}
-                        </p>
-                      )}
                     </div>
                     <div className="text-right shrink-0">
                       <a
@@ -595,7 +606,7 @@ export const MaternalSafetyDashboard: React.FC = () => {
                   )}
                 </article>
 
-                {/* 2. 식약처 DUR 임부금기 등급 및 사유 */}
+                {/* 식약처 DUR 임부금기 등급 및 사유 */}
                 <article className="bg-white border-l-4 border-l-amber-500 border border-slate-200 rounded-lg p-4 space-y-3 shadow-2xs">
                   <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
                     <div>
@@ -604,12 +615,9 @@ export const MaternalSafetyDashboard: React.FC = () => {
                           식약처 DUR 임부금기
                         </span>
                         <h4 className="text-sm font-bold text-slate-900">
-                          2. 임부금기 등급 및 사유
+                          임부금기 등급 및 사유
                         </h4>
                       </div>
-                      <p className="text-[11px] text-slate-500 mt-1 pl-1">
-                        식약처 의약품안전사용서비스(DUR) 공식 고시 기준
-                      </p>
                     </div>
                     <div className="text-right shrink-0">
                       <a
@@ -673,21 +681,11 @@ export const MaternalSafetyDashboard: React.FC = () => {
                                 : '원칙적 사용금기')}
                           </p>
 
-                          {(entry.formName || entry.remark) && (
+                          {entry.remark && (
                             <div className="text-[11px] pt-1 border-t border-black/10 space-y-0.5 opacity-90">
-                              {entry.formName && (
-                                <p>
-                                  <span className="font-semibold">적용 제형:</span>{' '}
-                                  {entry.formName.length > 90
-                                    ? `${entry.formName.slice(0, 90)}...`
-                                    : entry.formName}
-                                </p>
-                              )}
-                              {entry.remark && (
-                                <p>
-                                  <span className="font-semibold">예외/비고 조건:</span> {entry.remark}
-                                </p>
-                              )}
+                              <p>
+                                <span className="font-semibold">예외/비고 조건:</span> {entry.remark}
+                              </p>
                             </div>
                           )}
                         </div>
@@ -704,9 +702,154 @@ export const MaternalSafetyDashboard: React.FC = () => {
                       </p>
                     </div>
                   )}
+
+                  {/* 식약처 의약품 적정 사용정보(DUR) 안내 보기 토글 버튼 */}
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowDurGuide((prev) => !prev)}
+                      className="w-full flex items-center justify-between px-3.5 py-2.5 text-xs font-semibold text-amber-950 bg-amber-50/80 hover:bg-amber-100 border border-amber-200 rounded-lg transition-all shadow-2xs group cursor-pointer"
+                    >
+                      <span className="flex items-center gap-2 text-left">
+                        <FileText className="w-4 h-4 text-amber-700 shrink-0 group-hover:scale-110 transition-transform" />
+                        <span>의약품 적정 사용정보(DUR) 안내 보기</span>
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-900 bg-white border border-amber-200 px-2.5 py-0.5 rounded shadow-2xs shrink-0">
+                        {showDurGuide ? '안내 접기' : 'DUR 기준 보기'}
+                        {showDurGuide ? (
+                          <ChevronUp className="w-3.5 h-3.5" />
+                        ) : (
+                          <ChevronDown className="w-3.5 h-3.5" />
+                        )}
+                      </span>
+                    </button>
+
+                    {showDurGuide && (
+                      <div className="mt-2.5 bg-white border border-slate-200 rounded-lg overflow-hidden text-xs animate-fadeIn shadow-xs">
+                        {/* 상단 설명 안내 박스 */}
+                        <div className="p-3.5 bg-gradient-to-r from-sky-50/70 to-blue-50/40 border-b border-slate-200 flex items-start gap-3">
+                          <div className="p-2 bg-white rounded-full border border-sky-200 shadow-2xs shrink-0 text-sky-600">
+                            <FileText className="w-5 h-5" />
+                          </div>
+                          <div className="space-y-1 min-w-0">
+                            <h5 className="font-bold text-slate-900 text-sm">
+                              의약품 적정 사용정보(DUR)
+                            </h5>
+                            <p className="text-[11.5px] text-slate-600 leading-relaxed">
+                              - 의약품 적정사용 정보는 부적절한 의약품 사용을 사전에 예방하고 국민건강을 보호하기 위하여, 의·약 전문가가 처방·조제 시 활용할 수 있도록 의약품의 안전하고 적절한 사용 기준을 항목별로 분류하여 체계적으로 개발한 정보입니다.
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* DUR 금기 및 주의 정보 테이블 */}
+                        <div className="overflow-x-auto">
+                          <table className="w-full border-collapse text-left text-xs">
+                            <thead>
+                              <tr className="bg-slate-100 text-slate-700 border-b-2 border-slate-700 font-bold text-center">
+                                <th className="py-2.5 px-3 w-32 border-r border-slate-200 shrink-0">금기명</th>
+                                <th className="py-2.5 px-3">금기정보</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-200 text-slate-800">
+                              <tr className="hover:bg-slate-50">
+                                <td className="py-2.5 px-3 font-semibold text-center align-middle bg-slate-50/60 border-r border-slate-200">
+                                  병용금기
+                                </td>
+                                <td className="py-2.5 px-3 leading-relaxed">
+                                  두 가지 이상의 의약품을 함께 사용할 때 치료효과의 변화 또는 심각한 부작용 발생 등의 우려가 있어 동시에 사용하지 않아야 하는 의약품의 조합
+                                </td>
+                              </tr>
+                              <tr className="hover:bg-slate-50">
+                                <td className="py-2.5 px-3 font-semibold text-center align-middle bg-slate-50/60 border-r border-slate-200">
+                                  특정연령대금기
+                                </td>
+                                <td className="py-2.5 px-3 leading-relaxed">
+                                  소아, 노인 등 특정한 연령대의 환자가 사용함에 있어 안전성이 확보되지 않았거나 심각한 부작용 발생 등의 우려가 있어 사용하지 않아야 하는 의약품
+                                </td>
+                              </tr>
+                              <tr className="bg-amber-50/50 hover:bg-amber-50/80 border-y border-amber-200">
+                                <td className="py-2.5 px-3 font-bold text-center align-middle text-amber-950 bg-amber-100/60 border-r border-amber-200">
+                                  임부금기
+                                </td>
+                                <td className="py-2.5 px-3 leading-relaxed space-y-1.5 text-slate-900">
+                                  <div>
+                                    태아에게 매우 심각한 위해성(태아기형 또는 태아독성 등)을 유발하거나 유발할 가능성이 높아 임부에게 사용하는 것이 권장되지 않는 의약품
+                                  </div>
+                                  <div className="pl-3.5 space-y-1 text-slate-800">
+                                    <p>
+                                      <strong className="text-red-700">1등급:</strong> 태아에 대한 위험성이 명확하여 의학적으로 불가피한 경우 이외에는 반드시 임부에게 투여를 피해야하는 의약품
+                                    </p>
+                                    <p>
+                                      <strong className="text-amber-800">2등급:</strong> 태아에 대한 위해성이 나타날 수 있으므로 원칙적으로 사용금지. 다만, 임부에 대한 치료적 유익성이 위험성보다 더 높을 경우 신중하게 투여 가능한 의약품
+                                    </p>
+                                  </div>
+                                </td>
+                              </tr>
+                              <tr className="hover:bg-slate-50">
+                                <td className="py-2.5 px-3 font-semibold text-center align-middle bg-slate-50/60 border-r border-slate-200">
+                                  용량주의
+                                </td>
+                                <td className="py-2.5 px-3 leading-relaxed">
+                                  성인에서 특정용량을 초과하여 투여 시 효과의 증가는 기대하기 어렵고 용량 의존적 부작용 발생 가능성이 높아져 1일 최대용량에 대한 주의가 필요한 의약품
+                                </td>
+                              </tr>
+                              <tr className="hover:bg-slate-50">
+                                <td className="py-2.5 px-3 font-semibold text-center align-middle bg-slate-50/60 border-r border-slate-200">
+                                  투여기간주의
+                                </td>
+                                <td className="py-2.5 px-3 leading-relaxed">
+                                  특정 투여기간을 초과하여 투여 시 효과의 증가는 기대하기 어렵고 부작용 발생 가능성이 높아져 1회 최대 투여기간에 대한 주의가 필요한 의약품
+                                </td>
+                              </tr>
+                              <tr className="hover:bg-slate-50">
+                                <td className="py-2.5 px-3 font-semibold text-center align-middle bg-slate-50/60 border-r border-slate-200">
+                                  노인주의
+                                </td>
+                                <td className="py-2.5 px-3 leading-relaxed">
+                                  노인에서 부작용 발생 빈도 증가 등의 우려가 있어 사용 시 주의가 필요한 의약품
+                                </td>
+                              </tr>
+                              <tr className="hover:bg-slate-50">
+                                <td className="py-2.5 px-3 font-semibold text-center align-middle bg-slate-50/60 border-r border-slate-200">
+                                  효능군중복
+                                </td>
+                                <td className="py-2.5 px-3 leading-relaxed">
+                                  약리기전이 동일하거나 유사한 효능군 내에서 중복 투여될 때 추가적인 효과의 증가는 기대하기 어렵고 부작용 발생 가능성이 높아져 주의가 필요한 의약품
+                                </td>
+                              </tr>
+                              <tr className="hover:bg-slate-50">
+                                <td className="py-2.5 px-3 font-semibold text-center align-middle bg-slate-50/60 border-r border-slate-200">
+                                  분할주의
+                                </td>
+                                <td className="py-2.5 px-3 leading-relaxed">
+                                  분할하여 복용할 경우 허가된 약효를 기대하기 어려운 의약품
+                                </td>
+                              </tr>
+                              <tr className="hover:bg-slate-50">
+                                <td className="py-2.5 px-3 font-semibold text-center align-middle bg-slate-50/60 border-r border-slate-200">
+                                  첨가제주의
+                                </td>
+                                <td className="py-2.5 px-3 leading-relaxed">
+                                  특정 첨가제 성분(유당, 대두유, 카제인)의 주의가 필요한 의약품
+                                </td>
+                              </tr>
+                              <tr className="hover:bg-slate-50">
+                                <td className="py-2.5 px-3 font-semibold text-center align-middle bg-slate-50/60 border-r border-slate-200">
+                                  수유부주의
+                                </td>
+                                <td className="py-2.5 px-3 leading-relaxed">
+                                  수유 중의 소아에게 부작용 발생 등의 우려가 있어 수유부에게 사용 시 주의가 필요한 의약품
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </article>
 
-                {/* 3. 호주 TGA 임신 등급 및 설명 */}
+                {/* 호주 TGA 임신 등급 및 설명 */}
                 <article className="bg-white border-l-4 border-l-sky-500 border border-slate-200 rounded-lg p-4 space-y-3 shadow-2xs">
                   <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
                     <div>
@@ -715,12 +858,9 @@ export const MaternalSafetyDashboard: React.FC = () => {
                           호주 TGA 분류
                         </span>
                         <h4 className="text-sm font-bold text-slate-900">
-                          3. 호주 TGA 임신 등급 및 설명
+                          호주 TGA 임신 등급 및 설명
                         </h4>
                       </div>
-                      <p className="text-[11px] text-slate-500 mt-1 pl-1">
-                        Australian Categorisation System for Prescribing Medicines in Pregnancy
-                      </p>
                     </div>
                     <div className="text-right shrink-0">
                       <a
@@ -847,7 +987,7 @@ export const MaternalSafetyDashboard: React.FC = () => {
                   </span>
                 </div>
 
-                {/* 1. 식약처 허가사항의 수유 관련 문구 */}
+                {/* 수유 관련 허가사항 문구 */}
                 <article className="bg-white border-l-4 border-l-cyan-500 border border-slate-200 rounded-lg p-4 space-y-3 shadow-2xs">
                   <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
                     <div>
@@ -856,14 +996,9 @@ export const MaternalSafetyDashboard: React.FC = () => {
                           식약처 허가사항
                         </span>
                         <h4 className="text-sm font-bold text-slate-900">
-                          1. 수유 관련 허가사항 문구
+                          수유 관련 허가사항 문구
                         </h4>
                       </div>
-                      {currentReport.mfdsLabel.lactationSectionTitle && (
-                        <p className="text-[11px] text-slate-500 mt-1 pl-1">
-                          발췌 항목: {currentReport.mfdsLabel.lactationSectionTitle}
-                        </p>
-                      )}
                     </div>
                     <div className="text-right shrink-0">
                       <a
@@ -926,7 +1061,7 @@ export const MaternalSafetyDashboard: React.FC = () => {
                   )}
                 </article>
 
-                {/* 2. NIH LactMed 수유 중 사용 요약 (Summary of Use During Lactation) */}
+                {/* NIH LactMed 수유 중 사용 요약 (Summary of Use During Lactation) */}
                 <article className="bg-white border-l-4 border-l-teal-500 border border-slate-200 rounded-lg p-4 space-y-3 shadow-2xs">
                   <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
                     <div>
@@ -935,7 +1070,7 @@ export const MaternalSafetyDashboard: React.FC = () => {
                           NIH LactMed
                         </span>
                         <h4 className="text-sm font-bold text-slate-900">
-                          2. 수유 중 사용 요약 (Summary of Use)
+                          수유 중 사용 요약 (Summary of Use)
                         </h4>
                       </div>
                       <p className="text-[11px] text-slate-500 mt-1 pl-1">
@@ -951,7 +1086,7 @@ export const MaternalSafetyDashboard: React.FC = () => {
                   </div>
                 </article>
 
-                {/* 3. 영아 이상반응 및 RID (자료가 있는 경우) + 모유/영아 농도 상세보기 */}
+                {/* 영아 이상반응 및 RID (자료가 있는 경우) + 모유/영아 농도 상세보기 */}
                 <article className="bg-white border-l-4 border-l-emerald-500 border border-slate-200 rounded-lg p-4 space-y-3 shadow-2xs">
                   <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
                     <div>
@@ -960,7 +1095,7 @@ export const MaternalSafetyDashboard: React.FC = () => {
                           이상반응 & RID
                         </span>
                         <h4 className="text-sm font-bold text-slate-900">
-                          3. 영아 이상반응 및 상대적 영아 용량 (RID)
+                          영아 이상반응 및 상대적 영아 용량 (RID)
                         </h4>
                       </div>
                       <p className="text-[11px] text-slate-500 mt-1 pl-1">
@@ -1131,6 +1266,7 @@ const TgaIngredientCard: React.FC<{ evalItem: IngredientSafetyEvaluation }> = ({
 const LactMedSummaryCard: React.FC<{ evalItem: IngredientSafetyEvaluation }> = ({ evalItem }) => {
   const { ingredient, lactmedStatus, lactmedInfo } = evalItem;
   const [showOriginalEng, setShowOriginalEng] = useState(false);
+  const [summaryLangMode, setSummaryLangMode] = useState<'KO' | 'EN'>('KO');
 
   // 감정 분석을 통한 시각적 뱃지 및 배경 스타일링
   const summary = lactmedInfo?.summaryKorean || '';
@@ -1193,31 +1329,68 @@ const LactMedSummaryCard: React.FC<{ evalItem: IngredientSafetyEvaluation }> = (
 
       {lactmedStatus !== 'NO_DATA' && lactmedInfo ? (
         <div className="space-y-2">
-          <p className="text-xs sm:text-sm text-slate-900 leading-relaxed bg-white/95 p-3 rounded-md border border-slate-200/90 shadow-2xs">
+          <div className="text-xs sm:text-sm text-slate-900 leading-relaxed bg-white/95 p-3 rounded-md border border-slate-200/90 shadow-2xs whitespace-pre-line">
             {lactmedInfo.summaryKorean}
-          </p>
+          </div>
 
           <div>
             <button
               type="button"
               onClick={() => setShowOriginalEng((v) => !v)}
-              className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
+              className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-700 hover:text-slate-950 cursor-pointer bg-white/80 px-2.5 py-1 rounded border border-slate-200 shadow-2xs transition-colors"
             >
               {showOriginalEng ? (
                 <>
                   <ChevronUp className="w-3 h-3" />
-                  Summary of Use During Lactation 영문 원문 접기
+                  Summary of Use During Lactation 상세 원문 및 번역본 접기
                 </>
               ) : (
                 <>
                   <ChevronDown className="w-3 h-3" />
-                  Summary of Use During Lactation 영문 원문 보기
+                  Summary of Use During Lactation 상세 원문 및 번역본 보기
                 </>
               )}
             </button>
+
             {showOriginalEng && (
-              <div className="mt-1.5 p-3 bg-white border border-slate-200 rounded text-xs text-slate-700 whitespace-pre-line leading-relaxed shadow-2xs">
-                {lactmedInfo.summaryOriginalEnglish}
+              <div className="mt-2 p-3 bg-white border border-slate-200 rounded-lg text-xs leading-relaxed shadow-2xs space-y-2.5">
+                {/* 상단 번역본 / 영문 원문 전환 탭 */}
+                <div className="flex items-center justify-between border-b border-slate-100 pb-2 flex-wrap gap-2">
+                  <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-md">
+                    <button
+                      type="button"
+                      onClick={() => setSummaryLangMode('KO')}
+                      className={`px-3 py-1 text-xs font-bold rounded transition-all cursor-pointer ${
+                        summaryLangMode === 'KO'
+                          ? 'bg-white text-teal-900 shadow-2xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      한국어 번역본
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSummaryLangMode('EN')}
+                      className={`px-3 py-1 text-xs font-bold rounded transition-all cursor-pointer ${
+                        summaryLangMode === 'EN'
+                          ? 'bg-white text-slate-900 shadow-2xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      English 원문
+                    </button>
+                  </div>
+                  <span className="text-[11px] text-slate-500">
+                    {summaryLangMode === 'KO' ? 'NIH LactMed 공식 임상 한국어 번역' : 'NIH LactMed Official Monograph'}
+                  </span>
+                </div>
+
+                {/* 본문 텍스트 영역 */}
+                <div className="text-xs sm:text-[13px] text-slate-800 whitespace-pre-line leading-relaxed max-h-96 overflow-y-auto pr-1">
+                  {summaryLangMode === 'KO'
+                    ? lactmedInfo.summaryKorean
+                    : lactmedInfo.summaryOriginalEnglish}
+                </div>
               </div>
             )}
           </div>
@@ -1250,17 +1423,26 @@ const LactMedInfantAndRidCard: React.FC<{
 
   const drugLevelsText =
     detailLangMode === 'KO'
-      ? lactmedInfo.drugLevelsKorean || translateLactMedTextToKorean(lactmedInfo.drugLevelsOriginal, 'drugLevels')
+      ? lactmedInfo.drugLevelsKorean ||
+        (lactmedInfo.drugLevelsOriginal
+          ? translateLactMedTextToKorean(lactmedInfo.drugLevelsOriginal, 'drugLevels')
+          : null)
       : lactmedInfo.drugLevelsOriginal;
 
   const infantEffectsText =
     detailLangMode === 'KO'
-      ? lactmedInfo.infantAdverseEffectsKorean || translateLactMedTextToKorean(lactmedInfo.infantAdverseEffectsOriginal, 'infantEffects')
+      ? lactmedInfo.infantAdverseEffectsKorean ||
+        (lactmedInfo.infantAdverseEffectsOriginal
+          ? translateLactMedTextToKorean(lactmedInfo.infantAdverseEffectsOriginal, 'infantEffects')
+          : null)
       : lactmedInfo.infantAdverseEffectsOriginal;
 
   const lactationEffectsText =
     detailLangMode === 'KO'
-      ? lactmedInfo.lactationEffectsKorean || translateLactMedTextToKorean(lactmedInfo.lactationEffectsOriginal, 'lactationEffects')
+      ? lactmedInfo.lactationEffectsKorean ||
+        (lactmedInfo.lactationEffectsOriginal
+          ? translateLactMedTextToKorean(lactmedInfo.lactationEffectsOriginal, 'lactationEffects')
+          : null)
       : lactmedInfo.lactationEffectsOriginal;
 
   return (
@@ -1280,7 +1462,9 @@ const LactMedInfantAndRidCard: React.FC<{
           <span className="w-1.5 h-1.5 rounded-full bg-teal-500"></span>
           영아에게 보고된 이상반응 (Effects in Breastfed Infants)
         </div>
-        <p className="text-slate-800 leading-relaxed pl-3">{lactmedInfo.infantAdverseEffectsKorean}</p>
+        <div className="text-slate-800 leading-relaxed pl-3 whitespace-pre-line">
+          {lactmedInfo.infantAdverseEffectsKorean}
+        </div>
       </div>
 
       {/* RID (원문에 제시되어 있는 경우에만 표시) */}
@@ -1297,17 +1481,24 @@ const LactMedInfantAndRidCard: React.FC<{
           )}
         </div>
         {lactmedInfo.ridOriginalText ? (
-          <div className="space-y-1 pl-3">
+          <div className="space-y-2 pl-3">
             {lactmedInfo.ridKoreanSummary && (
-              <p className="text-emerald-900 font-bold text-xs">{lactmedInfo.ridKoreanSummary}</p>
+              <div className="text-emerald-950 font-medium text-xs leading-relaxed whitespace-pre-line bg-emerald-50/70 p-2.5 rounded border border-emerald-200/80">
+                {lactmedInfo.ridKoreanSummary}
+              </div>
             )}
-            <p className="text-slate-600 text-[11px] leading-relaxed">
-              [원문 발췌] {lactmedInfo.ridOriginalText}
-            </p>
+            <details className="text-[11px] text-slate-500 cursor-pointer pt-0.5">
+              <summary className="font-semibold text-slate-600 hover:text-slate-900 select-none">
+                LactMed 공식 영문 원문 발췌문 보기
+              </summary>
+              <p className="mt-1.5 p-2.5 bg-slate-50 border border-slate-200 rounded text-slate-700 leading-relaxed font-mono text-[11px] select-text">
+                {lactmedInfo.ridOriginalText}
+              </p>
+            </details>
           </div>
         ) : (
           <p className="text-slate-500 pl-3">
-            LactMed 원문 내 제시된 RID 수치 없음 (원문에 없는 RID를 추정하거나 생성하지 않음)
+            LactMed 원문 내 제시된 RID 수치 없음 (원문에 없는 RID를 추정하거나 생성하지 않습니다)
           </p>
         )}
       </div>

@@ -74,11 +74,16 @@ export const useMaternalStore = create<MaternalStoreState>((set) => ({
       searchApiError: res.apiError || null
     });
 
-    if (res.candidates.length > 0) {
-      const first = res.candidates[0];
-      set({ selectedCandidate: first, isLoadingReport: true });
-      const report = await buildMaternalDrugSafetyReport(first);
+    if (res.candidates.length === 1) {
+      // 검색 결과가 단 1건인 경우에만 해당 의약품을 즉시 자동 로드
+      const onlyOne = res.candidates[0];
+      set({ selectedCandidate: onlyOne, isLoadingReport: true });
+      const report = await buildMaternalDrugSafetyReport(onlyOne);
       set({ currentReport: report, isLoadingReport: false });
+    } else {
+      // 2건 이상이거나 0건인 경우, 첫 번째 항목을 임의로 자동 조회하지 않고
+      // 사용자가 목록에서 조회할 제품을 직접 선택할 수 있도록 대기
+      set({ selectedCandidate: null, currentReport: null, isLoadingReport: false });
     }
   },
 

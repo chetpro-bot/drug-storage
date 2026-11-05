@@ -1266,7 +1266,6 @@ const TgaIngredientCard: React.FC<{ evalItem: IngredientSafetyEvaluation }> = ({
 const LactMedSummaryCard: React.FC<{ evalItem: IngredientSafetyEvaluation }> = ({ evalItem }) => {
   const { ingredient, lactmedStatus, lactmedInfo } = evalItem;
   const [showOriginalEng, setShowOriginalEng] = useState(false);
-  const [summaryLangMode, setSummaryLangMode] = useState<'KO' | 'EN'>('KO');
 
   // 감정 분석을 통한 시각적 뱃지 및 배경 스타일링
   const summary = lactmedInfo?.summaryKorean || '';
@@ -1342,54 +1341,29 @@ const LactMedSummaryCard: React.FC<{ evalItem: IngredientSafetyEvaluation }> = (
               {showOriginalEng ? (
                 <>
                   <ChevronUp className="w-3 h-3" />
-                  Summary of Use During Lactation 상세 원문 및 번역본 접기
+                  Summary of Use During Lactation 영문 원문 접기
                 </>
               ) : (
                 <>
                   <ChevronDown className="w-3 h-3" />
-                  Summary of Use During Lactation 상세 원문 및 번역본 보기
+                  Summary of Use During Lactation 영문 원문 보기
                 </>
               )}
             </button>
 
             {showOriginalEng && (
-              <div className="mt-2 p-3 bg-white border border-slate-200 rounded-lg text-xs leading-relaxed shadow-2xs space-y-2.5">
-                {/* 상단 번역본 / 영문 원문 전환 탭 */}
-                <div className="flex items-center justify-between border-b border-slate-100 pb-2 flex-wrap gap-2">
-                  <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-md">
-                    <button
-                      type="button"
-                      onClick={() => setSummaryLangMode('KO')}
-                      className={`px-3 py-1 text-xs font-bold rounded transition-all cursor-pointer ${
-                        summaryLangMode === 'KO'
-                          ? 'bg-white text-teal-900 shadow-2xs'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      한국어 번역본
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSummaryLangMode('EN')}
-                      className={`px-3 py-1 text-xs font-bold rounded transition-all cursor-pointer ${
-                        summaryLangMode === 'EN'
-                          ? 'bg-white text-slate-900 shadow-2xs'
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      English 원문
-                    </button>
-                  </div>
-                  <span className="text-[11px] text-slate-500">
-                    {summaryLangMode === 'KO' ? 'NIH LactMed 공식 임상 한국어 번역' : 'NIH LactMed Official Monograph'}
+              <div className="mt-2 p-3 bg-white border border-slate-200 rounded-lg text-xs leading-relaxed shadow-2xs space-y-2">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+                  <span className="font-bold text-slate-800 text-[11.5px]">
+                    Summary of Use During Lactation (영문 원문)
+                  </span>
+                  <span className="text-[10px] text-slate-500">
+                    NIH LactMed Official Monograph
                   </span>
                 </div>
 
-                {/* 본문 텍스트 영역 */}
                 <div className="text-xs sm:text-[13px] text-slate-800 whitespace-pre-line leading-relaxed max-h-96 overflow-y-auto pr-1">
-                  {summaryLangMode === 'KO'
-                    ? lactmedInfo.summaryKorean
-                    : lactmedInfo.summaryOriginalEnglish}
+                  {lactmedInfo.summaryOriginalEnglish || '영문 원문이 제공되지 않는 항목입니다.'}
                 </div>
               </div>
             )}

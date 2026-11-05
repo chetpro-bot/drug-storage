@@ -353,6 +353,21 @@ export const INGREDIENT_CROSSWALK_TABLE: CrosswalkEntry[] = [
     representativeProductKeyword: '아론정'
   },
   {
+    inn: 'Hydroxyzine',
+    koreanBaseName: '히드록시진',
+    koreanSynonyms: [
+      '히드록시진',
+      '히드록시진염산염',
+      '하이드록시진',
+      '하이드록시진염산염',
+      '염산히드록시진',
+      '히드록시진파모산염'
+    ],
+    englishSynonyms: ['hydroxyzine', 'hydroxyzine hydrochloride', 'hydroxyzine pamoate', 'hydroxyzine hcl'],
+    durSearchKeyword: '히드록시진',
+    representativeProductKeyword: '유시락스정'
+  },
+  {
     inn: 'Ampicillin',
     koreanBaseName: '암피실린',
     koreanSynonyms: ['암피실린', '암피실린수화물', '암피실린나트륨'],

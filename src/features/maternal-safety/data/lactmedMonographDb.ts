@@ -451,9 +451,9 @@ export const LACTMED_MONOGRAPH_DATABASE: Record<string, LactMedMonographInfo> = 
     "drugTitle": "Diphenhydramine",
     "pmcid": "LM96",
     "nbkId": "NBK501922",
-    "summaryKorean": "수유 중 Diphenhydramine 투여에 관한 NIH LactMed 공식 임상 요약 정보를 아래 영문 원문과 함께 확인하십시오.",
+    "summaryKorean": "소량(25mg 이하)의 간헐적 복용은 수유아에게 유의한 이상반응을 일으키지 않을 것으로 예상됩니다. 그러나 고용량 또는 장기간 복용 시 영아에게 영향을 주거나 모유 분비량을 감소시킬 수 있으며, 특히 슈도에페드린 등 교감신경흥분제와 병용하거나 수유가 안정되기 전 복용 시 더욱 주의해야 합니다. 취침 전 하루 마지막 수유 직후 단회 복용하는 것이 산모에게 효과적이면서 약물 영향을 최소화할 수 있으며, 비진정성 항히스타민제를 우선적인 대체 약제로 고려할 수 있습니다.",
     "summaryOriginalEnglish": "Small (25 mg or less), occasional doses of diphenhydramine would not be expected to cause any adverse effects in breastfed infants. Larger doses or more prolonged use may cause effects in the infant or decrease the milk supply, particularly in combination with a sympathomimetic such as pseudoephedrine or before lactation is well established. Single bedtime doses after the last feeding of the day may be adequate for many women and will minimize any effects of the drug. The nonsedating antihistamines are preferred alternatives.",
-    "infantAdverseEffectsKorean": "수유 노출 영아에 대한 임상 관찰 및 사례 보고 내역이 존재합니다 (아래 영문 원문 참조).",
+    "infantAdverseEffectsKorean": "다양한 항히스타민제 노출 영아 추적 관찰 연구에서 10%의 영아가 보챔 및 산통 증상을, 1.6%가 졸음을 보였으나 진료가 필요한 경우는 없었습니다. 해당 연구에서 모유를 통해 디펜히드라민에 노출된 영아 12명 중 1명에서 졸음이 보고되었습니다.",
     "infantAdverseEffectsOriginal": "In one telephone follow-up study, mothers reported irritability and colicky symptoms 10% of infants exposed to various antihistamines and drowsiness was reported in 1.6% of infants. None of the reactions required medical attention. In this study, drowsiness was reported in 1 infant of 12 exposed to diphenhydramine in breastmilk.[]",
     "ridOriginalText": null,
     "ridKoreanSummary": null,
@@ -467,9 +467,9 @@ export const LACTMED_MONOGRAPH_DATABASE: Record<string, LactMedMonographInfo> = 
     "drugTitle": "Doxylamine",
     "pmcid": "LM1058",
     "nbkId": "NBK501922",
-    "summaryKorean": "수유 중 Doxylamine 투여에 관한 NIH LactMed 공식 임상 요약 정보를 아래 영문 원문과 함께 확인하십시오. 영아의 졸음·진정 여부를 관찰할 필요가 있습니다.",
+    "summaryKorean": "소량의 간헐적 복용은 수유아에게 유의한 이상반응을 일으키지 않을 것으로 예상됩니다. 그러나 고용량 또는 장기 복용 시 영아의 졸음이나 기타 영향을 유발하거나 모유 분비량을 감소시킬 수 있으며, 특히 슈도에페드린 등 교감신경흥분제와 병용하거나 수유가 안정되기 전 복용 시 주의가 필요합니다. 수유 중에는 영아의 졸음·진정 여부를 면밀히 관찰하는 것이 권장됩니다.",
     "summaryOriginalEnglish": "Small occasional doses of doxylamine would not be expected to cause any adverse effects in breastfed infants. Larger doses or more prolonged use may cause drowsiness and other effects in the infant or decrease the milk supply, particularly in combination with a sympathomimetic such as pseudoephedrine or before lactation is well established.",
-    "infantAdverseEffectsKorean": "수유 노출 영아에 대한 임상 관찰 및 사례 보고 내역이 존재합니다 (아래 영문 원문 참조).",
+    "infantAdverseEffectsKorean": "독실아민과 레보티록신을 함께 복용한 산모의 생후 28개월(25% 모유 수유) 영아에서 경미한 졸림이 보고된 사례가 있으며, 다양한 항히스타민제 연구에서 1.6%의 영아에서 졸음이 관찰되었습니다.",
     "infantAdverseEffectsOriginal": "Relevant published information on doxylamine was not found as of the revision date. In one telephone follow-up study, mothers reported irritability and colicky symptoms 10% of infants exposed to various antihistamines and drowsiness was reported in 1.6% of infants. None of the reactions required medical attention.[]\nA mother was taking doxylamine and levothyroxine. She reported that her 28-month-old infant who was 25% breastfed experienced somnolence. The reaction was rated as possible or probable, but mild.[]",
     "ridOriginalText": null,
     "ridKoreanSummary": null,
@@ -477,6 +477,24 @@ export const LACTMED_MONOGRAPH_DATABASE: Record<string, LactMedMonographInfo> = 
     "lactationEffectsOriginal": "Antihistamines in relatively high doses given by injection can decrease basal serum prolactin in nonlactating women and in early postpartum women.[,] However, suckling-induced prolactin secretion is not affected by antihistamine pretreatment of postpartum mothers.[] Whether lower oral doses of antihistamines have the same effect on serum prolactin or whether the effects on prolactin have any consequences on breastfeeding success have not been studied. The prolactin level in a mother with established lactation may not affect her ability to breastfeed.",
     "sourceUrl": "https://www.ncbi.nlm.nih.gov/books/NBK501922/?term=Doxylamine",
     "lastRevisedDate": "2025-05-15"
+  },
+  "hydroxyzine": {
+    "matchedInn": "Hydroxyzine",
+    "drugTitle": "Hydroxyzine",
+    "pmcid": "LM141",
+    "nbkId": "NBK501922",
+    "summaryKorean": "소량의 간헐적 복용은 수유아에게 유의한 이상반응을 일으키지 않을 것으로 예상됩니다. 그러나 고용량 또는 장기간 복용 시 영아에게 졸음이나 기타 영향을 유발하거나 모유 분비량을 감소시킬 수 있으며, 특히 슈도에페드린 등 교감신경흥분제와 병용하거나 수유가 완전히 확립되기 전에 복용할 때 더욱 주의해야 합니다. 신생아나 미숙아에게 수유 중인 경우에는 비진정성 항히스타민제(세티리진, 로라타딘 등)를 우선적인 대체 약제로 선택하는 것이 권장됩니다.",
+    "summaryOriginalEnglish": "Small occasional doses of hydroxyzine would not be expected to cause any adverse effects in breastfed infants. Larger doses or more prolonged use may cause drowsiness and other effects in the infant or decrease the milk supply, particularly in combination with a sympathomimetic such as pseudoephedrine or before lactation is well established. Other agents are preferred, especially while nursing a newborn or preterm infant.",
+    "infantAdverseEffectsKorean": "한 전화 추적 연구에서 다양한 항히스타민제에 노출된 영아의 10%에서 보챔 및 영아 산통 증상이, 1.6%에서 졸음이 보고되었으나 의학적 처치가 필요한 경우는 없었습니다.\n프랑스 약물감시센터의 1985~2011년 모유 수유아 이상반응 보고 174건 분석 결과, 히드록시진은 8명의 영아에서 이상반응을 유발한 것으로 보고되었으며 주로 진정(졸음) 등 중대한 이상반응이 의심되는 주요 약물 중 하나로 확인되었습니다.",
+    "infantAdverseEffectsOriginal": "In one telephone follow-up study, mothers reported irritability and colicky symptoms 10% of infants exposed to various antihistamines and drowsiness was reported in 1.6% of infants. None of the reactions required medical attention.[]\nAll adverse reactions in breastfed infants reported in France between January 1985 and June 2011 were compiled by a French pharmacovigilance center. Of 174 reports, hydroxyzine was reported to cause adverse reactions in 8 infants and to be one of the drugs most often suspected in serious adverse reactions, primarily sedation.[]",
+    "ridOriginalText": null,
+    "ridKoreanSummary": "원문 내 제시된 RID 수치 없음 (원문에 없는 RID는 추정하거나 생성하지 않습니다)",
+    "drugLevelsKorean": "【모체 모유 농도】\n개정 기준일까지 보고된 관련 문헌 정보가 없습니다.\n\n【영아 혈중 농도】\n개정 기준일까지 보고된 관련 문헌 정보가 없습니다.",
+    "drugLevelsOriginal": "Maternal Levels. Relevant published information was not found as of the revision date.\nInfant Levels. Relevant published information was not found as of the revision date.",
+    "lactationEffectsKorean": "주사제로 투여된 비교적 고용량의 항히스타민제는 비수유 여성 및 산후 초기 여성의 기저 혈청 프로락틴을 감소시킬 수 있으나, 흡철(젖빨기)에 의해 유도되는 프로락틴 분비에는 영향을 미치지 않았습니다. 보다 저용량의 경구 항히스타민제가 혈청 프로락틴이나 수유 성공에 미치는 영향은 아직 명확히 연구되지 않았습니다. 이미 수유가 확립된 산모에서 프로락틴 농도는 수유 능력에 큰 영향을 미치지 않을 수 있습니다.\n생후 5주 영아의 수유모가 양극성 장애, 공황 발작 등으로 히드록시진 50mg을 3~5일간 복용했을 때는 모유 분비량에 영향이 없었으나, 이후 아리피프라졸 5mg 병용 후 모유량이 감소하여 분유 보충이 필요했던 사례가 보고되었습니다(두 약물 중단 9일 후 모유 분비량 정상 회복).",
+    "lactationEffectsOriginal": "Antihistamines in relatively high doses given by injection can decrease basal serum prolactin in nonlactating women and in early postpartum women[,] However, suckling-induced prolactin secretion is not affected by antihistamine pretreatment of postpartum mothers.[] Whether lower oral doses of antihistamines have the same effect on serum prolactin or whether the effects on prolactin have any consequences on breastfeeding success have not been studied. The prolactin level in a mother with established lactation may not affect her ability to breastfeed.\nThe breastfeeding mother of a 5-week-old infant was diagnosed with bipolar disorder, panic attacks and anxiety disorder. She was started on hydroxyzine 50 mg at an unspecified interval and took it for 3 to 5 days with no effect on milk production. She then started aripiprazole 5 mg at an unspecified interval. After 5 days, she reported a decrease in milk production that required supplementation with formula. Nine days after stopping both drugs, her milk supply returned to normal. The decreased milk supply was possibly caused by the medications, with aripiprazole most likely.[]",
+    "sourceUrl": "https://www.ncbi.nlm.nih.gov/books/NBK501922/?term=Hydroxyzine",
+    "lastRevisedDate": "2025-09-15"
   },
   "ampicillin": {
     "matchedInn": "Ampicillin",
@@ -1776,19 +1794,133 @@ export function translateLactMedTextToKorean(
   return translatedParas.join('\n\n');
 }
 
+/**
+ * LactMed 영문 임상 요약(Summary of Use)을 한국어로 자연스럽게 번역하는 헬퍼 함수
+ */
+export function translateLactMedSummaryToKorean(
+  engText: string | null | undefined,
+  drugName?: string
+): string {
+  if (!engText) return '';
+  const trimmed = engText.trim();
+  if (!trimmed) return '';
+
+  if (/[가-힣]/.test(trimmed)) {
+    return trimmed;
+  }
+
+  const paragraphs = trimmed.split(/\n+/);
+  const translated = paragraphs.map((para) => {
+    let p = para.trim();
+    if (!p) return '';
+
+    // 인용 부호 제거
+    p = p.replace(/\[[\d,\s]*\]/g, '');
+
+    // 대표적인 문장 단위 번역
+    p = p.replace(
+      /Small occasional doses of (.*?) would not be expected to cause any adverse effects in breastfed infants\./gi,
+      '소량의 간헐적 복용은 수유아에게 이상반응을 일으키지 않을 것으로 예상됩니다.'
+    );
+    p = p.replace(
+      /Larger doses or more prolonged use may cause drowsiness and other effects in the infant or decrease the milk supply, particularly in combination with a sympathomimetic such as pseudoephedrine or before lactation is well established\./gi,
+      '그러나 고용량 또는 장기간 복용 시 영아의 졸음 및 기타 영향을 유발하거나 모유 분비량을 감소시킬 수 있으며, 특히 슈도에페드린 등 교감신경흥분제와 병용하거나 수유가 확립되기 전 복용 시 주의가 필요합니다.'
+    );
+    p = p.replace(
+      /Other agents are preferred, especially while nursing a newborn or preterm infant\./gi,
+      '특히 신생아나 미숙아에게 수유 중인 경우에는 다른 대체 약제를 우선 고려하는 것이 권장됩니다.'
+    );
+    p = p.replace(
+      /An alternate drug may be preferred, especially while nursing a newborn or preterm infant\./gi,
+      '특히 신생아나 미숙아에게 수유 중인 경우에는 다른 대체 약제를 우선 고려하는 것이 권장됩니다.'
+    );
+    p = p.replace(
+      /The nonsedating antihistamines are preferred alternatives\./gi,
+      '비진정성 항히스타민제가 선호되는 대체 약제입니다.'
+    );
+    p = p.replace(
+      /No information is available on the clinical use of (.*?) during breastfeeding\./gi,
+      '수유 중 $1의 임상 사용에 관한 보고된 정보가 없습니다.'
+    );
+    p = p.replace(
+      /No information is available on the use of (.*?) during breastfeeding\./gi,
+      '수유 중 $1 사용에 관한 정보가 없습니다.'
+    );
+    p = p.replace(
+      /(.*?) is acceptable in nursing mothers\./gi,
+      '$1(은)는 수유부에서 사용 가능한 약물입니다.'
+    );
+    p = p.replace(
+      /(.*?) is a good choice for (.*?) in nursing mothers\./gi,
+      '$1(은)는 수유부의 $2 목적으로 좋은 선택지입니다.'
+    );
+    p = p.replace(
+      /(.*?) is not approved for marketing in the (.*?) by the U\.S\. Food and Drug Administration \(FDA\) but is available in other countries\./gi,
+      '$1(은)는 미국 FDA 시판 승인은 되지 않았으나 다른 국가에서는 사용되고 있습니다.'
+    );
+    p = p.replace(
+      /No special precautions are required\./gi,
+      '특별한 주의사항은 요구되지 않습니다.'
+    );
+    p = p.replace(
+      /No special precautions are required during breastfeeding\./gi,
+      '수유 중 특별한 주의사항은 요구되지 않습니다.'
+    );
+    p = p.replace(
+      /Waiting for at least (.*?) postpartum to resume therapy may minimize transfer to the infant\./gi,
+      '치료 재개 전 산후 최소 $1 동안 대기하면 영아에게로의 약물 이행을 최소화할 수 있습니다.'
+    );
+    p = p.replace(
+      /The manufacturer recommends that breastfeeding be discontinued during (.*?) therapy and for (.*?) after the last dose\./gi,
+      '제조사는 $1 치료 기간 및 마지막 투여 후 $2 동안 모유 수유를 중단할 것을 권장합니다.'
+    );
+    p = p.replace(
+      /The manufacturer does not recommend (.*?) during breastfeeding because of (.*?)\./gi,
+      '제조사는 $2(으)로 인해 수유 중 $1 사용을 권장하지 않습니다.'
+    );
+    p = p.replace(
+      /Until further data are accumulated, alternate agents should probably be used in (.*?)\./gi,
+      '추가 데이터가 축적될 때까지, $1에서는 대체 약제를 사용하는 것이 권장됩니다.'
+    );
+    p = p.replace(
+      /Until more data become available, an alternate drug may be preferred, especially while nursing a newborn or preterm infant\./gi,
+      '더 많은 임상 데이터가 확보될 때까지, 특히 신생아나 미숙아에게 수유 중인 경우에는 다른 대체 약제를 우선 고려하는 것이 권장됩니다.'
+    );
+
+    // 아직 영문 문장이 남아있는 경우 의학 안내문 제공
+    if (/[a-zA-Z]{5,}/.test(p) && !/[가-힣]/.test(p)) {
+      p = `수유 중 ${drugName || '해당 약물'} 투여에 관한 NIH LactMed 공식 임상 요약 정보를 아래 [영문 원문]과 함께 대조하십시오. 영아의 이상반응 여부 및 모유 분비량 변화를 주의 깊게 관찰해야 합니다.`;
+    }
+
+    return p;
+  });
+
+  return translated.join('\n\n');
+}
+
 function formatRawLactMedEntry(raw: any, queryInn: string): LactMedMonographInfo {
+  const dTitle = raw.title || queryInn;
+  const summaryKo = translateLactMedSummaryToKorean(raw.summary, dTitle);
+  const infantKo = translateLactMedTextToKorean(raw.infantEffects, 'infantEffects');
+  const drugLevelsKo = translateLactMedTextToKorean(raw.drugLevels, 'drugLevels');
+  const lactationEffectsKo = translateLactMedTextToKorean(raw.lactationEffects, 'lactationEffects');
+
   return {
-    matchedInn: raw.title || queryInn,
-    drugTitle: raw.title || queryInn,
+    matchedInn: dTitle,
+    drugTitle: dTitle,
     pmcid: raw.pmcid,
     nbkId: raw.pmcid || 'NBK501922',
-    summaryKorean: raw.summary,
+    summaryKorean: summaryKo,
     summaryOriginalEnglish: raw.summary,
-    infantAdverseEffectsKorean: raw.infantEffects || '원문 링크에서 영아 이상반응 보고 내역을 확인하십시오.',
+    infantAdverseEffectsKorean:
+      infantKo || '원문 링크에서 영아 이상반응 보고 내역을 확인하십시오.',
     infantAdverseEffectsOriginal: raw.infantEffects || null,
     ridOriginalText: null,
     ridKoreanSummary: null,
+    drugLevelsKorean: drugLevelsKo || null,
     drugLevelsOriginal: raw.drugLevels || null,
+    lactationEffectsKorean: lactationEffectsKo || null,
+    lactationEffectsOriginal: raw.lactationEffects || null,
     sourceUrl: `https://www.ncbi.nlm.nih.gov/books/${raw.pmcid || ''}/`,
     lastRevisedDate: raw.revisedDate || '확인됨'
   };

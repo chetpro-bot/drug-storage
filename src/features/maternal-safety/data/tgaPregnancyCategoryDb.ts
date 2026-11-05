@@ -213,6 +213,11 @@ export const TGA_PREGNANCY_DATABASE: Record<string, TgaRawRecord> = {
     category: 'A',
     noteKorean: '임신 중 입덧(오심·구토) 치료 등 다수의 임신부 복용 데이터가 축적되어 Category A로 분류됩니다.'
   },
+  hydroxyzine: {
+    inn: 'Hydroxyzine',
+    category: 'A',
+    noteKorean: '호주 TGA에서 Hydroxyzine은 다수의 임신부 복용 경험에서 기형 유발 또는 태아 유해 작용 빈도 증가가 입증되지 않아 Category A로 분류됩니다.'
+  },
 
   // 3. 항생제·항균제·항바이러스제·항진균제 (Anti-infectives)
   amoxicillin: {

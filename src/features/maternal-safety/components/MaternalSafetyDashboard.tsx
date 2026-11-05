@@ -1370,9 +1370,14 @@ const LactMedSummaryCard: React.FC<{ evalItem: IngredientSafetyEvaluation }> = (
           </div>
         </div>
       ) : (
-        <p className="text-xs text-slate-500">
-          NIH LactMed 데이터베이스에서 해당 성분의 자료가 확인되지 않습니다 (해당 성분 자료 없음).
-        </p>
+        <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-md text-xs text-slate-600 leading-relaxed space-y-1">
+          <p className="font-semibold text-slate-700">
+            미국 국립보건원(NIH) LactMed 데이터베이스에 해당 성분의 공식 모노그래프가 등재되어 있지 않습니다 (해당 성분 자료 없음).
+          </p>
+          <p className="text-[11px] text-slate-500">
+            ※ 클렌부테롤 등 미국 FDA 인체용 미승인 성분(국내 허가 의약품)이거나 관련 수유기 임상 연구 문헌이 부재한 경우 LactMed 등재 대상에서 제외됩니다.
+          </p>
+        </div>
       )}
     </div>
   );
@@ -1390,7 +1395,7 @@ const LactMedInfantAndRidCard: React.FC<{
     return (
       <div className="p-3 bg-slate-50/70 border border-slate-200 rounded text-xs text-slate-500">
         <span className="font-bold text-slate-800">{ingredient.koreanName}: </span>
-        해당 성분 자료 없음
+        미국 NIH LactMed 데이터베이스 미등재 (해당 성분 자료 없음)
       </div>
     );
   }

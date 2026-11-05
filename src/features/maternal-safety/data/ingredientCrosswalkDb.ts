@@ -368,6 +368,22 @@ export const INGREDIENT_CROSSWALK_TABLE: CrosswalkEntry[] = [
     representativeProductKeyword: '유시락스정'
   },
   {
+    inn: 'Ambroxol',
+    koreanBaseName: '암브록솔',
+    koreanSynonyms: ['암브록솔', '암브록솔염산염', '염산암브록솔'],
+    englishSynonyms: ['ambroxol', 'ambroxol hydrochloride', 'ambroxol hcl'],
+    durSearchKeyword: '암브록솔',
+    representativeProductKeyword: '뮤코펙트정'
+  },
+  {
+    inn: 'Clenbuterol',
+    koreanBaseName: '클렌부테롤',
+    koreanSynonyms: ['클렌부테롤', '클렌부테롤염산염', '염산클렌부테롤'],
+    englishSynonyms: ['clenbuterol', 'clenbuterol hydrochloride', 'clenbuterol hcl'],
+    durSearchKeyword: '클렌부테롤',
+    representativeProductKeyword: '스피로벤트정'
+  },
+  {
     inn: 'Ampicillin',
     koreanBaseName: '암피실린',
     koreanSynonyms: ['암피실린', '암피실린수화물', '암피실린나트륨'],

@@ -278,7 +278,11 @@ export function formatCleanAmount(amtText?: string | null): string {
 /**
  * 한국어 성분명과 대조하여 복합제 MAIN_INGR_ENG 목록 중 가장 적합한 영문 후보명을 선택
  */
-function findMatchingEngCandidate(korName: string, candidates: string[]): string {
+function findMatchingEngCandidate(
+  korName: string,
+  candidates: string[],
+  fallbackIdx?: number
+): string {
   if (candidates.length === 0) return '';
   if (candidates.length === 1) return candidates[0];
 
@@ -305,6 +309,27 @@ function findMatchingEngCandidate(korName: string, candidates: string[]): string
       return cNorm.includes(innNorm) || innNorm.includes(cNorm);
     });
     if (partial) return partial;
+  }
+
+  // 2. 한글-영문 음차/발음 대조 (크로스워크 미등록 성분 대비)
+  const phoneticMatch = candidates.find((cand) => {
+    const cLower = cand.toLowerCase();
+    if (korName.includes('암브록솔') && cLower.includes('ambroxol')) return true;
+    if (korName.includes('클렌부테롤') && cLower.includes('clenbuterol')) return true;
+    if (korName.includes('클로르페니라민') && cLower.includes('chlorpheniramine')) return true;
+    if (korName.includes('슈도에페드린') && cLower.includes('pseudoephedrine')) return true;
+    if (korName.includes('히드록시진') && cLower.includes('hydroxyzine')) return true;
+
+    const prefix = korName.slice(0, 2);
+    if (prefix === '암브' && cLower.startsWith('amb')) return true;
+    if (prefix === '클렌' && cLower.startsWith('clen')) return true;
+    return false;
+  });
+  if (phoneticMatch) return phoneticMatch;
+
+  // 3. 인덱스 기반 1:1 순서 매칭 (식약처 허가 MAIN_ITEM_INGR과 MAIN_INGR_ENG 순서는 동일함)
+  if (fallbackIdx !== undefined && fallbackIdx >= 0 && fallbackIdx < candidates.length) {
+    return candidates[fallbackIdx];
   }
 
   return '';
@@ -381,7 +406,8 @@ export function parseMfdsActiveIngredients(params: {
       commonTotqy = globalTotqyMatch[1].trim();
     }
 
-    for (const block of blocks) {
+    for (let blockIdx = 0; blockIdx < blocks.length; blockIdx++) {
+      const block = blocks[blockIdx];
       const fields: Record<string, string> = {};
       block.split('|').forEach((kv) => {
         const colonIdx = kv.indexOf(':');
@@ -424,8 +450,8 @@ export function parseMfdsActiveIngredients(params: {
       }
       amountText = formatCleanAmount(amountText);
 
-      // 인덱스 기반이 아닌, 성분명 매칭 기반으로 정확한 영문 후보 선별
-      const engHint = findMatchingEngCandidate(korName, engCandidates);
+      // 인덱스 기반 및 어근 매칭 기반으로 정확한 영문 후보 선별
+      const engHint = findMatchingEngCandidate(korName, engCandidates, blockIdx);
 
       // '아목시실린ㆍ클라불란산칼륨(4:1)'과 같이 두 가지 유효성분이 중점(ㆍ/·)으로 묶여 기재된 복합원료는 개별 유효성분으로 분리
       if (/[ㆍ·]/.test(korName) && !/셀룰로오스|이산화규소|만니톨|전분/.test(korName)) {

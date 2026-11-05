@@ -218,6 +218,18 @@ export const TGA_PREGNANCY_DATABASE: Record<string, TgaRawRecord> = {
     category: 'A',
     noteKorean: '호주 TGA에서 Hydroxyzine은 다수의 임신부 복용 경험에서 기형 유발 또는 태아 유해 작용 빈도 증가가 입증되지 않아 Category A로 분류됩니다.'
   },
+  ambroxol: {
+    inn: 'Ambroxol',
+    category: 'C',
+    noteKorean:
+      '호주 TGA 및 국제 임상 데이터 기준 Category C로 분류됩니다. 브롬헥신의 활성 대사체(점액용해제)로서, 약리 작용으로 인해 임신 초기에는 투여를 피하고 치료상의 유익성이 태아에 대한 위험성을 상회하는 경우에만 신중히 투여합니다.'
+  },
+  clenbuterol: {
+    inn: 'Clenbuterol',
+    category: 'C',
+    noteKorean:
+      '호주 TGA(인체용 미등록/국제 임상 기준 Category C) 및 국내 식약처 DUR 임부금기 2등급 대상 약물입니다. 장시간 작용형 베타-2 효능제로서 동물실험에서 임신 후기 투여 시 자궁근 수축 억제 및 분만 지연을 유발할 수 있어 임신 말기 투여가 금기시됩니다.'
+  },
 
   // 3. 항생제·항균제·항바이러스제·항진균제 (Anti-infectives)
   amoxicillin: {

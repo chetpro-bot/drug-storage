@@ -977,6 +977,40 @@ export const INGREDIENT_CROSSWALK_TABLE: CrosswalkEntry[] = [
     englishSynonyms: ['folic acid', 'folate'],
     durSearchKeyword: '폴산',
     representativeProductKeyword: '폴산정'
+  },
+  {
+    inn: 'Pelargonium Sidoides',
+    koreanBaseName: '펠라고니움시도이데스',
+    koreanSynonyms: [
+      '펠라고니움시도이데스',
+      '펠라고니움',
+      '움카민',
+      '펠라고니움시도이데스추출물',
+      '펠라고니움시도이데스건조엑스',
+      '펠라고니움시도이데스에탄올추출물',
+      '펠라고니움시도이데스11%에탄올추출물',
+      '펠라고니움시도이데스11%에탄올추출물(1→8~10)',
+      '펠라고니움시도이데스11%에탄올추출물(1->8~10)',
+      '펠라고니움시도이데스11%에탄올추출물(1→8~10)·말토덱스트린혼합물(1:4.56)',
+      '펠라고니움시도이데스11%에탄올추출물(1->8~10)·말토덱스트린혼합물(1:4.56)',
+      '펠라고니움시도이데스11%에탄올추출물(1→8~10)·말토덱스트린혼합물',
+      '움카로아보'
+    ],
+    englishSynonyms: [
+      'pelargonium sidoides',
+      'pelargonium',
+      'umckaloabo',
+      'eps 7630',
+      'pelargonium sidoides extract',
+      'pelargonium sidoides root extract',
+      'pelargonium sidoides 11% ethanol extract',
+      'pelargonium sidoides 11% ethanol extract (1→8~10)',
+      'pelargonium sidoides 11% ethanol extract (1->8~10)',
+      'pelargonium sidoides 11% ethanol extract (1→8~10)·maltodextrin mixed solution (1:4.56)',
+      'pelargonium sidoides 11% ethanol extract (1->8~10)·maltodextrin mixed solution (1:4.56)'
+    ],
+    durSearchKeyword: '펠라고니움시도이데스',
+    representativeProductKeyword: '움카민시럽'
   }
 ];
 
@@ -987,6 +1021,21 @@ export function cleanIngrToken(raw: string): string {
     .replace(/밀리그램|밀리그람|마이크로그램|그램|아이\.유/g, '')
     .replace(/\s+/g, '')
     .toLowerCase();
+}
+
+/**
+ * 생약 추출물 규격·부형제 혼합물(담체)·추출비 표기를 제거하여 유효 성분 기본명을 추출하는 헬퍼
+ */
+export function normalizeHerbalOrSaltName(raw: string): string {
+  return raw
+    .replace(/\[M[0-9]+\]/gi, '')
+    .replace(/[ㆍ·]?(?:말토덱스트린|덱스트린|셀룰로오스|만니톨|전분|유당)혼합물(?:\([^)]*\))?/gi, '')
+    .replace(/\d+%에탄올(?:추출물|엑스|건조엑스)?/gi, '')
+    .replace(/\(\d+→\d+~?\d*\)/g, '')
+    .replace(/\(\d+->\d+~?\d*\)/g, '')
+    .replace(/\(\d+:\d+(?:\.\d+)?\)/g, '')
+    .replace(/추출물|건조엑스|유동엑스|연조엑스|틴크|엑스/gi, '')
+    .trim();
 }
 
 /**
@@ -1132,34 +1181,24 @@ export function matchDomesticIngredientToOverseasInn(params: {
   const engRaw = (params.englishName || '').replace(/\[M[0-9]+\]/gi, '').trim();
   const korNorm = cleanIngrToken(korRaw);
   const engNorm = cleanIngrToken(engRaw);
+  const herbalKorNorm = cleanIngrToken(normalizeHerbalOrSaltName(korRaw));
+  const herbalEngNorm = cleanIngrToken(normalizeHerbalOrSaltName(engRaw));
 
-  // 생약 추출물·엑스·틴크·건조효모 등은 단일 화학성분 해외 DB와 1:1 매칭이 불확실하므로 UNCERTAIN 처리
-  if (/엑스|추출물|틴크|류코노스톡|건조효모|우황|감초|길경|반하|마황|작약|당귀|천궁|시호|황금/.test(korRaw)) {
-    return {
-      koreanName: korRaw,
-      englishName: engRaw,
-      matchedInn: null,
-      amountText: params.amountText || '',
-      dosageForm: params.dosageForm,
-      route: params.route,
-      saltOrFormNote: '생약/추출물/복합원료 성분',
-      matchConfidence: 'UNCERTAIN',
-      matchWarningNote:
-        '생약·추출물 원료는 해외 단일 화학성분 분류(TGA/LactMed)와 1:1 성분 매칭이 불확실하므로 해외 등급을 표시하지 않습니다.'
-    };
-  }
-
-  // 1. 한국어 원료성분명(korNorm) 기반 1순위 매칭 (국내 의약품 허가자료 기준)
-  if (korNorm) {
+  // 1. 한국어 원료성분명(korNorm 또는 생약 정규화명) 기반 1순위 매칭 (국내 의약품 허가자료 기준)
+  if (korNorm || herbalKorNorm) {
     for (const entry of INGREDIENT_CROSSWALK_TABLE) {
-      const isBaseExact = korNorm === cleanIngrToken(entry.koreanBaseName);
-      const isSaltMatched = entry.koreanSynonyms.some((s) => cleanIngrToken(s) === korNorm);
+      const entryBaseNorm = cleanIngrToken(entry.koreanBaseName);
+      const isBaseExact = korNorm === entryBaseNorm || (herbalKorNorm && herbalKorNorm === entryBaseNorm);
+      const isSaltMatched = entry.koreanSynonyms.some((s) => {
+        const sNorm = cleanIngrToken(s);
+        return sNorm === korNorm || (herbalKorNorm && sNorm === herbalKorNorm);
+      });
 
       if (isBaseExact || isSaltMatched) {
         const confidence: IngredientMatchConfidence = isBaseExact ? 'EXACT' : 'SALT_MAPPED';
         const saltNote =
           !isBaseExact && korRaw !== entry.koreanBaseName
-            ? `원료 염/프로드러그 형태(${korRaw})에서 유효 주성분(${entry.inn}) 기준으로 매칭됨`
+            ? `원료 형태(${korRaw})에서 유효 주성분(${entry.inn}) 기준으로 매칭됨`
             : undefined;
 
         const prefEng = getPreferredEnglishName(params.englishName || engRaw, korRaw, entry.inn);
@@ -1178,11 +1217,15 @@ export function matchDomesticIngredientToOverseasInn(params: {
     }
   }
 
-  // 1-2. 한국어 명칭이 없거나 한국어로 매칭되지 않은 경우, 영문명(engNorm)으로 단독 매칭
-  if (!korNorm && engNorm) {
+  // 1-2. 한국어 명칭이 없거나 한국어로 매칭되지 않은 경우, 영문명(engNorm 또는 생약 정규화명)으로 매칭
+  if (engNorm || herbalEngNorm) {
     for (const entry of INGREDIENT_CROSSWALK_TABLE) {
-      const isBaseExact = engNorm === cleanIngrToken(entry.inn);
-      const isSaltMatched = entry.englishSynonyms.some((s) => cleanIngrToken(s) === engNorm);
+      const entryInnNorm = cleanIngrToken(entry.inn);
+      const isBaseExact = engNorm === entryInnNorm || (herbalEngNorm && herbalEngNorm === entryInnNorm);
+      const isSaltMatched = entry.englishSynonyms.some((s) => {
+        const sNorm = cleanIngrToken(s);
+        return sNorm === engNorm || (herbalEngNorm && sNorm === herbalEngNorm);
+      });
 
       if (isBaseExact || isSaltMatched) {
         const prefEng = getPreferredEnglishName(params.englishName || engRaw, korRaw, entry.inn);
@@ -1193,7 +1236,7 @@ export function matchDomesticIngredientToOverseasInn(params: {
           amountText: params.amountText || '',
           dosageForm: params.dosageForm,
           route: params.route,
-          saltOrFormNote: !isBaseExact ? `영문 염 형태(${engRaw})에서 유효 주성분(${entry.inn}) 기준으로 매칭됨` : undefined,
+          saltOrFormNote: !isBaseExact ? `원료 규격(${engRaw || korRaw})에서 주성분(${entry.inn}) 매칭됨` : undefined,
           matchConfidence: isBaseExact ? 'EXACT' : 'SALT_MAPPED'
         };
       }
@@ -1288,6 +1331,22 @@ export function matchDomesticIngredientToOverseasInn(params: {
         ? `원료 형태(${korRaw})에서 염·프로드러그를 분리하여 주성분(${formattedInn}) 기준으로 매칭됨`
         : undefined,
       matchConfidence: hasSaltStripped ? 'SALT_MAPPED' : 'EXACT'
+    };
+  }
+
+  // 6. 테이블 미등록 생약 추출물·엑스·틴크·건조효모 등은 해외 단일 화학성분 매칭이 불확실하므로 UNCERTAIN 처리
+  if (/엑스|추출물|틴크|류코노스톡|건조효모|우황|감초|길경|반하|마황|작약|당귀|천궁|시호|황금/.test(korRaw)) {
+    return {
+      koreanName: korRaw,
+      englishName: engRaw,
+      matchedInn: null,
+      amountText: params.amountText || '',
+      dosageForm: params.dosageForm,
+      route: params.route,
+      saltOrFormNote: '미등록 생약/추출물/한방 복합원료',
+      matchConfidence: 'UNCERTAIN',
+      matchWarningNote:
+        '해외 단일 성분 분류(TGA/LactMed)와 1:1 매칭이 지원되지 않는 생약·추출물 원료이므로 해외 등급을 표시하지 않습니다.'
     };
   }
 

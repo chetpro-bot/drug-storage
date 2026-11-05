@@ -454,7 +454,11 @@ export function parseMfdsActiveIngredients(params: {
       const engHint = findMatchingEngCandidate(korName, engCandidates, blockIdx);
 
       // '아목시실린ㆍ클라불란산칼륨(4:1)'과 같이 두 가지 유효성분이 중점(ㆍ/·)으로 묶여 기재된 복합원료는 개별 유효성분으로 분리
-      if (/[ㆍ·]/.test(korName) && !/셀룰로오스|이산화규소|만니톨|전분/.test(korName)) {
+      // 단, 말토덱스트린, 덱스트린, 셀룰로오스, 전분, 유당 등 부형제/담체 혼합물이거나 생약 추출물 담체는 단일 성분으로 유지
+      const CARRIER_EXCIPIENT_RE =
+        /말토덱스트린|덱스트린|셀룰로오스|이산화규소|만니톨|전분|유당|백당|포도당|소르비톨|글리세린|혼합물|담체|부형제|혼합분말|혼합액/i;
+
+      if (/[ㆍ·]/.test(korName)) {
         const subKorParts = korName
           .replace(/\([0-9]+:[0-9]+\)/g, '')
           .split(/[ㆍ·]/)
@@ -466,7 +470,9 @@ export function parseMfdsActiveIngredients(params: {
           .map((s) => s.trim())
           .filter(Boolean);
 
-        if (subKorParts.length > 1) {
+        const hasCarrier = subKorParts.some((p) => CARRIER_EXCIPIENT_RE.test(p));
+
+        if (!hasCarrier && subKorParts.length > 1) {
           subKorParts.forEach((subKor, sIdx) => {
             results.push(
               matchDomesticIngredientToOverseasInn({

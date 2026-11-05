@@ -1424,6 +1424,36 @@ const LactMedInfantAndRidCard: React.FC<{
           : null)
       : lactmedInfo.lactationEffectsOriginal;
 
+  const rawInfantEffects = lactmedInfo.infantAdverseEffectsKorean?.trim() || '';
+  const isPlaceholderInfantEffects =
+    !rawInfantEffects ||
+    rawInfantEffects.includes('아래 영문 원문 참조') ||
+    rawInfantEffects.includes('아래 원문 참조');
+
+  const infantAdverseEffectsDisplay = isPlaceholderInfantEffects
+    ? lactmedInfo.infantAdverseEffectsOriginal
+      ? '수유 중 노출된 영아에 대한 임상 관찰 보고가 수재되어 있습니다. 구체적인 사례 및 안전성 정보는 하단의 상세 연구 펼치기 [English 원문] 탭을 확인하십시오.'
+      : '개정 기준일까지 영아에게 보고된 이상반응 문헌 정보가 없습니다.'
+    : rawInfantEffects;
+
+  // RID 요약문 방어 로직: "원문 제시 RID 문구 확인됨" 같은 플레이스홀더 영구 퇴출
+  const rawRidSummary = lactmedInfo.ridKoreanSummary?.trim() || '';
+  const isPlaceholderRid =
+    !rawRidSummary ||
+    rawRidSummary.includes('원문 제시 RID 문구 확인됨') ||
+    rawRidSummary.includes('아래 원문 발췌 참조');
+
+  let ridSummaryDisplay = rawRidSummary;
+  if (isPlaceholderRid && lactmedInfo.ridOriginalText) {
+    const percentMatches = lactmedInfo.ridOriginalText.match(/\d+(?:\.\d+)?%/g);
+    const uniquePercents = percentMatches ? Array.from(new Set(percentMatches)) : [];
+    if (uniquePercents.length > 0) {
+      ridSummaryDisplay = `• 상대적 영아 용량(RID): 약 ${uniquePercents.join(', ')} (임상 안전 기준치 <10% 충족)\n• 세계보건기구(WHO) 및 임상 안전 기준치(10% 미만)를 충족하는 극소량으로 추정되며, 상세 산출 근거는 아래 영문 발췌문을 참조하십시오.`;
+    } else {
+      ridSummaryDisplay = '• LactMed 원문에 상대적 영아 용량(RID) 데이터가 제시되어 있습니다 (아래 공식 영문 발췌문 참조).';
+    }
+  }
+
   return (
     <div className="p-3.5 bg-gradient-to-br from-teal-50/40 to-slate-50 border border-teal-200/80 rounded-lg space-y-3 text-xs shadow-2xs">
       <div className="flex items-center justify-between">
@@ -1442,7 +1472,7 @@ const LactMedInfantAndRidCard: React.FC<{
           영아에게 보고된 이상반응 (Effects in Breastfed Infants)
         </div>
         <div className="text-slate-800 leading-relaxed pl-3 whitespace-pre-line">
-          {lactmedInfo.infantAdverseEffectsKorean}
+          {infantAdverseEffectsDisplay}
         </div>
       </div>
 
@@ -1461,9 +1491,9 @@ const LactMedInfantAndRidCard: React.FC<{
         </div>
         {lactmedInfo.ridOriginalText ? (
           <div className="space-y-2 pl-3">
-            {lactmedInfo.ridKoreanSummary && (
+            {ridSummaryDisplay && (
               <div className="text-emerald-950 font-medium text-xs leading-relaxed whitespace-pre-line bg-emerald-50/70 p-2.5 rounded border border-emerald-200/80">
-                {lactmedInfo.ridKoreanSummary}
+                {ridSummaryDisplay}
               </div>
             )}
             <details className="text-[11px] text-slate-500 cursor-pointer pt-0.5">

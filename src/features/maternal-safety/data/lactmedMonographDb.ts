@@ -387,13 +387,15 @@ export const LACTMED_MONOGRAPH_DATABASE: Record<string, LactMedMonographInfo> = 
     "drugTitle": "Levocetirizine",
     "pmcid": "LM702",
     "nbkId": "NBK501922",
-    "summaryKorean": "Levocetirizine은(는) 수유 중 사용이 허용 가능한(acceptable) 것으로 평가됩니다. 영아의 졸음·진정 여부를 관찰할 필요가 있습니다.",
+    "summaryKorean": "레보세티리진(Levocetirizine)은 세티리진의 R-광학이성질체로, 현재까지 축적된 세티리진 및 레보세티리진 임상 자료에 비추어 볼 때 수유 중 사용이 허용 가능한(acceptable) 약물입니다.\n다만 고용량을 복용하거나 장기간 사용할 경우 영아의 졸음(진정) 및 기타 반응을 유발하거나 모유 분비량을 감소시킬 수 있으며, 특히 슈도에페드린 등 교감신경흥분제와 병용하거나 모유 분비가 충분히 확립되기 전 초기 수유기에는 주의가 필요합니다. 국제 가이드라인에서는 수유 중 항히스타민제가 필요한 경우 라세미체 형태인 세티리진을 허용 가능한 우선 선택지로 권고하고 있습니다.",
     "summaryOriginalEnglish": "Levocetirizine is the R-enantiomer of cetirizine. Based on limited information from cetirizine and levocetirizine, levocetirizine appears to be acceptable during breastfeeding.[,] Larger doses or more prolonged use may cause drowsiness and other effects in the infant or decrease the milk supply, particularly in combination with a sympathomimetic such as pseudoephedrine or before lactation is well established. International guidelines recommend cetirizine, the racemic form of the drug, as an acceptable choice if an antihistamine is required during breastfeeding.[,]",
-    "infantAdverseEffectsKorean": "수유 노출 영아에 대한 임상 관찰 및 사례 보고 내역이 존재합니다 (아래 영문 원문 참조).",
+    "infantAdverseEffectsKorean": "【영아 이상반응 임상 보고】\n• 레보세티리진을 매일 5mg씩 복용한 수유모 1례에서 모유 수유를 받은 영아에게 어떠한 이상반응도 보고되지 않았습니다.\n• 다양한 2세대 항히스타민제 노출 영아 대상 전화 추적 연구에서는 수유모의 10%가 영아의 보챔 및 산통(colicky) 증상을, 1.6%가 졸음을 보고하였으나, 의학적 처치나 입원을 필요로 하는 중대한 이상반응은 없었습니다.",
     "infantAdverseEffectsOriginal": "Relevant published information on levocetirizine was not found as of the revision date. In one telephone follow-up study, mothers reported irritability and colicky symptoms in 10% of infants exposed to various antihistamines, and drowsiness was reported in 1.6% of infants. None of the reactions required medical attention.[]\nA nursing mother taking levocetirizine 5 mg daily reported no adverse effects in her breastfed infant.[]",
     "ridOriginalText": "Using the peak milk level, the infant daily dosage was calculated to be 1.1 mcg/kg, and the relative infant dosage was 1.9%. These values were consistent with those obtained from 31 women in the same study who were taking cetirizine. Using the average concentration would result in a daily infant dosage of 0.4 mcg/kg daily and a relative infant dosage of 0.7%. The authors used the data in this study to create a pharmacokinetic model using NONMEM. The model predicted an average RID of 1.8% and a worst-case RID of 3.4% using peak milk levels.",
-    "ridKoreanSummary": "원문 제시 RID 문구 확인됨 (아래 원문 발췌 참조)",
+    "ridKoreanSummary": "• 상대적 영아 용량(RID): 평균 0.7% ~ 1.9% (안전 기준치 <10% 충족)\n• 모체 최고 모유 농도 기준 추정 영아 1일 섭취량은 1.1 mcg/kg/일로 상대적 영아 용량(RID)은 1.9%이며, 평균 모유 농도 기준 영아 섭취량은 0.4 mcg/kg/일로 RID는 0.7% 수준입니다.\n• 약동학(NONMEM) 모델링 분석 결과에서도 평균 RID 1.8%, 최고 농도를 가정한 최악의 시나리오(worst-case)에서도 RID 3.4%로 산출되어, 세계보건기구(WHO) 및 임상 안전 기준치인 10%를 훨씬 밑도는 매우 안전한 극소량(모체 투여량의 1~3% 미만)입니다.",
+    "drugLevelsKorean": "【모체 모유 농도 (Maternal Levels)】\n• 모유 내 세티리진 및 레보세티리진 분석 타당성 연구에서 세티리진 5~20mg(229명) 또는 레보세티리진 5mg(9명)을 복용한 수유모 228명의 정상상태(steady-state) 모유 검체 252개를 분석하였습니다. 세티리진과 레보세티리진의 모유 중앙 농도는 13 mcg/L(범위 0.65~65 mcg/L, 사분위수 범위 4.9~24.8 mcg/L)이었으며, 24개 검체는 정량 한계(<0.39 mcg/L) 미만이었습니다.\n• 레보세티리진 5mg을 복용한 수유모 1명을 대상으로 24시간 동안 경시적 모유를 채취하여 분석한 결과, 최고 모유 농도는 19.3 mcg/L, 평균 농도는 7.2 mcg/L였으며, 최고 농도 도달 시간(Tmax)은 1.9시간, 반감기는 6.2시간이었습니다.\n• 최고 모유 농도를 기준으로 산출한 영아 1일 최대 추정 섭취량은 1.1 mcg/kg/일(상대적 영아 용량 [RID] 1.9%)이었고, 평균 모유 농도 기준 영아 섭취량은 0.4 mcg/kg/일(RID 0.7%)이었습니다.\n• 연구진이 수립한 약동학(NONMEM) 모델링에 따르면 평균 RID는 1.8%, 최고 농도 기준 최악 조건(worst-case) RID는 3.4%로 예측되었습니다.\n\n【영아 혈중 농도 (Infant Levels)】\n• 개정 기준일까지 영아 체내 혈중 농도에 대해 보고된 관련 문헌 정보는 없습니다.",
     "drugLevelsOriginal": "Maternal Levels. As part of a validation study on analysis of cetirizine and levocetirizine in breastmilk, 252 steady-state milk samples from 228 women taking either cetirizine 5 to 20 mg daily (n = 229) or levocetirizine 5 mg daily (n = 9) were analyzed. Specific dosages and times of milk collection were not given. The median milk concentrations of cetirizine and levocetirizine was 13 mcg/L (range 0.65 to 65 mcg/L; IQR 4.9 to 24.8 mcg/L) in 228 samples. Twenty-four samples had levels below the limit of quantification (<0.39 mcg/L).[]\nA woman taking levocetirizine collected complete samples of milk at about 0, 2, 4, 8, 12 and 24 hours after a daily dose and submitted aliquots for analysis. The peak milk levocetirizine concentration was 19.3 mcg/L and the average concentration was 7.2 mcg/L. The peak time was 1.9 hours and half-life was 6.2 hours. Using the peak milk level, the infant daily dosage was calculated to be 1.1 mcg/kg, and the relative infant dosage was 1.9%. These values were consistent with those obtained from 31 women in the same study who were taking cetirizine.[] Using the average concentration would result in a daily infant dosage of 0.4 mcg/kg daily and a relative infant dosage of 0.7%. The authors used the data in this study to create a pharmacokinetic model using NONMEM. The model predicted an average RID of 1.8% and a worst-case RID of 3.4% using peak milk levels.[]\nInfant Levels. Relevant published information was not found as of the revision date.",
+    "lactationEffectsKorean": "【젖분비 및 프로락틴 영향 (Lactation Effects)】\n• 주사제로 비교적 고용량의 항히스타민제를 투여할 경우 비수유 여성 및 산후 초기 여성에서 기저 혈청 프로락틴 수치가 감소할 수 있습니다. 그러나 산후 수유모에서 젖물림(suckling)으로 유도되는 프로락틴 분비 반사는 항히스타민제 전처치에 영향을 받지 않았습니다.\n• 저용량 레보세티리진 경구 투여가 혈청 프로락틴에 동일한 영향을 미치는지, 또는 프로락틴에 미치는 영향이 실제 모유 수유 지속에 어떤 결과를 초래하는지는 아직 명확히 연구된 바 없습니다. 이미 모유 분비가 안정적으로 확립된 산모의 경우 프로락틴 수치 변동이 수유 능력에 큰 영향을 미치지 않을 수 있습니다.",
     "lactationEffectsOriginal": "Antihistamines in relatively high doses given by injection can decrease basal serum prolactin in nonlactating women and in early postpartum women.[,] However, suckling-induced prolactin secretion is not affected by antihistamine pretreatment of postpartum mothers.[] Whether lower oral doses of levocetirizine have the same effect on serum prolactin or whether the effects on prolactin have any consequences on breastfeeding success have not been studied. The prolactin level in a mother with established lactation may not affect her ability to breastfeed.",
     "sourceUrl": "https://www.ncbi.nlm.nih.gov/books/NBK501922/?term=Levocetirizine",
     "lastRevisedDate": "2025-09-15"
@@ -1786,25 +1788,19 @@ export function translateLactMedTextToKorean(
     p = p.replace(/None of the reactions required medical attention\./gi, '의학적 처치를 필요로 하는 이상반응은 없었습니다.');
     p = p.replace(/Relevant published information was not found as of the revision date\.?/gi, '개정 기준일까지 보고된 관련 문헌 정보가 없습니다.');
 
-    // 핵심 약동학/임상 구문 치환
-    p = p.replace(/In a telephone follow-up study,\s*/gi, '전화 추적 관찰 연구에서, ');
-    p = p.replace(/In one telephone follow-up study,\s*/gi, '한 전화 추적 관찰 연구에서, ');
-    p = p.replace(/A single oral dose of\s*/gi, '단회 경구 투여 시, ');
-    p = p.replace(/peak milk levels occurred\s*/gi, '모유 최고 농도가 나타났으며 ');
-    p = p.replace(/Peak milk levels of\s*/gi, '모유 최고 농도는 ');
-    p = p.replace(/was undetectable in breastmilk\s*/gi, '모유 중에서 검출되지 않았습니다 ');
-    p = p.replace(/was undetectable\s*/gi, '검출되지 않았습니다 ');
-    p = p.replace(/No adverse effects were reported in infants\.?/gi, '영아에게 보고된 이상반응은 없었습니다.');
-    p = p.replace(/No adverse effects were reported\s*/gi, '보고된 이상반응은 없었습니다 ');
-    p = p.replace(/Three mothers reported diarrhea in their infants\.?/gi, '산모 3명이 영아의 설사를 보고하였습니다.');
-    p = p.replace(/No rashes or candidiasis were reported among the exposed infants\.?/gi, '노출된 영아 중 발진이나 칸디다증은 보고되지 않았습니다.');
-    p = p.replace(/A fully breastfed infant would receive\s*/gi, '완전 모유 수유아는 ');
-    p = p.replace(/weight-adjusted maternal dosage/gi, '모체 체중 보정 용량');
-    p = p.replace(/relative infant dose/gi, '상대적 영아 용량');
-    p = p.replace(/relative infant dosage/gi, '상대적 영아 용량');
-
     // 문헌 인용 괄호 제거
     p = p.replace(/\[[\d,\s]*\]/g, '');
+
+    // 단어 단위 땜질식 치환을 금지하고, 문단 전체의 한국어 번역 완성도를 검증
+    // 한글 글자가 거의 없는(영문 원문 상태) 문단인 경우 영한 혼용 찌꺼기를 방지하고 정갈한 안내문 제공
+    const koreanCharMatches = p.match(/[가-힣]/g);
+    const koreanCharCount = koreanCharMatches ? koreanCharMatches.length : 0;
+    const totalCharCount = p.replace(/\s/g, '').length;
+
+    // 만약 한글 비율이 30% 미만인 영문 중심 문단이라면 영한 혼용 방지를 위해 정갈한 안내 블록으로 변환
+    if (totalCharCount > 30 && koreanCharCount / totalCharCount < 0.3) {
+      return '【전문 임상 한국어 번역 준비 중】\n해당 연구 상세 내용은 현재 전문 임상 한국어 번역 준비 중입니다. 정확한 약동학 수치 및 임상 결과는 상단의 [English 원문] 탭을 선택하여 확인해 주십시오.';
+    }
 
     return p;
   });

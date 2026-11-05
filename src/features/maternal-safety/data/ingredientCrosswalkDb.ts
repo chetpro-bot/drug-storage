@@ -1070,6 +1070,37 @@ export function stripSaltsAndEsters(korName: string, engName?: string): {
   };
 }
 
+function getPreferredEnglishName(providedEng?: string, korName?: string, inn?: string): string {
+  const cleanEng = (providedEng || '').replace(/\[M[0-9]+\]/gi, '').trim();
+  if (cleanEng) {
+    return cleanEng;
+  }
+  if (!inn) return korName || '';
+  if (!korName) return inn;
+
+  // 국내 흔한 염/수화물 접미사 영문화
+  if (/염산염수화물$/i.test(korName)) return `${inn} Hydrochloride Hydrate`;
+  if (/염산염$/i.test(korName)) return `${inn} Hydrochloride`;
+  if (/황산염$/i.test(korName)) return `${inn} Sulfate`;
+  if (/질산염$/i.test(korName)) return `${inn} Nitrate`;
+  if (/인산염$/i.test(korName)) return `${inn} Phosphate`;
+  if (/브롬화수소산염$/i.test(korName)) return `${inn} Hydrobromide`;
+  if (/말레산염$/i.test(korName)) return `${inn} Maleate`;
+  if (/숙신산염$/i.test(korName)) return `${inn} Succinate`;
+  if (/푸마르산염$/i.test(korName)) return `${inn} Fumarate`;
+  if (/타르타르산염$/i.test(korName)) return `${inn} Tartrate`;
+  if (/베실산염$/i.test(korName)) return `${inn} Besylate`;
+  if (/메실산염$/i.test(korName)) return `${inn} Mesylate`;
+  if (/아세트산염$/i.test(korName)) return `${inn} Acetate`;
+  if (/수화물$/i.test(korName)) return `${inn} Hydrate`;
+  if (/나트륨$/i.test(korName)) return `${inn} Sodium`;
+  if (/칼륨$/i.test(korName)) return `${inn} Potassium`;
+  if (/칼슘$/i.test(korName)) return `${inn} Calcium`;
+  if (/파모산염$/i.test(korName)) return `${inn} Pamoate`;
+
+  return inn;
+}
+
 /**
  * 국내 식약처 원문 성분명(한글/영문)을 해외 표준 성분(INN)과 매칭하고,
  * 염(Salt), 제형, 투여경로 및 매칭 확실성(EXACT / SALT_MAPPED / UNCERTAIN / UNMATCHED)을 판별
@@ -1115,9 +1146,11 @@ export function matchDomesticIngredientToOverseasInn(params: {
             ? `원료 염/프로드러그 형태(${korRaw})에서 유효 주성분(${entry.inn}) 기준으로 매칭됨`
             : undefined;
 
+        const prefEng = getPreferredEnglishName(params.englishName || engRaw, korRaw, entry.inn);
+
         return {
           koreanName: korRaw,
-          englishName: entry.inn, // 염(Salt)을 배제한 유효 주성분 표준 INN(예: Tramadol)으로 매칭
+          englishName: prefEng,
           matchedInn: entry.inn,
           amountText: params.amountText || '',
           dosageForm: params.dosageForm,
@@ -1136,9 +1169,10 @@ export function matchDomesticIngredientToOverseasInn(params: {
       const isSaltMatched = entry.englishSynonyms.some((s) => cleanIngrToken(s) === engNorm);
 
       if (isBaseExact || isSaltMatched) {
+        const prefEng = getPreferredEnglishName(params.englishName || engRaw, korRaw, entry.inn);
         return {
           koreanName: korRaw || entry.koreanBaseName,
-          englishName: entry.inn, // 주성분 INN 기준 매칭
+          englishName: prefEng,
           matchedInn: entry.inn,
           amountText: params.amountText || '',
           dosageForm: params.dosageForm,
@@ -1162,9 +1196,10 @@ export function matchDomesticIngredientToOverseasInn(params: {
 
       if (baseKorNorm ? baseKorNorm === entryKorNorm : (baseEngNorm && baseEngNorm === entryInnNorm)) {
         const removedDescr = [stripped.strippedKorPart, stripped.strippedEngWords].filter(Boolean).join(' / ');
+        const prefEng = getPreferredEnglishName(params.englishName || engRaw, korRaw, entry.inn);
         return {
           koreanName: korRaw,
-          englishName: entry.inn, // 주성분 INN 기준 매칭
+          englishName: prefEng,
           matchedInn: entry.inn,
           amountText: params.amountText || '',
           dosageForm: params.dosageForm,

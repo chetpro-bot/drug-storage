@@ -344,6 +344,13 @@ export function parseMfdsActiveIngredients(params: {
       .map((b) => b.trim())
       .filter(Boolean);
 
+    // 전체 materialName에서 공통 총량 패턴 사전 탐색 (블록마다 생략될 수 있으므로)
+    let commonTotqy = '';
+    const globalTotqyMatch = materialName.match(/총량\s*:\s*([^|;]+)/);
+    if (globalTotqyMatch) {
+      commonTotqy = globalTotqyMatch[1].trim();
+    }
+
     for (const block of blocks) {
       const fields: Record<string, string> = {};
       block.split('|').forEach((kv) => {
@@ -366,13 +373,33 @@ export function parseMfdsActiveIngredients(params: {
       if (unit === '밀리그램' || unit === '밀리그람') unit = 'mg';
       else if (unit === '마이크로그램' || unit === '마이크로그람') unit = 'μg';
       else if (unit === '그램' || unit === '그람') unit = 'g';
+      else if (unit === '밀리리터' || unit === '밀리리타') unit = 'mL';
 
       const info = (fields['성분정보'] || '')
         .replace(/밀리그램/g, 'mg')
         .replace(/마이크로그램/g, 'μg')
+        .replace(/밀리리터/g, 'mL')
         .trim();
 
+      // 시럽·현탁액·액제 등 총량 기준 추출 (예: "총량 : 이 약 100 mL 중" -> "100mL", "100g 중" -> "100g", "1포(10mL) 중" -> "10mL")
+      const totqyRaw = (fields['총량'] || commonTotqy || '').trim();
+      let basisStr = '';
+      if (totqyRaw) {
+        const parenMatch = totqyRaw.match(/\(([^)]*(?:mL|ml|L|g|그램|포)[^)]*)\)/i);
+        if (parenMatch) {
+          basisStr = parenMatch[1].replace(/\s+/g, '').replace(/밀리리터|밀리리타/gi, 'mL').replace(/그램/g, 'g');
+        } else {
+          const directMatch = totqyRaw.match(/([0-9]+(?:\.[0-9]+)?\s*(?:mL|ml|L|g|그램))/i);
+          if (directMatch) {
+            basisStr = directMatch[1].replace(/\s+/g, '').replace(/mL/i, 'mL').replace(/그램/g, 'g');
+          }
+        }
+      }
+
       let amountText = qty ? `${qty}${unit}` : '';
+      if (basisStr && amountText && !amountText.includes('/')) {
+        amountText = `${amountText}/${basisStr}`;
+      }
       if (info) {
         amountText = amountText ? `${amountText} (${info})` : info;
       }

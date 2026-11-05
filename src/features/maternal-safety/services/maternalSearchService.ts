@@ -311,6 +311,36 @@ function findMatchingEngCandidate(korName: string, candidates: string[]): string
 }
 
 /**
+ * 식약처 총량 표기에서 기준 용량/중량(mL, L, g 등)을 정밀 추출
+ * 예: "총량 : 100밀리리터", "이 약 100 mL 중", "100밀리리터( ) 중-", "1포(10mL) 중", "100 g 중"
+ */
+export function extractBasisFromTotqy(totqyRaw?: string | null): string {
+  if (!totqyRaw) return '';
+  const clean = totqyRaw.trim();
+
+  // 1. 괄호 안의 용량 우선 탐색 (예: "1포(10mL)", "1포(10밀리리터)", "1병(100mL)")
+  const parenMatch = clean.match(/\(([^)]*(?:mL|ml|L|g|그램|그람|밀리리터|밀리리타|리터)[^)]*)\)/i);
+  const target = parenMatch ? parenMatch[1] : clean;
+
+  // 2. 숫자 + 단위 패턴 추출 (밀리리터, 밀리리타, 리터, 그램, mL, ml, L, g 등)
+  const m = target.match(/([0-9]+(?:\.[0-9]+)?)\s*(mL|ml|ML|L|l|g|G|밀리리터|밀리리타|리터|리타|그램|그람)/i);
+  if (!m) return '';
+
+  const num = m[1];
+  let unit = m[2].trim();
+
+  if (/밀리리터|밀리리타|mL/i.test(unit)) {
+    unit = 'mL';
+  } else if (/리터|리타|^l$/i.test(unit)) {
+    unit = 'L';
+  } else if (/그램|그람|^g$/i.test(unit)) {
+    unit = 'g';
+  }
+
+  return `${num}${unit}`;
+}
+
+/**
  * 식약처 MATERIAL_NAME 및 MAIN_ITEM_INGR / MAIN_INGR_ENG에서 유효성분만 정확히 분리
  */
 export function parseMfdsActiveIngredients(params: {
@@ -381,20 +411,9 @@ export function parseMfdsActiveIngredients(params: {
         .replace(/밀리리터/g, 'mL')
         .trim();
 
-      // 시럽·현탁액·액제 등 총량 기준 추출 (예: "총량 : 이 약 100 mL 중" -> "100mL", "100g 중" -> "100g", "1포(10mL) 중" -> "10mL")
+      // 시럽·현탁액·액제 등 총량 기준 추출 (예: "총량 : 100밀리리터", "이 약 100 mL 중" -> "100mL", "100g 중" -> "100g", "1포(10mL) 중" -> "10mL")
       const totqyRaw = (fields['총량'] || commonTotqy || '').trim();
-      let basisStr = '';
-      if (totqyRaw) {
-        const parenMatch = totqyRaw.match(/\(([^)]*(?:mL|ml|L|g|그램|포)[^)]*)\)/i);
-        if (parenMatch) {
-          basisStr = parenMatch[1].replace(/\s+/g, '').replace(/밀리리터|밀리리타/gi, 'mL').replace(/그램/g, 'g');
-        } else {
-          const directMatch = totqyRaw.match(/([0-9]+(?:\.[0-9]+)?\s*(?:mL|ml|L|g|그램))/i);
-          if (directMatch) {
-            basisStr = directMatch[1].replace(/\s+/g, '').replace(/mL/i, 'mL').replace(/그램/g, 'g');
-          }
-        }
-      }
+      const basisStr = extractBasisFromTotqy(totqyRaw);
 
       let amountText = qty ? `${qty}${unit}` : '';
       if (basisStr && amountText && !amountText.includes('/')) {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Pill, Settings, Cloud, CloudOff, RefreshCw, HeartPulse, LayoutGrid } from 'lucide-react';
+import { Pill, Settings, Cloud, CloudOff, RefreshCw, HeartPulse, LayoutGrid, Baby } from 'lucide-react';
 import { APP_VERSION } from '../version';
 import { SettingsModal } from './SettingsModal';
 import { useProductStore } from '../stores/useProductStore';
@@ -29,11 +29,17 @@ export const Header: React.FC = () => {
       <div className="flex items-center gap-3">
         <div
           className={`w-8 h-8 rounded-lg flex items-center justify-center text-white shadow-xs transition-colors ${
-            workspaceMode === 'MATERNAL_SAFETY' ? 'bg-rose-600' : 'bg-sky-600'
+            workspaceMode === 'MATERNAL_SAFETY'
+              ? 'bg-rose-600'
+              : workspaceMode === 'PEDIATRIC_SAFETY'
+              ? 'bg-emerald-600'
+              : 'bg-sky-600'
           }`}
         >
           {workspaceMode === 'MATERNAL_SAFETY' ? (
             <HeartPulse className="w-5 h-5" />
+          ) : workspaceMode === 'PEDIATRIC_SAFETY' ? (
+            <Baby className="w-5 h-5" />
           ) : (
             <Pill className="w-5 h-5" />
           )}
@@ -49,17 +55,21 @@ export const Header: React.FC = () => {
             className={`text-xs font-bold px-2.5 py-0.5 rounded-md border hidden md:inline-block ${
               workspaceMode === 'MATERNAL_SAFETY'
                 ? 'bg-rose-50 text-rose-700 border-rose-200'
+                : workspaceMode === 'PEDIATRIC_SAFETY'
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                 : 'bg-sky-50 text-sky-700 border-sky-200'
             }`}
           >
             {workspaceMode === 'MATERNAL_SAFETY'
               ? '약국용 임신·수유부 약물 안전성 대시보드'
+              : workspaceMode === 'PEDIATRIC_SAFETY'
+              ? '약국용 소아 약물정보 조회 대시보드'
               : '약국 영양제 & 일반의약품 상담 카탈로그'}
           </span>
         </div>
       </div>
 
-      {/* 우측: 화면 전환 스위치(영양제 대시보드 ↔ 임신·수유부 안전성) + 클라우드 동기화 + 설정 버튼 */}
+      {/* 우측: 화면 전환 스위치(영양제 대시보드 ↔ 임신·수유부 안전성 ↔ 소아 적정성) + 클라우드 동기화 + 설정 버튼 */}
       <div className="flex items-center gap-2.5">
         <div className="inline-flex rounded-xl bg-slate-100 p-1 border border-slate-200/90 shadow-2xs">
           <button
@@ -86,6 +96,19 @@ export const Header: React.FC = () => {
           >
             <HeartPulse className="w-3.5 h-3.5" />
             <span>임신·수유부 안전성</span>
+          </button>
+
+          <button
+            onClick={() => setWorkspaceMode('PEDIATRIC_SAFETY')}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+              workspaceMode === 'PEDIATRIC_SAFETY'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-emerald-700'
+            }`}
+            title="소아과 처방약 국내외 용량정보 및 WHO Model Formulary 조회 화면으로 전환"
+          >
+            <Baby className="w-3.5 h-3.5" />
+            <span>소아 적정성</span>
           </button>
         </div>
         <button

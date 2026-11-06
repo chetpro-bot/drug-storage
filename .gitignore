@@ -7,6 +7,9 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Large raw reference files
+who_children_formulary_2010.*
+
 # Diagnostic / Dependency directories
 node_modules
 dist

@@ -9,7 +9,7 @@ import {
   VERIFIED_DOMESTIC_SEED_PRODUCTS
 } from '../services/maternalSearchService';
 
-export type AppWorkspaceMode = 'NUTRITION_CATALOG' | 'MATERNAL_SAFETY';
+export type AppWorkspaceMode = 'NUTRITION_CATALOG' | 'MATERNAL_SAFETY' | 'PEDIATRIC_SAFETY';
 export type MobileSectionTab = 'PREGNANCY' | 'LACTATION';
 
 interface MaternalStoreState {

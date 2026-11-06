@@ -8,6 +8,7 @@ import { useProductStore } from './stores/useProductStore';
 import { ProductItem } from './types/product';
 import { useMaternalStore } from './features/maternal-safety/stores/useMaternalStore';
 import { MaternalSafetyDashboard } from './features/maternal-safety/components/MaternalSafetyDashboard';
+import { PediatricSafetyDashboard } from './features/pediatric-safety/components/PediatricSafetyDashboard';
 
 export const App: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -58,10 +59,12 @@ export const App: React.FC = () => {
       {/* 1. 글로벌 네비게이션 헤더 (우상단 대시보드 전환 버튼 포함) */}
       <Header />
 
-      {/* 2. 모드에 따른 메인 뷰 렌더링 (영양제·OTC 대시보드 vs 임신·수유부 약물 안전성 대시보드) */}
+      {/* 2. 모드에 따른 메인 뷰 렌더링 (영양제·OTC 대시보드 vs 임신·수유부 안전성 vs 소아 적정성) */}
       <main className="flex-1 flex flex-col bg-[#f8fafc] overflow-hidden">
         {workspaceMode === 'MATERNAL_SAFETY' ? (
           <MaternalSafetyDashboard />
+        ) : workspaceMode === 'PEDIATRIC_SAFETY' ? (
+          <PediatricSafetyDashboard />
         ) : (
           <ProductCatalogGrid
             onOpenNewProductModal={handleOpenNewProductModal}
